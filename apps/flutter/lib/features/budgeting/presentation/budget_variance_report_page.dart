@@ -5,10 +5,15 @@ import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.da
 class BudgetVarianceReportPage extends StatefulWidget {
   final String budgetId;
   final String budgetName;
-  const BudgetVarianceReportPage({super.key, required this.budgetId, required this.budgetName});
+  const BudgetVarianceReportPage({
+    super.key,
+    required this.budgetId,
+    required this.budgetName,
+  });
 
   @override
-  State<BudgetVarianceReportPage> createState() => _BudgetVarianceReportPageState();
+  State<BudgetVarianceReportPage> createState() =>
+      _BudgetVarianceReportPageState();
 }
 
 class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
@@ -36,7 +41,11 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
           Text(label, style: const TextStyle(fontSize: 16)),
           Text(
             value.toStringAsFixed(2),
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -68,27 +77,49 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Budget: ${result.budgetName}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Budget: ${result.budgetName}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _buildTotalRow('Total Variance', result.totalVariance),
-                _buildTotalRow('Favorable Variance', result.favorableVariance, color: Colors.green),
-                _buildTotalRow('Unfavorable Variance', result.unfavorableVariance, color: Colors.red),
+                _buildTotalRow(
+                  'Favorable Variance',
+                  result.favorableVariance,
+                  color: Colors.green,
+                ),
+                _buildTotalRow(
+                  'Unfavorable Variance',
+                  result.unfavorableVariance,
+                  color: Colors.red,
+                ),
                 const SizedBox(height: 20),
                 if (result.itemsOutsideTolerance.isEmpty)
-                  const Text('All items are within tolerance.',
-                      style: TextStyle(fontStyle: FontStyle.italic))
+                  const Text(
+                    'All items are within tolerance.',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  )
                 else ...[
-                  const Text('Items Outside Tolerance',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Items Outside Tolerance',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const Divider(),
                   ...result.itemsOutsideTolerance.map(
                     (item) => ListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
-                      title: Text(item.description.isEmpty ? item.accountId : '${item.description} (${item.accountId})'),
+                      title: Text(
+                        item.description.isEmpty
+                            ? item.accountId
+                            : '${item.description} (${item.accountId})',
+                      ),
                       subtitle: Text(
-                          'Budget: ${item.budget.toStringAsFixed(2)} | Actual: ${item.actual.toStringAsFixed(2)}'),
+                        'Budget: ${item.budget.toStringAsFixed(2)} | Actual: ${item.actual.toStringAsFixed(2)}',
+                      ),
                       trailing: Text(
                         '${item.variance.toStringAsFixed(2)} (${item.variancePct.toStringAsFixed(1)}%)',
                         style: TextStyle(
@@ -101,8 +132,10 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
                 ],
                 if (result.rootCauses.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  const Text('Root Causes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Root Causes',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const Divider(),
                   ...result.rootCauses.entries.map(
                     (e) => Text('${e.key}: ${e.value}'),
@@ -110,11 +143,18 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
                 ],
                 if (result.correctiveActions.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  const Text('Corrective Actions',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Corrective Actions',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const Divider(),
                   ...result.correctiveActions.map(
-                    (a) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.check_circle_outline), title: Text(a)),
+                    (a) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.check_circle_outline),
+                      title: Text(a),
+                    ),
                   ),
                 ],
               ],

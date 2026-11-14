@@ -20,10 +20,10 @@ class PersonalFinanceService {
   void setAuthToken(String token) => _token = token;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-        ...BookContext.instance.headers(),
-      };
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+    ...BookContext.instance.headers(),
+  };
 
   http.Client _client = http.Client();
 
@@ -97,11 +97,13 @@ class PersonalFinanceService {
   }
 
   Future<Map<String, dynamic>> payDebt(String id, double amount) async =>
-      _decode(await _client.post(
-        _u('/debts/$id/payments'),
-        headers: _headers,
-        body: jsonEncode({'amount': amount}),
-      ));
+      _decode(
+        await _client.post(
+          _u('/debts/$id/payments'),
+          headers: _headers,
+          body: jsonEncode({'amount': amount}),
+        ),
+      );
 
   // -- Investments ---------------------------------------------------------
 
@@ -139,17 +141,18 @@ class PersonalFinanceService {
     );
   }
 
-  Future<void> updatePrice(String id, double price) async =>
-      _client.post(
-        _u('/investments/$id/price'),
-        headers: _headers,
-        body: jsonEncode({'price': price}),
-      );
+  Future<void> updatePrice(String id, double price) async => _client.post(
+    _u('/investments/$id/price'),
+    headers: _headers,
+    body: jsonEncode({'price': price}),
+  );
 
   // -- Tax -----------------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> brackets() async {
-    final j = _decode(await _client.get(_u('/tax/brackets'), headers: _headers));
+    final j = _decode(
+      await _client.get(_u('/tax/brackets'), headers: _headers),
+    );
     return (j['brackets'] as List).cast<Map<String, dynamic>>();
   }
 
@@ -157,14 +160,15 @@ class PersonalFinanceService {
     required double annualIncome,
     double deductions = 0,
     double payePaid = 0,
-  }) async =>
-      _decode(await _client.post(
-        _u('/tax/estimate'),
-        headers: _headers,
-        body: jsonEncode({
-          'annual_income': annualIncome,
-          'deductions': deductions,
-          'paye_paid': payePaid,
-        }),
-      ));
+  }) async => _decode(
+    await _client.post(
+      _u('/tax/estimate'),
+      headers: _headers,
+      body: jsonEncode({
+        'annual_income': annualIncome,
+        'deductions': deductions,
+        'paye_paid': payePaid,
+      }),
+    ),
+  );
 }

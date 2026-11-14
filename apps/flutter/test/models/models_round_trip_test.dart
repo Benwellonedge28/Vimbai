@@ -32,21 +32,28 @@ void main() {
     expect(back.permissions, isEmpty);
   });
 
-  test('a Book reads the fields the engine sends, including the sequence number', () {
-    final book = VBook.fromJson({
-      'id': 'b1',
-      'name': 'Household',
-      'tier': 'household',
-      'your_role': 'member',
-      'seq': 42,
-      'created_at': 1700000000,
-    });
+  test(
+    'a Book reads the fields the engine sends, including the sequence number',
+    () {
+      final book = VBook.fromJson({
+        'id': 'b1',
+        'name': 'Household',
+        'tier': 'household',
+        'your_role': 'member',
+        'seq': 42,
+        'created_at': 1700000000,
+      });
 
-    expect(book.name, 'Household');
-    expect(book.yourRole, 'member');
-    expect(book.seq, 42, reason: 'the sequence number is what a device resumes from');
-    expect(book.createdAt!.toUtc().year, 2023);
-  });
+      expect(book.name, 'Household');
+      expect(book.yourRole, 'member');
+      expect(
+        book.seq,
+        42,
+        reason: 'the sequence number is what a device resumes from',
+      );
+      expect(book.createdAt!.toUtc().year, 2023);
+    },
+  );
 
   test('a Book with fields missing falls back instead of throwing', () {
     final book = VBook.fromJson({'id': 'b2'});

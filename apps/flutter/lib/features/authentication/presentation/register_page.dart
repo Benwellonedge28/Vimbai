@@ -27,7 +27,12 @@ class _RegisterPageState extends State<RegisterPage> {
     final email = _emailController.text;
     final password = _passwordController.text;
 
-    final success = await _authService.register(username, email, password, 'user');
+    final success = await _authService.register(
+      username,
+      email,
+      password,
+      'user',
+    );
 
     setState(() {
       _isLoading = false;
@@ -42,9 +47,9 @@ class _RegisterPageState extends State<RegisterPage> {
       );
     } else if (mounted) {
       _errorMessage = _errorMessage ?? 'Registration failed. Please try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorMessage!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
     }
   }
 

@@ -118,3 +118,94 @@ pub fn names(root: &Path) -> Vec<String> {
         .map(|(name, _)| name)
         .collect()
 }
+
+/// The Dart toolchain the app is built and tested with, as the workflows declare it.
+///
+/// The client is one of the three languages of the platform (ADR-001), so its toolchain belongs in the pipeline that gates a
+/// merge rather than in a workflow that only runs when somebody touches the app. Two things follow, and both are checked
+/// here: the gating pipeline has to actually run the app's tests, and the Flutter version has to be pinned and the same in
+/// every workflow - a `latest` that drifts is a green build that means something different tomorrow.
+pub fn dart_toolchain_problems(root: &Path) -> Vec<String> {
+    let mut problems = Vec::new();
+    let files = workflow_files(root);
+    let mut versions: Vec<(String, String)> = Vec::new();
+    let mut set_up_in: Vec<String> = Vec::new();
+    for (name, text) in &files {
+        let mut lines = text.lines();
+        while let Some(line) = lines.next() {
+            if !line.contains("setup-flutter") {
+                continue;
+            }
+            set_up_in.push(name.clone());
+            // the version sits in the `with:` block below the action, which is where a pinned toolchain is written
+            let mut pinned: Option<String> = None;
+            for following in lines.by_ref() {
+                let trimmed = following.trim();
+                // a comment or a blank line inside the block is not the end of it: the workflows explain their pins
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                if let Some(rest) = trimmed.strip_prefix("version:") {
+                    pinned = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+                }
+                // the block ends at the first line that is not more indented than the action's own step
+                if !trimmed.is_empty()
+                    && !trimmed.starts_with("version:")
+                    && !trimmed.starts_with("channel:")
+                    && !trimmed.starts_with("cache")
+                    && !trimmed.starts_with("with:")
+                {
+                    break;
+                }
+            }
+            match pinned {
+                Some(version) if version == "latest" || version.is_empty() => problems.push(format!(
+                    "{name} installs `latest` Flutter, so the toolchain changes under the build without a commit"
+                )),
+                Some(version) => versions.push((name.clone(), version)),
+                None => problems.push(format!(
+                    "{name} sets up Flutter without pinning a version"
+                )),
+            }
+        }
+    }
+    if set_up_in.is_empty() {
+        problems.push(
+            "no workflow installs a Dart toolchain, so the app is never built or tested in CI"
+                .to_string(),
+        );
+        return problems;
+    }
+    if !set_up_in.iter().any(|name| name == GATING_PIPELINE) {
+        problems.push(format!(
+            "the Dart toolchain is installed only outside {GATING_PIPELINE}, so a broken app does not fail a merge"
+        ));
+    }
+    if let Some((first_workflow, first_version)) = versions.first() {
+        for (name, version) in &versions {
+            if version != first_version {
+                problems.push(format!(
+                    "{name} pins Flutter {version} while {first_workflow} pins {first_version}, so two CI runs disagree \
+                     about the toolchain"
+                ));
+            }
+        }
+        if let Some((_, gating)) = files.iter().find(|(name, _)| name == GATING_PIPELINE) {
+            if !gating.contains("flutter test") {
+                problems.push(format!(
+                    "{GATING_PIPELINE} installs a Dart toolchain and never runs `flutter test`, so the app's tests gate \
+                     nothing"
+                ));
+            }
+            if !gating.contains("dart format") {
+                problems.push(format!(
+                    "{GATING_PIPELINE} never checks Dart formatting, so a formatted codebase is a matter of taste"
+                ));
+            }
+        }
+    }
+    problems
+}
+
+/// The workflow that gates a merge.
+const GATING_PIPELINE: &str = "ci-main.yml";

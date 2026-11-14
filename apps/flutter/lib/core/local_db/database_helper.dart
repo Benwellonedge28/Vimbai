@@ -35,7 +35,8 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'vimbai_offline.db');
     return await openDatabase(
       path,
-      version: 4, // v4: book-scoped offline stores + unsynced accounts + KV cache
+      version:
+          4, // v4: book-scoped offline stores + unsynced accounts + KV cache
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -115,7 +116,7 @@ class DatabaseHelper {
             FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
           )
         ''');
-    
+
     // NEW: Create MultimodalTasks table
     await db.execute('''
           CREATE TABLE multimodal_tasks(
@@ -158,13 +159,16 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       // v2 -> v3: capture queue rows are replayed per-user
       await db.execute(
-          'ALTER TABLE multimodal_tasks ADD COLUMN user_id TEXT DEFAULT \'self\'');
+        'ALTER TABLE multimodal_tasks ADD COLUMN user_id TEXT DEFAULT \'self\'',
+      );
     }
     if (oldVersion < 4) {
       // v3 -> v4: total-offline support. Accounts created offline get an
       // outbox flag; cached rows remember which Book they belong to; a
       // generic KV cache keeps last-known server payloads readable offline.
-      await db.execute('ALTER TABLE accounts ADD COLUMN is_synced INTEGER DEFAULT 1');
+      await db.execute(
+        'ALTER TABLE accounts ADD COLUMN is_synced INTEGER DEFAULT 1',
+      );
       await db.execute('ALTER TABLE accounts ADD COLUMN book_id TEXT');
       await db.execute('ALTER TABLE journal_entries ADD COLUMN book_id TEXT');
       await db.execute('''
@@ -177,7 +181,6 @@ class DatabaseHelper {
     }
     // Add future migrations here
   }
-
 
   // --- Account CRUD ---
   Future<int> insertAccount(Account account, {bool isSynced = true}) async {
@@ -201,9 +204,11 @@ class DatabaseHelper {
   /// is selected).
   Future<List<Account>> getAccounts() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('accounts',
-        where: 'book_id = ? OR book_id IS NULL',
-        whereArgs: [BookContext.instance.current?.id ?? '']);
+    final List<Map<String, dynamic>> maps = await db.query(
+      'accounts',
+      where: 'book_id = ? OR book_id IS NULL',
+      whereArgs: [BookContext.instance.current?.id ?? ''],
+    );
     return List.generate(maps.length, (i) {
       return Account.fromJson(maps[i]);
     });
@@ -215,7 +220,10 @@ class DatabaseHelper {
   }
 
   // --- Journal Entry CRUD ---
-  Future<int> insertJournalEntry(JournalEntry entry, {bool isSynced = false}) async {
+  Future<int> insertJournalEntry(
+    JournalEntry entry, {
+    bool isSynced = false,
+  }) async {
     final db = await database;
     final entryId = entry.id;
     final result = await db.insert('journal_entries', {
@@ -246,50 +254,89 @@ class DatabaseHelper {
 
   Future<List<JournalEntry>> getUnsyncedJournalEntries() async {
     final db = await database;
-    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', where: 'is_synced = ?', whereArgs: [0]);
+    final List<Map<String, dynamic>> entryMaps = await db.query(
+      'journal_entries',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
     List<JournalEntry> unsyncedEntries = [];
 
     for (var entryMap in entryMaps) {
-      final List<Map<String, dynamic>> lineMaps = await db.query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final List<Map<String, dynamic>> lineMaps = await db.query(
+        'journal_lines',
+        where: 'journal_entry_id = ?',
+        whereArgs: [entryMap['id']],
+      );
       List<JournalLine> lines = List.generate(lineMaps.length, (i) {
         return JournalLine.fromJson(lineMaps[i]);
       });
-      unsyncedEntries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+      unsyncedEntries.add(
+        JournalEntry.fromJson({
+          ...entryMap,
+          'lines': lines.map((l) => l.toJson()).toList(),
+        }),
+      );
     }
     return unsyncedEntries;
   }
 
-
   Future<JournalEntry?> getJournalEntry(String entryId) async {
     final db = await database;
-    final List<Map<String, dynamic>> entryMaps =
-        await db.query('journal_entries', where: 'id = ?', whereArgs: [entryId], limit: 1);
+    final List<Map<String, dynamic>> entryMaps = await db.query(
+      'journal_entries',
+      where: 'id = ?',
+      whereArgs: [entryId],
+      limit: 1,
+    );
     if (entryMaps.isEmpty) return null;
     final entryMap = entryMaps.first;
-    final List<Map<String, dynamic>> lineMaps =
-        await db.query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryId]);
+    final List<Map<String, dynamic>> lineMaps = await db.query(
+      'journal_lines',
+      where: 'journal_entry_id = ?',
+      whereArgs: [entryId],
+    );
     final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
-    return JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()});
+    return JournalEntry.fromJson({
+      ...entryMap,
+      'lines': lines.map((l) => l.toJson()).toList(),
+    });
   }
 
   /// All journal entries currently cached locally (offline list view).
   Future<List<JournalEntry>> getAllJournalEntriesFromLocal() async {
     final db = await database;
-    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', where: 'book_id = ? OR book_id IS NULL', whereArgs: [BookContext.instance.current?.id ?? ''], orderBy: 'entry_date DESC');
+    final List<Map<String, dynamic>> entryMaps = await db.query(
+      'journal_entries',
+      where: 'book_id = ? OR book_id IS NULL',
+      whereArgs: [BookContext.instance.current?.id ?? ''],
+      orderBy: 'entry_date DESC',
+    );
     List<JournalEntry> entries = [];
     for (var entryMap in entryMaps) {
-      final List<Map<String, dynamic>> lineMaps = await db
-          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final List<Map<String, dynamic>> lineMaps = await db.query(
+        'journal_lines',
+        where: 'journal_entry_id = ?',
+        whereArgs: [entryMap['id']],
+      );
       final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
-      entries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+      entries.add(
+        JournalEntry.fromJson({
+          ...entryMap,
+          'lines': lines.map((l) => l.toJson()).toList(),
+        }),
+      );
     }
     return entries;
   }
 
   Future<int> markJournalEntryAsSynced(String entryId) async {
     final db = await database;
-    return await db.update('journal_entries', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
-        where: 'id = ?', whereArgs: [entryId]);
+    return await db.update(
+      'journal_entries',
+      {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [entryId],
+    );
   }
 
   // --- Budget CRUD ---
@@ -317,7 +364,11 @@ class DatabaseHelper {
 
   Future<Budget?> getBudget(String budgetId) async {
     final db = await database;
-    final List<Map<String, dynamic>> budgetMaps = await db.query('budgets', where: 'id = ?', whereArgs: [budgetId]);
+    final List<Map<String, dynamic>> budgetMaps = await db.query(
+      'budgets',
+      where: 'id = ?',
+      whereArgs: [budgetId],
+    );
     if (budgetMaps.isNotEmpty) {
       final budgetMap = budgetMaps.first;
       final items = await getBudgetItemsForBudget(budgetId);
@@ -339,20 +390,32 @@ class DatabaseHelper {
 
   Future<List<Budget>> getUnsyncedBudgets() async {
     final db = await database;
-    final List<Map<String, dynamic>> budgetMaps = await db.query('budgets', where: 'is_synced = ?', whereArgs: [0]);
+    final List<Map<String, dynamic>> budgetMaps = await db.query(
+      'budgets',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
     List<Budget> unsyncedBudgets = [];
     for (var budgetMap in budgetMaps) {
       final items = await getBudgetItemsForBudget(budgetMap['id']);
-      unsyncedBudgets.add(Budget.fromJson(
-          {...budgetMap, 'items': items.map((i) => i.toJson()).toList()}));
+      unsyncedBudgets.add(
+        Budget.fromJson({
+          ...budgetMap,
+          'items': items.map((i) => i.toJson()).toList(),
+        }),
+      );
     }
     return unsyncedBudgets;
   }
 
   Future<int> markBudgetAsSynced(String budgetId) async {
     final db = await database;
-    return await db.update('budgets', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
-        where: 'id = ?', whereArgs: [budgetId]);
+    return await db.update(
+      'budgets',
+      {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [budgetId],
+    );
   }
 
   Future<int> deleteAllBudgets() async {
@@ -361,9 +424,12 @@ class DatabaseHelper {
     return await db.delete('budgets');
   }
 
-
   // --- BudgetItem CRUD ---
-  Future<int> insertBudgetItem(String budgetId, BudgetItem item, {bool isSynced = false}) async {
+  Future<int> insertBudgetItem(
+    String budgetId,
+    BudgetItem item, {
+    bool isSynced = false,
+  }) async {
     final db = await database;
     return await db.insert('budget_items', {
       'id': item.id ?? uuid.v4(),
@@ -391,29 +457,44 @@ class DatabaseHelper {
 
   Future<int> updateBudgetItemLocal(BudgetItem item) async {
     final db = await database;
-    return await db.update('budget_items', {
-      'category': item.category,
-      'account_number': item.accountNumber,
-      'budgeted_amount': item.budgetedAmount,
-      'budget_type': item.budgetType,
-      'updated_at': DateTime.now().toIso8601String(),
-    }, where: 'id = ?', whereArgs: [item.id]);
+    return await db.update(
+      'budget_items',
+      {
+        'category': item.category,
+        'account_number': item.accountNumber,
+        'budgeted_amount': item.budgetedAmount,
+        'budget_type': item.budgetType,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
   }
 
   Future<int> deleteBudgetItemLocal(String itemId) async {
     final db = await database;
-    return await db.delete('budget_items', where: 'id = ?', whereArgs: [itemId]);
+    return await db.delete(
+      'budget_items',
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
   }
 
   // NEW: --- Multimodal Task CRUD ---
-  Future<int> insertMultimodalTask(MultimodalInput task, {bool isSynced = false}) async {
+  Future<int> insertMultimodalTask(
+    MultimodalInput task, {
+    bool isSynced = false,
+  }) async {
     final db = await database;
-    final taskId = uuid.v4(); // Always generate a new local ID for pending tasks
+    final taskId = uuid
+        .v4(); // Always generate a new local ID for pending tasks
     final result = await db.insert('multimodal_tasks', {
       'id': taskId,
       'user_id': task.userId,
       'input_type': task.inputType.name, // enum member name (e.g. 'image')
-      'data': task.dataUrl ?? task.rawText, // base64 for files or raw URL for URL inputs
+      'data':
+          task.dataUrl ??
+          task.rawText, // base64 for files or raw URL for URL inputs
       'source_context': task.metadata['source_context'],
       'is_synced': isSynced ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
@@ -424,11 +505,16 @@ class DatabaseHelper {
 
   Future<List<MultimodalInput>> getUnsyncedMultimodalTasks() async {
     final db = await database;
-    final List<Map<String, dynamic>> taskMaps = await db.query('multimodal_tasks', where: 'is_synced = ?', whereArgs: [0]);
+    final List<Map<String, dynamic>> taskMaps = await db.query(
+      'multimodal_tasks',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
     return List.generate(taskMaps.length, (i) {
       final row = taskMaps[i];
-      final inputType = MultimodalInputType.values
-          .byName((row['input_type'] as String? ?? 'text'));
+      final inputType = MultimodalInputType.values.byName(
+        (row['input_type'] as String? ?? 'text'),
+      );
       final data = row['data'] as String?;
       return MultimodalInput(
         id: row['id'] as String,
@@ -437,34 +523,56 @@ class DatabaseHelper {
         dataUrl: inputType == MultimodalInputType.text ? null : data,
         rawText: inputType == MultimodalInputType.text ? data : null,
         metadata: {'source_context': row['source_context']},
-        createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? '') ?? DateTime.now(),
+        createdAt:
+            DateTime.tryParse(row['created_at'] as String? ?? '') ??
+            DateTime.now(),
+        updatedAt:
+            DateTime.tryParse(row['updated_at'] as String? ?? '') ??
+            DateTime.now(),
       );
     });
   }
 
   Future<int> markMultimodalTaskAsSynced(String taskId) async {
     final db = await database;
-    return await db.update('multimodal_tasks', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
-        where: 'id = ?', whereArgs: [taskId]);
+    return await db.update(
+      'multimodal_tasks',
+      {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
   }
 
   /// Unsynced journal entries with the Book they were created in, so the
   /// sync replay attaches the original Book header, not the current one.
-  Future<List<UnsyncedRef<JournalEntry>>> getUnsyncedJournalEntriesWithBooks() async {
+  Future<List<UnsyncedRef<JournalEntry>>>
+  getUnsyncedJournalEntriesWithBooks() async {
     final db = await database;
-    final entryMaps =
-        await db.query('journal_entries', where: 'is_synced = ?', whereArgs: [0]);
+    final entryMaps = await db.query(
+      'journal_entries',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
     final refs = <UnsyncedRef<JournalEntry>>[];
     for (final entryMap in entryMaps) {
-      final lineMaps = await db
-          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
-      final lines = List.generate(lineMaps.length, (i) => JournalLine.fromJson(lineMaps[i]));
-      refs.add(UnsyncedRef(
-        JournalEntry.fromJson(
-            {...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}),
-        entryMap['book_id'] as String?,
-      ));
+      final lineMaps = await db.query(
+        'journal_lines',
+        where: 'journal_entry_id = ?',
+        whereArgs: [entryMap['id']],
+      );
+      final lines = List.generate(
+        lineMaps.length,
+        (i) => JournalLine.fromJson(lineMaps[i]),
+      );
+      refs.add(
+        UnsyncedRef(
+          JournalEntry.fromJson({
+            ...entryMap,
+            'lines': lines.map((l) => l.toJson()).toList(),
+          }),
+          entryMap['book_id'] as String?,
+        ),
+      );
     }
     return refs;
   }
@@ -472,33 +580,48 @@ class DatabaseHelper {
   /// Accounts created offline (waiting for the sync replay).
   Future<List<UnsyncedRef<Account>>> getUnsyncedAccounts() async {
     final db = await database;
-    final maps =
-        await db.query('accounts', where: 'is_synced = ?', whereArgs: [0]);
+    final maps = await db.query(
+      'accounts',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
     return maps
-        .map((row) => UnsyncedRef(Account.fromJson(row), row['book_id'] as String?))
+        .map(
+          (row) =>
+              UnsyncedRef(Account.fromJson(row), row['book_id'] as String?),
+        )
         .toList();
   }
 
   Future<int> markAccountAsSynced(String accountNumber) async {
     final db = await database;
-    return await db.update('accounts', {'is_synced': 1},
-        where: 'account_number = ?', whereArgs: [accountNumber]);
+    return await db.update(
+      'accounts',
+      {'is_synced': 1},
+      where: 'account_number = ?',
+      whereArgs: [accountNumber],
+    );
   }
 
   // --- Generic offline KV cache (last-known server payloads) ---
 
   Future<void> putOfflineCache(String key, String value) async {
     final db = await database;
-    await db.insert(
-      'offline_cache',
-      {'key': key, 'value': value, 'updated_at': DateTime.now().toIso8601String()},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('offline_cache', {
+      'key': key,
+      'value': value,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<String?> getOfflineCache(String key) async {
     final db = await database;
-    final rows = await db.query('offline_cache', where: 'key = ?', whereArgs: [key], limit: 1);
+    final rows = await db.query(
+      'offline_cache',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     if (rows.isEmpty) return null;
     return rows.first['value'] as String?;
   }
@@ -507,14 +630,26 @@ class DatabaseHelper {
   /// to sync. Powers the "pending sync" indicator in the UI.
   Future<int> pendingSyncCount() async {
     final db = await database;
-    final journals = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM journal_entries WHERE is_synced = 0')) ??
+    final journals =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM journal_entries WHERE is_synced = 0',
+          ),
+        ) ??
         0;
-    final captures = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM multimodal_tasks WHERE is_synced = 0')) ??
+    final captures =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM multimodal_tasks WHERE is_synced = 0',
+          ),
+        ) ??
         0;
-    final accounts = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM accounts WHERE is_synced = 0')) ??
+    final accounts =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM accounts WHERE is_synced = 0',
+          ),
+        ) ??
         0;
     return journals + captures + accounts;
   }

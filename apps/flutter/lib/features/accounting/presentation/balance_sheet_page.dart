@@ -46,97 +46,146 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Balance Sheet'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.date_range),
-                onPressed: () => _selectDate(context),
+      appBar: AppBar(
+        title: const Text('Balance Sheet'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            onPressed: () => _selectDate(context),
+          ),
+        ],
+      ),
+      body: FutureBuilder<BalanceSheet>(
+        future: _balanceSheetFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData) {
+            return const Center(child: Text('No data for Balance Sheet.'));
+          } else {
+            final statement = snapshot.data!;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'As of Date: ${DateFormat.yMMMd().format(statement.asOfDate)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection('Assets', statement.assets),
+                  const SizedBox(height: 10),
+                  _buildSection('Liabilities', statement.liabilities),
+                  const SizedBox(height: 10),
+                  _buildSection('Equity', statement.equity),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Assets',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '\$${statement.totalAssets.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Liabilities & Equity',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '\$${statement.totalLiabilitiesEquity.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    statement.totalAssets == statement.totalLiabilitiesEquity
+                        ? 'Balance Sheet is Balanced'
+                        : 'Balance Sheet is NOT Balanced',
+                    style: TextStyle(
+                      color:
+                          statement.totalAssets ==
+                              statement.totalLiabilitiesEquity
+                          ? Colors.green
+                          : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<BalanceSheetItem> items) {
+    double total = items.fold(0.0, (sum, item) => sum + item.amount);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(left: 16.0, top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(item.category),
+                Text('\$${item.amount.toStringAsFixed(2)}'),
+              ],
+            ),
+          ),
+        ),
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total $title',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '\$${total.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
-          body: FutureBuilder<BalanceSheet>(
-            future: _balanceSheetFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData) {
-                return const Center(child: Text('No data for Balance Sheet.'));
-              } else {
-                final statement = snapshot.data!;
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('As of Date: ${DateFormat.yMMMd().format(statement.asOfDate)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
-                      _buildSection('Assets', statement.assets),
-                      const SizedBox(height: 10),
-                      _buildSection('Liabilities', statement.liabilities),
-                      const SizedBox(height: 10),
-                      _buildSection('Equity', statement.equity),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total Assets', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('\$${statement.totalAssets.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total Liabilities & Equity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('\$${statement.totalLiabilitiesEquity.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        statement.totalAssets == statement.totalLiabilitiesEquity ? 'Balance Sheet is Balanced' : 'Balance Sheet is NOT Balanced',
-                        style: TextStyle(color: statement.totalAssets == statement.totalLiabilitiesEquity ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            },
-          ),
-        );
-      }
-
-      Widget _buildSection(String title, List<BalanceSheetItem> items) {
-        double total = items.fold(0.0, (sum, item) => sum + item.amount);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(left: 16.0, top: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(item.category),
-                      Text('\$${item.amount.toStringAsFixed(2)}'),
-                    ],
-                  ),
-                )),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Total $title', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('\$${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          ],
-        );
-      }
-    }
+        ),
+      ],
+    );
+  }
+}

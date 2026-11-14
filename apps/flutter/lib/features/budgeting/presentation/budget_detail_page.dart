@@ -18,12 +18,21 @@ class BudgetDetailPage extends StatelessWidget {
             tooltip: 'View Variance Report',
             onPressed: () {
               if (budget.id != null) {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => BudgetVarianceReportPage(budgetId: budget.id!, budgetName: budget.name),
-                ));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => BudgetVarianceReportPage(
+                      budgetId: budget.id!,
+                      budgetName: budget.name,
+                    ),
+                  ),
+                );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Cannot view variance report for unsaved budget.')),
+                  const SnackBar(
+                    content: Text(
+                      'Cannot view variance report for unsaved budget.',
+                    ),
+                  ),
                 );
               }
             },
@@ -75,7 +84,10 @@ class BudgetDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(budget.isSynced ? Icons.cloud_done : Icons.cloud_off, size: 20),
+                Icon(
+                  budget.isSynced ? Icons.cloud_done : Icons.cloud_off,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Status: ${budget.isSynced ? "Synced" : "Not Synced"}',
@@ -84,45 +96,58 @@ class BudgetDetailPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            const Text('Budget Items:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              'Budget Items:',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             if (budget.items.isEmpty)
               const Text('No budget items found.')
             else
-              ...budget.items.map((item) => Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.category,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Budgeted Amount: ${budget.currency} ${item.budgetedAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      if (item.accountNumber.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Account: ${item.accountNumber}',
-                          style: const TextStyle(fontSize: 14),
+              ...budget.items
+                  .map(
+                    (item) => Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.category,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Budgeted Amount: ${budget.currency} ${item.budgetedAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            if (item.accountNumber.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Account: ${item.accountNumber}',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
+                            if (item.budgetType != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Type: ${item.budgetType}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                      if (item.budgetType != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Type: ${item.budgetType}',
-                          style: const TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              )).toList(),
+                      ),
+                    ),
+                  )
+                  .toList(),
           ],
         ),
       ),

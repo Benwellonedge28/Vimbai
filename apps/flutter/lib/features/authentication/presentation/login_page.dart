@@ -40,14 +40,16 @@ class _LoginPageState extends State<LoginPage> {
         final localUser = await _authService.isLoggedIn();
         if (localUser) {
           success = true;
-          _errorMessage = 'Online login failed, but logged in using cached data (offline mode).';
+          _errorMessage =
+              'Online login failed, but logged in using cached data (offline mode).';
         }
       }
     } else {
       // Directly try offline login
       success = await _authService.login(username, password);
       if (!success) {
-        _errorMessage = 'Offline login failed. No cached user or credentials mismatch.';
+        _errorMessage =
+            'Offline login failed. No cached user or credentials mismatch.';
       }
     }
 
@@ -60,9 +62,9 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } else if (_errorMessage != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorMessage!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
     }
   }
 
@@ -96,7 +98,9 @@ class _LoginPageState extends State<LoginPage> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const RegisterPage()),
+                    MaterialPageRoute(
+                      builder: (context) => const RegisterPage(),
+                    ),
                   );
                 },
                 child: const Text('Don\'t have an account? Register'),

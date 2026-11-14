@@ -171,3 +171,33 @@ fn a_payload_still_cannot_choose_its_own_book() {
         .expect_err("a payload chose its own Book");
     assert!(refused.to_string().contains("book_id"), "{refused}");
 }
+
+#[test]
+fn both_stores_carry_the_same_steps_in_the_same_order() {
+    // The SQL differs - one store says `jsonb`, the other `TEXT` - but the *steps* do not: a schema change that is made in
+    // one backend and not the other leaves two deployments of the same platform with different shapes and no gate to say
+    // so. This is that gate, and it needs no server: it compares the step names, in order.
+    let device: Vec<&str> = vimbai_store::sqlite::SCHEMA
+        .iter()
+        .map(|step| step.name)
+        .collect();
+    let deployment: Vec<&str> = vimbai_store::postgres::SCHEMA
+        .iter()
+        .map(|step| step.name)
+        .collect();
+    assert_eq!(
+        device, deployment,
+        "the device and the deployment store carry different schema steps, so one of them is missing a change"
+    );
+    assert!(
+        !device.is_empty(),
+        "neither store lists a step, so this gate proves nothing"
+    );
+    // a step's name says what it does and carries its number, so a reader can tell a shipped step from a new one
+    for (position, name) in device.iter().enumerate() {
+        assert!(
+            name.starts_with(&format!("{:04}", position + 1)),
+            "step {position} is called `{name}`, which does not carry its own number"
+        );
+    }
+}

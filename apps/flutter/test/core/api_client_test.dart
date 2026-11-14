@@ -47,23 +47,32 @@ void main() {
       ApiClient().post(Uri.parse('http://engine/books'), body: '{}'),
       throwsA(isA<OfflineException>()),
     );
-    expect(calls, 1, reason: 'a write must reach the server once or not at all');
-  });
-
-  test('a dead network becomes an OfflineException, not a socket error', () async {
-    ApiClient.transport = MockClient((request) async {
-      throw const SocketException('no route to host');
-    });
-
-    await expectLater(
-      ApiClient().get(Uri.parse('http://engine/books')),
-      throwsA(isA<OfflineException>()),
+    expect(
+      calls,
+      1,
+      reason: 'a write must reach the server once or not at all',
     );
   });
 
+  test(
+    'a dead network becomes an OfflineException, not a socket error',
+    () async {
+      ApiClient.transport = MockClient((request) async {
+        throw const SocketException('no route to host');
+      });
+
+      await expectLater(
+        ApiClient().get(Uri.parse('http://engine/books')),
+        throwsA(isA<OfflineException>()),
+      );
+    },
+  );
+
   test('a request that never answers gives up and says so', () async {
     ApiClient.timeout = const Duration(milliseconds: 50);
-    ApiClient.transport = MockClient((request) => Completer<http.Response>().future);
+    ApiClient.transport = MockClient(
+      (request) => Completer<http.Response>().future,
+    );
 
     await expectLater(
       ApiClient().post(Uri.parse('http://engine/books'), body: '{}'),

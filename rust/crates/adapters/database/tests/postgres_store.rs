@@ -497,3 +497,88 @@ fn a_page_seeks_from_a_place_rather_than_counting_from_the_top() {
         assert!(id > half.as_str(), "{id} is not past the place asked from");
     }
 }
+
+#[test]
+fn the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing() {
+    let Some(database) = Database::open() else {
+        return skip("the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing");
+    };
+    let store = database.store();
+    assert_eq!(
+        store.version().expect("a version"),
+        vimbai_store::postgres::SCHEMA.len() as i64,
+        "a fresh database has to be at the version this build knows"
+    );
+    // a record written before the second open has to still be there afterwards: applying steps again is not re-creation
+    let entries = Records::new(&store, JOURNAL_ENTRY);
+    let entry = entries
+        .create(
+            &scope("book-a", "sam"),
+            &json!({"description": "written before"}),
+        )
+        .expect("an entry");
+    let id = entry.get("id").and_then(Value::as_str).unwrap().to_owned();
+    let again = database.store();
+    assert_eq!(
+        again.version().expect("a version"),
+        vimbai_store::postgres::SCHEMA.len() as i64,
+        "opening an up-to-date store changed its version"
+    );
+    let reopened = Records::new(&again, JOURNAL_ENTRY);
+    assert_eq!(
+        reopened.get(&scope("book-a", "sam"), &id).expect("a read")["description"],
+        json!("written before"),
+        "the record written before the second open is gone, so the schema was re-created rather than migrated"
+    );
+}
+
+#[test]
+fn a_store_written_by_a_newer_build_is_refused_rather_than_downgraded() {
+    let Some(database) = Database::open() else {
+        return skip("a_store_written_by_a_newer_build_is_refused_rather_than_downgraded");
+    };
+    database.store();
+    let mut admin = postgres::Client::connect(&database.dsn, postgres::NoTls).expect("a client");
+    admin
+        .batch_execute("UPDATE schema_version SET version = 99;")
+        .expect("a version to set");
+    let refusal = match vimbai_store::postgres::PostgresGraph::connect(&database.dsn, 2) {
+        Ok(_) => {
+            panic!("a database claiming schema 99 was opened by a build that knows fewer steps")
+        }
+        Err(error) => format!("{error}"),
+    };
+    assert!(
+        refusal.contains("newer build") && refusal.contains("Upgrade the engine"),
+        "the refusal has to say what happened and what to do: {refusal}"
+    );
+}
+
+#[test]
+fn every_step_can_be_undone_and_re_applied_over_records_that_are_already_there() {
+    let Some(database) = Database::open() else {
+        return skip("every_step_can_be_undone_and_re_applied_over_records_that_are_already_there");
+    };
+    let store = database.store();
+    Records::new(&store, JOURNAL_ENTRY)
+        .create(&scope("book-a", "sam"), &json!({"description": "before"}))
+        .expect("an entry");
+    // walking all the way down and back up is what proves the `down` halves are real SQL rather than a comment
+    let steps = vimbai_store::postgres::SCHEMA.len() as i64;
+    for expected in (0..steps).rev() {
+        store.rollback().expect("a rollback");
+        assert_eq!(store.version().expect("a version"), expected);
+    }
+    assert_eq!(store.version().expect("a version"), 0);
+    // re-applying finds an empty schema: nothing is left to hold the record, which is what an undone step means
+    database.store();
+    let fresh = database.store();
+    assert_eq!(fresh.version().expect("a version"), steps);
+    let listing = Records::new(&fresh, JOURNAL_ENTRY)
+        .list(&scope("book-a", "sam"), 20)
+        .expect("a list");
+    assert!(
+        listing.is_empty(),
+        "the step's `down` said the table goes, so the record cannot survive a full rollback and re-apply: {listing:?}"
+    );
+}

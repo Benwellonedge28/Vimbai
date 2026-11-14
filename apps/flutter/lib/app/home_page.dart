@@ -25,7 +25,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final AuthService _authService = AuthService();
-  final AccountingApiService _accountingApiService = AccountingApiService(); // NEW
+  final AccountingApiService _accountingApiService =
+      AccountingApiService(); // NEW
   final BookSyncService _bookSync = BookSyncService.instance;
   final ValueNotifier<int> _contextTicker = ValueNotifier<int>(0);
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
@@ -59,11 +60,16 @@ class _HomePageState extends State<HomePage> {
     _loadBooks();
     BookContext.instance.addListener(() => _contextTicker.value++);
     _checkConnectivity();
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       setState(() {
-        _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
+        _connectivityResult = results.isEmpty
+            ? ConnectivityResult.none
+            : results.last;
       });
-      if (!results.contains(ConnectivityResult.none)) { // NEW: Attempt sync when online
+      if (!results.contains(ConnectivityResult.none)) {
+        // NEW: Attempt sync when online
         _syncOfflineData();
       }
     });
@@ -71,23 +77,30 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _checkConnectivity() async {
     final results = await Connectivity().checkConnectivity();
-    _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
+    _connectivityResult = results.isEmpty
+        ? ConnectivityResult.none
+        : results.last;
     setState(() {});
   }
 
-  Future<void> _syncOfflineData() async { // NEW
+  Future<void> _syncOfflineData() async {
+    // NEW
     if (_connectivityResult != ConnectivityResult.none) {
       try {
         await _accountingApiService.syncOfflineJournalEntries();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Offline Journal Entries synced successfully!')),
+            const SnackBar(
+              content: Text('Offline Journal Entries synced successfully!'),
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error syncing offline data: ${e.toString()}')),
+            SnackBar(
+              content: Text('Error syncing offline data: ${e.toString()}'),
+            ),
           );
         }
       }
@@ -133,11 +146,17 @@ class _HomePageState extends State<HomePage> {
       case 'nameZa':
         list.sort((a, b) => b.name.compareTo(a.name));
       case 'newest':
-        list.sort((a, b) => (b.createdAt?.millisecondsSinceEpoch ?? 0)
-            .compareTo(a.createdAt?.millisecondsSinceEpoch ?? 0));
+        list.sort(
+          (a, b) => (b.createdAt?.millisecondsSinceEpoch ?? 0).compareTo(
+            a.createdAt?.millisecondsSinceEpoch ?? 0,
+          ),
+        );
       case 'oldest':
-        list.sort((a, b) => (a.createdAt?.millisecondsSinceEpoch ?? 0)
-            .compareTo(b.createdAt?.millisecondsSinceEpoch ?? 0));
+        list.sort(
+          (a, b) => (a.createdAt?.millisecondsSinceEpoch ?? 0).compareTo(
+            b.createdAt?.millisecondsSinceEpoch ?? 0,
+          ),
+        );
       case 'category':
         list.sort((a, b) {
           final c = a.tier.compareTo(b.tier);
@@ -168,9 +187,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openBooksPage() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const BooksPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const BooksPage()));
     await _loadBooks();
   }
 
@@ -210,13 +229,15 @@ class _HomePageState extends State<HomePage> {
       }
       for (final b in books) {
         if (b.id == activeId && b.membershipStatus == 'active') {
-          BookContext.instance.setBook(BookContextBook(
-            id: b.id,
-            name: b.name,
-            tier: b.tier,
-            yourRole: b.yourRole,
-            source: 'sync',
-          ));
+          BookContext.instance.setBook(
+            BookContextBook(
+              id: b.id,
+              name: b.name,
+              tier: b.tier,
+              yourRole: b.yourRole,
+              source: 'sync',
+            ),
+          );
           return;
         }
       }
@@ -231,9 +252,9 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.only(bottom: 10.0),
       child: ElevatedButton(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => page),
-          );
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (context) => page));
         },
         child: Text(label),
       ),
@@ -243,269 +264,275 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Vimbai Home (Offline Ready)'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: () async {
-                  await _authService.logout();
-                  if (mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const LoginPage()),
-                    );
-                  }
+      appBar: AppBar(
+        title: const Text('Vimbai Home (Offline Ready)'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await _authService.logout();
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              }
+            },
+          ),
+          IconButton(
+            // NEW: Manual Sync Button
+            icon: const Icon(Icons.cloud_upload),
+            onPressed: _connectivityResult == ConnectivityResult.none
+                ? null
+                : _syncOfflineData,
+            tooltip: 'Sync Offline Data',
+          ),
+        ],
+      ),
+      // Floating "create a Book" button - bottom-right, extended so it
+      // is immediately visible when the app opens.
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _startNewBook,
+        icon: const Icon(Icons.add),
+        label: const Text('Start a Book'),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // ------------------------------------------------------
+              // Active Book context - every service call below runs
+              // inside the selected Book (X-Book-ID via gateway).
+              // ------------------------------------------------------
+              ValueListenableBuilder<int>(
+                valueListenable: _contextTicker,
+                builder: (context, _, __) {
+                  final b = BookContext.instance.current;
+                  return Card(
+                    color: b == null
+                        ? null
+                        : Theme.of(context).colorScheme.primaryContainer,
+                    child: ListTile(
+                      leading: Icon(b == null ? Icons.person : Icons.book),
+                      title: Text(b == null ? 'Personal context' : b.name),
+                      subtitle: Text(
+                        b == null
+                            ? 'tap to choose a Book context'
+                            : 'your ${b.tier} Book - you are ${b.yourRole}',
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const BooksPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  );
                 },
               ),
-              IconButton( // NEW: Manual Sync Button
-                icon: const Icon(Icons.cloud_upload),
-                onPressed: _connectivityResult == ConnectivityResult.none ? null : _syncOfflineData,
-                tooltip: 'Sync Offline Data',
-              ),
-            ],
-          ),
-          // Floating "create a Book" button - bottom-right, extended so it
-          // is immediately visible when the app opens.
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: _startNewBook,
-            icon: const Icon(Icons.add),
-            label: const Text('Start a Book'),
-          ),
-          body: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // ------------------------------------------------------
-                  // Active Book context - every service call below runs
-                  // inside the selected Book (X-Book-ID via gateway).
-                  // ------------------------------------------------------
-                  ValueListenableBuilder<int>(
-                    valueListenable: _contextTicker,
-                    builder: (context, _, __) {
-                      final b = BookContext.instance.current;
-                      return Card(
-                        color: b == null
-                            ? null
-                            : Theme.of(context).colorScheme.primaryContainer,
-                        child: ListTile(
-                          leading: Icon(
-                            b == null ? Icons.person : Icons.book,
-                          ),
-                          title: Text(
-                            b == null ? 'Personal context' : b.name,
-                          ),
-                          subtitle: Text(
-                            b == null
-                                ? 'tap to choose a Book context'
-                                : 'your ${b.tier} Book - you are ${b.yourRole}',
-                          ),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const BooksPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                  // ------------------------------------------------------
-                  // Your Books - searchable, sortable list of every Book the
-                  // user created. Tapping one makes it the active context.
-                  // ------------------------------------------------------
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              // ------------------------------------------------------
+              // Your Books - searchable, sortable list of every Book the
+              // user created. Tapping one makes it the active context.
+              // ------------------------------------------------------
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'YOUR BOOKS',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
-                            tooltip: 'Start a Book',
-                            onPressed: _startNewBook,
-                          ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(Icons.sort),
-                            tooltip: 'Sort books',
-                            onSelected: _setSortMode,
-                            itemBuilder: (ctx) => _sortLabels.entries
-                                .map(
-                                  (e) => PopupMenuItem(
-                                    value: e.key,
-                                    child: Row(
-                                      children: [
-                                        if (e.key == _sortMode)
-                                          const Icon(Icons.check, size: 18)
-                                        else
-                                          const SizedBox(width: 18),
-                                        const SizedBox(width: 8),
-                                        Text(e.value),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                      TextField(
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                        decoration: InputDecoration(
-                          hintText: 'Search books by name, folder or category',
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      Expanded(
+                        child: Text(
+                          'YOUR BOOKS',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      if (_books.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            _searchQuery.trim().isEmpty
-                                ? 'No books yet - start your first one'
-                                : 'No books match your search',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        )
-                      else ..._filteredBooks().map(
-                        (b) {
-                          final active = b.id ==
-                              BookContext.instance.current?.id;
-                          final invited = b.membershipStatus == 'invited';
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            color: active
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer
-                                : null,
-                            child: ListTile(
-                              dense: true,
-                              leading: Icon(
-                                _tierIcons[b.tier] ?? Icons.book,
-                              ),
-                              title: Text(b.name),
-                              subtitle: Text(
-                                b.folder.isEmpty
-                                    ? b.tier
-                                    : '${b.folder} - ${b.tier}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (invited)
-                                    const Chip(label: Text('invited'))
-                                  else if (active)
-                                    const Icon(Icons.check_circle),
-                                  IconButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    tooltip: 'Book settings',
-                                    onPressed: () =>
-                                        _openBookSettings(b),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _activateBook(b),
-                              onLongPress: _openBooksPage,
-                            ),
-                          );
-                        },
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Start a Book',
+                        onPressed: _startNewBook,
                       ),
-                      TextButton(
-                        onPressed: _openBooksPage,
-                        child: const Text('Manage books, folders and members'),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.sort),
+                        tooltip: 'Sort books',
+                        onSelected: _setSortMode,
+                        itemBuilder: (ctx) => _sortLabels.entries
+                            .map(
+                              (e) => PopupMenuItem(
+                                value: e.key,
+                                child: Row(
+                                  children: [
+                                    if (e.key == _sortMode)
+                                      const Icon(Icons.check, size: 18)
+                                    else
+                                      const SizedBox(width: 18),
+                                    const SizedBox(width: 8),
+                                    Text(e.value),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // ------------------------------------------------------
-                  // Services for this Book - each Book type (personal,
-                  // household, group, business, nonprofit) has its own
-                  // corresponding services, shown for the active Book.
-                  // ------------------------------------------------------
-                  ValueListenableBuilder<int>(
-                    valueListenable: _contextTicker,
-                    builder: (context, _, __) {
-                      final b = BookContext.instance.current;
-                      if (b == null) {
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              children: [
-                                const Text('Start or select a Book to see its services.'),
-                                TextButton(
-                                  onPressed: _openBooksPage,
-                                  child: const Text('Open Books'),
-                                ),
-                              ],
-                            ),
+                  TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search books by name, folder or category',
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_books.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        _searchQuery.trim().isEmpty
+                            ? 'No books yet - start your first one'
+                            : 'No books match your search',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    )
+                  else
+                    ..._filteredBooks().map((b) {
+                      final active = b.id == BookContext.instance.current?.id;
+                      final invited = b.membershipStatus == 'invited';
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: active
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(_tierIcons[b.tier] ?? Icons.book),
+                          title: Text(b.name),
+                          subtitle: Text(
+                            b.folder.isEmpty
+                                ? b.tier
+                                : '${b.folder} - ${b.tier}',
                           ),
-                        );
-                      }
-                      final entries = servicesForTier(b.tier);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'SERVICES FOR YOUR ${kTierLabels[b.tier] ?? b.tier.toUpperCase()}',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'These services run inside "${b.name}".',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 8),
-                          ...entries.map(
-                            (e) => Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                leading: Icon(e.icon),
-                                title: Text(e.title),
-                                subtitle: Text(e.description),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: e.page),
-                                ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (invited)
+                                const Chip(label: Text('invited'))
+                              else if (active)
+                                const Icon(Icons.check_circle),
+                              IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Book settings',
+                                onPressed: () => _openBookSettings(b),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                          onTap: () => _activateBook(b),
+                          onLongPress: _openBooksPage,
+                        ),
                       );
-                    },
+                    }),
+                  TextButton(
+                    onPressed: _openBooksPage,
+                    child: const Text('Manage books, folders and members'),
                   ),
-                  const SizedBox(height: 20),
-
-                  // ------------------------------------------------------
-                  // General tools - available in every Book
-                  // ------------------------------------------------------
-                  const Text(
-                    'General tools:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Book inbox - capture and organize records', const BookInboxPage()),
-                  _navButton(context, 'Process Image/Audio', const MultimodalInputPage()),
-                  _navButton(context, 'Manage Bank Accounts', const BankAccountsPage()),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // ------------------------------------------------------
+              // Services for this Book - each Book type (personal,
+              // household, group, business, nonprofit) has its own
+              // corresponding services, shown for the active Book.
+              // ------------------------------------------------------
+              ValueListenableBuilder<int>(
+                valueListenable: _contextTicker,
+                builder: (context, _, __) {
+                  final b = BookContext.instance.current;
+                  if (b == null) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Start or select a Book to see its services.',
+                            ),
+                            TextButton(
+                              onPressed: _openBooksPage,
+                              child: const Text('Open Books'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final entries = servicesForTier(b.tier);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SERVICES FOR YOUR ${kTierLabels[b.tier] ?? b.tier.toUpperCase()}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'These services run inside "${b.name}".',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      ...entries.map(
+                        (e) => Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: Icon(e.icon),
+                            title: Text(e.title),
+                            subtitle: Text(e.description),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).push(MaterialPageRoute(builder: e.page)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // ------------------------------------------------------
+              // General tools - available in every Book
+              // ------------------------------------------------------
+              const Text(
+                'General tools:',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              _navButton(
+                context,
+                'Book inbox - capture and organize records',
+                const BookInboxPage(),
+              ),
+              _navButton(
+                context,
+                'Process Image/Audio',
+                const MultimodalInputPage(),
+              ),
+              _navButton(
+                context,
+                'Manage Bank Accounts',
+                const BankAccountsPage(),
+              ),
+            ],
           ),
-        );
-      }
-    }
+        ),
+      ),
+    );
+  }
+}

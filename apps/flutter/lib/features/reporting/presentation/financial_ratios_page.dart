@@ -26,7 +26,10 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
 
   Future<void> _fetchRatiosReport() async {
     setState(() {
-      _ratiosReportFuture = _apiService.getFinancialRatios(_startDate, _endDate);
+      _ratiosReportFuture = _apiService.getFinancialRatios(
+        _startDate,
+        _endDate,
+      );
     });
   }
 
@@ -57,104 +60,191 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Financial Ratios'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.date_range),
-                tooltip: 'Select reporting period',
-                onPressed: () => _selectDateRange(context),
-              ),
-            ],
+      appBar: AppBar(
+        title: const Text('Financial Ratios'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            tooltip: 'Select reporting period',
+            onPressed: () => _selectDateRange(context),
           ),
-          body: FutureBuilder<FinancialRatiosReport>(
-            future: _ratiosReportFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData) {
-                return const Center(child: Text('No financial ratios data found.'));
-              } else {
-                final report = snapshot.data!;
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Report Date: ${DateFormat.yMMMd().format(report.reportDate)}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('Period: ${DateFormat.yMMMd().format(report.startDate)} - ${DateFormat.yMMMd().format(report.endDate)}'),
-                      const SizedBox(height: 20),
-                      _buildRatioSection('Liquidity Ratios', [
-                        _buildRatioRow('Current Ratio', report.liquidity.currentRatio),
-                        _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
-                        _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
-                        _buildRatioRow('Working Capital', report.liquidity.workingCapital, isCurrency: true),
-                      ]),
-                      const SizedBox(height: 20),
-                      _buildRatioSection('Solvency Ratios', [
-                        _buildRatioRow('Debt-to-Equity Ratio', report.solvency.debtToEquityRatio),
-                        _buildRatioRow('Debt-to-Asset Ratio', report.solvency.debtToAssetRatio),
-                        _buildRatioRow('Equity Multiplier', report.solvency.equityMultiplier),
-                        _buildRatioRow('Times Interest Earned', report.solvency.timesInterestEarned),
-                      ]),
-                      const SizedBox(height: 20),
-                      _buildRatioSection('Profitability Ratios', [
-                        _buildRatioRow('Gross Profit Margin', report.profitability.grossProfitMargin, percentage: true),
-                        _buildRatioRow('Operating Profit Margin', report.profitability.operatingProfitMargin, percentage: true),
-                        _buildRatioRow('Net Profit Margin', report.profitability.netProfitMargin, percentage: true),
-                        _buildRatioRow('Return on Assets', report.profitability.returnOnAssets, percentage: true),
-                        _buildRatioRow('Return on Equity', report.profitability.returnOnEquity, percentage: true),
-                      ]),
-                      const SizedBox(height: 20),
-                      _buildRatioSection('Efficiency Ratios', [
-                        _buildRatioRow('Inventory Turnover', report.efficiency.inventoryTurnover),
-                        _buildRatioRow('Accounts Receivable Turnover', report.efficiency.accountsReceivableTurnover),
-                        _buildRatioRow('Accounts Payable Turnover', report.efficiency.accountsPayableTurnover),
-                        _buildRatioRow('Asset Turnover', report.efficiency.assetTurnover),
-                        _buildRatioRow('Day Sales Outstanding', report.efficiency.daySalesOutstanding),
-                      ]),
-                      const SizedBox(height: 20),
-                      _buildRatioSection('Market Value Ratios', [
-                        _buildRatioRow('Earnings Per Share', report.marketValue.earningsPerShare, isCurrency: true),
-                        _buildRatioRow('Price-to-Earnings Ratio', report.marketValue.priceToEarningsRatio),
-                        _buildRatioRow('Book Value Per Share', report.marketValue.bookValuePerShare, isCurrency: true),
-                      ]),
-                    ],
+        ],
+      ),
+      body: FutureBuilder<FinancialRatiosReport>(
+        future: _ratiosReportFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData) {
+            return const Center(child: Text('No financial ratios data found.'));
+          } else {
+            final report = snapshot.data!;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Report Date: ${DateFormat.yMMMd().format(report.reportDate)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                );
-              }
-            },
-          ),
-        );
-      }
+                  Text(
+                    'Period: ${DateFormat.yMMMd().format(report.startDate)} - ${DateFormat.yMMMd().format(report.endDate)}',
+                  ),
+                  const SizedBox(height: 20),
+                  _buildRatioSection('Liquidity Ratios', [
+                    _buildRatioRow(
+                      'Current Ratio',
+                      report.liquidity.currentRatio,
+                    ),
+                    _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
+                    _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
+                    _buildRatioRow(
+                      'Working Capital',
+                      report.liquidity.workingCapital,
+                      isCurrency: true,
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildRatioSection('Solvency Ratios', [
+                    _buildRatioRow(
+                      'Debt-to-Equity Ratio',
+                      report.solvency.debtToEquityRatio,
+                    ),
+                    _buildRatioRow(
+                      'Debt-to-Asset Ratio',
+                      report.solvency.debtToAssetRatio,
+                    ),
+                    _buildRatioRow(
+                      'Equity Multiplier',
+                      report.solvency.equityMultiplier,
+                    ),
+                    _buildRatioRow(
+                      'Times Interest Earned',
+                      report.solvency.timesInterestEarned,
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildRatioSection('Profitability Ratios', [
+                    _buildRatioRow(
+                      'Gross Profit Margin',
+                      report.profitability.grossProfitMargin,
+                      percentage: true,
+                    ),
+                    _buildRatioRow(
+                      'Operating Profit Margin',
+                      report.profitability.operatingProfitMargin,
+                      percentage: true,
+                    ),
+                    _buildRatioRow(
+                      'Net Profit Margin',
+                      report.profitability.netProfitMargin,
+                      percentage: true,
+                    ),
+                    _buildRatioRow(
+                      'Return on Assets',
+                      report.profitability.returnOnAssets,
+                      percentage: true,
+                    ),
+                    _buildRatioRow(
+                      'Return on Equity',
+                      report.profitability.returnOnEquity,
+                      percentage: true,
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildRatioSection('Efficiency Ratios', [
+                    _buildRatioRow(
+                      'Inventory Turnover',
+                      report.efficiency.inventoryTurnover,
+                    ),
+                    _buildRatioRow(
+                      'Accounts Receivable Turnover',
+                      report.efficiency.accountsReceivableTurnover,
+                    ),
+                    _buildRatioRow(
+                      'Accounts Payable Turnover',
+                      report.efficiency.accountsPayableTurnover,
+                    ),
+                    _buildRatioRow(
+                      'Asset Turnover',
+                      report.efficiency.assetTurnover,
+                    ),
+                    _buildRatioRow(
+                      'Day Sales Outstanding',
+                      report.efficiency.daySalesOutstanding,
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildRatioSection('Market Value Ratios', [
+                    _buildRatioRow(
+                      'Earnings Per Share',
+                      report.marketValue.earningsPerShare,
+                      isCurrency: true,
+                    ),
+                    _buildRatioRow(
+                      'Price-to-Earnings Ratio',
+                      report.marketValue.priceToEarningsRatio,
+                    ),
+                    _buildRatioRow(
+                      'Book Value Per Share',
+                      report.marketValue.bookValuePerShare,
+                      isCurrency: true,
+                    ),
+                  ]),
+                ],
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
 
-      Widget _buildRatioSection(String title, List<Widget> ratios) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            ...ratios,
-          ],
-        );
-      }
+  Widget _buildRatioSection(String title, List<Widget> ratios) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const Divider(),
+        ...ratios,
+      ],
+    );
+  }
 
-      Widget _buildRatioRow(String label, double? value, {bool percentage = false, bool isCurrency = false}) {
-        String displayValue = value != null
-            ? (isCurrency ? '\$${value.toStringAsFixed(2)}' : (percentage ? '${(value * 100).toStringAsFixed(2)}%' : value.toStringAsFixed(2)))
-            : 'N/A';
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 16)),
-              Text(displayValue, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
+  Widget _buildRatioRow(
+    String label,
+    double? value, {
+    bool percentage = false,
+    bool isCurrency = false,
+  }) {
+    String displayValue = value != null
+        ? (isCurrency
+              ? '\$${value.toStringAsFixed(2)}'
+              : (percentage
+                    ? '${(value * 100).toStringAsFixed(2)}%'
+                    : value.toStringAsFixed(2)))
+        : 'N/A';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 16)),
+          Text(
+            displayValue,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-        );
-      }
-    }
+        ],
+      ),
+    );
+  }
+}

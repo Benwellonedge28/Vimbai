@@ -31,51 +31,57 @@ class _BudgetsPageState extends State<BudgetsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Budgets'),
-          ),
-          body: FutureBuilder<List<Budget>>(
-            future: _budgetsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('No budgets found.'));
-              } else {
-                return ListView.builder(
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    final budget = snapshot.data![index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: ListTile(
-                        title: Text(budget.name),
-                        subtitle: Text('${budget.startDate.toLocal().toString().split(' ')[0]} to ${budget.endDate.toLocal().toString().split(' ')[0]} (${budget.currency})'),
-                        onTap: () {
-                          // Navigate to budget detail page
-                          Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => BudgetDetailPage(budget: budget),
-                          ));
-                        },
-                      ),
-                    );
-                  },
+      appBar: AppBar(title: const Text('Budgets')),
+      body: FutureBuilder<List<Budget>>(
+        future: _budgetsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No budgets found.'));
+          } else {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final budget = snapshot.data![index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: ListTile(
+                    title: Text(budget.name),
+                    subtitle: Text(
+                      '${budget.startDate.toLocal().toString().split(' ')[0]} to ${budget.endDate.toLocal().toString().split(' ')[0]} (${budget.currency})',
+                    ),
+                    onTap: () {
+                      // Navigate to budget detail page
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              BudgetDetailPage(budget: budget),
+                        ),
+                      );
+                    },
+                  ),
                 );
-              }
-            },
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () async {
-              // Navigate to a page to create a new budget
-              await Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const BudgetFormPage()),
-              );
-              _refreshBudgets(); // Refresh list after returning from form
-            },
-            child: const Icon(Icons.add),
-          ),
-        );
-      }
-    }
+              },
+            );
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Navigate to a page to create a new budget
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const BudgetFormPage()),
+          );
+          _refreshBudgets(); // Refresh list after returning from form
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

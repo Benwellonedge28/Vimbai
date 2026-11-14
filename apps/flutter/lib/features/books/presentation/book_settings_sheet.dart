@@ -31,7 +31,8 @@ Future<void> showBookSettingsSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => _BookSettingsSheet(book: book, folders: folders, onChanged: onChanged),
+    builder: (ctx) =>
+        _BookSettingsSheet(book: book, folders: folders, onChanged: onChanged),
   );
 }
 
@@ -69,16 +70,26 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
 
   Future<void> _loadActive() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _isActive = prefs.getString('active_book_id') == _book.id);
+    if (mounted)
+      setState(() => _isActive = prefs.getString('active_book_id') == _book.id);
   }
 
   Future<void> _loadMembers() async {
     setState(() => _membersLoading = true);
     try {
       final ms = await _sync.members(_book.id);
-      if (mounted) setState(() { _members = ms; _membersLoading = false; _error = null; });
+      if (mounted)
+        setState(() {
+          _members = ms;
+          _membersLoading = false;
+          _error = null;
+        });
     } catch (e) {
-      if (mounted) setState(() { _membersLoading = false; _error = 'Members unavailable offline'; });
+      if (mounted)
+        setState(() {
+          _membersLoading = false;
+          _error = 'Members unavailable offline';
+        });
     }
   }
 
@@ -95,7 +106,8 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       ctrl: ctrl,
       action: 'Rename',
     );
-    if (name == null || name.trim().isEmpty || name.trim() == _book.name) return;
+    if (name == null || name.trim().isEmpty || name.trim() == _book.name)
+      return;
     await _mutate(() => _sync.updateBook(_book.id, name: name.trim()));
     if (!mounted) return;
     setState(() => _book = _book.copyWith(name: name.trim()));
@@ -122,7 +134,9 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
-          title: Text(_book.folder.isEmpty ? 'Move to folder' : 'Change folder'),
+          title: Text(
+            _book.folder.isEmpty ? 'Move to folder' : 'Change folder',
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -151,7 +165,10 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
               child: const Text('Save'),
@@ -171,13 +188,15 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('active_book_id', _book.id);
     if (_book.membershipStatus == 'active') {
-      BookContext.instance.setBook(BookContextBook(
-        id: _book.id,
-        name: _book.name,
-        tier: _book.tier,
-        yourRole: _book.yourRole,
-        source: 'sync',
-      ));
+      BookContext.instance.setBook(
+        BookContextBook(
+          id: _book.id,
+          name: _book.name,
+          tier: _book.tier,
+          yourRole: _book.yourRole,
+          source: 'sync',
+        ),
+      );
     }
     if (!mounted) return;
     setState(() => _isActive = true);
@@ -189,7 +208,9 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     try {
       final r = await _sync.syncBook(_book.id);
       if (!mounted) return;
-      _toast('Synced "${_book.name}": pushed ${r['pushed'] ?? 0}, pulled ${r['pulled'] ?? 0}');
+      _toast(
+        'Synced "${_book.name}": pushed ${r['pushed'] ?? 0}, pulled ${r['pulled'] ?? 0}',
+      );
     } catch (e) {
       if (!mounted) return;
       _toast('Sync failed: $e');
@@ -216,8 +237,14 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
                 isExpanded: true,
                 items: const [
                   DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                  DropdownMenuItem(value: 'treasurer', child: Text('Treasurer')),
-                  DropdownMenuItem(value: 'bookkeeper', child: Text('Bookkeeper')),
+                  DropdownMenuItem(
+                    value: 'treasurer',
+                    child: Text('Treasurer'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'bookkeeper',
+                    child: Text('Bookkeeper'),
+                  ),
                   DropdownMenuItem(value: 'viewer', child: Text('Viewer')),
                 ],
                 onChanged: (v) => setDialog(() => role = v ?? role),
@@ -225,10 +252,15 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-              onPressed: () =>
-                  Navigator.pop(ctx, {'user_id': userIdCtrl.text.trim(), 'role': role}),
+              onPressed: () => Navigator.pop(ctx, {
+                'user_id': userIdCtrl.text.trim(),
+                'role': role,
+              }),
               child: const Text('Invite'),
             ),
           ],
@@ -260,7 +292,6 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     }
   }
 
-
   Future<String?> _dialog({
     required String title,
     required String fieldLabel,
@@ -271,10 +302,20 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(labelText: fieldLabel)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(labelText: fieldLabel),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text(action)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: Text(action),
+          ),
         ],
       ),
     );
@@ -298,7 +339,11 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
         children: [
           Row(
             children: [
-              Icon(_tierIcons[_book.tier] ?? Icons.book, size: 32, color: theme.colorScheme.primary),
+              Icon(
+                _tierIcons[_book.tier] ?? Icons.book,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -323,7 +368,10 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
           if (invited) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Accept this invitation to manage the Book.', style: theme.textTheme.bodySmall),
+              child: Text(
+                'Accept this invitation to manage the Book.',
+                style: theme.textTheme.bodySmall,
+              ),
             ),
           ] else if (!_isActive)
             ListTile(
@@ -340,12 +388,22 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
           ListTile(
             leading: const Icon(Icons.notes_outlined),
             title: const Text('Description'),
-            subtitle: _book.description.isEmpty ? null : Text(_book.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: _book.description.isEmpty
+                ? null
+                : Text(
+                    _book.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
             onTap: _editDescription,
           ),
           ListTile(
             leading: const Icon(Icons.drive_file_move_outline),
-            title: Text(_book.folder.isEmpty ? 'Move to folder' : 'Folder: ${_book.folder}'),
+            title: Text(
+              _book.folder.isEmpty
+                  ? 'Move to folder'
+                  : 'Folder: ${_book.folder}',
+            ),
             onTap: _moveToFolder,
           ),
           ListTile(
@@ -360,7 +418,10 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
               ),
             if (_membersLoading)
               const Padding(

@@ -53,7 +53,10 @@ class AccountingApiService {
     );
   }
 
-  Future<JournalEntry> createJournalEntry(JournalEntry entry, {bool isOffline = false}) async {
+  Future<JournalEntry> createJournalEntry(
+    JournalEntry entry, {
+    bool isOffline = false,
+  }) async {
     if (isOffline) {
       entry = _withClientReference(entry);
       await _localDb.insertJournalEntry(entry, isSynced: false);
@@ -66,7 +69,9 @@ class AccountingApiService {
         body: json.encode(entry.toJson()),
       );
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final saved = JournalEntry.fromJson(json.decode(response.body) as Map<String, dynamic>);
+        final saved = JournalEntry.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
         await _localDb.insertJournalEntry(saved, isSynced: true);
         return saved;
       }
@@ -81,7 +86,10 @@ class AccountingApiService {
 
   /// Pushes a locally-created (unsynced) entry to the server. Used by
   /// SyncService. On success the local copy is marked as synced.
-  Future<void> pushJournalEntryToServer(JournalEntry entry, {String? bookId}) async {
+  Future<void> pushJournalEntryToServer(
+    JournalEntry entry, {
+    String? bookId,
+  }) async {
     final headers = await _getHeaders();
     if (bookId != null) headers['X-Book-ID'] = bookId;
     final response = await _client.post(
@@ -111,7 +119,9 @@ class AccountingApiService {
       if (response.statusCode == 200) {
         final List<dynamic> body = json.decode(response.body);
         final entries = body
-            .map((model) => JournalEntry.fromJson(model as Map<String, dynamic>))
+            .map(
+              (model) => JournalEntry.fromJson(model as Map<String, dynamic>),
+            )
             .toList();
         // Refresh the local cache for offline use.
         await _refreshLocalJournalCache(entries);
@@ -131,19 +141,26 @@ class AccountingApiService {
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return JournalEntry.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return JournalEntry.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to get journal entry: ${response.body}');
   }
 
-  Future<JournalEntryInDB> updateJournalEntry(String entryId, JournalEntryUpdate entry) async {
+  Future<JournalEntryInDB> updateJournalEntry(
+    String entryId,
+    JournalEntryUpdate entry,
+  ) async {
     final response = await _client.put(
       Uri.parse('$_baseUrl/journal-entries/$entryId'),
       headers: await _getHeaders(),
       body: json.encode(entry.toJson()),
     );
     if (response.statusCode == 200) {
-      return JournalEntryInDB.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return JournalEntryInDB.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to update journal entry: ${response.body}');
   }
@@ -172,11 +189,13 @@ class AccountingApiService {
   // Chart of Accounts
   // ------------------------------------------------------------------
 
-
   /// Fetches the latest cash flow statement from the cash flow statement
   /// service (via the API gateway). If none exists yet, an empty statement
   /// is generated server-side for the period.
-  Future<CashFlowStatement> getCashFlowStatement(DateTime startDate, DateTime endDate) async {
+  Future<CashFlowStatement> getCashFlowStatement(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     const companyId = 'default';
     final headers = await _getHeaders();
     // Try the latest stored statement first.
@@ -213,16 +232,19 @@ class AccountingApiService {
       return CashFlowSection(
         title: title,
         activities: (lines ?? [])
-            .map((l) => CashFlowActivity(
-                  description: l['description'] ?? '',
-                  amount: (l['amount'] as num?)?.toDouble() ?? 0.0,
-                ))
+            .map(
+              (l) => CashFlowActivity(
+                description: l['description'] ?? '',
+                amount: (l['amount'] as num?)?.toDouble() ?? 0.0,
+              ),
+            )
             .toList(),
       );
     }
 
     return CashFlowStatement(
-      startDate: DateTime.tryParse(json['period_start'] ?? '') ?? DateTime.now(),
+      startDate:
+          DateTime.tryParse(json['period_start'] ?? '') ?? DateTime.now(),
       endDate: DateTime.tryParse(json['period_end'] ?? '') ?? DateTime.now(),
       reportDate: DateTime.tryParse(json['period_end'] ?? '') ?? DateTime.now(),
       operatingActivities: toSection('Operating', json['operating_activities']),
@@ -230,8 +252,7 @@ class AccountingApiService {
       financingActivities: toSection('Financing', json['financing_activities']),
       netIncreaseDecreaseInCash:
           (json['net_change'] as num?)?.toDouble() ?? 0.0,
-      beginningCashBalance:
-          (json['beginning_cash'] as num?)?.toDouble() ?? 0.0,
+      beginningCashBalance: (json['beginning_cash'] as num?)?.toDouble() ?? 0.0,
       endingCashBalance: (json['ending_cash'] as num?)?.toDouble() ?? 0.0,
       netIncome: (json['net_operating'] as num?)?.toDouble() ?? 0.0,
     );
@@ -262,7 +283,9 @@ class AccountingApiService {
         body: json.encode(account.toJson()),
       );
       if (response.statusCode == 201) {
-        final saved = Account.fromJson(json.decode(response.body) as Map<String, dynamic>);
+        final saved = Account.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
         await _localDb.insertAccount(saved, isSynced: true);
         return saved;
       }
@@ -273,7 +296,9 @@ class AccountingApiService {
         accountNumber: account.accountNumber,
         accountName: account.accountName,
         accountType: account.accountType,
-        normalBalance: ['Asset', 'Expense'].contains(account.accountType) ? 'debit' : 'credit',
+        normalBalance: ['Asset', 'Expense'].contains(account.accountType)
+            ? 'debit'
+            : 'credit',
         description: account.description,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -291,13 +316,15 @@ class AccountingApiService {
     final response = await _client.post(
       Uri.parse('$_baseUrl/accounts/'),
       headers: headers,
-      body: json.encode(AccountCreate(
-        accountNumber: account.accountNumber,
-        accountName: account.accountName,
-        accountType: account.accountType,
-        currentBalance: 0,
-        description: account.description,
-      ).toJson()),
+      body: json.encode(
+        AccountCreate(
+          accountNumber: account.accountNumber,
+          accountName: account.accountName,
+          accountType: account.accountType,
+          currentBalance: 0,
+          description: account.description,
+        ).toJson(),
+      ),
     );
     if (response.statusCode == 201 || response.statusCode == 200) {
       await _localDb.markAccountAsSynced(account.accountNumber);
@@ -340,7 +367,9 @@ class AccountingApiService {
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return Account.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return Account.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to get account: ${response.body}');
   }
@@ -350,44 +379,61 @@ class AccountingApiService {
   // ------------------------------------------------------------------
 
   Future<TrialBalance> getTrialBalance({DateTime? asOfDate}) async {
-    final query = asOfDate != null ? '?as_of_date=${asOfDate.toIso8601String()}' : '';
+    final query = asOfDate != null
+        ? '?as_of_date=${asOfDate.toIso8601String()}'
+        : '';
     final response = await _client.get(
       Uri.parse('$_baseUrl/trial-balance/$query'),
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return TrialBalance.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return TrialBalance.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to get trial balance: ${response.body}');
   }
 
-  Future<IncomeStatement> getIncomeStatement(DateTime startDate, DateTime endDate) async {
+  Future<IncomeStatement> getIncomeStatement(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final response = await _client.get(
-      Uri.parse('$_baseUrl/income-statement/'
-          '?start_date=${startDate.toIso8601String()}'
-          '&end_date=${endDate.toIso8601String()}'),
+      Uri.parse(
+        '$_baseUrl/income-statement/'
+        '?start_date=${startDate.toIso8601String()}'
+        '&end_date=${endDate.toIso8601String()}',
+      ),
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return IncomeStatement.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return IncomeStatement.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to get income statement: ${response.body}');
   }
 
   Future<BalanceSheet> getBalanceSheet(DateTime asOfDate) async {
     final response = await _client.get(
-      Uri.parse('$_baseUrl/balance-sheet/?as_of_date=${asOfDate.toIso8601String()}'),
+      Uri.parse(
+        '$_baseUrl/balance-sheet/?as_of_date=${asOfDate.toIso8601String()}',
+      ),
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return BalanceSheet.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return BalanceSheet.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     }
     throw Exception('Failed to get balance sheet: ${response.body}');
   }
 
   /// Ledger account balance for a single account. Maps the backend's
   /// LedgerReport shape into the mobile LedgerAccountBalance view model.
-  Future<LedgerAccountBalance> getLedgerAccountBalance(String accountNumber) async {
+  Future<LedgerAccountBalance> getLedgerAccountBalance(
+    String accountNumber,
+  ) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/ledgers/$accountNumber'),
       headers: await _getHeaders(),

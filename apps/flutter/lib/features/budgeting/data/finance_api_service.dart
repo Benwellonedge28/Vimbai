@@ -38,9 +38,13 @@ class FinanceApiService {
   }
 
   // --- Budget CRUD (local store; offline-first by design) ---
-  Future<Budget> createBudget(BudgetCreate budgetCreate, {bool isOffline = false}) async {
+  Future<Budget> createBudget(
+    BudgetCreate budgetCreate, {
+    bool isOffline = false,
+  }) async {
     final connectivity = await (Connectivity().checkConnectivity());
-    final isOfflineNow = connectivity.isEmpty || connectivity.contains(ConnectivityResult.none);
+    final isOfflineNow =
+        connectivity.isEmpty || connectivity.contains(ConnectivityResult.none);
     if (isOffline || isOfflineNow) {
       final localBudget = Budget(
         id: budgetCreate.id ?? const Uuid().v4(),
@@ -89,7 +93,11 @@ class FinanceApiService {
   }
 
   // --- Budget Item CRUD (local store) ---
-  Future<BudgetItem> createBudgetItem(String budgetId, BudgetItemCreate itemCreate, {bool isOffline = false}) async {
+  Future<BudgetItem> createBudgetItem(
+    String budgetId,
+    BudgetItemCreate itemCreate, {
+    bool isOffline = false,
+  }) async {
     final localItem = BudgetItem(
       id: itemCreate.id ?? const Uuid().v4(),
       budgetId: budgetId,
@@ -128,12 +136,14 @@ class FinanceApiService {
         'company_id': _companyId,
         'budget_id': budgetId,
         'actual_results': items
-            .map((item) => {
-                  'account_id': item.accountNumber,
-                  'description': item.category,
-                  'budget': item.budgetedAmount,
-                  'actual': actuals[item.id] ?? 0.0,
-                })
+            .map(
+              (item) => {
+                'account_id': item.accountNumber,
+                'description': item.category,
+                'budget': item.budgetedAmount,
+                'actual': actuals[item.id] ?? 0.0,
+              },
+            )
             .toList(),
         'tolerance_percentage': tolerancePercentage,
       }),
@@ -154,9 +164,15 @@ class FinanceApiService {
   /// Financial ratios for the selected period, computed by the
   /// ratio-analysis-service from the caller's live balance sheet and
   /// income statement (fetched through the accounting service).
-  Future<FinancialRatiosReport> getFinancialRatios(DateTime startDate, DateTime endDate) async {
+  Future<FinancialRatiosReport> getFinancialRatios(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final balanceSheet = await _accounting.getBalanceSheet(endDate);
-    final incomeStatement = await _accounting.getIncomeStatement(startDate, endDate);
+    final incomeStatement = await _accounting.getIncomeStatement(
+      startDate,
+      endDate,
+    );
 
     double sumWhere(List<BalanceSheetItem> items, List<String> keywords) {
       double total = 0;
@@ -174,7 +190,11 @@ class FinanceApiService {
 
     final revenue = sumAll(incomeStatement.revenues);
     final cogs = incomeStatement.expenses
-        .where((e) => e.category.toLowerCase().contains('cost of goods') || e.category.toLowerCase().contains('cogs'))
+        .where(
+          (e) =>
+              e.category.toLowerCase().contains('cost of goods') ||
+              e.category.toLowerCase().contains('cogs'),
+        )
         .fold(0.0, (sum, e) => sum + e.amount);
 
     final headers = await _getHeaders();
@@ -186,15 +206,27 @@ class FinanceApiService {
         'period': '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}',
         'balance_sheet': {
           'current_assets': sumWhere(balanceSheet.assets, const ['current']),
-          'current_liabilities': sumWhere(balanceSheet.liabilities, const ['current']),
+          'current_liabilities': sumWhere(balanceSheet.liabilities, const [
+            'current',
+          ]),
           'total_assets': balanceSheet.totalAssets,
-          'total_debt': balanceSheet.liabilities.fold(0.0, (sum, item) => sum + item.amount),
+          'total_debt': balanceSheet.liabilities.fold(
+            0.0,
+            (sum, item) => sum + item.amount,
+          ),
           'total_equity': _equityTotal(balanceSheet),
           'inventory': sumWhere(balanceSheet.assets, const ['inventory']),
           'cash': sumWhere(balanceSheet.assets, const ['cash']),
-          'marketable_securities': sumWhere(balanceSheet.assets, const ['marketable', 'securit']),
-          'accounts_receivable': sumWhere(balanceSheet.assets, const ['receivable']),
-          'accounts_payable': sumWhere(balanceSheet.liabilities, const ['payable']),
+          'marketable_securities': sumWhere(balanceSheet.assets, const [
+            'marketable',
+            'securit',
+          ]),
+          'accounts_receivable': sumWhere(balanceSheet.assets, const [
+            'receivable',
+          ]),
+          'accounts_payable': sumWhere(balanceSheet.liabilities, const [
+            'payable',
+          ]),
         },
         'income_statement': {
           'revenue': revenue,
@@ -215,7 +247,9 @@ class FinanceApiService {
         endDate,
       );
     } else {
-      throw Exception('Failed to load financial ratios report: ${response.body}');
+      throw Exception(
+        'Failed to load financial ratios report: ${response.body}',
+      );
     }
   }
 
@@ -227,11 +261,16 @@ class FinanceApiService {
     DateTime startDate,
     DateTime endDate,
   ) {
-    final liquidity = (j['liquidity_ratios'] as Map<String, dynamic>?) ?? const {};
-    final leverage = (j['leverage_ratios'] as Map<String, dynamic>?) ?? const {};
-    final profitability = (j['profitability_ratios'] as Map<String, dynamic>?) ?? const {};
-    final efficiency = (j['efficiency_ratios'] as Map<String, dynamic>?) ?? const {};
-    final valuation = (j['valuation_ratios'] as Map<String, dynamic>?) ?? const {};
+    final liquidity =
+        (j['liquidity_ratios'] as Map<String, dynamic>?) ?? const {};
+    final leverage =
+        (j['leverage_ratios'] as Map<String, dynamic>?) ?? const {};
+    final profitability =
+        (j['profitability_ratios'] as Map<String, dynamic>?) ?? const {};
+    final efficiency =
+        (j['efficiency_ratios'] as Map<String, dynamic>?) ?? const {};
+    final valuation =
+        (j['valuation_ratios'] as Map<String, dynamic>?) ?? const {};
 
     double? pct(num? v) =>
         v == null ? null : v.toDouble() / 100.0; // backend %, model fraction

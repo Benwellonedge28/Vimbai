@@ -22,10 +22,10 @@ class GroupSavingsService {
   void setAuthToken(String token) => _token = token;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-        ...BookContext.instance.headers(),
-      };
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+    ...BookContext.instance.headers(),
+  };
 
   final http.Client _client = http.Client();
 
@@ -55,12 +55,14 @@ class GroupSavingsService {
   }) async {
     // The backend takes scalar POST params as query parameters.
     final r = await _client.post(
-      _u('/groups').replace(queryParameters: {
-        'name': name,
-        'description': description,
-        'contribution_frequency': contributionFrequency,
-        'contribution_amount': contributionAmount.toString(),
-      }),
+      _u('/groups').replace(
+        queryParameters: {
+          'name': name,
+          'description': description,
+          'contribution_frequency': contributionFrequency,
+          'contribution_amount': contributionAmount.toString(),
+        },
+      ),
       headers: _headers,
     );
     return _decodeMap(r);
@@ -74,10 +76,9 @@ class GroupSavingsService {
   // -- members ---------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listMembers(String groupId) async =>
-      _decodeList(await _client.get(
-        _u('/groups/$groupId/members'),
-        headers: _headers,
-      ));
+      _decodeList(
+        await _client.get(_u('/groups/$groupId/members'), headers: _headers),
+      );
 
   Future<Map<String, dynamic>> addMember(
     String groupId, {
@@ -87,12 +88,14 @@ class GroupSavingsService {
     double contributionAmount = 0.0,
   }) async {
     final r = await _client.post(
-      _u('/groups/$groupId/members').replace(queryParameters: {
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'contribution_amount': contributionAmount.toString(),
-      }),
+      _u('/groups/$groupId/members').replace(
+        queryParameters: {
+          'name': name,
+          'email': email,
+          'phone': phone,
+          'contribution_amount': contributionAmount.toString(),
+        },
+      ),
       headers: _headers,
     );
     return _decodeMap(r);
@@ -107,11 +110,13 @@ class GroupSavingsService {
     String notes = '',
   }) async {
     final r = await _client.post(
-      _u('/groups/$groupId/contribute').replace(queryParameters: {
-        'member_id': memberId,
-        'amount': amount.toString(),
-        'notes': notes,
-      }),
+      _u('/groups/$groupId/contribute').replace(
+        queryParameters: {
+          'member_id': memberId,
+          'amount': amount.toString(),
+          'notes': notes,
+        },
+      ),
       headers: _headers,
     );
     return _decodeMap(r);
@@ -130,15 +135,12 @@ class GroupSavingsService {
 
   // -- cycles & payouts -------------------------------------------------
 
-  Future<Map<String, dynamic>> advanceCycle(String groupId) async =>
-      _decodeMap(await _client.post(
-        _u('/groups/$groupId/advance-cycle'),
-        headers: _headers,
-      ));
+  Future<Map<String, dynamic>> advanceCycle(String groupId) async => _decodeMap(
+    await _client.post(_u('/groups/$groupId/advance-cycle'), headers: _headers),
+  );
 
   Future<List<Map<String, dynamic>>> listPayouts(String groupId) async =>
-      _decodeList(await _client.get(
-        _u('/groups/$groupId/payouts'),
-        headers: _headers,
-      ));
+      _decodeList(
+        await _client.get(_u('/groups/$groupId/payouts'), headers: _headers),
+      );
 }

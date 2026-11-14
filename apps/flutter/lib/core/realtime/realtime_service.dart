@@ -56,18 +56,22 @@ class RealtimeEvent {
       eventId: frame['event_id'] as String?,
       eventType: frame['event_type'] as String?,
       bookId: frame['book_id'] as String?,
-      resourceType: (frame['resource_type'] ?? payload['resource_type']) as String?,
+      resourceType:
+          (frame['resource_type'] ?? payload['resource_type']) as String?,
       resourceId: (frame['resource_id'] ?? payload['resource_id']) as String?,
       action: frame['action'] as String?,
       sourceService: frame['source_service'] as String?,
-      receivedAt: DateTime.tryParse((frame['timestamp'] as String?) ?? '')?.toLocal() ?? DateTime.now(),
+      receivedAt:
+          DateTime.tryParse((frame['timestamp'] as String?) ?? '')?.toLocal() ??
+          DateTime.now(),
       payload: payload,
     );
   }
 
   /// Any change worth re-reading a screen for.
   bool get isRecordChange =>
-      resourceType != null || (eventType?.startsWith('book.resource.') ?? false);
+      resourceType != null ||
+      (eventType?.startsWith('book.resource.') ?? false);
 }
 
 class RealtimeService {
@@ -78,7 +82,8 @@ class RealtimeService {
   static const Duration _minBackoff = Duration(seconds: 2);
   static const Duration _maxBackoff = Duration(minutes: 1);
 
-  final StreamController<RealtimeEvent> _events = StreamController<RealtimeEvent>.broadcast();
+  final StreamController<RealtimeEvent> _events =
+      StreamController<RealtimeEvent>.broadcast();
   final ValueNotifier<bool> _connected = ValueNotifier<bool>(false);
 
   WebSocket? _socket;
@@ -134,10 +139,7 @@ class RealtimeService {
     try {
       final socket = await WebSocket.connect(
         uri.toString(),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'X-Book-ID': bookId,
-        },
+        headers: {'Authorization': 'Bearer $token', 'X-Book-ID': bookId},
       ).timeout(AppConfig.connectTimeout);
       _socket = socket;
       _setConnected(true);

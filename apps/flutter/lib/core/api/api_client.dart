@@ -67,13 +67,17 @@ class ApiClient {
   Future<http.Response> get(Uri url, {Map<String, String>? headers}) =>
       _guard(() => transport.get(url, headers: headers), retryOnFailure: true);
 
-  Future<http.Response> post(Uri url,
-          {Map<String, String>? headers, Object? body}) =>
-      _guard(() => transport.post(url, headers: headers, body: body));
+  Future<http.Response> post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _guard(() => transport.post(url, headers: headers, body: body));
 
-  Future<http.Response> put(Uri url,
-          {Map<String, String>? headers, Object? body}) =>
-      _guard(() => transport.put(url, headers: headers, body: body));
+  Future<http.Response> put(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _guard(() => transport.put(url, headers: headers, body: body));
 
   Future<http.Response> delete(Uri url, {Map<String, String>? headers}) =>
       _guard(() => transport.delete(url, headers: headers));

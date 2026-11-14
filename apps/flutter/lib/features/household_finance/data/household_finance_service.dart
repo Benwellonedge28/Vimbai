@@ -20,10 +20,10 @@ class HouseholdFinanceService {
   void setAuthToken(String token) => _token = token;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-        ...BookContext.instance.headers(),
-      };
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+    ...BookContext.instance.headers(),
+  };
 
   final http.Client _client = http.Client();
 

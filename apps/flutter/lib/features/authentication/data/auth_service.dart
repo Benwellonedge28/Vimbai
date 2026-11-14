@@ -25,9 +25,15 @@ class AuthService {
     return await UserLocalData.getAuthToken();
   }
 
-  Future<bool> register(String username, String email, String password, String roleName) async {
+  Future<bool> register(
+    String username,
+    String email,
+    String password,
+    String roleName,
+  ) async {
     final connectivityResults = await Connectivity().checkConnectivity();
-    if (connectivityResults.contains(ConnectivityResult.none) || connectivityResults.isEmpty) {
+    if (connectivityResults.contains(ConnectivityResult.none) ||
+        connectivityResults.isEmpty) {
       // Offline registration: Store locally and queue for sync
       print('Offline registration attempt: $username. Will sync later.');
       final tempUser = User(
@@ -74,13 +80,16 @@ class AuthService {
   Future<bool> login(String username, String password) async {
     final connectivityResults = await Connectivity().checkConnectivity();
 
-    if (connectivityResults.contains(ConnectivityResult.none) || connectivityResults.isEmpty) {
+    if (connectivityResults.contains(ConnectivityResult.none) ||
+        connectivityResults.isEmpty) {
       final localUser = await UserLocalData.getUser();
       if (localUser != null && localUser.username == username) {
         print('Offline login successful for $username.');
         return true;
       }
-      print('Offline login failed for $username. No local user found or mismatch.');
+      print(
+        'Offline login failed for $username. No local user found or mismatch.',
+      );
       return false;
     }
 
@@ -88,7 +97,8 @@ class AuthService {
     final response = await _client.post(
       Uri.parse('$_baseUrl/identity/users/login'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'username=${Uri.encodeQueryComponent(username)}'
+      body:
+          'username=${Uri.encodeQueryComponent(username)}'
           '&password=${Uri.encodeQueryComponent(password)}',
     );
 
@@ -102,7 +112,9 @@ class AuthService {
     if (data['mfa_required'] == true) {
       // MFA is enabled for this account. The mobile client does not support
       // the second factor yet, so surface it instead of storing a dead token.
-      print('MFA required (method: ${data['method']}); mobile client cannot complete this login.');
+      print(
+        'MFA required (method: ${data['method']}); mobile client cannot complete this login.',
+      );
       return false;
     }
 
@@ -130,7 +142,12 @@ class AuthService {
       await UserLocalData.saveUser(user);
     } else {
       // Token is valid; keep a minimal profile so the session works.
-      final user = User(id: 'unknown', username: username, email: '$username@example.com', role: 'user');
+      final user = User(
+        id: 'unknown',
+        username: username,
+        email: '$username@example.com',
+        role: 'user',
+      );
       await UserLocalData.saveUser(user);
     }
     print('Online login successful for $username. Token saved.');

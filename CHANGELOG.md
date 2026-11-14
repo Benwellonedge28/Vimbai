@@ -14,6 +14,19 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The Dart toolchain is in the pipeline that gates a merge, pinned to one Flutter version everywhere (3.50.0): `ci-main.yml`
+  now runs `flutter pub get`, a formatting check, `flutter analyze` and `flutter test` on every push, `mobile-analyze.yml`
+  runs the same four pinned to the same version, and a new gate (`workflows::dart_toolchain_problems`) fails the build if a
+  workflow floats on `latest`, if two workflows pin different versions, or if the gating pipeline installs a toolchain and
+  never runs the app's tests. The app's 60 Dart files are formatted, so the formatting check starts green.
+- The deployment store's schema is now a numbered step list with a recorded version, the same discipline the device store
+  already had (ADR-011). One function decides, for both backends, whether to run the missing steps, run nothing, or refuse
+  a store written by a newer build - and refusing is what it does, because downgrading would write the next step against a
+  schema the build cannot see. A test compares both stores' steps in order, so a change made in one backend and not the
+  other is a failure rather than a surprise; three tests against a real Postgres prove the version is recorded, a record
+  written before a second open survives it, a database claiming schema 99 is refused, and every step can be undone and
+  re-applied over records that already exist.
+- An organisation is the tenant, a Book belongs to one organisation, and one rule decides who may open a Book (ADR-010).
 - Every address the engine answers is filed under an owner that can be checked. Three defects in the attribution tooling,
   found by reading what it produced: a handler was attributed from its own line to the end of a 17,000-line file, so
   `/cache-stats` belonged to workflow because the workflow definitions are written below it; a multi-line

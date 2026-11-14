@@ -35,6 +35,7 @@ pub mod dump;
 #[doc(hidden)]
 pub mod fake;
 pub mod file;
+pub mod migrations;
 pub mod neo4j_client;
 pub mod postgres;
 pub mod query;

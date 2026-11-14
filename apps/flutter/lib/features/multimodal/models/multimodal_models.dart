@@ -61,10 +61,10 @@ class MultimodalInput {
     this.processingTaskId,
   });
 
-  factory MultimodalInput.fromJson(Map<String, dynamic> json) => _$MultimodalInputFromJson(json);
+  factory MultimodalInput.fromJson(Map<String, dynamic> json) =>
+      _$MultimodalInputFromJson(json);
   Map<String, dynamic> toJson() => _$MultimodalInputToJson(this);
 }
-
 
 // --- ExtractedDataField (generic for any type of extraction) ---
 @JsonSerializable()
@@ -72,7 +72,8 @@ class ExtractedDataField {
   final String name;
   final String value;
   final double? confidence;
-  final String dataType; // e.g., "string", "number", "date", "boolean", "currency"
+  final String
+  dataType; // e.g., "string", "number", "date", "boolean", "currency"
   final String? unit;
   final List<double>? boundingBox; // [x1, y1, x2, y2]
   final String? originalValue;
@@ -87,7 +88,8 @@ class ExtractedDataField {
     this.originalValue,
   });
 
-  factory ExtractedDataField.fromJson(Map<String, dynamic> json) => _$ExtractedDataFieldFromJson(json);
+  factory ExtractedDataField.fromJson(Map<String, dynamic> json) =>
+      _$ExtractedDataFieldFromJson(json);
   Map<String, dynamic> toJson() => _$ExtractedDataFieldToJson(this);
 }
 
@@ -106,7 +108,8 @@ class DocumentParseResult {
     this.errors = const [],
   });
 
-  factory DocumentParseResult.fromJson(Map<String, dynamic> json) => _$DocumentParseResultFromJson(json);
+  factory DocumentParseResult.fromJson(Map<String, dynamic> json) =>
+      _$DocumentParseResultFromJson(json);
   Map<String, dynamic> toJson() => _$DocumentParseResultToJson(this);
 }
 
@@ -125,7 +128,8 @@ class AudioParseResult {
     this.errors = const [],
   });
 
-  factory AudioParseResult.fromJson(Map<String, dynamic> json) => _$AudioParseResultFromJson(json);
+  factory AudioParseResult.fromJson(Map<String, dynamic> json) =>
+      _$AudioParseResultFromJson(json);
   Map<String, dynamic> toJson() => _$AudioParseResultToJson(this);
 }
 
@@ -144,10 +148,10 @@ class ImageParseResult {
     this.errors = const [],
   });
 
-  factory ImageParseResult.fromJson(Map<String, dynamic> json) => _$ImageParseResultFromJson(json);
+  factory ImageParseResult.fromJson(Map<String, dynamic> json) =>
+      _$ImageParseResultFromJson(json);
   Map<String, dynamic> toJson() => _$ImageParseResultToJson(this);
 }
-
 
 // --- MultimodalProcessingTask (core entity for this service) ---
 @JsonSerializable()
@@ -211,25 +215,26 @@ class MultimodalProcessingTaskCreate extends MultimodalProcessingTaskBase {
     Map<String, dynamic> metadata = const {},
     String aiModelVersion = "1.0",
   }) : super(
-          userId: userId,
-          inputType: inputType,
-          inputUrl: inputUrl,
-          inputRawText: inputRawText,
-          status: status,
-          processingStartTime: processingStartTime,
-          processingEndTime: processingEndTime,
-          lastReviewRequestTime: lastReviewRequestTime,
-          documentResult: documentResult,
-          audioResult: audioResult,
-          imageResult: imageResult,
-          suggestedJournalEntry: suggestedJournalEntry,
-          linkedFinaccEntityId: linkedFinaccEntityId,
-          errors: errors,
-          metadata: metadata,
-          aiModelVersion: aiModelVersion,
-        );
+         userId: userId,
+         inputType: inputType,
+         inputUrl: inputUrl,
+         inputRawText: inputRawText,
+         status: status,
+         processingStartTime: processingStartTime,
+         processingEndTime: processingEndTime,
+         lastReviewRequestTime: lastReviewRequestTime,
+         documentResult: documentResult,
+         audioResult: audioResult,
+         imageResult: imageResult,
+         suggestedJournalEntry: suggestedJournalEntry,
+         linkedFinaccEntityId: linkedFinaccEntityId,
+         errors: errors,
+         metadata: metadata,
+         aiModelVersion: aiModelVersion,
+       );
 
-  factory MultimodalProcessingTaskCreate.fromJson(Map<String, dynamic> json) => _$MultimodalProcessingTaskCreateFromJson(json);
+  factory MultimodalProcessingTaskCreate.fromJson(Map<String, dynamic> json) =>
+      _$MultimodalProcessingTaskCreateFromJson(json);
   @override
   Map<String, dynamic> toJson() => _$MultimodalProcessingTaskCreateToJson(this);
 }
@@ -264,7 +269,8 @@ class MultimodalProcessingTaskUpdate {
     this.aiModelVersion,
   });
 
-  factory MultimodalProcessingTaskUpdate.fromJson(Map<String, dynamic> json) => _$MultimodalProcessingTaskUpdateFromJson(json);
+  factory MultimodalProcessingTaskUpdate.fromJson(Map<String, dynamic> json) =>
+      _$MultimodalProcessingTaskUpdateFromJson(json);
   Map<String, dynamic> toJson() => _$MultimodalProcessingTaskUpdateToJson(this);
 }
 
@@ -295,25 +301,26 @@ class MultimodalProcessingTaskInDB extends MultimodalProcessingTaskBase {
     required this.createdAt,
     required this.updatedAt,
   }) : super(
-          userId: userId,
-          inputType: inputType,
-          inputUrl: inputUrl,
-          inputRawText: inputRawText,
-          status: status,
-          processingStartTime: processingStartTime,
-          processingEndTime: processingEndTime,
-          lastReviewRequestTime: lastReviewRequestTime,
-          documentResult: documentResult,
-          audioResult: audioResult,
-          imageResult: imageResult,
-          suggestedJournalEntry: suggestedJournalEntry,
-          linkedFinaccEntityId: linkedFinaccEntityId,
-          errors: errors,
-          metadata: metadata,
-          aiModelVersion: aiModelVersion,
-        );
+         userId: userId,
+         inputType: inputType,
+         inputUrl: inputUrl,
+         inputRawText: inputRawText,
+         status: status,
+         processingStartTime: processingStartTime,
+         processingEndTime: processingEndTime,
+         lastReviewRequestTime: lastReviewRequestTime,
+         documentResult: documentResult,
+         audioResult: audioResult,
+         imageResult: imageResult,
+         suggestedJournalEntry: suggestedJournalEntry,
+         linkedFinaccEntityId: linkedFinaccEntityId,
+         errors: errors,
+         metadata: metadata,
+         aiModelVersion: aiModelVersion,
+       );
 
-  factory MultimodalProcessingTaskInDB.fromJson(Map<String, dynamic> json) => _$MultimodalProcessingTaskInDBFromJson(json);
+  factory MultimodalProcessingTaskInDB.fromJson(Map<String, dynamic> json) =>
+      _$MultimodalProcessingTaskInDBFromJson(json);
   @override
   Map<String, dynamic> toJson() => _$MultimodalProcessingTaskInDBToJson(this);
 }
@@ -350,7 +357,8 @@ class UserCorrection {
     required this.submittedAt,
   });
 
-  factory UserCorrection.fromJson(Map<String, dynamic> json) => _$UserCorrectionFromJson(json);
+  factory UserCorrection.fromJson(Map<String, dynamic> json) =>
+      _$UserCorrectionFromJson(json);
   Map<String, dynamic> toJson() => _$UserCorrectionToJson(this);
 }
 
@@ -369,17 +377,18 @@ class UserCorrectionInDB extends UserCorrection {
     String? comment,
     required DateTime submittedAt,
   }) : super(
-          taskId: taskId,
-          userId: userId,
-          fieldName: fieldName,
-          originalValue: originalValue,
-          correctedValue: correctedValue,
-          feedbackType: feedbackType,
-          comment: comment,
-          submittedAt: submittedAt,
-        );
+         taskId: taskId,
+         userId: userId,
+         fieldName: fieldName,
+         originalValue: originalValue,
+         correctedValue: correctedValue,
+         feedbackType: feedbackType,
+         comment: comment,
+         submittedAt: submittedAt,
+       );
 
-  factory UserCorrectionInDB.fromJson(Map<String, dynamic> json) => _$UserCorrectionInDBFromJson(json);
+  factory UserCorrectionInDB.fromJson(Map<String, dynamic> json) =>
+      _$UserCorrectionInDBFromJson(json);
   @override
   Map<String, dynamic> toJson() => _$UserCorrectionInDBToJson(this);
 }

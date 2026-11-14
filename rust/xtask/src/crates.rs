@@ -16,7 +16,7 @@ use crate::catalog::{self, Row};
 
 /// The store's own work: the record shapes, the Book scoping, the driver and the helpers their tests use. Nothing here
 /// computes a business figure.
-const STORE_MODULES: [&str; 14] = [
+const STORE_MODULES: [&str; 15] = [
     "amounts.rs",
     // which store a deployment opens, decided once so the engine and the worker cannot each read the environment their own
     // way - machinery about where records live, which is the store's business
@@ -29,6 +29,9 @@ const STORE_MODULES: [&str; 14] = [
     "fake.rs",
     "file.rs",
     "lib.rs",
+    // the schema steps every backend applies, and the one decision about which of them to run - machinery about how the
+    // tables are shaped, and what a step means is the store's business rather than a service's
+    "migrations.rs",
     "neo4j_client.rs",
     // the deployment backend, for the same reason as sqlite.rs: a database is machinery
     "postgres.rs",
@@ -42,13 +45,14 @@ const STORE_MODULES: [&str; 14] = [
 ];
 
 /// The modules the store's `lib.rs` may declare: the same machinery under its module names.
-const STORE_DECLARATIONS: [&str; 13] = [
+const STORE_DECLARATIONS: [&str; 14] = [
     "amounts",
     "choose",
     "columns",
     "dump",
     "fake",
     "file",
+    "migrations",
     "neo4j_client",
     "postgres",
     "query",

@@ -378,3 +378,86 @@ fn only_the_store_chooses_which_deployment_store_to_open() {
     let chosen = std::fs::read_to_string(root.join(allowed)).expect("the one place");
     assert!(chosen.contains("VIMBAI_POSTGRES_URL"));
 }
+
+#[test]
+fn the_dart_toolchain_is_pinned_and_gates_a_merge() {
+    // The client is one of the platform's three languages (ADR-001), so its toolchain lives in the pipeline that gates a
+    // merge, pinned to one version everywhere: `latest` is a build that means something different tomorrow.
+    let problems = workflows::dart_toolchain_problems(&root());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
+    // A gate that only ever passes is not a gate. These build a tiny estate on disk: one workflow that pins a version,
+    // then a second that pins another, then one that asks for `latest`, then one that only runs outside the gating
+    // pipeline. The scanner has to report each.
+    let scratch = std::env::temp_dir().join(format!("vimbai_dart_gate_{}", std::process::id()));
+    let workflows = scratch.join(".github").join("workflows");
+    std::fs::create_dir_all(&workflows).expect("a scratch directory");
+    let step = |version: &str| {
+        format!(
+            "      - name: Set up Flutter\n        uses: flutter-actions/setup-flutter@v4\n        with:\n          channel: stable\n          version: {version}\n"
+        )
+    };
+    let gating = |version: &str, test: bool| {
+        format!(
+            "name: Core\non:\n  push:\njobs:\n  test-flutter:\n    runs-on: ubuntu-latest\n    steps:\n{}      - name: Test\n        run: {}dart format --output=none --set-exit-if-changed lib test\n",
+            step(version),
+            if test { "flutter test\n        " } else { "" }
+        )
+    };
+    let write = |name: &str, text: &str| {
+        std::fs::write(workflows.join(name), text).expect("a workflow");
+    };
+
+    write("ci-main.yml", &gating("3.50.0", true));
+    write(
+        "mobile-analyze.yml",
+        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("3.50.0")),
+    );
+    assert_eq!(
+        workflows::dart_toolchain_problems(&scratch),
+        Vec::<String>::new(),
+        "a pinned, agreeing, gating estate has to pass"
+    );
+
+    // a second workflow on another version
+    write(
+        "mobile-analyze.yml",
+        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("3.44.0")),
+    );
+    let drift = workflows::dart_toolchain_problems(&scratch);
+    assert!(
+        drift.iter().any(|problem| problem.contains("disagree")),
+        "a second pinned version went unnoticed: {drift:?}"
+    );
+
+    // `latest`
+    write("ci-main.yml", &gating("latest", true));
+    write(
+        "mobile-analyze.yml",
+        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("latest")),
+    );
+    let floating = workflows::dart_toolchain_problems(&scratch);
+    assert!(
+        floating.iter().any(|problem| problem.contains("latest")),
+        "a floating toolchain went unnoticed: {floating:?}"
+    );
+
+    // pinned, but the gating pipeline never runs the tests
+    write("ci-main.yml", &gating("3.50.0", false));
+    write(
+        "mobile-analyze.yml",
+        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("3.50.0")),
+    );
+    let untested = workflows::dart_toolchain_problems(&scratch);
+    assert!(
+        untested
+            .iter()
+            .any(|problem| problem.contains("flutter test")),
+        "a gating pipeline that never runs the app's tests went unnoticed: {untested:?}"
+    );
+
+    std::fs::remove_dir_all(&scratch).ok();
+}

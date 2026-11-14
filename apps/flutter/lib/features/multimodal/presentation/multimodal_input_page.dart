@@ -44,7 +44,8 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc),
-          path: '${(await _getAppDirectory())}/audio.m4a', // Using a temporary path
+          path:
+              '${(await _getAppDirectory())}/audio.m4a', // Using a temporary path
         );
         setState(() {
           _isRecording = true;
@@ -90,20 +91,28 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
           imageFile: File(_pickedImagePath!),
           sourceContext: _sourceContext,
         );
-        setState(() { _results = result; });
+        setState(() {
+          _results = result;
+        });
       } else if (_recordedAudioPath != null) {
         final result = await _apiService.processAudioToText(
           audioFile: File(_recordedAudioPath!),
           sourceContext: _sourceContext,
         );
-        setState(() { _results = result; });
+        setState(() {
+          _results = result;
+        });
       } else {
         _errorMessage = 'No image or audio selected/recorded.';
       }
     } catch (e) {
-      setState(() { _errorMessage = 'Processing failed: $e'; });
+      setState(() {
+        _errorMessage = 'Processing failed: $e';
+      });
     } finally {
-      setState(() { _isProcessing = false; });
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
@@ -116,15 +125,16 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Multimodal Input'),
-      ),
+      appBar: AppBar(title: const Text('Multimodal Input')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Choose Input Type:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Choose Input Type:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -154,7 +164,9 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
                 ElevatedButton.icon(
                   onPressed: _isRecording ? _stopRecording : _startRecording,
                   icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                  label: Text(_isRecording ? 'Stop Recording' : 'Start Recording'),
+                  label: Text(
+                    _isRecording ? 'Stop Recording' : 'Start Recording',
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isRecording ? Colors.red : Colors.blue,
                   ),
@@ -165,7 +177,9 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
             Center(
               child: _recordedAudioPath == null
                   ? const Text('No audio recorded.')
-                  : Text('Audio recorded: ${_recordedAudioPath!.split('/').last}'),
+                  : Text(
+                      'Audio recorded: ${_recordedAudioPath!.split('/').last}',
+                    ),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -179,14 +193,19 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
             _isProcessing
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton(
-                    onPressed: (_pickedImagePath != null || _recordedAudioPath != null) ? _processInput : null,
+                    onPressed:
+                        (_pickedImagePath != null || _recordedAudioPath != null)
+                        ? _processInput
+                        : null,
                     child: const Text('Process Input'),
                   ),
             const SizedBox(height: 20),
             if (_errorMessage != null)
-              Text('Error: $_errorMessage', style: const TextStyle(color: Colors.red)),
-            if (_results != null)
-              _buildResultsDisplay(_results),
+              Text(
+                'Error: $_errorMessage',
+                style: const TextStyle(color: Colors.red),
+              ),
+            if (_results != null) _buildResultsDisplay(_results),
           ],
         ),
       ),
@@ -201,18 +220,36 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Document Result', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text('AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%'),
+              const Text(
+                'Document Result',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%',
+              ),
               const Divider(),
-              const Text('Extracted Data:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...results.extractedData.map((field) => Text('${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ')),
+              const Text(
+                'Extracted Data:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              ...results.extractedData.map(
+                (field) => Text(
+                  '${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ',
+                ),
+              ),
               if (results.rawText != null && results.rawText!.isNotEmpty) ...[
                 const Divider(),
-                const Text('Raw Text:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Raw Text:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Text(results.rawText!),
               ],
               if (results.errors.isNotEmpty)
-                Text('Errors: ${results.errors.join('; ')}', style: const TextStyle(color: Colors.red)),
+                Text(
+                  'Errors: ${results.errors.join('; ')}',
+                  style: const TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -224,16 +261,31 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Transcription:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Transcription:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Text(results.transcribedText ?? '(no transcription available)'),
               const Divider(),
               if (results.extractedCommands.isNotEmpty) ...[
-                const Text('Extracted Commands:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...results.extractedCommands.map((field) => Text('${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ')),
+                const Text(
+                  'Extracted Commands:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ...results.extractedCommands.map(
+                  (field) => Text(
+                    '${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ',
+                  ),
+                ),
               ],
-              Text('AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%'),
+              Text(
+                'AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%',
+              ),
               if (results.errors.isNotEmpty)
-                Text('Errors: ${results.errors.join('; ')}', style: const TextStyle(color: Colors.red)),
+                Text(
+                  'Errors: ${results.errors.join('; ')}',
+                  style: const TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),

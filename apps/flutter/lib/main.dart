@@ -36,9 +36,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Vimbai Mobile Client',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: _isLoading
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : (_isLoggedIn ? const HomePage() : const LoginPage()),

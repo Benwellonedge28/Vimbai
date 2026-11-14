@@ -12,7 +12,8 @@ class LedgerPage extends StatefulWidget {
 }
 
 class _LedgerPageState extends State<LedgerPage> {
-  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _accountNumberController =
+      TextEditingController();
   final AccountingApiService _apiService = AccountingApiService();
   LedgerAccountBalance? _ledgerBalance;
   bool _isLoading = false;
@@ -40,7 +41,9 @@ class _LedgerPageState extends State<LedgerPage> {
     });
 
     try {
-      final balance = await _apiService.getLedgerAccountBalance(_accountNumberController.text.trim());
+      final balance = await _apiService.getLedgerAccountBalance(
+        _accountNumberController.text.trim(),
+      );
       setState(() {
         _ledgerBalance = balance;
       });
@@ -58,9 +61,7 @@ class _LedgerPageState extends State<LedgerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ledger Account Balance'),
-      ),
+      appBar: AppBar(title: const Text('Ledger Account Balance')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -95,13 +96,19 @@ class _LedgerPageState extends State<LedgerPage> {
                     children: [
                       Text(
                         'Account: ${_ledgerBalance!.accountNumber} - ${_ledgerBalance!.accountName}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text('Type: ${_ledgerBalance!.accountType}'),
                       Text('Normal Balance: ${_ledgerBalance!.normalBalance}'),
                       Text(
                         'Current Balance: \$${_ledgerBalance!.currentBalance.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),

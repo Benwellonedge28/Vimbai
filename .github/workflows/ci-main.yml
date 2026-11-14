@@ -75,3 +75,37 @@ jobs:
       - name: Run vet
         working-directory: ${{ matrix.service }}
         run: go vet ./...
+
+  # The app's own toolchain, in the pipeline that gates a merge. Dart is not an optional extra here: the client is one of
+  # the three languages the platform is written in (ADR-001), so a change that breaks its tests has to fail the same way a
+  # broken Rust or Go change does. The version is pinned to the one the app is developed against and the gate in
+  # rust/xtask holds every workflow to it.
+  test-flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up the Dart toolchain
+        uses: flutter-actions/setup-flutter@v4
+        with:
+          channel: stable
+          version: 3.50.0
+          cache: true
+          cache-sdk: true
+
+      - name: Resolve packages
+        working-directory: apps/flutter
+        run: flutter pub get
+
+      - name: Check formatting
+        working-directory: apps/flutter
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test

@@ -29,46 +29,54 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Journal Entries'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _refreshJournalEntries,
-              ),
-            ],
+      appBar: AppBar(
+        title: const Text('Journal Entries'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshJournalEntries,
           ),
-          body: FutureBuilder<List<JournalEntry>>(
-            future: _journalEntriesFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('No journal entries found.'));
-              } else {
-                return ListView.builder(
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    final entry = snapshot.data![index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: ListTile(
-                        title: Text(entry.description),
-                        subtitle: Text('Ref: ${entry.referenceNumber ?? 'N/A'} | Date: ${entry.entryDate.toLocal().toString().split(' ')[0]}'),
-                        onTap: () {
-                          Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => JournalEntryDetailPage(entry: entry),
-                          ));
-                        },
-                      ),
-                    );
-                  },
+        ],
+      ),
+      body: FutureBuilder<List<JournalEntry>>(
+        future: _journalEntriesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No journal entries found.'));
+          } else {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final entry = snapshot.data![index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: ListTile(
+                    title: Text(entry.description),
+                    subtitle: Text(
+                      'Ref: ${entry.referenceNumber ?? 'N/A'} | Date: ${entry.entryDate.toLocal().toString().split(' ')[0]}',
+                    ),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              JournalEntryDetailPage(entry: entry),
+                        ),
+                      );
+                    },
+                  ),
                 );
-              }
-            },
-          ),
-        );
-      }
-    }
+              },
+            );
+          }
+        },
+      ),
+    );
+  }
+}

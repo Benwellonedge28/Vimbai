@@ -200,7 +200,8 @@ class BudgetVarianceItem {
       budgetedAmount: (json['budgeted_amount'] as num?)?.toDouble() ?? 0.0,
       actualAmount: (json['actual_amount'] as num?)?.toDouble() ?? 0.0,
       variance: (json['variance'] as num?)?.toDouble() ?? 0.0,
-      variancePercentage: (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      variancePercentage:
+          (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -325,7 +326,8 @@ class ProfitabilityRatios {
   factory ProfitabilityRatios.fromJson(Map<String, dynamic> json) {
     return ProfitabilityRatios(
       grossProfitMargin: (json['gross_profit_margin'] as num?)?.toDouble(),
-      operatingProfitMargin: (json['operating_profit_margin'] as num?)?.toDouble(),
+      operatingProfitMargin: (json['operating_profit_margin'] as num?)
+          ?.toDouble(),
       netProfitMargin: (json['net_profit_margin'] as num?)?.toDouble(),
       returnOnAssets: (json['return_on_assets'] as num?)?.toDouble(),
       returnOnEquity: (json['return_on_equity'] as num?)?.toDouble(),
@@ -351,8 +353,10 @@ class EfficiencyRatios {
   factory EfficiencyRatios.fromJson(Map<String, dynamic> json) {
     return EfficiencyRatios(
       inventoryTurnover: (json['inventory_turnover'] as num?)?.toDouble(),
-      accountsReceivableTurnover: (json['accounts_receivable_turnover'] as num?)?.toDouble(),
-      accountsPayableTurnover: (json['accounts_payable_turnover'] as num?)?.toDouble(),
+      accountsReceivableTurnover: (json['accounts_receivable_turnover'] as num?)
+          ?.toDouble(),
+      accountsPayableTurnover: (json['accounts_payable_turnover'] as num?)
+          ?.toDouble(),
       assetTurnover: (json['asset_turnover'] as num?)?.toDouble(),
       daySalesOutstanding: (json['day_sales_outstanding'] as num?)?.toDouble(),
     );
@@ -373,7 +377,8 @@ class MarketValueRatios {
   factory MarketValueRatios.fromJson(Map<String, dynamic> json) {
     return MarketValueRatios(
       earningsPerShare: (json['earnings_per_share'] as num?)?.toDouble(),
-      priceToEarningsRatio: (json['price_to_earnings_ratio'] as num?)?.toDouble(),
+      priceToEarningsRatio: (json['price_to_earnings_ratio'] as num?)
+          ?.toDouble(),
       bookValuePerShare: (json['book_value_per_share'] as num?)?.toDouble(),
     );
   }
@@ -432,6 +437,7 @@ class FinancialRatiosReport {
     );
   }
 }
+
 // --- Budget variance analysis (budget-service POST /variance-analysis) ---
 class VarianceOutsideToleranceItem {
   final String accountId;
@@ -489,9 +495,13 @@ class VarianceAnalysisResult {
     required Map<String, dynamic> json,
   }) {
     final outside = (json['items_outside_tolerance'] as List<dynamic>? ?? [])
-        .map((e) => VarianceOutsideToleranceItem.fromJson(e as Map<String, dynamic>))
+        .map(
+          (e) =>
+              VarianceOutsideToleranceItem.fromJson(e as Map<String, dynamic>),
+        )
         .toList();
-    final rawCauses = (json['root_causes'] as Map<String, dynamic>? ?? const {});
+    final rawCauses =
+        (json['root_causes'] as Map<String, dynamic>? ?? const {});
     final causes = <String, String>{};
     rawCauses.forEach((k, v) => causes[k] = v.toString());
 
@@ -500,12 +510,14 @@ class VarianceAnalysisResult {
       budgetName: budgetName,
       totalVariance: ((json['total_variance'] as num?) ?? 0).toDouble(),
       favorableVariance: ((json['favorable_variance'] as num?) ?? 0).toDouble(),
-      unfavorableVariance: ((json['unfavorable_variance'] as num?) ?? 0).toDouble(),
+      unfavorableVariance: ((json['unfavorable_variance'] as num?) ?? 0)
+          .toDouble(),
       itemsOutsideTolerance: outside,
       rootCauses: causes,
-      correctiveActions: (json['corrective_actions'] as List<dynamic>? ?? const [])
-          .map((e) => e.toString())
-          .toList(),
+      correctiveActions:
+          (json['corrective_actions'] as List<dynamic>? ?? const [])
+              .map((e) => e.toString())
+              .toList(),
     );
   }
 }

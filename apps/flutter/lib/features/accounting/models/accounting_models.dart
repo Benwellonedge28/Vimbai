@@ -19,7 +19,8 @@ class JournalLineCreate {
     this.description,
   });
 
-  factory JournalLineCreate.fromJson(Map<String, dynamic> json) => _$JournalLineCreateFromJson(json);
+  factory JournalLineCreate.fromJson(Map<String, dynamic> json) =>
+      _$JournalLineCreateFromJson(json);
   Map<String, dynamic> toJson() => _$JournalLineCreateToJson(this);
 }
 
@@ -39,7 +40,8 @@ class JournalEntryCreate {
     required this.lines,
   });
 
-  factory JournalEntryCreate.fromJson(Map<String, dynamic> json) => _$JournalEntryCreateFromJson(json);
+  factory JournalEntryCreate.fromJson(Map<String, dynamic> json) =>
+      _$JournalEntryCreateFromJson(json);
   Map<String, dynamic> toJson() => _$JournalEntryCreateToJson(this);
 }
 
@@ -59,7 +61,8 @@ class JournalEntryUpdate {
     this.lines,
   });
 
-  factory JournalEntryUpdate.fromJson(Map<String, dynamic> json) => _$JournalEntryUpdateFromJson(json);
+  factory JournalEntryUpdate.fromJson(Map<String, dynamic> json) =>
+      _$JournalEntryUpdateFromJson(json);
   Map<String, dynamic> toJson() => _$JournalEntryUpdateToJson(this);
 }
 
@@ -70,7 +73,8 @@ class JournalEntryInDB {
   final String description;
   final String sourceModule;
   final String? referenceNumber;
-  final List<JournalLineInDB> lines; // Note: using JournalLineInDB for fetched data
+  final List<JournalLineInDB>
+  lines; // Note: using JournalLineInDB for fetched data
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -85,7 +89,8 @@ class JournalEntryInDB {
     required this.updatedAt,
   });
 
-  factory JournalEntryInDB.fromJson(Map<String, dynamic> json) => _$JournalEntryInDBFromJson(json);
+  factory JournalEntryInDB.fromJson(Map<String, dynamic> json) =>
+      _$JournalEntryInDBFromJson(json);
   Map<String, dynamic> toJson() => _$JournalEntryInDBToJson(this);
 }
 
@@ -106,10 +111,10 @@ class JournalLineInDB {
     this.description,
   });
 
-  factory JournalLineInDB.fromJson(Map<String, dynamic> json) => _$JournalLineInDBFromJson(json);
+  factory JournalLineInDB.fromJson(Map<String, dynamic> json) =>
+      _$JournalLineInDBFromJson(json);
   Map<String, dynamic> toJson() => _$JournalLineInDBToJson(this);
 }
-
 
 // --- Account Models ---
 @JsonSerializable(explicitToJson: true)
@@ -128,7 +133,8 @@ class AccountCreate {
     this.description,
   });
 
-  factory AccountCreate.fromJson(Map<String, dynamic> json) => _$AccountCreateFromJson(json);
+  factory AccountCreate.fromJson(Map<String, dynamic> json) =>
+      _$AccountCreateFromJson(json);
   Map<String, dynamic> toJson() => _$AccountCreateToJson(this);
 }
 
@@ -146,7 +152,8 @@ class AccountUpdate {
     this.description,
   });
 
-  factory AccountUpdate.fromJson(Map<String, dynamic> json) => _$AccountUpdateFromJson(json);
+  factory AccountUpdate.fromJson(Map<String, dynamic> json) =>
+      _$AccountUpdateFromJson(json);
   Map<String, dynamic> toJson() => _$AccountUpdateToJson(this);
 }
 
@@ -172,7 +179,8 @@ class AccountInDB {
     required this.updatedAt,
   });
 
-  factory AccountInDB.fromJson(Map<String, dynamic> json) => _$AccountInDBFromJson(json);
+  factory AccountInDB.fromJson(Map<String, dynamic> json) =>
+      _$AccountInDBFromJson(json);
   Map<String, dynamic> toJson() => _$AccountInDBToJson(this);
 }
 
@@ -193,7 +201,8 @@ class JournalLine {
     this.credit = 0.0,
   });
 
-  factory JournalLine.fromJson(Map<String, dynamic> json) => _$JournalLineFromJson(json);
+  factory JournalLine.fromJson(Map<String, dynamic> json) =>
+      _$JournalLineFromJson(json);
   Map<String, dynamic> toJson() => _$JournalLineToJson(this);
 }
 
@@ -229,7 +238,8 @@ class JournalEntry {
     this.isSynced,
   });
 
-  factory JournalEntry.fromJson(Map<String, dynamic> json) => _$JournalEntryFromJson(json);
+  factory JournalEntry.fromJson(Map<String, dynamic> json) =>
+      _$JournalEntryFromJson(json);
   Map<String, dynamic> toJson() => _$JournalEntryToJson(this);
 }
 
@@ -265,7 +275,8 @@ class Account {
     this.updatedAt,
   });
 
-  factory Account.fromJson(Map<String, dynamic> json) => _$AccountFromJson(json);
+  factory Account.fromJson(Map<String, dynamic> json) =>
+      _$AccountFromJson(json);
   Map<String, dynamic> toJson() => _$AccountToJson(this);
 }
 
@@ -291,7 +302,8 @@ class TrialBalanceEntry {
     this.creditTotal = 0.0,
   });
 
-  factory TrialBalanceEntry.fromJson(Map<String, dynamic> json) => _$TrialBalanceEntryFromJson(json);
+  factory TrialBalanceEntry.fromJson(Map<String, dynamic> json) =>
+      _$TrialBalanceEntryFromJson(json);
   Map<String, dynamic> toJson() => _$TrialBalanceEntryToJson(this);
 }
 
@@ -315,7 +327,8 @@ class TrialBalance {
     this.isBalanced = false,
   });
 
-  factory TrialBalance.fromJson(Map<String, dynamic> json) => _$TrialBalanceFromJson(json);
+  factory TrialBalance.fromJson(Map<String, dynamic> json) =>
+      _$TrialBalanceFromJson(json);
   Map<String, dynamic> toJson() => _$TrialBalanceToJson(this);
 }
 
@@ -327,7 +340,8 @@ class IncomeStatementItem {
 
   IncomeStatementItem({required this.category, required this.amount});
 
-  factory IncomeStatementItem.fromJson(Map<String, dynamic> json) => _$IncomeStatementItemFromJson(json);
+  factory IncomeStatementItem.fromJson(Map<String, dynamic> json) =>
+      _$IncomeStatementItemFromJson(json);
   Map<String, dynamic> toJson() => _$IncomeStatementItemToJson(this);
 }
 
@@ -350,7 +364,8 @@ class IncomeStatement {
     required this.netIncome,
   });
 
-  factory IncomeStatement.fromJson(Map<String, dynamic> json) => _$IncomeStatementFromJson(json);
+  factory IncomeStatement.fromJson(Map<String, dynamic> json) =>
+      _$IncomeStatementFromJson(json);
   Map<String, dynamic> toJson() => _$IncomeStatementToJson(this);
 }
 
@@ -362,7 +377,8 @@ class BalanceSheetItem {
 
   BalanceSheetItem({required this.category, required this.amount});
 
-  factory BalanceSheetItem.fromJson(Map<String, dynamic> json) => _$BalanceSheetItemFromJson(json);
+  factory BalanceSheetItem.fromJson(Map<String, dynamic> json) =>
+      _$BalanceSheetItemFromJson(json);
   Map<String, dynamic> toJson() => _$BalanceSheetItemToJson(this);
 }
 
@@ -387,7 +403,8 @@ class BalanceSheet {
     required this.totalLiabilitiesEquity,
   });
 
-  factory BalanceSheet.fromJson(Map<String, dynamic> json) => _$BalanceSheetFromJson(json);
+  factory BalanceSheet.fromJson(Map<String, dynamic> json) =>
+      _$BalanceSheetFromJson(json);
   Map<String, dynamic> toJson() => _$BalanceSheetToJson(this);
 }
 
@@ -399,7 +416,8 @@ class CashFlowActivity {
 
   CashFlowActivity({required this.description, required this.amount});
 
-  factory CashFlowActivity.fromJson(Map<String, dynamic> json) => _$CashFlowActivityFromJson(json);
+  factory CashFlowActivity.fromJson(Map<String, dynamic> json) =>
+      _$CashFlowActivityFromJson(json);
   Map<String, dynamic> toJson() => _$CashFlowActivityToJson(this);
 }
 
@@ -414,7 +432,8 @@ class CashFlowSection {
 
   CashFlowSection({required this.title, required this.activities});
 
-  factory CashFlowSection.fromJson(Map<String, dynamic> json) => _$CashFlowSectionFromJson(json);
+  factory CashFlowSection.fromJson(Map<String, dynamic> json) =>
+      _$CashFlowSectionFromJson(json);
   Map<String, dynamic> toJson() => _$CashFlowSectionToJson(this);
 }
 
@@ -454,7 +473,8 @@ class CashFlowStatement {
     required this.netIncome,
   });
 
-  factory CashFlowStatement.fromJson(Map<String, dynamic> json) => _$CashFlowStatementFromJson(json);
+  factory CashFlowStatement.fromJson(Map<String, dynamic> json) =>
+      _$CashFlowStatementFromJson(json);
   Map<String, dynamic> toJson() => _$CashFlowStatementToJson(this);
 }
 
@@ -480,6 +500,7 @@ class LedgerAccountBalance {
     required this.currentBalance,
   });
 
-  factory LedgerAccountBalance.fromJson(Map<String, dynamic> json) => _$LedgerAccountBalanceFromJson(json);
+  factory LedgerAccountBalance.fromJson(Map<String, dynamic> json) =>
+      _$LedgerAccountBalanceFromJson(json);
   Map<String, dynamic> toJson() => _$LedgerAccountBalanceToJson(this);
 }

@@ -78,12 +78,9 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
   Future<void> _loadFolders() async {
     try {
       final books = await _sync.localBooks();
-      final folders = books
-          .map((b) => b.folder)
-          .where((f) => f.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final folders =
+          books.map((b) => b.folder).where((f) => f.isNotEmpty).toSet().toList()
+            ..sort();
       if (mounted) setState(() => _existingFolders = folders);
     } catch (_) {
       // folder suggestions are best-effort
@@ -124,9 +121,9 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
         folder: _folder,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${book.name}" is ready')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('"${book.name}" is ready')));
         // pop with the id so the Books page makes it the active context
         Navigator.of(context).pop(book.id);
       }
@@ -147,16 +144,14 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
       appBar: AppBar(
         title: const Text('Start a Book'),
         automaticallyImplyLeading: !_creating,
-        leading: _step == 0 || _creating
-            ? null
-            : BackButton(onPressed: _back),
+        leading: _step == 0 || _creating ? null : BackButton(onPressed: _back),
       ),
       body: SafeArea(
         child: _step == 0
             ? _buildStart()
             : _step == 1
-                ? _buildCategoryStep()
-                : _buildNameStep(),
+            ? _buildCategoryStep()
+            : _buildNameStep(),
       ),
     );
   }
@@ -256,10 +251,7 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
           ],
         ),
         const SizedBox(height: 20),
-        Text(
-          'Name your Book',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Name your Book', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         TextField(
           controller: _nameCtrl,

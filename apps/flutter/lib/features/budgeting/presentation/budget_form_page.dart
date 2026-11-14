@@ -14,7 +14,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _currencyController = TextEditingController(text: 'USD');
+  final TextEditingController _currencyController = TextEditingController(
+    text: 'USD',
+  );
 
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 365));
@@ -80,7 +82,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             startDate: _startDate,
             endDate: _endDate,
             currency: _currencyController.text,
-            description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+            description: _descriptionController.text.isEmpty
+                ? null
+                : _descriptionController.text,
           ),
         );
         if (mounted) {
@@ -102,9 +106,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New Budget'),
-      ),
+      appBar: AppBar(title: const Text('Create New Budget')),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -129,8 +131,12 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     child: InkWell(
                       onTap: _selectStartDate,
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'Start Date'),
-                        child: Text(DateFormat('yyyy-MM-dd').format(_startDate)),
+                        decoration: const InputDecoration(
+                          labelText: 'Start Date',
+                        ),
+                        child: Text(
+                          DateFormat('yyyy-MM-dd').format(_startDate),
+                        ),
                       ),
                     ),
                   ),
@@ -139,7 +145,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     child: InkWell(
                       onTap: _selectEndDate,
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'End Date'),
+                        decoration: const InputDecoration(
+                          labelText: 'End Date',
+                        ),
                         child: Text(DateFormat('yyyy-MM-dd').format(_endDate)),
                       ),
                     ),
@@ -160,14 +168,19 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description (Optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Description (Optional)',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Budget Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Budget Items',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   ElevatedButton.icon(
                     onPressed: _addBudgetItem,
                     icon: const Icon(Icons.add),
@@ -188,7 +201,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     child: Column(
                       children: [
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Category'),
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                          ),
                           onChanged: (value) {
                             setState(() {
                               _budgetItems[idx].category = value;
@@ -203,15 +218,20 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Budgeted Amount'),
+                          decoration: const InputDecoration(
+                            labelText: 'Budgeted Amount',
+                          ),
                           keyboardType: TextInputType.number,
                           onChanged: (value) {
                             setState(() {
-                              _budgetItems[idx].budgetedAmount = double.tryParse(value) ?? 0.0;
+                              _budgetItems[idx].budgetedAmount =
+                                  double.tryParse(value) ?? 0.0;
                             });
                           },
                           validator: (value) {
-                            if (value == null || double.tryParse(value) == null || double.parse(value) < 0) {
+                            if (value == null ||
+                                double.tryParse(value) == null ||
+                                double.parse(value) < 0) {
                               return 'Enter a valid amount';
                             }
                             return null;
@@ -219,7 +239,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Account Number (Optional)'),
+                          decoration: const InputDecoration(
+                            labelText: 'Account Number (Optional)',
+                          ),
                           onChanged: (value) {
                             setState(() {
                               _budgetItems[idx].accountNumber = value;
@@ -229,13 +251,21 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           initialValue: _budgetItems[idx].budgetType,
-                          decoration: const InputDecoration(labelText: 'Budget Type'),
-                          items: <String>['expense', 'revenue', 'asset', 'liability'].map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                          decoration: const InputDecoration(
+                            labelText: 'Budget Type',
+                          ),
+                          items:
+                              <String>[
+                                'expense',
+                                'revenue',
+                                'asset',
+                                'liability',
+                              ].map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
                           onChanged: (String? newValue) {
                             if (newValue != null) {
                               setState(() {

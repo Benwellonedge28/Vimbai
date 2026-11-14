@@ -16,7 +16,8 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _bankNameController = TextEditingController();
-  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _accountNumberController =
+      TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
   String _accountType = 'checking'; // Default account type
 
@@ -51,7 +52,9 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error linking bank account: ${e.toString()}')),
+            SnackBar(
+              content: Text('Error linking bank account: ${e.toString()}'),
+            ),
           );
         }
       }
@@ -77,24 +80,41 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                   ),
                   TextFormField(
                     controller: _accountNumberController,
-                    decoration: const InputDecoration(labelText: 'Account Number'),
+                    decoration: const InputDecoration(
+                      labelText: 'Account Number',
+                    ),
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
                     controller: _apiKeyController,
-                    decoration: const InputDecoration(labelText: 'Bank API Key'),
+                    decoration: const InputDecoration(
+                      labelText: 'Bank API Key',
+                    ),
                     obscureText: true,
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: _accountType,
-                    decoration: const InputDecoration(labelText: 'Account Type'),
-                    items: <String>['checking', 'savings', 'credit_card', 'loan'].map((String value) {
-                      return DropdownMenuItem<String>(value: value, child: Text(value));
-                    }).toList(),
+                    decoration: const InputDecoration(
+                      labelText: 'Account Type',
+                    ),
+                    items:
+                        <String>[
+                          'checking',
+                          'savings',
+                          'credit_card',
+                          'loan',
+                        ].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
                     onChanged: (String? newValue) {
                       if (newValue != null) {
-                        setState(() { _accountType = newValue; });
+                        setState(() {
+                          _accountType = newValue;
+                        });
                       }
                     },
                   ),
@@ -103,8 +123,14 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-            ElevatedButton(onPressed: _connectBank, child: const Text('Link Account')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _connectBank,
+              child: const Text('Link Account'),
+            ),
           ],
         );
       },
@@ -116,10 +142,18 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Disconnect bank account?'),
-        content: Text('${connection.bankName} ${connection.accountNumber} will be unlinked.'),
+        content: Text(
+          '${connection.bankName} ${connection.accountNumber} will be unlinked.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Disconnect')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Disconnect'),
+          ),
         ],
       ),
     );
@@ -144,71 +178,83 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          appBar: AppBar(
-            title: const Text('Bank Accounts'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _refreshConnections,
-              ),
-            ],
+      appBar: AppBar(
+        title: const Text('Bank Accounts'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshConnections,
           ),
-          body: FutureBuilder<List<BankConnection>>(
-            future: _connectionsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('No bank accounts linked.'));
-              } else {
-                return ListView.builder(
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    final connection = snapshot.data![index];
-                    return Dismissible(
-                      key: Key(connection.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.link_off, color: Colors.white),
-                      ),
-                      confirmDismiss: (_) async {
-                        await _disconnect(connection);
-                        return false;
-                      },
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: ListTile(
-                          title: Text('${connection.bankName} - ${connection.accountNumber}'),
-                          subtitle: Text(
-                            '${connection.accountType.toUpperCase()} | ${connection.status.toUpperCase()}'
-                            '${connection.lastSync != null ? ' | Synced: ${connection.lastSync!.toLocal().toString().substring(0, 16)}' : ''}',
-                          ),
-                          trailing: Icon(
-                            connection.status == 'active' ? Icons.link : Icons.link_off,
-                            color: connection.status == 'active' ? Colors.green : Colors.grey,
-                          ),
-                          onTap: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (context) => BankAccountDetailPage(connection: connection),
-                            ));
-                          },
-                        ),
-                      ),
-                    );
+        ],
+      ),
+      body: FutureBuilder<List<BankConnection>>(
+        future: _connectionsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No bank accounts linked.'));
+          } else {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final connection = snapshot.data![index];
+                return Dismissible(
+                  key: Key(connection.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    child: const Icon(Icons.link_off, color: Colors.white),
+                  ),
+                  confirmDismiss: (_) async {
+                    await _disconnect(connection);
+                    return false;
                   },
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: ListTile(
+                      title: Text(
+                        '${connection.bankName} - ${connection.accountNumber}',
+                      ),
+                      subtitle: Text(
+                        '${connection.accountType.toUpperCase()} | ${connection.status.toUpperCase()}'
+                        '${connection.lastSync != null ? ' | Synced: ${connection.lastSync!.toLocal().toString().substring(0, 16)}' : ''}',
+                      ),
+                      trailing: Icon(
+                        connection.status == 'active'
+                            ? Icons.link
+                            : Icons.link_off,
+                        color: connection.status == 'active'
+                            ? Colors.green
+                            : Colors.grey,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BankAccountDetailPage(connection: connection),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 );
-              }
-            },
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _showConnectDialog,
-            child: const Icon(Icons.add),
-          ),
-        );
-      }
-    }
+              },
+            );
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showConnectDialog,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

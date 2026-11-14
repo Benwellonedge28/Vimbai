@@ -26,12 +26,18 @@ jobs:
         uses: flutter-actions/setup-flutter@v4
         with:
           channel: stable
-          version: latest
+          # the same version the core pipeline gates on and the app is developed against, so a green here and a green
+          # there mean the same thing
+          version: 3.50.0
           cache: true
           cache-sdk: true
 
       - name: Pub get
         run: flutter pub get
+        working-directory: apps/flutter
+
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
         working-directory: apps/flutter
 
       - name: Analyze Dart code

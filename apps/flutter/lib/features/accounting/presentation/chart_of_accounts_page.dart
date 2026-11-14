@@ -19,9 +19,13 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   void initState() {
     super.initState();
     _checkConnectivity();
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       setState(() {
-        _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
+        _connectivityResult = results.isEmpty
+            ? ConnectivityResult.none
+            : results.last;
         _loadAccounts();
       });
     });
@@ -30,7 +34,9 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
 
   Future<void> _checkConnectivity() async {
     final results = await Connectivity().checkConnectivity();
-    _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
+    _connectivityResult = results.isEmpty
+        ? ConnectivityResult.none
+        : results.last;
     setState(() {});
   }
 
@@ -135,7 +141,11 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'Error: ${snapshot.error}',
@@ -168,8 +178,13 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            color: _getAccountTypeColor(entry.key).withValues(alpha: 0.1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            color: _getAccountTypeColor(
+                              entry.key,
+                            ).withValues(alpha: 0.1),
                             child: Row(
                               children: [
                                 Icon(
@@ -190,52 +205,70 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                                   '${entry.value.length} accounts',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: _getAccountTypeColor(entry.key).withValues(alpha: 0.7),
+                                    color: _getAccountTypeColor(
+                                      entry.key,
+                                    ).withValues(alpha: 0.7),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          ...entry.value.map((account) => ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: _getAccountTypeColor(entry.key).withValues(alpha: 0.2),
-                              child: Icon(
-                                _getAccountTypeIcon(entry.key),
-                                color: _getAccountTypeColor(entry.key),
-                                size: 20,
+                          ...entry.value.map(
+                            (account) => ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: _getAccountTypeColor(
+                                  entry.key,
+                                ).withValues(alpha: 0.2),
+                                child: Icon(
+                                  _getAccountTypeIcon(entry.key),
+                                  color: _getAccountTypeColor(entry.key),
+                                  size: 20,
+                                ),
                               ),
-                            ),
-                            title: Text(account.accountName),
-                            subtitle: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(4),
+                              title: Text(account.accountName),
+                              subtitle: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      account.accountNumber,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
-                                  child: Text(
-                                    account.accountNumber,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Normal: ${account.normalBalance}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Normal: ${account.normalBalance}',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
+                                ],
+                              ),
+                              trailing: account.description != null
+                                  ? Tooltip(
+                                      message: account.description!,
+                                      child: const Icon(
+                                        Icons.info_outline,
+                                        size: 20,
+                                      ),
+                                    )
+                                  : null,
+                              onTap: () {
+                                // Could navigate to account detail page
+                              },
                             ),
-                            trailing: account.description != null
-                                ? Tooltip(
-                                    message: account.description!,
-                                    child: const Icon(Icons.info_outline, size: 20),
-                                  )
-                                : null,
-                            onTap: () {
-                              // Could navigate to account detail page
-                            },
-                          )),
+                          ),
                           const Divider(),
                         ],
                       );

@@ -55,7 +55,8 @@ class _BookInboxPageState extends State<BookInboxPage> {
   void _startLiveUpdates() {
     _realtimeSub = RealtimeService.instance.events.listen((event) {
       if (!mounted) return;
-      if (event.bookId != null && event.bookId != BookContext.instance.current?.id) {
+      if (event.bookId != null &&
+          event.bookId != BookContext.instance.current?.id) {
         return;
       }
       _refresh();
@@ -71,7 +72,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
     _fallbackPoll = null;
     if (RealtimeService.instance.isConnected) return;
     // Socket down (or still connecting): keep the screen fresh, gently.
-    _fallbackPoll = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+    _fallbackPoll = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refresh(),
+    );
   }
 
   Future<void> _refresh() async {
@@ -141,7 +145,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
       final file = await _picker.pickImage(source: ImageSource.camera);
       if (file == null) break; // camera dismissed
       try {
-        await _api.capturePhoto(File(file.path), sourceContext: 'continuous_scan');
+        await _api.capturePhoto(
+          File(file.path),
+          sourceContext: 'continuous_scan',
+        );
         count++;
       } catch (e) {
         _toast('Scan failed: $e');
@@ -185,11 +192,19 @@ class _BookInboxPageState extends State<BookInboxPage> {
           controller: controller,
           maxLines: 4,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'e.g. Paid school fees 200 USD'),
+          decoration: const InputDecoration(
+            hintText: 'e.g. Paid school fees 200 USD',
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Capture')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Capture'),
+          ),
         ],
       ),
     );
@@ -222,10 +237,18 @@ class _BookInboxPageState extends State<BookInboxPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Discard record?'),
-        content: const Text('This captured record will be removed from the Book inbox.'),
+        content: const Text(
+          'This captured record will be removed from the Book inbox.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard'),
+          ),
         ],
       ),
     );
@@ -251,25 +274,36 @@ class _BookInboxPageState extends State<BookInboxPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_inputTypeLabel(record.inputType),
-                  style: Theme.of(ctx).textTheme.titleLarge),
+              Text(
+                _inputTypeLabel(record.inputType),
+                style: Theme.of(ctx).textTheme.titleLarge,
+              ),
               const SizedBox(height: 4),
               Text('Status: ${_statusLabel(record.status)}'),
               const SizedBox(height: 12),
               if (doc?.rawText != null && doc!.rawText!.isNotEmpty) ...[
-                Text('Extracted text', style: Theme.of(ctx).textTheme.titleSmall),
+                Text(
+                  'Extracted text',
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 Text(doc.rawText!),
                 const SizedBox(height: 12),
               ],
               if (audio?.transcribedText != null) ...[
-                Text('Transcribed text', style: Theme.of(ctx).textTheme.titleSmall),
+                Text(
+                  'Transcribed text',
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 Text(audio!.transcribedText!),
                 const SizedBox(height: 12),
               ],
               if (doc != null && doc.extractedData.isNotEmpty) ...[
-                Text('Extracted fields', style: Theme.of(ctx).textTheme.titleSmall),
+                Text(
+                  'Extracted fields',
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 ...doc.extractedData.map(
                   (f) => Padding(
@@ -286,7 +320,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
                 const SizedBox(height: 12),
               ],
               if (sje != null) ...[
-                Text('Suggested record', style: Theme.of(ctx).textTheme.titleSmall),
+                Text(
+                  'Suggested record',
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 ...sje.entries.map(
                   (e) => Padding(
@@ -321,7 +358,8 @@ class _BookInboxPageState extends State<BookInboxPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: record.status == MultimodalProcessingStatus.completed
+                      onPressed:
+                          record.status == MultimodalProcessingStatus.completed
                           ? null
                           : () {
                               Navigator.pop(ctx);
@@ -351,40 +389,40 @@ class _BookInboxPageState extends State<BookInboxPage> {
   // ------------------------------------------------------------------
 
   String _inputTypeLabel(MultimodalInputType t) => switch (t) {
-        MultimodalInputType.image => 'Photo capture',
-        MultimodalInputType.video => 'Video capture',
-        MultimodalInputType.audio => 'Voice note',
-        MultimodalInputType.document => 'Document',
-        MultimodalInputType.text => 'Typed note',
-      };
+    MultimodalInputType.image => 'Photo capture',
+    MultimodalInputType.video => 'Video capture',
+    MultimodalInputType.audio => 'Voice note',
+    MultimodalInputType.document => 'Document',
+    MultimodalInputType.text => 'Typed note',
+  };
 
   String _statusLabel(MultimodalProcessingStatus s) => switch (s) {
-        MultimodalProcessingStatus.received => 'Received',
-        MultimodalProcessingStatus.processing => 'Processing',
-        MultimodalProcessingStatus.aiExtracted => 'AI extracted',
-        MultimodalProcessingStatus.reviewPending => 'Needs review',
-        MultimodalProcessingStatus.userCorrected => 'Corrected',
-        MultimodalProcessingStatus.completed => 'Organized',
-        MultimodalProcessingStatus.failed => 'Failed',
-      };
+    MultimodalProcessingStatus.received => 'Received',
+    MultimodalProcessingStatus.processing => 'Processing',
+    MultimodalProcessingStatus.aiExtracted => 'AI extracted',
+    MultimodalProcessingStatus.reviewPending => 'Needs review',
+    MultimodalProcessingStatus.userCorrected => 'Corrected',
+    MultimodalProcessingStatus.completed => 'Organized',
+    MultimodalProcessingStatus.failed => 'Failed',
+  };
 
   IconData _inputTypeIcon(MultimodalInputType t) => switch (t) {
-        MultimodalInputType.image => Icons.photo_camera,
-        MultimodalInputType.video => Icons.videocam,
-        MultimodalInputType.audio => Icons.mic,
-        MultimodalInputType.document => Icons.description,
-        MultimodalInputType.text => Icons.notes,
-      };
+    MultimodalInputType.image => Icons.photo_camera,
+    MultimodalInputType.video => Icons.videocam,
+    MultimodalInputType.audio => Icons.mic,
+    MultimodalInputType.document => Icons.description,
+    MultimodalInputType.text => Icons.notes,
+  };
 
   Color _statusColor(MultimodalProcessingStatus s) => switch (s) {
-        MultimodalProcessingStatus.received => Colors.blueGrey,
-        MultimodalProcessingStatus.processing => Colors.blue,
-        MultimodalProcessingStatus.aiExtracted => Colors.indigo,
-        MultimodalProcessingStatus.reviewPending => Colors.orange,
-        MultimodalProcessingStatus.userCorrected => Colors.teal,
-        MultimodalProcessingStatus.completed => Colors.green,
-        MultimodalProcessingStatus.failed => Colors.red,
-      };
+    MultimodalProcessingStatus.received => Colors.blueGrey,
+    MultimodalProcessingStatus.processing => Colors.blue,
+    MultimodalProcessingStatus.aiExtracted => Colors.indigo,
+    MultimodalProcessingStatus.reviewPending => Colors.orange,
+    MultimodalProcessingStatus.userCorrected => Colors.teal,
+    MultimodalProcessingStatus.completed => Colors.green,
+    MultimodalProcessingStatus.failed => Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -406,37 +444,48 @@ class _BookInboxPageState extends State<BookInboxPage> {
               child: ListTile(
                 dense: true,
                 leading: const Icon(Icons.cloud_upload_outlined),
-                title: Text('$_pendingSync record(s) saved offline - will sync when online'),
+                title: Text(
+                  '$_pendingSync record(s) saved offline - will sync when online',
+                ),
               ),
             ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                    : RefreshIndicator(
-                        onRefresh: _refresh,
-                        child: Column(
-                          children: [
-                            if (_error != null)
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Text('Could not load inbox: $_error',
-                                    style:
-                                        TextStyle(color: Theme.of(context).colorScheme.error)),
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: Column(
+                      children: [
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Could not load inbox: $_error',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
                               ),
-                            _summaryBar(),
-                            SegmentedButton<String>(
-                              segments: const [
-                                ButtonSegment(value: 'incomplete', label: Text('Incomplete')),
-                                ButtonSegment(value: 'organized', label: Text('Organized')),
-                                ButtonSegment(value: 'all', label: Text('All')),
-                              ],
-                              selected: {_view},
-                              onSelectionChanged: (s) => _setView(s.first),
                             ),
-                            Expanded(child: _recordsList()),
+                          ),
+                        _summaryBar(),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'incomplete',
+                              label: Text('Incomplete'),
+                            ),
+                            ButtonSegment(
+                              value: 'organized',
+                              label: Text('Organized'),
+                            ),
+                            ButtonSegment(value: 'all', label: Text('All')),
                           ],
+                          selected: {_view},
+                          onSelectionChanged: (s) => _setView(s.first),
                         ),
-                      ),
+                        Expanded(child: _recordsList()),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -476,8 +525,14 @@ class _BookInboxPageState extends State<BookInboxPage> {
         ),
         child: Column(
           children: [
-            Text('$count',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
             Text(label, style: TextStyle(fontSize: 11, color: color)),
           ],
         ),
@@ -515,8 +570,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: _statusColor(r.status).withValues(alpha: 0.15),
-              child: Icon(_inputTypeIcon(r.inputType),
-                  color: _statusColor(r.status)),
+              child: Icon(
+                _inputTypeIcon(r.inputType),
+                color: _statusColor(r.status),
+              ),
             ),
             title: Text(
               sje?['description'] as String? ??
@@ -532,7 +589,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
               overflow: TextOverflow.ellipsis,
             ),
             trailing: Chip(
-              label: Text(_statusLabel(r.status), style: const TextStyle(fontSize: 11)),
+              label: Text(
+                _statusLabel(r.status),
+                style: const TextStyle(fontSize: 11),
+              ),
               backgroundColor: _statusColor(r.status).withValues(alpha: 0.12),
               visualDensity: VisualDensity.compact,
             ),

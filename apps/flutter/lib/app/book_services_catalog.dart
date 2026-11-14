@@ -50,7 +50,8 @@ List<BookServiceEntry> servicesForTier(String tier) {
       return [
         BookServiceEntry(
           title: 'Personal finance',
-          description: 'Recurring bills and income, debts, investments and tax estimation',
+          description:
+              'Recurring bills and income, debts, investments and tax estimation',
           icon: Icons.person_outline,
           page: (context) => const PersonalFinancePage(),
         ),
@@ -71,7 +72,8 @@ List<BookServiceEntry> servicesForTier(String tier) {
       return [
         BookServiceEntry(
           title: 'Household finance',
-          description: 'Analyze household income, expenses, assets and liabilities',
+          description:
+              'Analyze household income, expenses, assets and liabilities',
           icon: Icons.home_outlined,
           page: (context) => const HouseholdFinancePage(),
         ),
@@ -92,7 +94,8 @@ List<BookServiceEntry> servicesForTier(String tier) {
       return [
         BookServiceEntry(
           title: 'Group savings',
-          description: 'Savings groups: members, contribution cycles and payouts',
+          description:
+              'Savings groups: members, contribution cycles and payouts',
           icon: Icons.groups_outlined,
           page: (context) => const GroupSavingsPage(),
         ),
@@ -107,7 +110,8 @@ List<BookServiceEntry> servicesForTier(String tier) {
       return [
         BookServiceEntry(
           title: 'Non-profit organizations',
-          description: 'NPO profiles, size bands, donations and donor-grade reports',
+          description:
+              'NPO profiles, size bands, donations and donor-grade reports',
           icon: Icons.volunteer_activism_outlined,
           page: (context) => const NpoPage(),
         ),

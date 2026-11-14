@@ -56,10 +56,10 @@ class NpoScaleService {
   void setAuthToken(String token) => _token = token;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-        ...BookContext.instance.headers(),
-      };
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+    ...BookContext.instance.headers(),
+  };
 
   http.Client _client = http.Client();
 
@@ -110,10 +110,7 @@ class NpoScaleService {
   }
 
   Future<Map<String, dynamic>> orgFeatures(String orgId) async {
-    final r = await _client.get(
-      _u('/orgs/$orgId/features'),
-      headers: _headers,
-    );
+    final r = await _client.get(_u('/orgs/$orgId/features'), headers: _headers);
     return _decode<Map<String, dynamic>>(r);
   }
 
@@ -207,7 +204,10 @@ class NpoScaleService {
     return (_decode<Map<String, dynamic>>(r))['purchase_id'] as String;
   }
 
-  Future<Map<String, dynamic>> payPurchase(String orgId, String purchaseId) async {
+  Future<Map<String, dynamic>> payPurchase(
+    String orgId,
+    String purchaseId,
+  ) async {
     final r = await _client.post(
       _u('/orgs/$orgId/purchases/$purchaseId/pay'),
       headers: _headers,

@@ -24,6 +24,8 @@ pull request.
 | 007 | One system of record (Postgres) with SQLite on a device, and the tool that moves the data off it |
 | 008 | Crate directory names are not renamed for cosmetic consistency |
 | 009 | The kernel's reading half reads the store; the posting authority stays store-free |
+| 010 | An organisation is the tenant, a Book belongs to one, and one rule decides who may open it |
+| 011 | A schema change is a numbered step, recorded, in both stores |
 
 ## Architecture
 
@@ -61,7 +63,7 @@ catalogue does not have, or if a page leaves out one of its own prefixes.
 
 ## Not written yet, and why
 
-A Postgres implementation of the store (ADR-007 decides it; the driver and a server to test against are not in this
-repository yet). Attaching the 180 unattributed prefix groups to catalogue owners. Operations runbooks beyond the
-manifests. Compliance detail beyond financial integrity. Anything belonging to Vimbai Pay or the developer platform,
-which are out of scope by ADR-005 and ADR-006.
+Operations runbooks beyond the manifests: what to do when the engine will not start, when a migration is refused because
+the store was written by a newer build (ADR-011 says upgrade, not downgrade), and who to call. Compliance detail beyond
+financial integrity. Anything belonging to Vimbai Pay or the developer platform, which are out of scope by ADR-005 and
+ADR-006.

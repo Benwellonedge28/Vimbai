@@ -44,7 +44,6 @@ Known gaps this roadmap closes, in the order they appear below:
    holds a generated specification per domain beside the six hand-written ones, and a gate holds every address in both
    directions. The 180 prefix groups no catalogue service claims are attributed from the code that answers them (see P6);
    nothing is left in `unattributed.yaml`, which is deleted. Nothing remains open here.
-   attached to nothing - that is the open item.
 5. `docs/` is ten flat files; the proposed subtrees do not exist.
 6. `data/` exists and is empty; there is no migration mechanism since the alembic tree was deleted.
 7. `apps/sync-server` and `apps/worker` do not exist.

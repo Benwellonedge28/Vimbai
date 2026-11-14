@@ -22,15 +22,9 @@ use crate::columns::{checked_property, id_of, indexed, now_seq, unquote};
 use crate::*;
 use crate::{Graph, RecordKind, StoreError};
 
-/// One forward step of the schema, with the step that undoes it.
-///
-/// A migration that cannot be rolled back is a migration nobody dares run. Both halves live here so a test can apply, undo
-/// and re-apply them against a store that already holds records - which is the only way to know that the third step works.
-pub struct Step {
-    pub name: &'static str,
-    pub up: &'static str,
-    pub down: &'static str,
-}
+/// One forward step of the schema, shared with every other backend so the rule about which steps to run is not decided
+/// twice. The SQL below is SQLite's own; the decision is `migrations::plan`'s.
+pub use crate::migrations::Step;
 
 /// The schema, in order. Append; never edit a step that has shipped.
 pub const SCHEMA: &[Step] = &[
@@ -173,15 +167,15 @@ fn ensure_version_table(connection: &Connection) -> Result<(), StoreError> {
 
 fn apply(connection: &mut Connection) -> Result<(), StoreError> {
     ensure_version_table(connection)?;
-    let mut version = version_of(connection)? as usize;
-    if version > SCHEMA.len() {
-        return Err(StoreError::Graph(format!(
-            "this store was written by a newer build: schema {version}, this build knows {}",
-            SCHEMA.len()
-        )));
-    }
-    while version < SCHEMA.len() {
-        let step = &SCHEMA[version];
+    let found = version_of(connection)?;
+    let (from, to) = match crate::migrations::plan(found, SCHEMA) {
+        crate::migrations::Plan::UpToDate { .. } => return Ok(()),
+        crate::migrations::Plan::Apply { from, to } => (from, to),
+        crate::migrations::Plan::WrittenByNewer { found, known } => {
+            return Err(crate::migrations::newer_than_this_build(found, known))
+        }
+    };
+    for (version, step) in SCHEMA.iter().enumerate().take(to).skip(from) {
         // one transaction per step: a step that fails half way leaves the previous version, not a half-schema
         let transaction = connection.transaction().map_err(graph)?;
         transaction.execute_batch(step.up).map_err(graph)?;
@@ -195,7 +189,6 @@ fn apply(connection: &mut Connection) -> Result<(), StoreError> {
             )
             .map_err(graph)?;
         transaction.commit().map_err(graph)?;
-        version += 1;
     }
     Ok(())
 }

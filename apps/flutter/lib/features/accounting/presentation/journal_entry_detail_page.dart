@@ -8,13 +8,17 @@ class JournalEntryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double totalDebit = entry.lines.fold(0.0, (sum, line) => sum + line.debit.toDouble());
-    double totalCredit = entry.lines.fold(0.0, (sum, line) => sum + line.credit.toDouble());
+    double totalDebit = entry.lines.fold(
+      0.0,
+      (sum, line) => sum + line.debit.toDouble(),
+    );
+    double totalCredit = entry.lines.fold(
+      0.0,
+      (sum, line) => sum + line.credit.toDouble(),
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Journal Entry Details'),
-      ),
+      appBar: AppBar(title: const Text('Journal Entry Details')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -28,14 +32,19 @@ class JournalEntryDetailPage extends StatelessWidget {
                   children: [
                     Text(
                       entry.description,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         const Icon(Icons.calendar_today, size: 16),
                         const SizedBox(width: 8),
-                        Text('Date: ${DateFormat.yMMMd().format(entry.entryDate)}'),
+                        Text(
+                          'Date: ${DateFormat.yMMMd().format(entry.entryDate)}',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -79,7 +88,10 @@ class JournalEntryDetailPage extends StatelessWidget {
                       children: [
                         Text(
                           'Line ${idx + 1}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -89,13 +101,16 @@ class JournalEntryDetailPage extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 line.accountNumber,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        if (line.description != null && line.description!.isNotEmpty) ...[
+                        if (line.description != null &&
+                            line.description!.isNotEmpty) ...[
                           Row(
                             children: [
                               const Icon(Icons.description, size: 16),
@@ -112,20 +127,40 @@ class JournalEntryDetailPage extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Debit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                const Text(
+                                  'Debit',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                                 Text(
                                   '\$${line.debit.toDouble().toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
                                 ),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('Credit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                const Text(
+                                  'Credit',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                                 Text(
                                   '\$${line.credit.toDouble().toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
                                 ),
                               ],
                             ),
@@ -138,7 +173,9 @@ class JournalEntryDetailPage extends StatelessWidget {
               }).toList(),
             const SizedBox(height: 16),
             Card(
-              color: totalDebit == totalCredit ? Colors.green.shade50 : Colors.red.shade50,
+              color: totalDebit == totalCredit
+                  ? Colors.green.shade50
+                  : Colors.red.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -147,20 +184,32 @@ class JournalEntryDetailPage extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Total Debits', style: TextStyle(fontSize: 12)),
+                        const Text(
+                          'Total Debits',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         Text(
                           '\$${totalDebit.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text('Total Credits', style: TextStyle(fontSize: 12)),
+                        const Text(
+                          'Total Credits',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         Text(
                           '\$${totalCredit.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -171,14 +220,22 @@ class JournalEntryDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: totalDebit == totalCredit ? Colors.green : Colors.red,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  totalDebit == totalCredit ? 'Entry is Balanced' : 'Entry is NOT Balanced',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  totalDebit == totalCredit
+                      ? 'Entry is Balanced'
+                      : 'Entry is NOT Balanced',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),

@@ -35,9 +35,7 @@ class SyncService {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(_syncInterval, (_) => syncAll());
     _connectivitySub?.cancel();
-    _connectivitySub = Connectivity()
-        .onConnectivityChanged
-        .listen((results) {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
       if (online) syncAll();
     });
@@ -80,7 +78,10 @@ class SyncService {
     final unsyncedAccounts = await _localDb.getUnsyncedAccounts();
     for (final ref in unsyncedAccounts) {
       try {
-        await _accountingApiService.pushAccountToServer(ref.item, bookId: ref.bookId);
+        await _accountingApiService.pushAccountToServer(
+          ref.item,
+          bookId: ref.bookId,
+        );
       } catch (e) {
         print('Failed to push account ${ref.item.accountNumber}: $e');
       }
@@ -91,7 +92,10 @@ class SyncService {
     final unsynced = await _localDb.getUnsyncedJournalEntriesWithBooks();
     for (final ref in unsynced) {
       try {
-        await _accountingApiService.pushJournalEntryToServer(ref.item, bookId: ref.bookId);
+        await _accountingApiService.pushJournalEntryToServer(
+          ref.item,
+          bookId: ref.bookId,
+        );
       } catch (e) {
         print('Failed to push journal entry ${ref.item.id}: $e');
       }
@@ -109,13 +113,15 @@ class SyncService {
     final unsyncedTasks = await _localDb.getUnsyncedMultimodalTasks();
     for (final task in unsyncedTasks) {
       try {
-        await _multimodalApiService.createTask(MultimodalProcessingTaskCreate(
-          userId: task.userId,
-          inputType: task.inputType,
-          inputUrl: task.dataUrl,
-          inputRawText: task.rawText,
-          metadata: task.metadata,
-        ));
+        await _multimodalApiService.createTask(
+          MultimodalProcessingTaskCreate(
+            userId: task.userId,
+            inputType: task.inputType,
+            inputUrl: task.dataUrl,
+            inputRawText: task.rawText,
+            metadata: task.metadata,
+          ),
+        );
         await _localDb.markMultimodalTaskAsSynced(task.id);
       } catch (e) {
         print('Failed to push multimodal task ${task.id}: $e');

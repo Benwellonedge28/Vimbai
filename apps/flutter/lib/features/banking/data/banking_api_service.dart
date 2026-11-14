@@ -38,17 +38,21 @@ class BankingApiService {
   }) async {
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_bankingServiceUrl/connect').replace(queryParameters: {
-        'bank_name': bankName,
-        'account_number': accountNumber,
-        'api_key': apiKey,
-        'account_type': accountType,
-      }),
+      Uri.parse('$_bankingServiceUrl/connect').replace(
+        queryParameters: {
+          'bank_name': bankName,
+          'account_number': accountNumber,
+          'api_key': apiKey,
+          'account_type': accountType,
+        },
+      ),
       headers: headers,
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return BankConnection.fromJson(json.decode(response.body) as Map<String, dynamic>);
+      return BankConnection.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
     } else {
       throw Exception('Failed to connect bank account: ${response.body}');
     }
@@ -57,11 +61,17 @@ class BankingApiService {
   /// List the caller's bank connections in the current Book context.
   Future<List<BankConnection>> getConnections() async {
     final headers = await _getHeaders();
-    final response = await _client.get(Uri.parse('$_bankingServiceUrl/connections'), headers: headers);
+    final response = await _client.get(
+      Uri.parse('$_bankingServiceUrl/connections'),
+      headers: headers,
+    );
 
     if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body) as List<dynamic>;
-      return jsonList.map((j) => BankConnection.fromJson(j as Map<String, dynamic>)).toList();
+      final List<dynamic> jsonList =
+          json.decode(response.body) as List<dynamic>;
+      return jsonList
+          .map((j) => BankConnection.fromJson(j as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load bank connections: ${response.body}');
     }
@@ -88,16 +98,18 @@ class BankingApiService {
   }) async {
     final headers = await _getHeaders();
     final response = await _client.get(
-      Uri.parse('$_bankingServiceUrl/transactions/$connectionId').replace(queryParameters: {
-        'limit': '$limit',
-        'offset': '$offset',
-      }),
+      Uri.parse(
+        '$_bankingServiceUrl/transactions/$connectionId',
+      ).replace(queryParameters: {'limit': '$limit', 'offset': '$offset'}),
       headers: headers,
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body) as List<dynamic>;
-      return jsonList.map((j) => BankTransaction.fromJson(j as Map<String, dynamic>)).toList();
+      final List<dynamic> jsonList =
+          json.decode(response.body) as List<dynamic>;
+      return jsonList
+          .map((j) => BankTransaction.fromJson(j as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load transactions: ${response.body}');
     }

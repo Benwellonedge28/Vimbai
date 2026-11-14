@@ -25,34 +25,48 @@ use postgres::{Client, GenericClient, NoTls, Row};
 use serde_json::{json, Value};
 
 use crate::columns::{checked_property, id_of};
+use crate::migrations::{self, Plan, Step};
 use crate::{
     BookScope, Graph, RecordKind, StoreError, JOURNAL_ENTRY, JOURNAL_LINE, LEDGER_ACCOUNT,
 };
 
 /// One record per row: the kind and id identify it, the columns beside them are the ones a query needs to filter on
 /// without opening the JSON, and `props` is the record itself, kept exactly as the caller wrote it.
-const SCHEMA: &str = "
-CREATE TABLE IF NOT EXISTS store_records (
-    kind        text  NOT NULL,
-    id          text  NOT NULL,
-    book_id     text,
-    user_id     text,
-    created_at  text,
-    seq         bigint NOT NULL,
-    props       jsonb NOT NULL,
-    PRIMARY KEY (kind, id)
-);
-CREATE INDEX IF NOT EXISTS store_records_by_book ON store_records (kind, book_id, created_at DESC, seq DESC);
-CREATE INDEX IF NOT EXISTS store_records_by_seq  ON store_records (seq);
-CREATE TABLE IF NOT EXISTS store_edges (
-    from_id text NOT NULL,
-    label   text NOT NULL,
-    to_id   text NOT NULL,
-    seq     bigint NOT NULL,
-    PRIMARY KEY (from_id, label, to_id)
-);
-CREATE INDEX IF NOT EXISTS store_edges_to ON store_edges (to_id, label);
-";
+///
+/// The schema is a list of numbered steps rather than one block of `CREATE TABLE`, because a deployment store holds a
+/// ledger: the tables already exist on a store that has been running, and what it needs is the steps it has not had, not a
+/// re-creation. `migrations::plan` decides which of those to run, so this backend and the device store answer the same
+/// question the same way. Append to this list; never edit a step that has shipped.
+pub const SCHEMA: &[Step] = &[
+    Step {
+        name: "0001_records",
+        up: "CREATE TABLE IF NOT EXISTS store_records (
+                 kind       text   NOT NULL,
+                 id         text   NOT NULL,
+                 book_id    text,
+                 user_id    text,
+                 created_at text,
+                 seq        bigint NOT NULL,
+                 props      jsonb  NOT NULL,
+                 PRIMARY KEY (kind, id)
+             );
+             CREATE INDEX IF NOT EXISTS store_records_by_book ON store_records (kind, book_id, created_at DESC, seq DESC);
+             CREATE INDEX IF NOT EXISTS store_records_by_seq  ON store_records (seq);",
+        down: "DROP TABLE IF EXISTS store_records;",
+    },
+    Step {
+        name: "0002_edges",
+        up: "CREATE TABLE IF NOT EXISTS store_edges (
+                 from_id text   NOT NULL,
+                 label   text   NOT NULL,
+                 to_id   text   NOT NULL,
+                 seq     bigint NOT NULL,
+                 PRIMARY KEY (from_id, label, to_id)
+             );
+             CREATE INDEX IF NOT EXISTS store_edges_to ON store_edges (to_id, label);",
+        down: "DROP TABLE IF EXISTS store_edges;",
+    },
+];
 
 /// A store in a deployment, holding a pool of connections into one database.
 pub struct PostgresGraph {
@@ -70,7 +84,7 @@ impl PostgresGraph {
             pool: Mutex::new(Vec::new()),
             capacity: capacity.max(1),
         };
-        store.with(|client| client.batch_execute(SCHEMA).map_err(fault))?;
+        store.with(migrate)?;
         Ok(store)
     }
 
@@ -86,6 +100,16 @@ impl PostgresGraph {
             .and_then(|text| text.parse().ok())
             .unwrap_or(8);
         Self::connect(&dsn, capacity)
+    }
+
+    /// The schema version this database reports.
+    pub fn version(&self) -> Result<i64, StoreError> {
+        self.with(version_of)
+    }
+
+    /// Undo the last step. Exists so a test can prove a step's `down` is real, and for a release that has to go back.
+    pub fn rollback(&self) -> Result<(), StoreError> {
+        self.with(rollback)
     }
 
     fn connection(&self) -> Result<Client, StoreError> {
@@ -871,3 +895,70 @@ fn remove(
 /// The kinds this module names in its queries, checked at compile time by being used: a rename in the ledger's own
 /// vocabulary would otherwise break a query that nothing reads until a posting is walked.
 const _: [RecordKind; 2] = [JOURNAL_ENTRY, JOURNAL_LINE];
+
+/// The version the database reports, or -1 when it has no version row to report.
+fn version_of(client: &mut Client) -> Result<i64, StoreError> {
+    let present: bool = client
+        .query_one(
+            "SELECT count(*) > 0 FROM information_schema.tables WHERE table_name = 'schema_version'",
+            &[],
+        )
+        .map(|row| row.get(0))
+        .map_err(fault)?;
+    if !present {
+        return Ok(-1);
+    }
+    let row = client
+        .query_opt("SELECT version FROM schema_version", &[])
+        .map_err(fault)?;
+    Ok(row.map(|row| row.get::<_, i64>(0)).unwrap_or(0))
+}
+
+/// Bring the schema to the version this build knows, one step per transaction.
+///
+/// A step that fails half way leaves the previous version recorded, not a half-built schema: the version row is written in
+/// the same transaction as the step, so the two cannot disagree.
+fn migrate(client: &mut Client) -> Result<(), StoreError> {
+    client
+        .batch_execute(
+            "CREATE TABLE IF NOT EXISTS schema_version (version bigint NOT NULL);
+             INSERT INTO schema_version (version)
+                 SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM schema_version);",
+        )
+        .map_err(fault)?;
+    let (from, to) = match migrations::plan(version_of(client)?, SCHEMA) {
+        Plan::UpToDate { .. } => return Ok(()),
+        Plan::Apply { from, to } => (from, to),
+        Plan::WrittenByNewer { found, known } => {
+            return Err(migrations::newer_than_this_build(found, known))
+        }
+    };
+    for (version, step) in SCHEMA.iter().enumerate().take(to).skip(from) {
+        let mut transaction = client.transaction().map_err(fault)?;
+        transaction.batch_execute(step.up).map_err(fault)?;
+        transaction
+            .execute(
+                "UPDATE schema_version SET version = $1",
+                &[&((version + 1) as i64)],
+            )
+            .map_err(fault)?;
+        transaction.commit().map_err(fault)?;
+    }
+    Ok(())
+}
+
+/// Undo the last applied step, and record the version below it.
+fn rollback(client: &mut Client) -> Result<(), StoreError> {
+    let found = version_of(client)?;
+    if found <= 0 {
+        return Ok(());
+    }
+    let step = &SCHEMA[(found - 1) as usize];
+    let mut transaction = client.transaction().map_err(fault)?;
+    transaction.batch_execute(step.down).map_err(fault)?;
+    transaction
+        .execute("UPDATE schema_version SET version = $1", &[&(found - 1)])
+        .map_err(fault)?;
+    transaction.commit().map_err(fault)?;
+    Ok(())
+}

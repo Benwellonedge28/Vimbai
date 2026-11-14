@@ -104,13 +104,15 @@ class _BooksPageState extends State<BooksPage> {
     }
     for (final b in _books) {
       if (b.id == id && b.membershipStatus == 'active') {
-        BookContext.instance.setBook(BookContextBook(
-          id: b.id,
-          name: b.name,
-          tier: b.tier,
-          yourRole: b.yourRole,
-          source: 'sync',
-        ));
+        BookContext.instance.setBook(
+          BookContextBook(
+            id: b.id,
+            name: b.name,
+            tier: b.tier,
+            yourRole: b.yourRole,
+            source: 'sync',
+          ),
+        );
         return;
       }
     }
@@ -154,17 +156,17 @@ class _BooksPageState extends State<BooksPage> {
     if (byFolder.containsKey('')) {
       keys.add(''); // unfiled Books come last
     }
-    return {for (final k in keys) k: byFolder[k]!..sort((a, b) => a.name.compareTo(b.name))};
+    return {
+      for (final k in keys)
+        k: byFolder[k]!..sort((a, b) => a.name.compareTo(b.name)),
+    };
   }
 
   /// Move a Book into a folder ("" unfiles it).
   Future<void> _moveToFolder(VBook book) async {
-    final folders = _books
-        .map((b) => b.folder)
-        .where((f) => f.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final folders =
+        _books.map((b) => b.folder).where((f) => f.isNotEmpty).toSet().toList()
+          ..sort();
     final ctrl = TextEditingController(text: book.folder);
     final folder = await showDialog<String>(
       context: context,
@@ -266,9 +268,9 @@ class _BooksPageState extends State<BooksPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Move failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Move failed: $e')));
       }
     }
   }
@@ -345,9 +347,9 @@ class _BooksPageState extends State<BooksPage> {
           await _load();
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not unfile: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Could not unfile: $e')));
           }
         }
     }
@@ -396,10 +398,10 @@ class _BooksPageState extends State<BooksPage> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(
-                    ctx,
-                    {'user_id': userIdCtrl.text.trim(), 'role': role},
-                  ),
+                  onPressed: () => Navigator.pop(ctx, {
+                    'user_id': userIdCtrl.text.trim(),
+                    'role': role,
+                  }),
                   child: const Text('Invite'),
                 ),
               ],
@@ -412,15 +414,15 @@ class _BooksPageState extends State<BooksPage> {
     try {
       await _sync.inviteMember(bookId, res['user_id']!, res['role']!);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invitation sent')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invitation sent')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invite failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Invite failed: $e')));
       }
     }
   }
@@ -431,9 +433,9 @@ class _BooksPageState extends State<BooksPage> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Accept failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Accept failed: $e')));
       }
     }
   }
@@ -454,9 +456,9 @@ class _BooksPageState extends State<BooksPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
       }
     }
   }
@@ -490,7 +492,9 @@ class _BooksPageState extends State<BooksPage> {
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         _error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   ..._folders(_books).entries.expand((entry) {
@@ -511,46 +515,42 @@ class _BooksPageState extends State<BooksPage> {
                             ],
                           ),
                         ),
-                      ...books.map(
-                        (b) {
-                          final isActive = b.id == _activeBookId;
-                          final invited = b.membershipStatus == 'invited';
-                          return Card(
-                            color: isActive
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : null,
-                            child: ListTile(
-                              leading: Icon(_tierIcons[b.tier] ?? Icons.book),
-                              title: Text(b.name),
-                              subtitle: Text(
-                                '${b.tier} - you are ${b.yourRole}'
-                                '${invited ? ' (invited)' : ''}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (invited)
-                                    TextButton(
-                                      onPressed: () => _accept(b),
-                                      child: const Text('Accept'),
-                                    )
-                                  else if (isActive)
-                                    const Icon(Icons.check_circle),
-                                  IconButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    tooltip: 'Book settings',
-                                    onPressed: () =>
-                                        _openBookSettings(b),
-                                  ),
-                                ],
-                              ),
-                              onTap: invited ? null : () => _setActive(b.id),
-                              onLongPress: () =>
-                                  _bookActions(b, entry.key),
+                      ...books.map((b) {
+                        final isActive = b.id == _activeBookId;
+                        final invited = b.membershipStatus == 'invited';
+                        return Card(
+                          color: isActive
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : null,
+                          child: ListTile(
+                            leading: Icon(_tierIcons[b.tier] ?? Icons.book),
+                            title: Text(b.name),
+                            subtitle: Text(
+                              '${b.tier} - you are ${b.yourRole}'
+                              '${invited ? ' (invited)' : ''}',
                             ),
-                          );
-                        },
-                      ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (invited)
+                                  TextButton(
+                                    onPressed: () => _accept(b),
+                                    child: const Text('Accept'),
+                                  )
+                                else if (isActive)
+                                  const Icon(Icons.check_circle),
+                                IconButton(
+                                  icon: const Icon(Icons.more_vert),
+                                  tooltip: 'Book settings',
+                                  onPressed: () => _openBookSettings(b),
+                                ),
+                              ],
+                            ),
+                            onTap: invited ? null : () => _setActive(b.id),
+                            onLongPress: () => _bookActions(b, entry.key),
+                          ),
+                        );
+                      }),
                     ];
                   }),
                   if (_orgBooks.isNotEmpty) ...[
@@ -561,27 +561,25 @@ class _BooksPageState extends State<BooksPage> {
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                     ),
-                    ..._orgBooks.map(
-                      (b) {
-                        final isActive = b.id == _activeBookId;
-                        return Card(
-                          color: isActive
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : null,
-                          child: ListTile(
-                            leading: const Icon(Icons.corporate_fare),
-                            title: Text(b.name),
-                            subtitle: Text(
-                              'org book - ${b.tier} - you are ${b.yourRole}',
-                            ),
-                            trailing: isActive
-                                ? const Icon(Icons.check_circle)
-                                : null,
-                            onTap: () => _setActive(b.id),
+                    ..._orgBooks.map((b) {
+                      final isActive = b.id == _activeBookId;
+                      return Card(
+                        color: isActive
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                        child: ListTile(
+                          leading: const Icon(Icons.corporate_fare),
+                          title: Text(b.name),
+                          subtitle: Text(
+                            'org book - ${b.tier} - you are ${b.yourRole}',
                           ),
-                        );
-                      },
-                    ),
+                          trailing: isActive
+                              ? const Icon(Icons.check_circle)
+                              : null,
+                          onTap: () => _setActive(b.id),
+                        ),
+                      );
+                    }),
                   ],
                   const SizedBox(height: 24),
                 ],

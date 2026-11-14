@@ -36,9 +36,9 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Load failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Load failed: $e')));
       }
     }
     if (mounted) setState(() {});
@@ -57,18 +57,24 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.repeat), label: 'Recurring'),
-          NavigationDestination(icon: Icon(Icons.account_balance), label: 'Debts'),
-          NavigationDestination(icon: Icon(Icons.trending_up), label: 'Investments'),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance),
+            label: 'Debts',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.trending_up),
+            label: 'Investments',
+          ),
           NavigationDestination(icon: Icon(Icons.calculate), label: 'Tax'),
         ],
       ),
       body: _section == 0
           ? _recurringView()
           : _section == 1
-              ? _debtsView()
-              : _section == 2
-                  ? _investmentsView()
-                  : _taxView(),
+          ? _debtsView()
+          : _section == 2
+          ? _investmentsView()
+          : _taxView(),
       floatingActionButton: _section == 0
           ? FloatingActionButton(
               heroTag: 'recurring-add',
@@ -76,18 +82,18 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
               child: const Icon(Icons.add),
             )
           : _section == 1
-              ? FloatingActionButton(
-                  heroTag: 'debt-add',
-                  onPressed: _addDebt,
-                  child: const Icon(Icons.add),
-                )
-              : _section == 2
-                  ? FloatingActionButton(
-                      heroTag: 'inv-add',
-                      onPressed: _addInvestment,
-                      child: const Icon(Icons.add),
-                    )
-                  : null,
+          ? FloatingActionButton(
+              heroTag: 'debt-add',
+              onPressed: _addDebt,
+              child: const Icon(Icons.add),
+            )
+          : _section == 2
+          ? FloatingActionButton(
+              heroTag: 'inv-add',
+              onPressed: _addInvestment,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -159,8 +165,15 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
                 selected: {kind},
                 onSelectionChanged: (s) => setDialog(() => kind = s.first),
               ),
-              TextField(controller: desc, decoration: const InputDecoration(labelText: 'Description')),
-              TextField(controller: amount, decoration: const InputDecoration(labelText: 'Amount'), keyboardType: TextInputType.number),
+              TextField(
+                controller: desc,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              TextField(
+                controller: amount,
+                decoration: const InputDecoration(labelText: 'Amount'),
+                keyboardType: TextInputType.number,
+              ),
               DropdownButtonFormField<String>(
                 value: freq,
                 items: ['weekly', 'monthly', 'quarterly', 'yearly']
@@ -169,7 +182,12 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
                 onChanged: (v) => setDialog(() => freq = v ?? freq),
                 decoration: const InputDecoration(labelText: 'Frequency'),
               ),
-              TextField(controller: due, decoration: const InputDecoration(labelText: 'Next due (YYYY-MM-DD)')),
+              TextField(
+                controller: due,
+                decoration: const InputDecoration(
+                  labelText: 'Next due (YYYY-MM-DD)',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -257,10 +275,25 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: principal, decoration: const InputDecoration(labelText: 'Principal'), keyboardType: TextInputType.number),
-            TextField(controller: rate, decoration: const InputDecoration(labelText: 'Annual rate %'), keyboardType: TextInputType.number),
-            TextField(controller: term, decoration: const InputDecoration(labelText: 'Term (months)'), keyboardType: TextInputType.number),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: principal,
+              decoration: const InputDecoration(labelText: 'Principal'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: rate,
+              decoration: const InputDecoration(labelText: 'Annual rate %'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: term,
+              decoration: const InputDecoration(labelText: 'Term (months)'),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -273,8 +306,10 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
                     principal: double.tryParse(principal.text) ?? 0,
                     annualRate: double.tryParse(rate.text) ?? 0,
                     termMonths: int.tryParse(term.text) ?? 1,
-                    startedAt:
-                        DateTime.now().toIso8601String().substring(0, 10),
+                    startedAt: DateTime.now().toIso8601String().substring(
+                      0,
+                      10,
+                    ),
                   )
                   .then((_) => _reload());
             },
@@ -286,8 +321,8 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
   }
 
   Widget _investmentsView() {
-    final invs =
-        (_portfolio['investments'] as List? ?? []).cast<Map<String, dynamic>>();
+    final invs = (_portfolio['investments'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
     final p = _portfolio['portfolio'] as Map<String, dynamic>? ?? {};
     return Column(
       children: [
@@ -340,9 +375,20 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: units, decoration: const InputDecoration(labelText: 'Units'), keyboardType: TextInputType.number),
-            TextField(controller: price, decoration: const InputDecoration(labelText: 'Price per unit'), keyboardType: TextInputType.number),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: units,
+              decoration: const InputDecoration(labelText: 'Units'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: price,
+              decoration: const InputDecoration(labelText: 'Price per unit'),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -371,8 +417,10 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Estimate your annual tax',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          'Estimate your annual tax',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         TextField(
           controller: income,

@@ -77,7 +77,9 @@ class BookSyncService {
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           // v2: Books can be organized into folders.
-          await db.execute("ALTER TABLE registry ADD COLUMN folder TEXT DEFAULT ''");
+          await db.execute(
+            "ALTER TABLE registry ADD COLUMN folder TEXT DEFAULT ''",
+          );
         }
       },
     );
@@ -120,10 +122,10 @@ class BookSyncService {
   void setAuthToken(String token) => _authToken = token;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-        ...BookContext.instance.headers(),
-      };
+    'Content-Type': 'application/json',
+    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+    ...BookContext.instance.headers(),
+  };
 
   Uri _u(String path, [Map<String, String>? q]) =>
       Uri.parse('$_kBaseUrl$path').replace(queryParameters: q);
@@ -184,26 +186,22 @@ class BookSyncService {
     if (r.statusCode != 200) {
       throw Exception('Failed to load books: ${r.statusCode}');
     }
-    final books = (jsonDecode(r.body) as Map<String, dynamic>)['books']
-        as List<dynamic>;
+    final books =
+        (jsonDecode(r.body) as Map<String, dynamic>)['books'] as List<dynamic>;
     final meta = await _meta();
     final List<VBook> result = [];
     for (final b in books) {
       final book = VBook.fromJson(b as Map<String, dynamic>);
-      await meta.insert(
-        'registry',
-        {
-          'book_id': book.id,
-          'name': book.name,
-          'tier': book.tier,
-          'description': book.description,
-          'folder': book.folder,
-          'role': book.yourRole,
-          'status': book.membershipStatus,
-          'last_meta_sync': DateTime.now().millisecondsSinceEpoch / 1000.0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await meta.insert('registry', {
+        'book_id': book.id,
+        'name': book.name,
+        'tier': book.tier,
+        'description': book.description,
+        'folder': book.folder,
+        'role': book.yourRole,
+        'status': book.membershipStatus,
+        'last_meta_sync': DateTime.now().millisecondsSinceEpoch / 1000.0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
       result.add(book);
     }
     return result;
@@ -230,8 +228,12 @@ class BookSyncService {
   /// AES-256 Book key is generated on-device; the server only receives
   /// the key wrapped for *you* via your RSA public key, so it stays
   /// end-to-end encrypted even in transit.
-  Future<VBook> createBook(String name, String tier,
-      {String description = '', String folder = ''}) async {
+  Future<VBook> createBook(
+    String name,
+    String tier, {
+    String description = '',
+    String folder = '',
+  }) async {
     final bookKey = generateBookKey();
     final r = await _client.post(
       _u('/books'),
@@ -248,26 +250,23 @@ class BookSyncService {
       throw Exception('Create book failed: ${r.statusCode} ${r.body}');
     }
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final book = VBook.fromJson(j['book'] as Map<String, dynamic>)
-        .copyWithKeyInfo(bookKey);
+    final book = VBook.fromJson(
+      j['book'] as Map<String, dynamic>,
+    ).copyWithKeyInfo(bookKey);
     final meta = await _meta();
-    await meta.insert(
-      'registry',
-      {
-        'book_id': book.id,
-        'name': book.name,
-        'tier': book.tier,
-        'description': book.description,
-        'folder': book.folder,
-        'role': 'owner',
-        'status': 'active',
-        'book_key': bookKey,
-        'device_id': '',
-        'local_seq': 0,
-        'last_meta_sync': DateTime.now().millisecondsSinceEpoch / 1000.0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await meta.insert('registry', {
+      'book_id': book.id,
+      'name': book.name,
+      'tier': book.tier,
+      'description': book.description,
+      'folder': book.folder,
+      'role': 'owner',
+      'status': 'active',
+      'book_key': bookKey,
+      'device_id': '',
+      'local_seq': 0,
+      'last_meta_sync': DateTime.now().millisecondsSinceEpoch / 1000.0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     await _ensureDevice(book.id);
     return book;
   }
@@ -275,13 +274,18 @@ class BookSyncService {
   /// Placeholder wrap: in production the key is RSA-OAEP wrapped with
   /// the user's public key from identity-service. Kept as a seam so the
   /// protocol does not change when the registry lands.
-  String _wrapForSelf(String bookKey) => 'self:${base64Encode(utf8.encode(bookKey))}';
+  String _wrapForSelf(String bookKey) =>
+      'self:${base64Encode(utf8.encode(bookKey))}';
 
   /// Update a Book (name/description/folder). Folder moves keep the Book in
   /// the chosen client-side folder; pass '' to unfile it. Requires owner or
   /// admin membership server-side.
-  Future<void> updateBook(String bookId,
-      {String? name, String? description, String? folder}) async {
+  Future<void> updateBook(
+    String bookId, {
+    String? name,
+    String? description,
+    String? folder,
+  }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
@@ -313,8 +317,12 @@ class BookSyncService {
 
   Future<void> _ensureDevice(String bookId) async {
     final meta = await _meta();
-    final rows = await meta.query('registry',
-        where: 'book_id = ?', whereArgs: [bookId], limit: 1);
+    final rows = await meta.query(
+      'registry',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
     if (rows.isEmpty) return;
     if ((rows.first['device_id'] as String? ?? '').isNotEmpty) return;
     final r = await _client.post(
@@ -323,8 +331,8 @@ class BookSyncService {
       body: jsonEncode({'device_name': Platform.operatingSystem}),
     );
     if (r.statusCode == 200) {
-      final deviceId = (jsonDecode(r.body) as Map<String, dynamic>)['device_id']
-          as String;
+      final deviceId =
+          (jsonDecode(r.body) as Map<String, dynamic>)['device_id'] as String;
       await meta.update(
         'registry',
         {'device_id': deviceId},
@@ -372,13 +380,18 @@ class BookSyncService {
   }
 
   Future<List<BookMember>> members(String bookId) async {
-    final r = await _client.get(_u('/books/$bookId/members'), headers: _headers);
+    final r = await _client.get(
+      _u('/books/$bookId/members'),
+      headers: _headers,
+    );
     if (r.statusCode != 200) {
       throw Exception('Members failed: ${r.statusCode}');
     }
-    final ms = (jsonDecode(r.body) as Map<String, dynamic>)['members']
-        as List<dynamic>;
-    return ms.map((m) => BookMember.fromJson(m as Map<String, dynamic>))
+    final ms =
+        (jsonDecode(r.body) as Map<String, dynamic>)['members']
+            as List<dynamic>;
+    return ms
+        .map((m) => BookMember.fromJson(m as Map<String, dynamic>))
         .toList();
   }
 
@@ -386,12 +399,19 @@ class BookSyncService {
 
   /// Queue a JSON record into a Book's encrypted outbox. Personal Books
   /// simply persist locally; nothing leaves the device.
-  Future<String> enqueueEntry(String bookId, Map<String, dynamic> data,
-      {bool shared = true}) async {
+  Future<String> enqueueEntry(
+    String bookId,
+    Map<String, dynamic> data, {
+    bool shared = true,
+  }) async {
     final db = await _bookDb(bookId);
     final meta = await _meta();
-    final rows = await meta.query('registry',
-        where: 'book_id = ?', whereArgs: [bookId], limit: 1);
+    final rows = await meta.query(
+      'registry',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
     final row = rows.first;
     final bookKey = row['book_key'] as String? ?? '';
     final entryId = _uuid.v4();
@@ -413,8 +433,12 @@ class BookSyncService {
   /// Returns (pushed, pulled).
   Future<Map<String, int>> syncBook(String bookId) async {
     final meta = await _meta();
-    final rows = await meta.query('registry',
-        where: 'book_id = ?', whereArgs: [bookId], limit: 1);
+    final rows = await meta.query(
+      'registry',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
     if (rows.isEmpty) throw Exception('Unknown book');
     final row = rows.first;
     final deviceId = row['device_id'] as String? ?? '';
@@ -432,11 +456,13 @@ class BookSyncService {
       final body = {
         'device_id': deviceId,
         'entries': pending
-            .map((e) => {
-                  'entry_id': e['entry_id'],
-                  'payload': e['ciphertext'],
-                  'created_at': e['created_at'],
-                })
+            .map(
+              (e) => {
+                'entry_id': e['entry_id'],
+                'payload': e['ciphertext'],
+                'created_at': e['created_at'],
+              },
+            )
             .toList(),
       };
       final r = await _client.post(
@@ -472,8 +498,12 @@ class BookSyncService {
     var pulled = 0;
     for (final e in (j['entries'] as List<dynamic>)) {
       final em = e as Map<String, dynamic>;
-      final existing = await db.query('entries',
-          where: 'entry_id = ?', whereArgs: [em['entry_id']], limit: 1);
+      final existing = await db.query(
+        'entries',
+        where: 'entry_id = ?',
+        whereArgs: [em['entry_id']],
+        limit: 1,
+      );
       if (existing.isNotEmpty) {
         await db.update(
           'entries',
@@ -483,18 +513,14 @@ class BookSyncService {
         );
         continue;
       }
-      await db.insert(
-        'entries',
-        {
-          'entry_id': em['entry_id'],
-          'seq': em['seq'],
-          'user_id': em['user_id'],
-          'created_at': em['created_at'],
-          'ciphertext': em['payload'],
-          'pending': 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('entries', {
+        'entry_id': em['entry_id'],
+        'seq': em['seq'],
+        'user_id': em['user_id'],
+        'created_at': em['created_at'],
+        'ciphertext': em['payload'],
+        'pending': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
       pulled++;
     }
     final bookSeq = j['book_seq'] as int;
@@ -530,8 +556,12 @@ class BookSyncService {
   Future<List<Map<String, dynamic>>> readEntries(String bookId) async {
     final db = await _bookDb(bookId);
     final meta = await _meta();
-    final rows = await meta.query('registry',
-        where: 'book_id = ?', whereArgs: [bookId], limit: 1);
+    final rows = await meta.query(
+      'registry',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
     if (rows.isEmpty) return [];
     final bookKey = rows.first['book_key'] as String? ?? '';
     final entries = await db.query('entries', orderBy: 'created_at ASC');
@@ -539,7 +569,8 @@ class BookSyncService {
       final ct = e['ciphertext'] as String;
       Map<String, dynamic> data;
       if (bookKey.isEmpty || ct.startsWith('self:')) {
-        data = jsonDecode(utf8.decode(base64Decode(ct))) as Map<String, dynamic>;
+        data =
+            jsonDecode(utf8.decode(base64Decode(ct))) as Map<String, dynamic>;
       } else {
         data = decryptPayload(bookKey, ct);
       }

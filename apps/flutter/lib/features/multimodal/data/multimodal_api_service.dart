@@ -10,7 +10,8 @@ import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 
 class MultimodalApiService {
-  final String _baseUrl = AppConfig.multimodalRoute; // Via API Gateway (offline-aware client below)
+  final String _baseUrl =
+      AppConfig.multimodalRoute; // Via API Gateway (offline-aware client below)
   final ApiClient _client = ApiClient();
   final AuthService _authService = AuthService();
   final DatabaseHelper _localDb = DatabaseHelper();
@@ -33,12 +34,14 @@ class MultimodalApiService {
     String? sourceContext,
   }) async {
     final dataUrl = await _fileToDataUrl(imageFile);
-    final task = await createTask(MultimodalProcessingTaskCreate(
-      userId: 'self',
-      inputType: MultimodalInputType.document,
-      inputUrl: dataUrl,
-      metadata: {'source_context': sourceContext ?? 'mobile'},
-    ));
+    final task = await createTask(
+      MultimodalProcessingTaskCreate(
+        userId: 'self',
+        inputType: MultimodalInputType.document,
+        inputUrl: dataUrl,
+        metadata: {'source_context': sourceContext ?? 'mobile'},
+      ),
+    );
     final done = await _pollTask(task.id);
     if (done?.documentResult != null) return done!.documentResult!;
     throw Exception('Document processing did not complete in time');
@@ -51,12 +54,14 @@ class MultimodalApiService {
     String? sourceContext,
   }) async {
     final dataUrl = await _fileToDataUrl(audioFile);
-    final task = await createTask(MultimodalProcessingTaskCreate(
-      userId: 'self',
-      inputType: MultimodalInputType.audio,
-      inputUrl: dataUrl,
-      metadata: {'source_context': sourceContext ?? 'mobile'},
-    ));
+    final task = await createTask(
+      MultimodalProcessingTaskCreate(
+        userId: 'self',
+        inputType: MultimodalInputType.audio,
+        inputUrl: dataUrl,
+        metadata: {'source_context': sourceContext ?? 'mobile'},
+      ),
+    );
     final done = await _pollTask(task.id);
     if (done?.audioResult != null) return done!.audioResult!;
     throw Exception('Audio processing did not complete in time');
@@ -69,22 +74,24 @@ class MultimodalApiService {
     final mime = file.path.endsWith('.wav')
         ? 'audio/wav'
         : file.path.endsWith('.mp3')
-            ? 'audio/mpeg'
-            : file.path.endsWith('.m4a')
-                ? 'audio/mp4'
-                : file.path.endsWith('.mp4')
-                    ? 'video/mp4'
-                    : file.path.endsWith('.mov')
-                        ? 'video/quicktime'
-                        : 'image/jpeg';
+        ? 'audio/mpeg'
+        : file.path.endsWith('.m4a')
+        ? 'audio/mp4'
+        : file.path.endsWith('.mp4')
+        ? 'video/mp4'
+        : file.path.endsWith('.mov')
+        ? 'video/quicktime'
+        : 'image/jpeg';
     final b64 = base64Encode(bytes);
     return 'data:$mime;base64,$b64';
   }
 
   /// Polls a task until it reaches a terminal status or times out
   /// (~20s). Returns the latest task snapshot either way.
-  Future<MultimodalProcessingTaskInDB?> _pollTask(String taskId,
-      {int maxAttempts = 10}) async {
+  Future<MultimodalProcessingTaskInDB?> _pollTask(
+    String taskId, {
+    int maxAttempts = 10,
+  }) async {
     for (var i = 0; i < maxAttempts; i++) {
       final task = await getTask(taskId);
       if (task.status == MultimodalProcessingStatus.completed ||
@@ -149,7 +156,9 @@ class MultimodalApiService {
 
   // --- Multimodal Processing Task Endpoints ---
 
-  Future<MultimodalProcessingTaskInDB> createTask(MultimodalProcessingTaskCreate task) async {
+  Future<MultimodalProcessingTaskInDB> createTask(
+    MultimodalProcessingTaskCreate task,
+  ) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/tasks/'),
       headers: await _getHeaders(),
@@ -184,13 +193,18 @@ class MultimodalApiService {
 
     if (response.statusCode == 200) {
       Iterable l = json.decode(response.body);
-      return List<MultimodalProcessingTaskInDB>.from(l.map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+      return List<MultimodalProcessingTaskInDB>.from(
+        l.map((model) => MultimodalProcessingTaskInDB.fromJson(model)),
+      );
     } else {
       throw Exception('Failed to get all multimodal tasks: ${response.body}');
     }
   }
 
-  Future<MultimodalProcessingTaskInDB> updateTask(String taskId, MultimodalProcessingTaskUpdate task) async {
+  Future<MultimodalProcessingTaskInDB> updateTask(
+    String taskId,
+    MultimodalProcessingTaskUpdate task,
+  ) async {
     final response = await _client.put(
       Uri.parse('$_baseUrl/tasks/$taskId'),
       headers: await _getHeaders(),
@@ -217,7 +231,10 @@ class MultimodalApiService {
 
   // --- User Correction Endpoints ---
 
-  Future<UserCorrectionInDB> submitUserCorrection(String taskId, UserCorrection correction) async {
+  Future<UserCorrectionInDB> submitUserCorrection(
+    String taskId,
+    UserCorrection correction,
+  ) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/tasks/$taskId/corrections'),
       headers: await _getHeaders(),
@@ -235,8 +252,10 @@ class MultimodalApiService {
 
   /// Lists the current Book's capture records.
   /// view: incomplete (default) | organized | all
-  Future<List<MultimodalProcessingTaskInDB>> getBookInbox(
-      {String view = 'incomplete', int limit = 100}) async {
+  Future<List<MultimodalProcessingTaskInDB>> getBookInbox({
+    String view = 'incomplete',
+    int limit = 100,
+  }) async {
     final cacheKey = 'inbox_${view}_$limit';
     try {
       final response = await _client.get(
@@ -246,8 +265,10 @@ class MultimodalApiService {
 
       if (response.statusCode == 200) {
         final records = List<MultimodalProcessingTaskInDB>.from(
-            (json.decode(response.body) as Iterable)
-                .map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+          (json.decode(response.body) as Iterable).map(
+            (model) => MultimodalProcessingTaskInDB.fromJson(model),
+          ),
+        );
         // Cache the last-known payload so the inbox stays readable offline
         // (potentially forever until the device reconnects).
         await _localDb.putOfflineCache(cacheKey, response.body);
@@ -259,8 +280,10 @@ class MultimodalApiService {
       final cached = await _localDb.getOfflineCache(cacheKey);
       if (cached != null) {
         return List<MultimodalProcessingTaskInDB>.from(
-            (json.decode(cached) as Iterable)
-                .map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+          (json.decode(cached) as Iterable).map(
+            (model) => MultimodalProcessingTaskInDB.fromJson(model),
+          ),
+        );
       }
       return const [];
     }
@@ -303,62 +326,92 @@ class MultimodalApiService {
   }
 
   /// Fire-and-forget photo capture: Vimbai processes it in the background.
-  Future<MultimodalProcessingTaskInDB> capturePhoto(File imageFile,
-      {String? sourceContext}) async {
+  Future<MultimodalProcessingTaskInDB> capturePhoto(
+    File imageFile, {
+    String? sourceContext,
+  }) async {
     final dataUrl = await _fileToDataUrl(imageFile);
     final metadata = {'source_context': sourceContext ?? 'camera_photo'};
     try {
-      return await createTask(MultimodalProcessingTaskCreate(
-        userId: 'self',
-        inputType: MultimodalInputType.image,
-        inputUrl: dataUrl,
-        metadata: metadata,
-      ));
+      return await createTask(
+        MultimodalProcessingTaskCreate(
+          userId: 'self',
+          inputType: MultimodalInputType.image,
+          inputUrl: dataUrl,
+          metadata: metadata,
+        ),
+      );
     } on OfflineException {
       // Offline: keep the capture on-device; SyncService will replay it.
       await _queueOfflineCapture(
-          inputType: MultimodalInputType.image, dataUrl: dataUrl, metadata: metadata);
+        inputType: MultimodalInputType.image,
+        dataUrl: dataUrl,
+        metadata: metadata,
+      );
       return _localQueuedTask(
-          inputType: MultimodalInputType.image, dataUrl: dataUrl, metadata: metadata);
+        inputType: MultimodalInputType.image,
+        dataUrl: dataUrl,
+        metadata: metadata,
+      );
     }
   }
 
   /// Fire-and-forget video capture.
-  Future<MultimodalProcessingTaskInDB> captureVideo(File videoFile,
-      {String? sourceContext}) async {
+  Future<MultimodalProcessingTaskInDB> captureVideo(
+    File videoFile, {
+    String? sourceContext,
+  }) async {
     final dataUrl = await _fileToDataUrl(videoFile);
     final metadata = {'source_context': sourceContext ?? 'camera_video'};
     try {
-      return await createTask(MultimodalProcessingTaskCreate(
-        userId: 'self',
-        inputType: MultimodalInputType.video,
-        inputUrl: dataUrl,
-        metadata: metadata,
-      ));
+      return await createTask(
+        MultimodalProcessingTaskCreate(
+          userId: 'self',
+          inputType: MultimodalInputType.video,
+          inputUrl: dataUrl,
+          metadata: metadata,
+        ),
+      );
     } on OfflineException {
       await _queueOfflineCapture(
-          inputType: MultimodalInputType.video, dataUrl: dataUrl, metadata: metadata);
+        inputType: MultimodalInputType.video,
+        dataUrl: dataUrl,
+        metadata: metadata,
+      );
       return _localQueuedTask(
-          inputType: MultimodalInputType.video, dataUrl: dataUrl, metadata: metadata);
+        inputType: MultimodalInputType.video,
+        dataUrl: dataUrl,
+        metadata: metadata,
+      );
     }
   }
 
   /// Fire-and-forget typed/pasted note.
-  Future<MultimodalProcessingTaskInDB> captureText(String text,
-      {String? sourceContext}) async {
+  Future<MultimodalProcessingTaskInDB> captureText(
+    String text, {
+    String? sourceContext,
+  }) async {
     final metadata = {'source_context': sourceContext ?? 'typed_note'};
     try {
-      return await createTask(MultimodalProcessingTaskCreate(
-        userId: 'self',
-        inputType: MultimodalInputType.text,
-        inputRawText: text,
-        metadata: metadata,
-      ));
+      return await createTask(
+        MultimodalProcessingTaskCreate(
+          userId: 'self',
+          inputType: MultimodalInputType.text,
+          inputRawText: text,
+          metadata: metadata,
+        ),
+      );
     } on OfflineException {
       await _queueOfflineCapture(
-          inputType: MultimodalInputType.text, rawText: text, metadata: metadata);
+        inputType: MultimodalInputType.text,
+        rawText: text,
+        metadata: metadata,
+      );
       return _localQueuedTask(
-          inputType: MultimodalInputType.text, rawText: text, metadata: metadata);
+        inputType: MultimodalInputType.text,
+        rawText: text,
+        metadata: metadata,
+      );
     }
   }
 
@@ -372,7 +425,9 @@ class MultimodalApiService {
 
     if (response.statusCode == 200) {
       Iterable l = json.decode(response.body);
-      return List<UserCorrectionInDB>.from(l.map((model) => UserCorrectionInDB.fromJson(model)));
+      return List<UserCorrectionInDB>.from(
+        l.map((model) => UserCorrectionInDB.fromJson(model)),
+      );
     } else {
       throw Exception('Failed to get user corrections: ${response.body}');
     }

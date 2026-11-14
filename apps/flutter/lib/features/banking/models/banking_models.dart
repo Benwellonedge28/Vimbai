@@ -32,20 +32,22 @@ class BankConnection {
       accountNumber: json['account_number'] as String,
       accountType: (json['account_type'] as String?) ?? 'checking',
       status: (json['status'] as String?) ?? 'active',
-      lastSync: json['last_sync'] != null ? DateTime.parse(json['last_sync'] as String) : null,
+      lastSync: json['last_sync'] != null
+          ? DateTime.parse(json['last_sync'] as String)
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'bank_name': bankName,
-        'account_number': accountNumber,
-        'account_type': accountType,
-        'status': status,
-        'last_sync': lastSync?.toIso8601String(),
-        'created_at': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'bank_name': bankName,
+    'account_number': accountNumber,
+    'account_type': accountType,
+    'status': status,
+    'last_sync': lastSync?.toIso8601String(),
+    'created_at': createdAt.toIso8601String(),
+  };
 }
 
 class BankTransaction {
@@ -86,14 +88,14 @@ class BankTransaction {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'connection_id': connectionId,
-        'amount': amount,
-        'transaction_type': transactionType,
-        'description': description,
-        'transaction_date': transactionDate.toIso8601String(),
-        'balance_after': balanceAfter,
-        'reconciled': reconciled,
-        'reference': reference,
-      };
+    'id': id,
+    'connection_id': connectionId,
+    'amount': amount,
+    'transaction_type': transactionType,
+    'description': description,
+    'transaction_date': transactionDate.toIso8601String(),
+    'balance_after': balanceAfter,
+    'reconciled': reconciled,
+    'reference': reference,
+  };
 }

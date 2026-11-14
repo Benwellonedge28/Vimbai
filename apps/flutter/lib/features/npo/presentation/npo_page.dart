@@ -132,8 +132,7 @@ class _NpoPageState extends State<NpoPage> {
     );
     if (created == null || (created['name'] ?? '').isEmpty) return;
     try {
-      final revenue =
-          double.tryParse(created['revenue'] ?? '') ?? 0;
+      final revenue = double.tryParse(created['revenue'] ?? '') ?? 0;
       await _npo.createOrg(
         created['name']!,
         orgType: created['org_type'] ?? 'nonprofit',
@@ -142,9 +141,9 @@ class _NpoPageState extends State<NpoPage> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Create failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Create failed: $e')));
       }
     }
   }
@@ -196,16 +195,14 @@ class _NpoPageState extends State<NpoPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Receipt ${resp['receipt_no']} issued'),
-          ),
+          SnackBar(content: Text('Receipt ${resp['receipt_no']} issued')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sale failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sale failed: $e')));
       }
     }
   }
@@ -257,12 +254,7 @@ class _NpoPageState extends State<NpoPage> {
     if ((result['vendor'] ?? '').isEmpty || amount <= 0) return;
     try {
       final vendorId = await _npo.addVendor(org.id, result['vendor']!);
-      await _npo.recordPurchase(
-        org.id,
-        vendorId,
-        result['desc'] ?? '',
-        amount,
-      );
+      await _npo.recordPurchase(org.id, vendorId, result['desc'] ?? '', amount);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -272,9 +264,9 @@ class _NpoPageState extends State<NpoPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
       }
     }
   }
@@ -313,9 +305,9 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Creditors failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Creditors failed: $e')));
       }
     }
   }
@@ -359,9 +351,9 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Shareholders failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Shareholders failed: $e')));
       }
     }
   }
@@ -406,23 +398,23 @@ class _NpoPageState extends State<NpoPage> {
     final amount = double.tryParse(result['amount'] ?? '') ?? 0;
     if ((result['donor'] ?? '').isEmpty || amount <= 0) return;
     try {
-      final donorId = await _npo.addDonor(org.id, result['donor']!, 'individual');
+      final donorId = await _npo.addDonor(
+        org.id,
+        result['donor']!,
+        'individual',
+      );
       final resp = await _npo.addDonation(org.id, donorId, amount);
       if (mounted) {
         final receipt = resp['receipt'] as Map<String, dynamic>;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Receipt ${receipt['receipt_no']} issued',
-            ),
-          ),
+          SnackBar(content: Text('Receipt ${receipt['receipt_no']} issued')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Donation failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Donation failed: $e')));
       }
     }
   }
@@ -454,9 +446,7 @@ class _NpoPageState extends State<NpoPage> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 for (final f in (act['funds'] as List<dynamic>))
-                  Text(
-                    '${(f as Map)['fund']}: net ${(f)['net']}',
-                  ),
+                  Text('${(f as Map)['fund']}: net ${(f)['net']}'),
                 const SizedBox(height: 12),
                 Text('Total net: ${act['total_net']}'),
               ],
@@ -472,9 +462,9 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Reports failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Reports failed: $e')));
       }
     }
   }
@@ -519,90 +509,92 @@ class _NpoPageState extends State<NpoPage> {
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         _error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   Expanded(
                     child: _orgs.isEmpty
-                  ? ListView(
-                      children: const [
-                        Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'No organizations yet. Create one for your '
-                            'spaza shop, company, trust, church or NGO - '
-                            'Vimbai scales from a sole trader to a '
-                            'national federation.',
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      itemCount: _orgs.length,
-                      itemBuilder: (ctx, i) {
-                        final org = _orgs[i];
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.volunteer_activism),
-                            title: Text(org.name),
-                            subtitle: Text(
-                              '${_bandLabels[org.sizeBand] ?? org.sizeBand}'
-                              ' (${_typeLabels[org.orgType] ?? org.orgType})'
-                              ' - revenue ${org.annualRevenue.toStringAsFixed(0)} USD',
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (v) {
-                                if (v == 'donation') _addDonation(org);
-                                if (v == 'sale') _addRevenue(org);
-                                if (v == 'purchase') _addPurchase(org);
-                                if (v == 'reports') _showReports(org);
-                                if (v == 'creditors') _showCreditors(org);
-                                if (v == 'shareholders') {
-                                  _showShareholders(org);
-                                }
-                              },
-                              itemBuilder: (ctx) => [
-                                if (org.orgType == 'commercial')
-                                  const PopupMenuItem(
-                                    value: 'sale',
-                                    child: Text('Record sale'),
-                                  )
-                                else if (org.orgType == 'partnership' ||
-                                    org.orgType == 'company' ||
-                                    org.orgType == 'plc')
-                                  const PopupMenuItem(
-                                    value: 'sale',
-                                    child: Text('Record revenue'),
-                                  )
-                                else
-                                  const PopupMenuItem(
-                                    value: 'donation',
-                                    child: Text('Record donation'),
+                        ? ListView(
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text(
+                                  'No organizations yet. Create one for your '
+                                  'spaza shop, company, trust, church or NGO - '
+                                  'Vimbai scales from a sole trader to a '
+                                  'national federation.',
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: _orgs.length,
+                            itemBuilder: (ctx, i) {
+                              final org = _orgs[i];
+                              return Card(
+                                child: ListTile(
+                                  leading: const Icon(Icons.volunteer_activism),
+                                  title: Text(org.name),
+                                  subtitle: Text(
+                                    '${_bandLabels[org.sizeBand] ?? org.sizeBand}'
+                                    ' (${_typeLabels[org.orgType] ?? org.orgType})'
+                                    ' - revenue ${org.annualRevenue.toStringAsFixed(0)} USD',
                                   ),
-                                const PopupMenuItem(
-                                  value: 'purchase',
-                                  child: Text('Record purchase'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'reports',
-                                  child: Text('View reports'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'creditors',
-                                  child: Text('Creditors (owed)'),
-                                ),
-                                if (org.orgType == 'company' ||
-                                    org.orgType == 'plc')
-                                  const PopupMenuItem(
-                                    value: 'shareholders',
-                                    child: Text('Shareholders'),
+                                  trailing: PopupMenuButton<String>(
+                                    onSelected: (v) {
+                                      if (v == 'donation') _addDonation(org);
+                                      if (v == 'sale') _addRevenue(org);
+                                      if (v == 'purchase') _addPurchase(org);
+                                      if (v == 'reports') _showReports(org);
+                                      if (v == 'creditors') _showCreditors(org);
+                                      if (v == 'shareholders') {
+                                        _showShareholders(org);
+                                      }
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      if (org.orgType == 'commercial')
+                                        const PopupMenuItem(
+                                          value: 'sale',
+                                          child: Text('Record sale'),
+                                        )
+                                      else if (org.orgType == 'partnership' ||
+                                          org.orgType == 'company' ||
+                                          org.orgType == 'plc')
+                                        const PopupMenuItem(
+                                          value: 'sale',
+                                          child: Text('Record revenue'),
+                                        )
+                                      else
+                                        const PopupMenuItem(
+                                          value: 'donation',
+                                          child: Text('Record donation'),
+                                        ),
+                                      const PopupMenuItem(
+                                        value: 'purchase',
+                                        child: Text('Record purchase'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'reports',
+                                        child: Text('View reports'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'creditors',
+                                        child: Text('Creditors (owed)'),
+                                      ),
+                                      if (org.orgType == 'company' ||
+                                          org.orgType == 'plc')
+                                        const PopupMenuItem(
+                                          value: 'shareholders',
+                                          child: Text('Shareholders'),
+                                        ),
+                                    ],
                                   ),
-                              ],
-                            ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),

@@ -114,7 +114,8 @@ class LocalDatabaseImpl implements LocalDatabase {
 
   // --- Multimodal Task Operations ---
   @override
-  Future<List<MultimodalProcessingTaskInDB>> getUnsyncedMultimodalTasks() async {
+  Future<List<MultimodalProcessingTaskInDB>>
+  getUnsyncedMultimodalTasks() async {
     return _multimodalTasks.values.toList();
   }
 

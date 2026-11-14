@@ -47,15 +47,15 @@ class VBook {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'tier': tier,
-        'description': description,
-        'folder': folder,
-        'your_role': yourRole,
-        'membership_status': membershipStatus,
-        'seq': seq,
-      };
+    'id': id,
+    'name': name,
+    'tier': tier,
+    'description': description,
+    'folder': folder,
+    'your_role': yourRole,
+    'membership_status': membershipStatus,
+    'seq': seq,
+  };
 
   VBook copyWith({
     String? name,

@@ -26,13 +26,23 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
   String? _error;
 
   static const _expenseCategories = [
-    'housing', 'food', 'transport', 'utilities', 'education',
-    'healthcare', 'entertainment', 'savings', 'other',
+    'housing',
+    'food',
+    'transport',
+    'utilities',
+    'education',
+    'healthcare',
+    'entertainment',
+    'savings',
+    'other',
   ];
   static const _frequencies = ['weekly', 'monthly', 'quarterly', 'yearly'];
 
   Future<void> _analyze() async {
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final r = await _hf.analyze(
         householdId: _householdCtrl.text.trim(),
@@ -67,7 +77,9 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       extra: (setState) => DropdownButton<String>(
         value: freq,
         isExpanded: true,
-        items: _frequencies.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+        items: _frequencies
+            .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+            .toList(),
         onChanged: (v) => setState(() => freq = v ?? freq),
       ),
     );
@@ -77,9 +89,13 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       _toast('Enter a source and a positive amount');
       return;
     }
-    setState(() => _incomes.add({
-      'source': src.text.trim(), 'amount': amount, 'frequency': freq,
-    }));
+    setState(
+      () => _incomes.add({
+        'source': src.text.trim(),
+        'amount': amount,
+        'frequency': freq,
+      }),
+    );
   }
 
   Future<void> _addExpense() async {
@@ -89,27 +105,29 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
     String freq = 'monthly';
     final ok = await _formDialog(
       title: 'Add expense',
-      fields: [
-        (desc, 'Description', null),
-        (amt, 'Amount', null),
-      ],
-      extra: (setState) => Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButton<String>(
-          value: category,
-          isExpanded: true,
-          items: _expenseCategories
-              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-              .toList(),
-          onChanged: (v) => setState(() => category = v ?? category),
-        ),
-        const SizedBox(height: 8),
-        DropdownButton<String>(
-          value: freq,
-          isExpanded: true,
-          items: _frequencies.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-          onChanged: (v) => setState(() => freq = v ?? freq),
-        ),
-      ]),
+      fields: [(desc, 'Description', null), (amt, 'Amount', null)],
+      extra: (setState) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButton<String>(
+            value: category,
+            isExpanded: true,
+            items: _expenseCategories
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (v) => setState(() => category = v ?? category),
+          ),
+          const SizedBox(height: 8),
+          DropdownButton<String>(
+            value: freq,
+            isExpanded: true,
+            items: _frequencies
+                .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                .toList(),
+            onChanged: (v) => setState(() => freq = v ?? freq),
+          ),
+        ],
+      ),
     );
     if (ok != true) return;
     final amount = double.tryParse(amt.text.trim()) ?? 0;
@@ -117,12 +135,14 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       _toast('Enter a positive amount');
       return;
     }
-    setState(() => _expenses.add({
-      'category': category,
-      'description': desc.text.trim(),
-      'amount': amount,
-      'frequency': freq,
-    }));
+    setState(
+      () => _expenses.add({
+        'category': category,
+        'description': desc.text.trim(),
+        'amount': amount,
+        'frequency': freq,
+      }),
+    );
   }
 
   Future<void> _addAsset() async {
@@ -138,9 +158,12 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       extra: (setState) => DropdownButton<String>(
         value: type,
         isExpanded: true,
-        items: ['cash', 'investment', 'property', 'vehicle']
-            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-            .toList(),
+        items: [
+          'cash',
+          'investment',
+          'property',
+          'vehicle',
+        ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
         onChanged: (v) => setState(() => type = v ?? type),
       ),
     );
@@ -150,7 +173,9 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       _toast('Enter a name and a positive value');
       return;
     }
-    setState(() => _assets.add({'name': name.text.trim(), 'value': v, 'type': type}));
+    setState(
+      () => _assets.add({'name': name.text.trim(), 'value': v, 'type': type}),
+    );
   }
 
   Future<void> _addLiability() async {
@@ -166,9 +191,11 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       extra: (setState) => DropdownButton<String>(
         value: type,
         isExpanded: true,
-        items: ['loan', 'mortgage', 'credit_card']
-            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-            .toList(),
+        items: [
+          'loan',
+          'mortgage',
+          'credit_card',
+        ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
         onChanged: (v) => setState(() => type = v ?? type),
       ),
     );
@@ -178,7 +205,13 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       _toast('Enter a name and a positive amount');
       return;
     }
-    setState(() => _liabilities.add({'name': name.text.trim(), 'amount': a, 'type': type}));
+    setState(
+      () => _liabilities.add({
+        'name': name.text.trim(),
+        'amount': a,
+        'type': type,
+      }),
+    );
   }
 
   /// Generic two-text-field dialog with an optional inline widget
@@ -201,8 +234,12 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
                     controller: f.$1,
-                    decoration: InputDecoration(labelText: f.$2, hintText: f.$3),
-                    keyboardType: f.$2.contains('Amount') ||
+                    decoration: InputDecoration(
+                      labelText: f.$2,
+                      hintText: f.$3,
+                    ),
+                    keyboardType:
+                        f.$2.contains('Amount') ||
                             f.$2.contains('Value') ||
                             f.$2.contains('owed')
                         ? TextInputType.number
@@ -214,8 +251,14 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Add'),
+            ),
           ],
         ),
       ),
@@ -241,34 +284,78 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Analyze your household\'s finances for a period.',
-                style: theme.textTheme.bodySmall),
+            Text(
+              'Analyze your household\'s finances for a period.',
+              style: theme.textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: TextField(controller: _householdCtrl, decoration: const InputDecoration(labelText: 'Household ID', isDense: true))),
+                Expanded(
+                  child: TextField(
+                    controller: _householdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Household ID',
+                      isDense: true,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: TextField(controller: _periodCtrl, decoration: const InputDecoration(labelText: 'Period (e.g. 2026-10)', isDense: true))),
+                Expanded(
+                  child: TextField(
+                    controller: _periodCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Period (e.g. 2026-10)',
+                      isDense: true,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
-            _section('Incomes', _incomes.length, Icons.trending_up, _addIncome,
-                (i) => _incomes.removeAt(i),
-                (m) => '${m['source']} - ${m['frequency']}'),
-            _section('Expenses', _expenses.length, Icons.trending_down, _addExpense,
-                (i) => _expenses.removeAt(i),
-                (m) => '${m['category']} - ${m['frequency']}'),
-            _section('Assets', _assets.length, Icons.account_balance, _addAsset,
-                (i) => _assets.removeAt(i), (m) => '${m['type']}'),
-            _section('Liabilities', _liabilities.length, Icons.credit_card, _addLiability,
-                (i) => _liabilities.removeAt(i), (m) => '${m['type']}'),
+            _section(
+              'Incomes',
+              _incomes.length,
+              Icons.trending_up,
+              _addIncome,
+              (i) => _incomes.removeAt(i),
+              (m) => '${m['source']} - ${m['frequency']}',
+            ),
+            _section(
+              'Expenses',
+              _expenses.length,
+              Icons.trending_down,
+              _addExpense,
+              (i) => _expenses.removeAt(i),
+              (m) => '${m['category']} - ${m['frequency']}',
+            ),
+            _section(
+              'Assets',
+              _assets.length,
+              Icons.account_balance,
+              _addAsset,
+              (i) => _assets.removeAt(i),
+              (m) => '${m['type']}',
+            ),
+            _section(
+              'Liabilities',
+              _liabilities.length,
+              Icons.credit_card,
+              _addLiability,
+              (i) => _liabilities.removeAt(i),
+              (m) => '${m['type']}',
+            ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _busy ? null : _analyze,
                 icon: _busy
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.analytics_outlined),
                 label: const Text('Analyze household'),
               ),
@@ -276,7 +363,10 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
               ),
             if (_result != null) ...[
               const SizedBox(height: 16),
@@ -296,10 +386,13 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
                       _kv('Budget health', _result!['budget_health']),
                       const Divider(height: 20),
                       if ((_result!['expense_by_category'] as Map).isNotEmpty)
-                        Text('Expenses by category:', style: theme.textTheme.bodySmall),
+                        Text(
+                          'Expenses by category:',
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ...(_result!['expense_by_category'] as Map).entries.map(
-                            (e) => _kv('${e.key}', e.value),
-                          ),
+                        (e) => _kv('${e.key}', e.value),
+                      ),
                     ],
                   ),
                 ),
@@ -345,7 +438,10 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
           children: [
             Icon(icon, size: 18),
             const SizedBox(width: 8),
-            Text('$title ($count)', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              '$title ($count)',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const Spacer(),
             IconButton(icon: const Icon(Icons.add, size: 20), onPressed: onAdd),
           ],
@@ -354,10 +450,10 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
           final list = title == 'Incomes'
               ? _incomes
               : title == 'Expenses'
-                  ? _expenses
-                  : title == 'Assets'
-                      ? _assets
-                      : _liabilities;
+              ? _expenses
+              : title == 'Assets'
+              ? _assets
+              : _liabilities;
           final m = list[i];
           return ListTile(
             dense: true,
