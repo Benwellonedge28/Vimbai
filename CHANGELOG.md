@@ -16,6 +16,10 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- Idempotency keys. A write may carry `Idempotency-Key`; the first request with a key is claimed, run and answered, and a
+  repeat replays that answer instead of doing the work again - including when the answer was a refusal. A reused key with a
+  different request answers 422, a repeat while the first is still running answers 409, and a write with no key is
+  untouched. Claims live in the store as platform records and the worker removes the ones older than a day.
 - Contracts for every published address. Six hand-written contracts were moved to `contracts/openapi/v1/services/` and
   keep their schemas and prose; `cargo run -p xtask -- openapi` generates one specification per domain in
   `contracts/openapi/v1/domains/` for every address no service contract documents, stating only what the generator can

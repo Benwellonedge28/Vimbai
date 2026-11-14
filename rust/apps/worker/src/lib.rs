@@ -252,11 +252,36 @@ pub fn tick_book(
     Ok(answered)
 }
 
+/// How long a request claim keeps its promise, in seconds. The api-server defines the same lifetime for the claim it
+/// writes; a claim is only worth reading for as long as a client could still be retrying.
+pub const CLAIM_LIFETIME_SECONDS: f64 = 86_400.0;
+
+/// Remove the request claims whose promise has timed out. Answers how many went.
+pub fn prune_claims(graph: &(impl Graph + ?Sized), now: f64) -> Result<usize, StoreError> {
+    let claims = store::PlatformRecords::new(graph, store::IDEMPOTENCY_CLAIM);
+    let mut removed = 0;
+    for row in claims.matching("state", "done", 500)? {
+        let created = row.get("created_at").and_then(Value::as_f64).unwrap_or(now);
+        if now - created <= CLAIM_LIFETIME_SECONDS {
+            continue;
+        }
+        if let Some(id) = row.get("id").and_then(Value::as_str) {
+            if claims.remove(id)? {
+                removed += 1;
+            }
+        }
+    }
+    Ok(removed)
+}
+
 /// One tick over every Book in the store, which is what the worker process does on each pass.
 ///
 /// Books are platform records with no owner of their own, so they are listed as such and each is then worked inside the
 /// scope of the person who opened it - the same scope the engine serves that Book's requests under.
 pub fn tick(graph: &(impl Graph + ?Sized), now: f64) -> Result<Vec<Value>, StoreError> {
+    // claims first: a request claim is bookkeeping about a request, and one whose promise has timed out is litter the
+    // store does not need. Pruning is here because this is the only process that wakes up on a clock.
+    prune_claims(graph, now)?;
     let mut answered = Vec::new();
     let books = store::PlatformRecords::new(graph, offline_sync::sync::BOOK).list(1000)?;
     for book in books {
@@ -277,6 +302,22 @@ pub fn tick(graph: &(impl Graph + ?Sized), now: f64) -> Result<Vec<Value>, Store
 mod tests {
     use super::*;
     use store::fake::MemoryGraph;
+
+    #[test]
+    fn a_claim_past_its_promise_is_removed_and_a_fresh_one_is_kept() {
+        let graph = MemoryGraph::default();
+        let claims = store::PlatformRecords::new(&graph, store::IDEMPOTENCY_CLAIM);
+        claims
+            .create(&json!({ "id": "stale", "state": "done", "created_at": 0.0 }))
+            .expect("a stale claim");
+        claims
+            .create(&json!({ "id": "fresh", "state": "done", "created_at": 90000.0 }))
+            .expect("a fresh claim");
+        let removed = prune_claims(&graph, 100_000.0).expect("a prune");
+        assert_eq!(removed, 1);
+        assert!(claims.get("stale").expect("a read").is_none());
+        assert!(claims.get("fresh").expect("a read").is_some());
+    }
 
     fn talked() -> BookScope {
         BookScope::new("user-1", "book-1")

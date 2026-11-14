@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 pub mod accounting_book;
 pub mod accounting_standards;
+pub mod idempotency;
 pub mod identity;
 pub mod outbound;
 pub mod records;
@@ -956,7 +957,9 @@ fn start_broker(graph: Option<records::GraphHandle>) {
     });
 }
 
-fn routed(graph: Option<records::GraphHandle>) -> Router {
+/// The whole engine on a given store: every calculator, and the record routes behind the tenancy gate and the
+/// idempotency layer. Public so a test can serve exactly what a deployment serves rather than a replica of it.
+pub fn routed(graph: Option<records::GraphHandle>) -> Router {
     let state = AppState {
         calculators: Arc::new(calculators()),
     };
@@ -1016,7 +1019,13 @@ fn routed(graph: Option<records::GraphHandle>) -> Router {
     // hold no records, so there is nothing there for a Book to protect.
     match graph {
         Some(graph) => {
-            let guarded = tenancy_gate::guard(records::router(graph.clone()), graph);
+            // the tenancy gate decides whether the caller may touch the Book at all; the idempotency layer sits inside
+            // it, so a repeat is only recognised once the caller has been allowed through and cannot be used to probe a
+            // Book the caller cannot open
+            let guarded = idempotency::guard(
+                tenancy_gate::guard(records::router(graph.clone()), graph.clone()),
+                graph,
+            );
             calculations.merge(guarded)
         }
         None => calculations,

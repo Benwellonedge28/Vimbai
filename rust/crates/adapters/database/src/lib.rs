@@ -81,6 +81,13 @@ impl RecordKind {
 }
 
 /// The records absorption-costing-service used to own.
+/// A request claim: the record that makes a retried write happen once.
+///
+/// Platform-scoped, because it is bookkeeping about a request rather than data in a Book, and it expires - which is why
+/// the store has a door for removing one.
+pub const IDEMPOTENCY_CLAIM: RecordKind =
+    RecordKind::new("IdempotencyClaim", "OWNS_IDEMPOTENCY_CLAIM");
+
 pub const PRODUCT_COST: RecordKind = RecordKind::new("ProductCost", "OWNS_PRODUCT_COST");
 pub const OVERHEAD_ABSORPTION: RecordKind =
     RecordKind::new("OverheadAbsorption", "OWNS_OVERHEAD_ABSORPTION");
@@ -1305,6 +1312,27 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         );
         let rows = self.graph.run(&cypher, json!({ "limit": limit as i64 }))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// Remove a record by id. Answers whether one was there.
+    ///
+    /// The only platform record that expires is a request claim, and it has to be removable for the same reason it is
+    /// platform-scoped: it is bookkeeping about a request, not data in a Book, so nothing in a Book should have to know it
+    /// existed once its promise has timed out.
+    pub fn remove(&self, id: &str) -> Result<bool, StoreError> {
+        if id.trim().is_empty() {
+            return Ok(false);
+        }
+        // a DELETE returns no row on any graph, so whether one was there is asked before it is removed
+        if self.get(id)?.is_none() {
+            return Ok(false);
+        }
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nDETACH DELETE x",
+            label = self.kind.label
+        );
+        self.graph.run(&cypher, json!({ "id": id }))?;
+        Ok(true)
     }
 
     /// Change the named fields and nothing else.

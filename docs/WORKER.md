@@ -52,12 +52,19 @@ A `WorkflowExecution` row under `/automation/executions`, carrying the steps tha
 finished, and why it stopped when it did. A completed or failed run also lands in the owner's inbox through the
 notifications crate, so a rule nobody is watching still tells somebody what it did.
 
+## Request claims
+
+The API server records an `IdempotencyKey` claim for every write a caller marks as retryable, and that record is only worth
+reading while a client could still be retrying. Each tick therefore starts by removing claims older than a day
+(`CLAIM_LIFETIME_SECONDS`). It lives here because this is the only process that wakes up on a clock: a claim swept by a
+request would make the sweep depend on traffic.
+
 ## Tests
 
-- `src/lib.rs`: eleven tests over the rules - due now fires once, due later does not fire, a crash between claim and
+- `src/lib.rs`: twelve tests over the rules - due now fires once, due later does not fire, a crash between claim and
   completion leaves the run claimable exactly once, a completed run is not repeated, a repeating rule advances its due
   instant and skips missed periods, a manual rule is left alone, a disabled rule is not run, a failing step is recorded as
-  a failed run and still notified, a run lands in the inbox, and one tick works every Book in the store.
+  a failed run and still notified, a run lands in the inbox, one tick works every Book in the store, and a request claim past its promise is removed while a fresh one is kept.
 - `tests/offline.rs`: five tests against the real binary and a real store file - a pass runs a due rule and a second pass
   does not repeat it, the run outlives the process, an idle store is left alone, an unconfigured worker says so, and the
   same rule and instant name one run across processes.
