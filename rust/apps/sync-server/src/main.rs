@@ -59,9 +59,9 @@ async fn serve(options: Options) {
         mounts: addresses::mounts(addresses::manifest()),
         engine: engine.clone(),
     };
-    let served = engine.layer(axum::middleware::from_fn(surface_only)).layer(
+    let served = api::governed(engine.layer(axum::middleware::from_fn(surface_only)).layer(
         axum::middleware::from_fn_with_state(gateway, gateway::check),
-    );
+    ));
     axum::serve(listener, served)
         .await
         .unwrap_or_else(|err| panic!("the sync server stopped: {err}"));

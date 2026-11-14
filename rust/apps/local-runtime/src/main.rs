@@ -70,7 +70,8 @@ async fn serve(options: Options) {
         mounts: addresses::mounts(addresses::manifest()),
         engine,
     };
-    let served = engine_with_gateway(gateway);
+    // the door goes outside the gateway: the bound is on work the machine is doing, and the gateway's own checks are work
+    let served = api::governed(engine_with_gateway(gateway));
     axum::serve(listener, served)
         .await
         .unwrap_or_else(|err| panic!("the runtime stopped: {err}"));

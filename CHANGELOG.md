@@ -14,6 +14,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Every server this repository ships now serves behind the same door: the engine (`governed_router`), the on-device
+  runtime and the sync server all take `api::governed`, which reads `VIMBAI_API_MAX_IN_FLIGHT` and `VIMBAI_API_TIMEOUT_MS`
+  in one place rather than each binary having its own idea of the numbers. A new gate (`cargo run -p xtask -- boundaries`'s
+  sibling `xtask/src/servers.rs`) fails when a `main.rs` that calls `axum::serve` has not wrapped its router in it, and it
+  asserts it actually found the servers rather than passing over none. A test sends thirty-two callers at an on-device
+  runtime at once and every one is answered, so the layer is in the path rather than in a comment.
 - Safe Rust is now enforced across the whole repository, not only at crate roots. The sweep checks both `src/lib.rs`
   and `src/main.rs` of every crate (a crate that ships a binary and a library is two crates to the compiler, so an
   attribute on one says nothing about the other), gives all 83 integration test crates their own

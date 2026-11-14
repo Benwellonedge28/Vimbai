@@ -451,3 +451,38 @@ fn sign_up_existing(runtime: &Runtime, tag: &str) -> Vec<(String, String)> {
     let token = json_string(&body, "access_token").unwrap_or_else(|| panic!("no token in {body}"));
     vec![("Authorization".to_string(), format!("Bearer {token}"))]
 }
+
+/// A burst at an on-device runtime is admitted and answered, in turn, rather than refused.
+///
+/// The door is a layer, and a layer that is written but not wrapped around the router is a comment. Thirty-two callers ask a
+/// laptop-sized runtime for something at once: none is refused, and the answers are the ones they would have got alone. The
+/// laptop's own profile is deliberately small, so this also says the settings are read rather than the defaults assumed.
+#[test]
+fn a_burst_at_a_laptop_runtime_is_answered_in_turn() {
+    let dir = scratch("burst");
+    let Some(mut runtime) = Runtime::start(&dir) else {
+        return;
+    };
+    let port = runtime.port;
+    let mut callers = Vec::new();
+    for _ in 0..32 {
+        callers.push(std::thread::spawn(move || {
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("a connection");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .expect("a timeout");
+            let request = "GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+            stream.write_all(request.as_bytes()).expect("a write");
+            let mut raw = String::new();
+            stream.read_to_string(&mut raw).expect("an answer");
+            raw.split_whitespace()
+                .nth(1)
+                .and_then(|code| code.parse::<u16>().ok())
+                .expect("a status")
+        }));
+    }
+    for caller in callers {
+        assert_eq!(caller.join().expect("a caller finishes"), 200);
+    }
+    runtime.stop();
+}

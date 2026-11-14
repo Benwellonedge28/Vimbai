@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use xtask::{boundaries, catalog, crates, manifests, reachability, wiring, workflows};
+use xtask::{boundaries, catalog, crates, manifests, reachability, servers, wiring, workflows};
 
 fn root() -> PathBuf {
     xtask::catalog::repo_root()
@@ -52,6 +52,22 @@ fn every_crate_is_safe_rust_only() {
     assert!(
         gaps.is_empty(),
         "crates without forbid(unsafe_code): {gaps:?}"
+    );
+}
+
+#[test]
+fn every_server_stands_behind_the_door() {
+    let gaps = servers::servers_missing_the_door(&root());
+    assert!(
+        gaps.is_empty(),
+        "servers serving without limits::govern: {gaps:?}"
+    );
+    // a gate that finds nothing because it looked nowhere is not a gate
+    let found = servers::servers(&root());
+    assert!(
+        found.len() >= 3,
+        "the sweep found {} servers, not the three this repository ships",
+        found.len()
     );
 }
 

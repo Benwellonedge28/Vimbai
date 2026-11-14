@@ -921,7 +921,15 @@ fn published(name: &'static str) -> axum::routing::MethodRouter<AppState> {
 /// on-device runtime - gets the same behaviour. With no broker asked for, nothing is started and the statistics say so.
 /// The router a deployment serves: the engine behind the door that counts requests and gives each a deadline.
 pub fn governed_router() -> Router {
-    limits::govern(router(), limits::Limits::from_env())
+    governed(router())
+}
+
+/// Stand in front of any composed router with the door: bounded work in flight, a deadline on each, both from settings.
+///
+/// Every server this repository ships serves through here rather than calling `limits::govern` with its own idea of the
+/// numbers, so a laptop, a cluster node and a sync server are all bounded by the same door read from the same variables.
+pub fn governed(router: Router) -> Router {
+    limits::govern(router, limits::Limits::from_env())
 }
 
 pub fn router() -> Router {
