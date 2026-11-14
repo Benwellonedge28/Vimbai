@@ -25,6 +25,7 @@ pub mod accounting_standards;
 pub mod idempotency;
 pub mod identity;
 pub mod outbound;
+pub mod pagination;
 pub mod records;
 pub mod sockets;
 pub mod tenancy_gate;
@@ -1022,10 +1023,10 @@ pub fn routed(graph: Option<records::GraphHandle>) -> Router {
             // the tenancy gate decides whether the caller may touch the Book at all; the idempotency layer sits inside
             // it, so a repeat is only recognised once the caller has been allowed through and cannot be used to probe a
             // Book the caller cannot open
-            let guarded = idempotency::guard(
+            let guarded = pagination::guard(idempotency::guard(
                 tenancy_gate::guard(records::router(graph.clone()), graph.clone()),
                 graph,
-            );
+            ));
             calculations.merge(guarded)
         }
         None => calculations,

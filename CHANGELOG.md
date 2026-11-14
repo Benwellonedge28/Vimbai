@@ -16,6 +16,9 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- Opt-in cursor pagination. A list request carrying `limit` or `cursor` answers `items`, `has_more`, `next_cursor`,
+  `count` and `total`, keeping the handler's own key for the rows when it had one; a request carrying neither answers the
+  same shape it always did, so no client broke. A cursor the engine did not issue, or a nonsensical limit, answers 422.
 - Idempotency keys. A write may carry `Idempotency-Key`; the first request with a key is claimed, run and answered, and a
   repeat replays that answer instead of doing the work again - including when the answer was a refusal. A reused key with a
   different request answers 422, a repeat while the first is still running answers 409, and a write with no key is

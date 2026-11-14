@@ -30,12 +30,17 @@ and *not* implemented, and this page records that rather than letting a document
 
 ## Stated in ADR-004 and not yet implemented
 
-7. **Cursor pagination.** `items`, `has_more` and `next_cursor` are not what the engine returns: a list answers a plain
-   JSON array, and the caller pages with `limit` and `offset` where the handler supports it. The engine is therefore
-   consistent with itself and not with ADR-004. Closing this means changing every list handler and every client that
-   reads an array, which is a `v2` change if it is done by shape and a `v1` change only if it is added beside the array.
-8. **Cursor pagination**, described above, is the only convention left unimplemented.
+7. **Cursor pagination is implemented, opt-in, with one stated ceiling.** A caller who sends no paging parameters gets
+   exactly what they got before, which is how it landed in v1 without breaking anyone. A caller who sends `limit` or
+   `cursor` gets `items`, `has_more`, `next_cursor`, `count` and `total`; a list that answers its rows under a name
+   (`{"rates": [...], "count": 3}`) keeps that name as well. A cursor the engine did not issue answers 422, and a
+   nonsensical `limit` answers 422 rather than being guessed at.
 
-It is not hidden behind a claim that the convention holds. Anything a client is told here is
+   The ceiling: the layer windows the rows the handler produced, and every list handler already caps what it reads. So
+   `has_more` is true when the engine had more rows to give, and paging beyond that cap is a matter of raising the
+   handler's cap - it is not something a caller can ask past. Seeking from a cursor inside the store, rather than
+   windowing the answer, is the remaining work; the shape is in place so a client can be written against it now.
+
+Every convention ADR-004 states is now implemented or stated as not. None is hidden behind a claim that it holds. Anything a client is told here is
 verified by the tests named in `docs/compliance/financial-integrity.md` where it touches the ledger, and by
 `cargo run -p xtask -- openapi --check` where it touches an address.
