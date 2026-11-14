@@ -17378,6 +17378,50 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/reports/sales-summary", post(post_pos_sales_summary))
         .route("/integrations/:pos_type/webhook", post(post_pos_webhook))
         .route("/pos-metrics", get(get_pos_metrics))
+        // pos-integration published its till under /pos-integration. These name the same handlers at those addresses,
+        // so the till answers where its terminals call it as well as at the engine's own names.
+        .route(
+            "/pos-integration/devices",
+            get(get_pos_devices).post(post_pos_device),
+        )
+        .route("/pos-integration/devices/:id", get(get_pos_device))
+        .route(
+            "/pos-integration/devices/:id/status",
+            put(put_pos_device_status),
+        )
+        .route(
+            "/pos-integration/transactions",
+            get(get_pos_takings).post(post_pos_taking),
+        )
+        .route(
+            "/pos-integration/transactions/batch",
+            post(post_pos_batch),
+        )
+        .route(
+            "/pos-integration/transactions/:id",
+            get(get_pos_taking),
+        )
+        .route(
+            "/pos-integration/transactions/:id/sync",
+            post(post_pos_taking_sync),
+        )
+        .route(
+            "/pos-integration/inventory/sync",
+            post(post_pos_inventory_sync),
+        )
+        .route(
+            "/pos-integration/inventory/reconcile",
+            post(post_pos_inventory_reconcile),
+        )
+        .route(
+            "/pos-integration/reports/sales-summary",
+            post(post_pos_sales_summary),
+        )
+        .route(
+            "/pos-integration/integrations/:pos_type/webhook",
+            post(post_pos_webhook),
+        )
+        .route("/pos-integration/metrics", get(get_pos_metrics))
 
         // websocket: the last mile of the Book event stream
         .route("/websocket-health", get(get_websocket_health))

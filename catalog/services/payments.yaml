@@ -41,19 +41,5 @@ services:
   gateway_path: /pos-integration
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /devices
-  - GET /devices
-  - GET /devices/{device_id}
-  - PUT /devices/{device_id}/status
-  - POST /transactions
-  - POST /transactions/batch
-  - GET /transactions
-  - GET /transactions/{transaction_id}
-  - POST /inventory/sync
-  - POST /inventory/reconcile
-  - POST /reports/sales-summary
-  - POST /integrations/{pos_type}/webhook
-  - GET /metrics
+  records: false
+  endpoints: []

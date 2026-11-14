@@ -468,7 +468,7 @@ Lands in `rust/crates/domains/payments`.
 ```
 service                                         port  routes  records  engine
 payment-gateway-service                         8098      20       no  python
-pos-integration-service                         8095      14      yes  rust
+pos-integration-service                         8095       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
