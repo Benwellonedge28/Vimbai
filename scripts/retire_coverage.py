@@ -154,7 +154,9 @@ def _without_shared_stripped_paths(rows, table):
             for path in {shape(p) for p in published(row["service"])}:
                 claims.setdefault(path, set()).add(row["service"])
     for row in rows:
-        if row["verdict"] != "ready":
+        # Only a service the gateway would serve flat can collide: one that keeps its prefix answers
+        # /its-own-name/rules, which is nobody else's address, so a shared word underneath it is not a clash.
+        if row["verdict"] != "ready" or row.get("prefix") != "strip":
             continue
         shared = set()
         for path in {shape(p) for p in published(row["service"])}:

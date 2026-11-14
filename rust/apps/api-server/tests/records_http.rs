@@ -420,7 +420,7 @@ async fn an_absorption_rate_is_stored_and_reported_on_the_published_path() {
     let graph = Scripted::returning(vec![stored]);
     let (status, body) = call(
         graph,
-        "/overhead-absorption/calculate",
+        "/overhead-absorption-rate/calculate",
         Some(json!({
             "cost_centre_name": "Machining",
             "cost_centre_id": "cc-1",
@@ -477,7 +477,7 @@ async fn every_absorption_base_keeps_its_own_answer_name() {
         payload[key] = json!(figure);
         let (status, body) = call(
             graph,
-            &format!("/overhead-absorption/{path}"),
+            &format!("/overhead-absorption-rate/{path}"),
             Some(payload),
         )
         .await;
@@ -491,7 +491,7 @@ async fn a_blanket_rate_and_an_absorbed_figure_both_answer() {
     let graph = Scripted::returning(vec![json!({"x": {"id": "an-4"}})]);
     let (status, body) = call(
         graph,
-        "/overhead-absorption/blanket-rate",
+        "/overhead-absorption-rate/blanket-rate",
         Some(json!({
             "entity_name": "Works",
             "absorption_base": "direct_labour_hours",
@@ -506,7 +506,7 @@ async fn a_blanket_rate_and_an_absorbed_figure_both_answer() {
     let graph = Scripted::returning(vec![]);
     let (status, body) = call(
         graph,
-        "/overhead-absorption/absorbed-overhead",
+        "/overhead-absorption-rate/absorbed-overhead",
         Some(json!({
             "cost_centre_name": "Machining",
             "actual_base_units": 2100,
@@ -543,7 +543,7 @@ async fn rent_is_apportioned_by_floor_area_on_the_published_path() {
     let graph = Scripted::returning(vec![stored]);
     let (status, body) = call(
         graph,
-        "/apportionment/apportion/floor-area",
+        "/basis-apportionment/apportion/floor-area",
         Some(json!({
             "cost_type": "rent",
             "total_cost": 1200,
@@ -583,7 +583,7 @@ async fn every_apportionment_basis_answers_on_its_own_path() {
         });
         let (status, body) = call(
             graph,
-            &format!("/apportionment/apportion/{path}"),
+            &format!("/basis-apportionment/apportion/{path}"),
             Some(payload),
         )
         .await;
@@ -599,7 +599,7 @@ async fn an_apportionment_rule_and_the_results_both_answer() {
     let graph = Scripted::returning(vec![json!({"x": {"id": "rule-1"}})]);
     let (status, _) = call(
         graph,
-        "/apportionment/rules/create",
+        "/basis-apportionment/rules/create",
         Some(json!({
             "cost_type": "rent",
             "basis": "floor_area",
@@ -610,7 +610,7 @@ async fn an_apportionment_rule_and_the_results_both_answer() {
     assert_eq!(status, StatusCode::OK);
 
     let graph = Scripted::returning(vec![]);
-    let (status, body) = call(graph, "/apportionment/results", None).await;
+    let (status, body) = call(graph, "/basis-apportionment/results", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["results"].as_array().unwrap().len(), 0);
 }

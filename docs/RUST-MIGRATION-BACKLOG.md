@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 17 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 121 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 15 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 123 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -34,7 +34,7 @@ bank-feed-service                              8097  routes=23  records=yes rust
 bank-reconciliation-service                    8099  routes=0   records=no  rust http (no python source)
 bank-relationship-service                      8099  routes=0   records=no  rust http (no python source)
 banking-integration-service                    8099  routes=0   records=no  rust http (no python source)
-basis-apportionment-service                    8022  routes=12  records=yes rust http
+basis-apportionment-service                    8022  routes=0   records=no  rust http (no python source)
 benefits-admin-service                         8099  routes=0   records=no  rust http (no python source)
 biological-assets-service                      8099  routes=0   records=no  rust http (no python source)
 bonus-shares-service                           8099  routes=0   records=no  rust http (no python source)
@@ -94,7 +94,7 @@ net-present-value-service                      8099  routes=0   records=no  rust
 notifications-service                          8099  routes=0   records=no  rust http (no python source)
 npo-service                                    8099  routes=0   records=no  rust http (no python source)
 ordinary-shares-service                        8090  routes=0   records=no  rust http (no python source)
-overhead-absorption-rate-service               8092  routes=13  records=yes rust http
+overhead-absorption-rate-service               8092  routes=0   records=no  rust http (no python source)
 partnership-agreement-service                  8099  routes=0   records=no  rust http (no python source)
 partnership-changes-service                    8099  routes=0   records=no  rust http (no python source)
 partnership-dissolution-service                8099  routes=0   records=no  rust http (no python source)

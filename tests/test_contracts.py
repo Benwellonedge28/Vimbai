@@ -28,7 +28,7 @@ COSTING = os.path.join(ROOT, "rust", "crates", "domains", "costing", "src")
 # /records - and the contract describes the published one.
 SERVICES = {
     "costing.yaml": {
-        "prefix": "/overhead-absorption",
+        "prefix": "/overhead-absorption-rate",
         "handler": os.path.join(COSTING, "overhead_absorption.rs"),
     },
     "job-costing.yaml": {

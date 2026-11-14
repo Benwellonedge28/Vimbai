@@ -232,10 +232,10 @@ Lands in `rust/crates/domains/costing`.
 service                                         port  routes  records  engine
 absorption-costing-service                      8010       8      yes  rust
 absorption-costing-statement-service            8099       0       no  rust
-basis-apportionment-service                     8022      12      yes  rust
+basis-apportionment-service                     8022       0       no  rust
 cvp-analysis-service                            8099       0       no  rust
 job-costing-service                             8099       0       no  rust
-overhead-absorption-rate-service                8092      13      yes  rust
+overhead-absorption-rate-service                8092       0       no  rust
 process-costing-service                         8099       0       no  rust
 product-costing-service                         8099       0       no  rust
 selling-price-reduction-service                 8099       0       no  rust

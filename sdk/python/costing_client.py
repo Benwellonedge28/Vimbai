@@ -112,7 +112,7 @@ class VimbaiOverheadAbsorptionClient:
         if absorption_base is not None:
             body["absorption_base"] = absorption_base
         query = None
-        path = "/overhead-absorption/calculate"
+        path = "/overhead-absorption-rate/calculate"
         return self._call("POST", path, query=query, body=body)
 
     def machine_hours_rate(
@@ -145,7 +145,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/machine-hours-rate"
+        path = "/overhead-absorption-rate/machine-hours-rate"
         return self._call("POST", path, query=query, body=body)
 
     def direct_labour_hours_rate(
@@ -178,7 +178,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/labour-hours-rate"
+        path = "/overhead-absorption-rate/labour-hours-rate"
         return self._call("POST", path, query=query, body=body)
 
     def direct_labour_cost_rate(
@@ -211,7 +211,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/labour-cost-rate"
+        path = "/overhead-absorption-rate/labour-cost-rate"
         return self._call("POST", path, query=query, body=body)
 
     def material_cost_rate(
@@ -244,7 +244,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/material-cost-rate"
+        path = "/overhead-absorption-rate/material-cost-rate"
         return self._call("POST", path, query=query, body=body)
 
     def prime_cost_rate(
@@ -277,7 +277,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/prime-cost-rate"
+        path = "/overhead-absorption-rate/prime-cost-rate"
         return self._call("POST", path, query=query, body=body)
 
     def unit_rate(
@@ -310,7 +310,7 @@ class VimbaiOverheadAbsorptionClient:
         if budgeted_units is not None:
             body["budgeted_units"] = _money("budgeted_units", budgeted_units)
         query = None
-        path = "/overhead-absorption/unit-rate"
+        path = "/overhead-absorption-rate/unit-rate"
         return self._call("POST", path, query=query, body=body)
 
     def blanket_rate(
@@ -331,7 +331,7 @@ class VimbaiOverheadAbsorptionClient:
         if total_base_units is not None:
             body["total_base_units"] = _money("total_base_units", total_base_units)
         query = None
-        path = "/overhead-absorption/blanket-rate"
+        path = "/overhead-absorption-rate/blanket-rate"
         return self._call("POST", path, query=query, body=body)
 
     def absorbed_overhead(
@@ -349,7 +349,7 @@ class VimbaiOverheadAbsorptionClient:
         if absorption_rate is not None:
             body["absorption_rate"] = _money("absorption_rate", absorption_rate)
         query = None
-        path = "/overhead-absorption/absorbed-overhead"
+        path = "/overhead-absorption-rate/absorbed-overhead"
         return self._call("POST", path, query=query, body=body)
 
     def list_absorption_rates(
@@ -361,7 +361,7 @@ class VimbaiOverheadAbsorptionClient:
             "cost_centre_id": cost_centre_id,
         }
         query = {key: value for key, value in query.items() if value is not None}
-        path = "/overhead-absorption/rates"
+        path = "/overhead-absorption-rate/rates"
         return self._call("GET", path, query=query, body=None)
 
     def list_absorption_analyses(
@@ -369,7 +369,7 @@ class VimbaiOverheadAbsorptionClient:
     ) -> Any:
         """Every rate calculation recorded against this Book."""
         query = None
-        path = "/overhead-absorption/analyses"
+        path = "/overhead-absorption-rate/analyses"
         return self._call("GET", path, query=query, body=None)
 
 

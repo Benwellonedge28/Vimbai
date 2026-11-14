@@ -18702,9 +18702,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/cvp-analysis/multi-product", post(cvp_multi_product))
         .route("/cvp-analysis/analyses", get(cvp_analyses))
         .route("/cvp-analysis/analyses/:analysis_id", get(cvp_analysis_by_id))
-        .route("/overhead-absorption/calculate", post(overhead_rate))
+        // overhead-absorption-rate-service and basis-apportionment-service publish these under their own prefixes,
+        // which is where a client asks for them; the older mounts below are the engine-side names.
+        .route("/overhead-absorption-rate/calculate", post(overhead_rate))
         .route(
-            "/overhead-absorption/machine-hours-rate",
+            "/overhead-absorption-rate/machine-hours-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 0), headers, body)
@@ -18712,7 +18714,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/overhead-absorption/labour-hours-rate",
+            "/overhead-absorption-rate/labour-hours-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 1), headers, body)
@@ -18720,7 +18722,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/overhead-absorption/labour-cost-rate",
+            "/overhead-absorption-rate/labour-cost-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 2), headers, body)
@@ -18728,7 +18730,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/overhead-absorption/material-cost-rate",
+            "/overhead-absorption-rate/material-cost-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 3), headers, body)
@@ -18736,7 +18738,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/overhead-absorption/prime-cost-rate",
+            "/overhead-absorption-rate/prime-cost-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 4), headers, body)
@@ -18744,21 +18746,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/overhead-absorption/unit-rate",
+            "/overhead-absorption-rate/unit-rate",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     overhead_base_rate((state, 5), headers, body)
                 },
             ),
         )
-        .route("/overhead-absorption/blanket-rate", post(overhead_blanket_rate))
-        .route("/overhead-absorption/absorbed-overhead", post(overhead_absorbed))
-        .route("/overhead-absorption/rates", get(overhead_rates))
-        .route("/overhead-absorption/analyses", get(overhead_analyses))
-        .route("/apportionment/rules/create", post(apportionment_rule))
-        .route("/apportionment/rules", get(apportionment_rules))
+        .route("/overhead-absorption-rate/blanket-rate", post(overhead_blanket_rate))
+        .route("/overhead-absorption-rate/absorbed-overhead", post(overhead_absorbed))
+        .route("/overhead-absorption-rate/rates", get(overhead_rates))
+        .route("/overhead-absorption-rate/analyses", get(overhead_analyses))
+        .route("/basis-apportionment/rules/create", post(apportionment_rule))
+        .route("/basis-apportionment/rules", get(apportionment_rules))
         .route(
-            "/apportionment/apportion/floor-area",
+            "/basis-apportionment/apportion/floor-area",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 0), headers, body)
@@ -18766,7 +18768,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/volume",
+            "/basis-apportionment/apportion/volume",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 1), headers, body)
@@ -18774,7 +18776,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/cost",
+            "/basis-apportionment/apportion/cost",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 2), headers, body)
@@ -18782,7 +18784,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/net-book-value",
+            "/basis-apportionment/apportion/net-book-value",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 3), headers, body)
@@ -18790,7 +18792,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/replacement-value",
+            "/basis-apportionment/apportion/replacement-value",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 4), headers, body)
@@ -18798,7 +18800,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/personnel",
+            "/basis-apportionment/apportion/personnel",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 5), headers, body)
@@ -18806,14 +18808,15 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             ),
         )
         .route(
-            "/apportionment/apportion/requisitions",
+            "/basis-apportionment/apportion/requisitions",
             post(
                 move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
                     apportionment_by_basis((state, 6), headers, body)
                 },
             ),
         )
-        .route("/apportionment/results", get(apportionment_results))
+        .route("/basis-apportionment/results", get(apportionment_results))
+
         .route("/process-costing/calculate", post(cost_calculation))
         .route("/process-costing/calculations/:company_id", get(company_cost_calculations))
         .route("/process-costing/breakdown/:company_id/:calc_id", get(cost_breakdown))

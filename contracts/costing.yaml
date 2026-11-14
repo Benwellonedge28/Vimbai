@@ -24,7 +24,7 @@ servers:
 security:
   - BookScope: []
 paths:
-  /overhead-absorption/calculate:
+  /overhead-absorption-rate/calculate:
     post:
       operationId: calculateAbsorptionRate
       parameters:
@@ -45,7 +45,7 @@ paths:
                 $ref: "#/components/schemas/AbsorptionRate"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/machine-hours-rate:
+  /overhead-absorption-rate/machine-hours-rate:
     post:
       operationId: machineHoursRate
       parameters:
@@ -66,7 +66,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerMachineHours"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/labour-hours-rate:
+  /overhead-absorption-rate/labour-hours-rate:
     post:
       operationId: directLabourHoursRate
       parameters:
@@ -87,7 +87,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerLabourHours"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/labour-cost-rate:
+  /overhead-absorption-rate/labour-cost-rate:
     post:
       operationId: directLabourCostRate
       parameters:
@@ -109,7 +109,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerPercentage"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/material-cost-rate:
+  /overhead-absorption-rate/material-cost-rate:
     post:
       operationId: materialCostRate
       parameters:
@@ -130,7 +130,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerPercentage"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/prime-cost-rate:
+  /overhead-absorption-rate/prime-cost-rate:
     post:
       operationId: primeCostRate
       parameters:
@@ -151,7 +151,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerPercentage"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/unit-rate:
+  /overhead-absorption-rate/unit-rate:
     post:
       operationId: unitRate
       parameters:
@@ -172,7 +172,7 @@ paths:
                 $ref: "#/components/schemas/BaseRateAnswerUnits"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/blanket-rate:
+  /overhead-absorption-rate/blanket-rate:
     post:
       operationId: blanketRate
       parameters:
@@ -193,7 +193,7 @@ paths:
                 $ref: "#/components/schemas/BlanketRateAnswer"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/absorbed-overhead:
+  /overhead-absorption-rate/absorbed-overhead:
     post:
       operationId: absorbedOverhead
       parameters:
@@ -217,7 +217,7 @@ paths:
                 $ref: "#/components/schemas/AbsorbedOverheadAnswer"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/rates:
+  /overhead-absorption-rate/rates:
     get:
       operationId: listAbsorptionRates
       summary: The rates recorded against this Book, newest the store's order.
@@ -238,7 +238,7 @@ paths:
                 $ref: "#/components/schemas/RateList"
         "400":
           $ref: "#/components/responses/BadRequest"
-  /overhead-absorption/analyses:
+  /overhead-absorption-rate/analyses:
     get:
       operationId: listAbsorptionAnalyses
       parameters:

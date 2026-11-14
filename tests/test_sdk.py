@@ -179,7 +179,7 @@ def test_both_headers_are_sent_and_the_path_is_the_contract_path():
         total_base_units="12000",
     )
     request = recorder.requests[0]
-    assert request.full_url == "https://api.example/overhead-absorption/blanket-rate"
+    assert request.full_url == "https://api.example/overhead-absorption-rate/blanket-rate"
     headers = {key.lower(): value for key, value in request.header_items()}
     assert headers["x-user-id"] == "user-1"
     assert headers["x-book-id"] == "book-1"
@@ -188,11 +188,11 @@ def test_both_headers_are_sent_and_the_path_is_the_contract_path():
 def test_a_query_parameter_is_sent_only_when_given():
     recorder = Recorder()
     client("costing.yaml", recorder).list_absorption_rates()
-    assert recorder.requests[0].full_url == "https://api.example/overhead-absorption/rates"
+    assert recorder.requests[0].full_url == "https://api.example/overhead-absorption-rate/rates"
 
     recorder = Recorder()
     client("costing.yaml", recorder).list_absorption_rates(cost_centre_id="cc-1")
-    assert recorder.requests[0].full_url.endswith("/overhead-absorption/rates?cost_centre_id=cc-1")
+    assert recorder.requests[0].full_url.endswith("/overhead-absorption-rate/rates?cost_centre_id=cc-1")
 
 
 def test_a_path_parameter_is_substituted_into_the_path():
