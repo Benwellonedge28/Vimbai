@@ -30,10 +30,41 @@ pub struct JobRollup {
     pub gross_margin: f64,
 }
 
+/// What a job's cost total means against its contract: the profit and the margin, computed once
+/// for the whole workspace.
+///
+/// This lives beside the arithmetic rather than beside the records, because it is arithmetic: two
+/// amounts in, a profit and a margin out, with no store access and no business rule. The costed-job
+/// module in the costing domain calls this rather than carrying its own copy - it used to, and the
+/// seam and the API could answer differently for the same job.
+pub struct JobSettlement {
+    pub total: Money,
+    pub profit: Money,
+    pub margin: f64,
+}
+
+/// Settle a total against a contract value.
+///
+/// A zero contract reports a zero margin rather than a margin of the whole profit, which is what
+/// the old `f64` copy's `max(1, contract)` guard pretended to do.
+pub fn settle(total: &Money, contract: &Money) -> JobSettlement {
+    let profit = contract.minus(total);
+    let margin = if contract.is_zero() {
+        0.0
+    } else {
+        profit.ratio_pct(contract, 6).to_f64_lossy()
+    };
+    JobSettlement {
+        total: total.clone(),
+        profit,
+        margin,
+    }
+}
+
 /// Apply one cost entry to a job's running totals
 /// (job-costing-service `crud.add_cost`).
 ///
-/// The arithmetic is `vimbai_service_costing::job_costing::settle`, the same function the
+/// The arithmetic is [`settle`], the same function the
 /// record-backed endpoint uses. This crate used to carry its own copy in `f64`, with a
 /// `max(1, contract_value)` guard the exact version does not have, so the seam and the API could
 /// answer differently for the same job. `f64` survives here only because the seam's request and
@@ -62,7 +93,7 @@ pub fn rollup(job: &JobCosts, contract_value: f64) -> JobRollup {
         .iter()
         .fold(Money::zero(), |running, cost| running.plus(cost));
     let contract = money(contract_value);
-    let settled = vimbai_service_costing::job_costing::settle(&total, &contract);
+    let settled = settle(&total, &contract);
     JobRollup {
         total_cost: settled.total.to_f64_lossy(),
         gross_profit: settled.profit.to_f64_lossy(),

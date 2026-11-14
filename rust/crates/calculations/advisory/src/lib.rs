@@ -15,7 +15,9 @@ pub mod treasury;
 use serde_json::Value;
 use vimbai_common::py_round2;
 
-pub use vimbai_store::read::text;
+// The payload reader is shared vocabulary, not storage: this crate used to depend on the database
+// adapter to read one string out of a request.
+pub use vimbai_common::normal::payload_text as text;
 
 pub fn num(v: &Value, key: &str) -> f64 {
     v.get(key).and_then(Value::as_f64).unwrap_or(0.0)

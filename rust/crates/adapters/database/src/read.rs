@@ -30,12 +30,11 @@ pub fn maybe_flag(record: &Value, key: &str) -> Option<bool> {
 }
 
 /// A label, empty when it was never given.
+///
+/// The implementation lives in `vimbai_common` because it is a payload helper rather than storage: a calculation crate
+/// needing it should not have to depend on the database adapter. Re-exported under the name the call sites use.
 pub fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
+    vimbai_common::normal::payload_text(payload, key)
 }
 
 /// A label the caller must supply.

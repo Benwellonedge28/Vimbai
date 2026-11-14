@@ -28,8 +28,9 @@ in `ROADMAP.md`.
 
 ## Architecture
 
-- `architecture/system-boundaries.md` - what each layer owns. Roadmap P1.
-- `architecture/dependency-rules.md` - the rules between crates, and the gate that enforces them. Roadmap P1.
+- `architecture/system-boundaries.md` - what each layer owns, and where one part stops and the next begins.
+- `architecture/dependency-rules.md` - the rules between crates, the one tolerated dependency, and the gate behind them.
+  `cargo run -p xtask -- boundaries` applies them; a test fails if this page and the code disagree.
 - `architecture/RUST-CRATE-LAYOUT.md` - historical snapshot of the crate layout. The current boundaries are ADR-003.
 
 ## Domains

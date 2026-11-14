@@ -8,6 +8,9 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
 
 ### Added
 
+- `cargo run -p xtask -- boundaries`: the crate dependency rules as a gate, with the graph discovered from the
+  manifests, one recorded tolerance, and a test that fails if a tolerance goes stale.
+- `docs/architecture/system-boundaries.md` and `docs/architecture/dependency-rules.md`.
 - `docs/ROADMAP.md`: the ordered plan this repository is worked to, with a measured baseline and per-phase exit criteria.
 - `docs/decisions/`: ADR-001 language policy, ADR-002 ledger authority, ADR-003 modular platform, ADR-004 API versioning,
   ADR-005 Vimbai Pay not built, ADR-006 developer platform deferred, ADR-008 directory naming.
@@ -17,6 +20,9 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
 
 ### Changed
 
+- The thirty-third and last layering defect closed: `vimbai_cost_accounting` reached into the costing domain for one
+  function, and `vimbai_advisory` depended on the database adapter to read a string out of a JSON payload. The
+  settlement arithmetic now lives in the calculation crate that other code calls, and the payload reader in `common`.
 - Documentation index established in `docs/README.md`; contributing guide rewritten for Safe Rust, Go and Dart.
 
 ## [0.1.0] - 2026-11-14

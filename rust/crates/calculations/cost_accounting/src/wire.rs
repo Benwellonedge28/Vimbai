@@ -15,7 +15,7 @@ use crate::budgeted_cost::{
     compare_output, cost_breakdown, create_budgeted_cost, flexible_budget, total_budget, BudgetItem,
 };
 use crate::cost_centre::{generate_summary, CostCentreCost as SummaryCost};
-use crate::job_costing::{add_cost, CostType, JobCosts};
+use crate::job_costing::{add_cost, settle, CostType, JobCosts};
 use crate::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
 };
@@ -648,7 +648,7 @@ pub fn job_add_cost_from_json(payload: &Value) -> Result<Value, String> {
             };
             let margin = match b.gross_margin {
                 Some(stated) => stated,
-                None => vimbai_service_costing::job_costing::settle(&exact_total, &contract).margin,
+                None => settle(&exact_total, &contract).margin,
             };
             (profit.to_f64_lossy(), margin)
         }

@@ -95,6 +95,19 @@ pub fn black_scholes_put(spot: f64, strike: f64, years: f64, rate: f64, volatili
     strike * (-rate * years).exp() * norm_cdf(-d2) - spot * norm_cdf(-d1)
 }
 
+/// A string field out of a JSON payload, empty when it was never given.
+///
+/// This sat in the store's reader module, which is why a pure arithmetic crate ended up depending on the database
+/// adapter to read one string out of a request. It is a payload helper, not storage, so it lives with the rest of the
+/// shared vocabulary and the store delegates here rather than keeping a second copy.
+pub fn payload_text(payload: &serde_json::Value, key: &str) -> String {
+    payload
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

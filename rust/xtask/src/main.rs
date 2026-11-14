@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{catalog, gateway, reachability};
+use xtask::{boundaries, catalog, gateway, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -22,6 +22,10 @@ COMMANDS:
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
     reachability       report the modules no door can reach, one per line
+    boundaries         report crate dependency rule violations, and exit 1 if there are any
+    boundaries --graph print every crate with its family and its internal dependencies
+    boundaries --rules print the rule table as the documentation states it
+    boundaries --exceptions print the tolerated dependencies and why
 ";
 
 fn main() -> ExitCode {
@@ -111,6 +115,70 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             } else {
                 ExitCode::SUCCESS
+            }
+        }
+        "boundaries" if args.iter().any(|argument| argument == "--rules") => {
+            for rule in boundaries::rules() {
+                println!("{} [{}] {}", rule.id, rule.from.label(), rule.statement);
+            }
+            ExitCode::SUCCESS
+        }
+        "boundaries" if args.iter().any(|argument| argument == "--exceptions") => {
+            for exception in boundaries::exceptions() {
+                println!(
+                    "{} {} -> {}\n    {}",
+                    exception.rule, exception.from, exception.to, exception.reason
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        "boundaries" if args.iter().any(|argument| argument == "--graph") => {
+            let crates = boundaries::graph(&root);
+            for item in &crates {
+                let family = item
+                    .family
+                    .map(boundaries::Family::label)
+                    .unwrap_or("unclassified");
+                let dependencies: Vec<&str> =
+                    item.dependencies.iter().map(String::as_str).collect();
+                println!("{family:<12} {:<32} {}", item.name, dependencies.join(" "));
+            }
+            println!("{}", boundaries::summary(&crates));
+            ExitCode::SUCCESS
+        }
+        "boundaries" => {
+            let crates = boundaries::graph(&root);
+            let mut findings: Vec<String> = boundaries::violations_of(&crates)
+                .iter()
+                .map(|item| item.report())
+                .collect();
+            findings.extend(
+                boundaries::unclassified(&crates)
+                    .into_iter()
+                    .map(|item| format!("no family: {item}")),
+            );
+            findings.extend(
+                boundaries::depending_on_an_app(&crates)
+                    .into_iter()
+                    .map(|item| format!("DEPENDS_ON_APP: {item}")),
+            );
+            findings.extend(boundaries::stale_exceptions(&crates));
+            findings.extend(
+                boundaries::ledger_authority_outside_the_kernel(&root)
+                    .into_iter()
+                    .map(|item| format!("LEDGER_AUTHORITY: {item}")),
+            );
+            findings.sort();
+            for finding in &findings {
+                println!("{finding}");
+            }
+            println!("{}", boundaries::summary(&crates));
+            if findings.is_empty() {
+                println!("boundaries: clean");
+                ExitCode::SUCCESS
+            } else {
+                println!("boundaries: {} outstanding", findings.len());
+                ExitCode::FAILURE
             }
         }
         other => {

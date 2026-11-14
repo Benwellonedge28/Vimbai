@@ -3,7 +3,7 @@ CARGO := cargo
 MANIFEST := rust/Cargo.toml
 XTASK := $(CARGO) run -q -p xtask --manifest-path $(MANIFEST) --
 
-.PHONY: help preflight test fmt clippy catalog gateway reachability rules build
+.PHONY: help preflight test fmt clippy catalog gateway reachability boundaries rules build
 
 help:
 	@echo "make preflight     everything CI runs: fmt, clippy, workspace, on-device tests, gateway, flutter"
@@ -13,6 +13,7 @@ help:
 	@echo "make catalog       regenerate catalog/services from the route table"
 	@echo "make gateway       audit every published address is answered"
 	@echo "make reachability  report modules nothing reaches"
+	@echo "make boundaries    check crate dependency rules"
 	@echo "make rules         the repository gates"
 	@echo "make build         release build of the engine and the local runtime"
 
@@ -36,6 +37,9 @@ gateway:
 
 reachability:
 	$(XTASK) reachability
+
+boundaries:
+	$(XTASK) boundaries
 
 rules:
 	$(CARGO) test -p xtask --manifest-path $(MANIFEST)

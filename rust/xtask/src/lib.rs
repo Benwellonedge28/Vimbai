@@ -4,6 +4,7 @@
 //! tested through a shell invocation is a generator whose output nobody asserts.
 #![forbid(unsafe_code)]
 
+pub mod boundaries;
 pub mod catalog;
 pub mod contracts;
 pub mod crates;

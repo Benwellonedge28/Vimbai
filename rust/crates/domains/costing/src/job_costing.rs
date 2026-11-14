@@ -14,32 +14,9 @@ use vimbai_common::Money;
 use vimbai_store::amounts::{amount, stored_amount, wire};
 use vimbai_store::{BookScope, Graph, Records, StoreError, JOB, JOB_COST_ENTRY};
 
-/// What a job's cost total means against its contract: the profit and the margin,
-/// computed once for the whole workspace.
-///
-/// The seam used to compute this with `f64` (`gross_margin = profit / max(1, contract) * 100`)
-/// while this module computed it exactly, so the two disagreed for any contract below 1 and
-/// drifted in the last digits for long ones. A zero contract reports a zero margin rather than a
-/// margin of the whole profit, which is what `max(1, ...)` pretended to do.
-pub struct JobSettlement {
-    pub total: Money,
-    pub profit: Money,
-    pub margin: f64,
-}
-
-pub fn settle(total: &Money, contract: &Money) -> JobSettlement {
-    let profit = contract.minus(total);
-    let margin = if contract.is_zero() {
-        0.0
-    } else {
-        profit.ratio_pct(contract, 6).to_f64_lossy()
-    };
-    JobSettlement {
-        total: total.clone(),
-        profit,
-        margin,
-    }
-}
+/// The settlement arithmetic belongs to the calculation crate, so there is one implementation
+/// rather than a copy per consumer. Re-exported here because this module was its public home.
+pub use vimbai_cost_accounting::job_costing::{settle, JobSettlement};
 
 fn company_jobs<G: Graph + ?Sized>(
     graph: &G,
