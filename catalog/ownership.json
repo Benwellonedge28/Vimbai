@@ -1,0 +1,340 @@
+{
+  "about": "Who owns each service the gateway routes, and where that domain's code lives. This is the one hand-kept inventory left in the repository, which is why it is data rather than code: the catalogue generator, the migration manifest and any tool that needs to know who owns a service read this file instead of each holding a copy.",
+  "domains": [
+    {
+      "name": "kernel",
+      "responsibility": "ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services' HTTP and record surface",
+      "target": "rust/crates/kernel/ledger-services"
+    },
+    {
+      "name": "accounting",
+      "responsibility": "accounting workflows and the statements they produce",
+      "target": "rust/crates/domains/accounting"
+    },
+    {
+      "name": "receivables",
+      "responsibility": "sales ledger, bad debts and provisions against them",
+      "target": "rust/crates/domains/receivables"
+    },
+    {
+      "name": "payables",
+      "responsibility": "purchase ledger and expense capture",
+      "target": "rust/crates/domains/payables"
+    },
+    {
+      "name": "invoicing",
+      "responsibility": "issuing and tracking invoices, and the plans a Book bills on",
+      "target": "rust/crates/domains/invoicing"
+    },
+    {
+      "name": "banking",
+      "responsibility": "bank connectivity and reconciliation",
+      "target": "rust/crates/domains/banking"
+    },
+    {
+      "name": "payments",
+      "responsibility": "Vimbai Pay: orchestration, lifecycle and providers",
+      "target": "rust/crates/domains/payments"
+    },
+    {
+      "name": "identity",
+      "responsibility": "the financial identity a Book knows a person by, and the verification done against it",
+      "target": "rust/crates/domains/identity"
+    },
+    {
+      "name": "authentication",
+      "responsibility": "proving who someone is: single sign-on verification, and the second factor a person carries",
+      "target": "rust/crates/platform/identity"
+    },
+    {
+      "name": "budgeting",
+      "responsibility": "budgets, forecasts and scenario planning",
+      "target": "rust/crates/domains/budgeting"
+    },
+    {
+      "name": "costing",
+      "responsibility": "cost accumulation, apportionment, product and job costing",
+      "target": "rust/crates/domains/costing"
+    },
+    {
+      "name": "treasury",
+      "responsibility": "cash, liquidity, debt and currency management",
+      "target": "rust/crates/domains/treasury"
+    },
+    {
+      "name": "taxation",
+      "responsibility": "tax accounting, planning and compliance",
+      "target": "rust/crates/domains/taxation"
+    },
+    {
+      "name": "assets",
+      "responsibility": "fixed, intangible, biological and investment assets",
+      "target": "rust/crates/domains/assets"
+    },
+    {
+      "name": "equity",
+      "responsibility": "share capital, reserves and equity movements",
+      "target": "rust/crates/domains/equity"
+    },
+    {
+      "name": "partnerships",
+      "responsibility": "partnership registers and the changes made to them, and community savings groups",
+      "target": "rust/crates/domains/partnerships"
+    },
+    {
+      "name": "npo",
+      "responsibility": "non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale",
+      "target": "rust/crates/domains/npo"
+    },
+    {
+      "name": "payroll",
+      "responsibility": "payroll and benefits",
+      "target": "rust/crates/domains/payroll"
+    },
+    {
+      "name": "reporting",
+      "responsibility": "report assembly and distribution",
+      "target": "rust/crates/domains/reporting"
+    },
+    {
+      "name": "analytics",
+      "responsibility": "benchmarking, warehousing and data movement",
+      "target": "rust/crates/domains/analytics"
+    },
+    {
+      "name": "finance",
+      "responsibility": "financial management and decision support",
+      "target": "rust/crates/domains/finance"
+    },
+    {
+      "name": "audit",
+      "responsibility": "audit engagements, sampling and evidence",
+      "target": "rust/crates/domains/audit"
+    },
+    {
+      "name": "compliance",
+      "responsibility": "regulatory and controls compliance",
+      "target": "rust/crates/domains/compliance"
+    },
+    {
+      "name": "automation",
+      "responsibility": "scheduled and triggered automation",
+      "target": "rust/crates/domains/automation"
+    },
+    {
+      "name": "multimodal",
+      "responsibility": "document, image and audio understanding",
+      "target": "rust/crates/domains/multimodal"
+    },
+    {
+      "name": "documents",
+      "responsibility": "document storage and rendering",
+      "target": "rust/crates/platform/documents"
+    },
+    {
+      "name": "integrations",
+      "responsibility": "webhooks, GraphQL and external feeds",
+      "target": "rust/crates/platform/integrations"
+    },
+    {
+      "name": "calculations",
+      "responsibility": "the calculation surface the client calls",
+      "target": "rust/crates/application"
+    },
+    {
+      "name": "workflow",
+      "responsibility": "the definitions a step runs through and the instances that walk them",
+      "target": "rust/crates/domains/workflow"
+    },
+    {
+      "name": "cache",
+      "responsibility": "keyed values with a life, a size limit and the cache's own counts",
+      "target": "rust/crates/platform/cache"
+    },
+    {
+      "name": "webhooks",
+      "responsibility": "the endpoints a Book subscribes, the events dispatched to them and how each delivery went",
+      "target": "rust/crates/platform/webhooks"
+    },
+    {
+      "name": "notifications",
+      "responsibility": "each person's inbox, their preferences and the templates behind a notice",
+      "target": "rust/crates/platform/notifications"
+    },
+    {
+      "name": "admin",
+      "responsibility": "the feature catalogue and each caller's own view of it, organisation configuration, rollouts, requests and the audit trail",
+      "target": "rust/crates/platform/admin"
+    },
+    {
+      "name": "alerts",
+      "responsibility": "the rules a Book watches, and the alerts they raise",
+      "target": "rust/crates/platform/alerts"
+    },
+    {
+      "name": "security",
+      "responsibility": "zero-trust access control: policies and the decisions taken against them",
+      "target": "rust/crates/domains/security"
+    },
+    {
+      "name": "events",
+      "responsibility": "publishing an event inside a Book, the subscriptions that listen and every delivery attempt",
+      "target": "rust/crates/platform/events"
+    },
+    {
+      "name": "data",
+      "responsibility": "the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them",
+      "target": "rust/crates/domains/data"
+    },
+    {
+      "name": "sync",
+      "responsibility": "the shared Books a person belongs to, who else is in them, their devices and the entries those devices push",
+      "target": "rust/crates/platform/offline-sync"
+    },
+    {
+      "name": "platform",
+      "responsibility": "identity, events, caching, observability and storage",
+      "target": "rust/crates/platform"
+    }
+  ],
+  "services": {
+    "absorption-costing-service": "costing",
+    "absorption-costing-statement-service": "costing",
+    "accounting-service": "accounting",
+    "accounting-standards-service": "accounting",
+    "activity-based-budget-service": "budgeting",
+    "admin-service": "admin",
+    "alerts-service": "alerts",
+    "appropriation-control-service": "budgeting",
+    "audit-compliance-service": "audit",
+    "audit-engagement-service": "audit",
+    "audit-sampling-service": "audit",
+    "authorized-share-capital-service": "equity",
+    "automation-engine-service": "automation",
+    "bad-debts-recovery-service": "receivables",
+    "balance-sheet-service": "accounting",
+    "bank-feed-service": "banking",
+    "bank-reconciliation-service": "banking",
+    "bank-relationship-service": "banking",
+    "banking-integration-service": "banking",
+    "basis-apportionment-service": "costing",
+    "benefits-admin-service": "payroll",
+    "biological-assets-service": "assets",
+    "bonus-shares-service": "equity",
+    "book-sync-service": "sync",
+    "cache-service": "cache",
+    "calculation-api": "calculations",
+    "capital-reconstruction-service": "equity",
+    "capital-redemption-reserve-service": "equity",
+    "cash-flow-service": "accounting",
+    "cash-flow-statement-service": "accounting",
+    "cash-management-service": "treasury",
+    "cash-optimization-service": "treasury",
+    "cashbook-service": "accounting",
+    "company-accounting-service": "accounting",
+    "continue-shutdown-decision-service": "finance",
+    "control-account-reconciliation-service": "kernel",
+    "currency-service": "banking",
+    "cvp-analysis-service": "costing",
+    "dashboard-service": "reporting",
+    "data-warehouse-service": "data",
+    "debentures-service": "equity",
+    "debt-management-service": "treasury",
+    "departmental-accounting-service": "accounting",
+    "disposal-account-service": "assets",
+    "disposal-group-service": "assets",
+    "distributed-workflow-orchestration-service": "workflow",
+    "document-service": "documents",
+    "double-entry-principles-service": "kernel",
+    "encrypted-backup-service": "data",
+    "equity-changes-service": "equity",
+    "etl-service": "data",
+    "expense-tracking-service": "payables",
+    "family-community-group-service": "partnerships",
+    "financial-identity-service": "identity",
+    "financial-integrity-service": "kernel",
+    "financial-state-machine-service": "kernel",
+    "fixed-assets-register-service": "assets",
+    "fixed-assets-schedule-service": "assets",
+    "foreign-exchange-service": "treasury",
+    "fund-accounting-service": "accounting",
+    "general-reserve-service": "equity",
+    "graphql-service": "integrations",
+    "ifrs-reporting-service": "accounting",
+    "initial-investment-service": "equity",
+    "insurance-claims-service": "finance",
+    "intangible-assets-service": "assets",
+    "intercompany-service": "accounting",
+    "internal-rate-return-service": "finance",
+    "investment-monitoring-service": "finance",
+    "investment-property-service": "assets",
+    "invoicing-service": "invoicing",
+    "issued-share-capital-service": "equity",
+    "job-costing-service": "costing",
+    "lease-termination-service": "assets",
+    "message-bus-service": "events",
+    "mfa-auth-service": "authentication",
+    "multimodal-pipeline-service": "multimodal",
+    "net-present-value-service": "finance",
+    "notifications-service": "notifications",
+    "npo-scale-service": "npo",
+    "npo-service": "npo",
+    "ordinary-shares-service": "equity",
+    "overhead-absorption-rate-service": "costing",
+    "partnership-agreement-service": "partnerships",
+    "partnership-changes-service": "partnerships",
+    "partnership-dissolution-service": "partnerships",
+    "partnership-revaluation-service": "partnerships",
+    "payback-period-service": "finance",
+    "payment-gateway-service": "payments",
+    "performance-benchmarking-service": "analytics",
+    "personal-finance-service": "finance",
+    "petty-cash-service": "treasury",
+    "pos-integration-service": "payments",
+    "preference-shares-service": "equity",
+    "privacy-admin-dashboard-service": "compliance",
+    "process-costing-service": "costing",
+    "product-costing-service": "costing",
+    "provision-bad-debts-service": "receivables",
+    "provision-doubtful-debts-service": "receivables",
+    "purchases-ledger-control-service": "payables",
+    "realtime-calculation-engine": "calculations",
+    "regulatory-compliance-service": "compliance",
+    "report-automation-service": "reporting",
+    "report-distribution-service": "reporting",
+    "reporting-service": "reporting",
+    "retained-profits-service": "equity",
+    "revaluation-model-service": "assets",
+    "revaluation-reserve-service": "assets",
+    "revenue-recognition-service": "accounting",
+    "right-issues-service": "equity",
+    "risk-assessment-service": "compliance",
+    "rolling-forecast-service": "budgeting",
+    "sales-ledger-control-service": "receivables",
+    "scenario-analysis-service": "budgeting",
+    "scenario-modeling-service": "budgeting",
+    "selling-price-reduction-service": "costing",
+    "sensitivity-analysis-service": "budgeting",
+    "share-premium-service": "equity",
+    "share-redemption-service": "equity",
+    "sovereign-treasury-service": "treasury",
+    "sox-compliance-service": "compliance",
+    "subscription-plans-service": "invoicing",
+    "tax-accounting-service": "taxation",
+    "tax-compliance-service": "taxation",
+    "tax-planning-service": "taxation",
+    "trade-finance-service": "finance",
+    "trading-account-service": "accounting",
+    "treasury-analytics-service": "treasury",
+    "treasury-compliance-service": "treasury",
+    "treasury-management-service": "treasury",
+    "treasury-policy-service": "treasury",
+    "treasury-reporting-service": "treasury",
+    "treasury-risk-service": "treasury",
+    "webhook-service": "webhooks",
+    "websocket-service": "events",
+    "workflow-service": "workflow",
+    "zero-based-budgeting-service": "budgeting",
+    "zero-trust-data-service": "security"
+  }
+}
