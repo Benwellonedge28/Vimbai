@@ -8,6 +8,14 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
 
 ### Added
 
+- Infrastructure is one story per environment: `infrastructure/docker` holds one Dockerfile for the three Rust
+  binaries (engine, worker, sync) plus the gateway and the Flutter web app; `infrastructure/compose` is the estate with
+  dev / test / observability layered on top of it rather than repeated; `infrastructure/kubernetes` is `base/` plus
+  overlays for development, staging and production. The Helm chart is deleted: its values still listed forty retired
+  services and its templates ranged over them, so kustomize is now the only deployment path. `cargo run -p xtask --
+  manifests` holds the cluster, the compose estate and the images to the repository, refusing a compose build that names
+  a package or binary the workspace lacks, a kustomization naming a file that is not there, a manifest loose at the top
+  of the cluster tree, and an image built by nothing.
 - Organisations are a real tenant boundary: `rust/crates/platform/tenancy` owns the organisation, its members and the one
   rule that decides whether a caller may open a Book. A Book may belong to an organisation, its members reach it without
   a membership row of their own, and the engine applies the rule itself (`tenancy_gate`) rather than leaving it to the

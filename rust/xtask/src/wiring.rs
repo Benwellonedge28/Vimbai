@@ -207,11 +207,12 @@ pub fn resurrected_duplicates(root: &Path) -> Vec<String> {
             findings.push(format!("{name} is routed again"));
         }
     }
-    let manifest = root.join("infrastructure/kubernetes/vimbai-all-services.yaml");
-    if let Ok(text) = std::fs::read_to_string(&manifest) {
+    // The cluster side of this rule reads the whole manifest tree rather than one generated file, because the generated
+    // file was deleted and a gate that reads a file nothing writes is a gate that passes over nothing.
+    for (manifest, text) in crate::manifests::all(root) {
         for name in &names {
             if text.contains(&format!("name: {name}")) {
-                findings.push(format!("{name} is deployed again ({})", manifest.display()));
+                findings.push(format!("{name} is deployed again ({manifest})"));
             }
         }
     }

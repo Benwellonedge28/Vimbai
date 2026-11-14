@@ -1,0 +1,23 @@
+# Staging: what production gets, at half the size, pointed at the staging secret.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vimbai-staging
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+configMapGenerator:
+  - name: vimbai-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=DEBUG
+      - NEO4J_URI=bolt://neo4j-staging:7687

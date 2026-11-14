@@ -1,0 +1,30 @@
+# Tests: a throwaway estate with no database and nothing published.
+#
+#   docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.test.yaml up --abort-on-container-exit
+#
+# A test run may not need Neo4j at all - the engine answers /health and every calculator with no database configured - so
+# the database is dropped and the store is a file in a temporary volume that the run takes with it.
+
+services:
+  neo4j:
+    profiles: ["with-database"]
+
+  engine:
+    environment:
+      VIMBAI_STORE_FILE: /tmp/store.json
+      NEO4J_URI: ""
+
+  worker:
+    environment:
+      VIMBAI_WORKER_ONCE: "1"
+      VIMBAI_STORE_FILE: /tmp/store.json
+      NEO4J_URI: ""
+
+  sync:
+    environment:
+      VIMBAI_STORE_FILE: /tmp/store.json
+      NEO4J_URI: ""
+
+  gateway:
+    environment:
+      JWT_SECRET: test-only-secret

@@ -1,0 +1,41 @@
+# The estate every environment has: one engine, one gateway, one sync server, one worker, the policies around them.
+#
+# There is no per-service anything here. Every service the platform used to deploy as its own pod now answers from the
+# engine, so a Deployment for one of them would be a pod behind an address nothing routes - which is exactly the drift
+# the repository gate refuses.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vimbai
+
+resources:
+  - namespace.yaml
+  - calculation-api.yaml
+  - sync-server.yaml
+  - worker.yaml
+  - api-gateway.yaml
+  - ingress.yaml
+  - pod-disruption-budgets.yaml
+  - network-policies.yaml
+  - tracing.yaml
+  - neo4j-backup-cronjob.yaml
+  - neo4j-backup-pvc.yaml
+
+commonLabels:
+  app.kubernetes.io/name: vimbai
+  app.kubernetes.io/part-of: vimbai
+
+configMapGenerator:
+  - name: vimbai-config
+    literals:
+      - LOG_LEVEL=INFO
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAMESPACE=vimbai
+
+# The secret is not in the repository: it is generated from an environment file an operator supplies, or created out of
+# band. A kustomization that needs a file nothing has checked in cannot build, which is why this is a comment and not a
+# `secretGenerator` pointing at a missing `secrets.env`.

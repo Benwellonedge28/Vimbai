@@ -130,6 +130,62 @@ fn every_gateway_entry_forwards_to_something_that_exists() {
 }
 
 #[test]
+fn the_cluster_is_a_base_and_some_overlays() {
+    // The tree used to be flat, so "where does this go" had no answer and everything went to the top. One file in the
+    // wrong place is silently a manifest either every environment gets or one environment gets.
+    let findings = manifests::split_problems(&root());
+    assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
+fn every_kustomization_names_a_file_that_exists() {
+    // A resource that is not there is a `kubectl apply -k` that fails on someone else's machine.
+    let findings = manifests::kustomization_problems(&root());
+    assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
+fn every_compose_build_names_a_package_and_a_binary_the_workspace_has() {
+    // The file this replaced listed forty services that had been retired into the engine, and nothing noticed because a
+    // stale compose file is only visible when someone runs docker. Both are read here instead.
+    let findings = manifests::compose_problems(&root());
+    assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
+fn every_image_is_built_by_something_and_everything_named_as_an_image_exists() {
+    let findings = manifests::image_problems(&root());
+    assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
+fn a_compose_build_naming_a_binary_the_workspace_lacks_is_refused() {
+    // The rule is only worth having if it can fail, so this builds a garden where it should.
+    let garden = std::env::temp_dir().join(format!("vimbai-compose-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&garden);
+    std::fs::create_dir_all(garden.join("infrastructure/compose")).unwrap();
+    std::fs::create_dir_all(garden.join("rust/crates/engine")).unwrap();
+    std::fs::write(
+        garden.join("rust/crates/engine/Cargo.toml"),
+        "[package]\nname = \"vimbai_api\"\n\n[[bin]]\nname = \"vimbai-api\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        garden.join("infrastructure/compose/compose.yaml"),
+        "services:\n  engine:\n    build:\n      context: ../../rust\n      dockerfile: Dockerfile\n      args:\n        PACKAGE: vimbai_api\n        BIN: vimbai-gone\n",
+    )
+    .unwrap();
+    let findings = manifests::compose_problems(&garden);
+    let _ = std::fs::remove_dir_all(&garden);
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding.contains("vimbai-gone")),
+        "{findings:?}"
+    );
+}
+
+#[test]
 fn the_workflows_name_only_services_that_are_routed() {
     // A file naming a deleted directory fails when the runner reaches that line, which is why it is checked here.
     let findings = workflows::problems(&root());

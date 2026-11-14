@@ -32,7 +32,7 @@ To run this service along with Neo4j and other Vimbai services, you need Docker 
 
 ### 2. Environment Variables
 
-The API Gateway requires the following environment variables. It's recommended to set these in a `.env` file at the root of the project where `docker-compose.yml` is located.
+The API Gateway requires the following environment variables. In the compose estate they are set on the `gateway` service in `infrastructure/compose/compose.yaml`.
 
 -   `PORT`: The port the gateway will listen on (default `8081`).
 -   `JWT_SECRET`: The secret key used to sign and verify JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` the calculation API signs and verifies tokens with, or the gateway and the engine will disagree about who the caller is.**
@@ -43,10 +43,10 @@ The API Gateway requires the following environment variables. It's recommended t
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
+From the root of the repository:
 
 ```bash
-docker-compose up --build
+docker compose -f infrastructure/compose/compose.yaml up --build
 ```
 
 This command will:

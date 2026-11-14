@@ -4,13 +4,9 @@ on:
   push:
     paths:
       - 'infrastructure/**'
-      - 'infrastructure/kubernetes/helm/**'
-      - 'infrastructure/kubernetes/**'
   pull_request:
     paths:
       - 'infrastructure/**'
-      - 'infrastructure/kubernetes/helm/**'
-      - 'infrastructure/kubernetes/**'
 
 jobs:
   validate-terraform:
@@ -27,16 +23,28 @@ jobs:
             echo "No infrastructure/ directory found, skipping Terraform validation"
           fi
 
-  validate-helm:
+  validate-kubernetes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
-      - name: Helm Lint
+      - name: Kustomize renders base and every overlay
         run: |
-          if [ -d "infrastructure/kubernetes/helm" ]; then
-            helm lint infrastructure/kubernetes/helm/vimbai || helm lint infrastructure/kubernetes/helm || true
-          else
-            echo "No Helm chart found, skipping"
-          fi
+          for tree in infrastructure/kubernetes/base infrastructure/kubernetes/overlays/*; do
+            echo "== ${tree}"
+            kubectl kustomize "${tree}" > /dev/null
+          done
+
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every compose variant is valid, on its own and on top of the base
+        run: |
+          base=infrastructure/compose/compose.yaml
+          docker compose -f "${base}" config -q
+          for variant in infrastructure/compose/compose.dev.yaml \
+                         infrastructure/compose/compose.test.yaml \
+                         infrastructure/compose/compose.observability.yaml; do
+            echo "== ${variant}"
+            docker compose -f "${base}" -f "${variant}" config -q
+          done

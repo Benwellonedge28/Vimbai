@@ -1,0 +1,30 @@
+# One workspace, four binaries.
+#
+# The engine, the worker and the sync server are three entry points into the SAME workspace, so they are one build with
+# an argument rather than three Dockerfiles that would drift apart the first time a dependency changed. Everything in
+# rust/ is a path dependency of everything else, so the context is rust/ and never one app directory.
+#
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_api     --build-arg BIN=vimbai-api     rust/
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_worker  --build-arg BIN=vimbai-worker  rust/
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_sync    --build-arg BIN=vimbai-sync    rust/
+
+FROM rust:1-slim AS build
+ARG PACKAGE
+ARG BIN
+WORKDIR /src
+COPY . .
+# --locked so the image is what the repository says it is, not whatever the registry has moved to
+RUN cargo build --release --locked -p "${PACKAGE}" --bin "${BIN}"
+
+FROM debian:bookworm-slim AS runtime
+ARG BIN
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && apt-get clean
+WORKDIR /app
+# one name inside the image, so the entry point does not have to know which of the three it is
+COPY --from=build /src/target/release/${BIN} /usr/local/bin/app
+# The engine and the sync server answer /health whether or not a store or a database is configured, so one probe serves
+# both; the worker serves no port, so its compose service turns this probe off.
+ENV HEALTH_PORT=8099
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    CMD curl -fsS "http://127.0.0.1:${HEALTH_PORT}/health" || exit 1
+ENTRYPOINT ["/usr/local/bin/app"]

@@ -195,10 +195,6 @@ jobs:
             echo "has_kubeconfig=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Setup Helm
-        if: steps.check.outputs.has_kubeconfig == 'true'
-        uses: azure/setup-helm@v4
-
       - name: Configure kubectl
         if: steps.check.outputs.has_kubeconfig == 'true'
         env:
@@ -211,11 +207,9 @@ jobs:
         if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           export KUBECONFIG=$(pwd)/kubeconfig
-          helm upgrade --install vimbai ./infrastructure/kubernetes/helm \
-            --namespace vimbai \
-            --create-namespace \
-            --values infrastructure/kubernetes/helm/vimbai/values.yaml \
-            --wait --timeout 10m
+          # kustomize is the one deployment story: base plus the environment overlay
+          kubectl apply -k infrastructure/kubernetes/overlays/production
+          kubectl rollout status deployment/calculation-api -n vimbai --timeout=10m
 
   # ============================================================
   # Security Scans (non-blocking)

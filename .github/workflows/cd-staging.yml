@@ -82,8 +82,7 @@ jobs:
       - name: Deploy to Staging Cluster
         if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
-          kubectl apply -f infrastructure/kubernetes/namespace.yaml
-          kubectl apply -k infrastructure/kubernetes/
+          kubectl apply -k infrastructure/kubernetes/overlays/staging
           kubectl rollout restart deployment -n vimbai api-gateway
           kubectl rollout status deployment -n vimbai api-gateway --timeout=300s
 

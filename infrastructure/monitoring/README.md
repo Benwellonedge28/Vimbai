@@ -14,7 +14,7 @@ This directory contains Docker configurations for the Vimbai monitoring stack us
 
 ```bash
 # Start monitoring stack
-docker-compose -f docker-compose.monitoring.yml up -d
+docker compose -f ../compose/compose.yaml -f ../compose/compose.observability.yaml up -d
 
 # Access Grafana
 # URL: http://localhost:3000
@@ -74,7 +74,7 @@ Warning alerts:
 curl http://localhost:9090/api/v1/targets
 
 # View Grafana logs
-docker-compose -f docker-compose.monitoring.yml logs grafana
+docker compose -f ../compose/compose.yaml -f ../compose/compose.observability.yaml logs grafana
 
 # Reset Grafana password
 docker exec -it grafana grafana-cli admin reset-admin-password newpassword

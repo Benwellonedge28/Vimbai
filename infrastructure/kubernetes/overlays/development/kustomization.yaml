@@ -1,0 +1,42 @@
+# Development: one replica of everything, images built locally, no backup schedule (there is nothing to keep).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vimbai-dev
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Deployment
+      name: calculation-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: sync-server
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: api-gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+images:
+  - name: ghcr.io/benwellonedge28/vimbai/calculation-api
+    newName: vimbai/engine
+    newTag: local
+  - name: ghcr.io/benwellonedge28/vimbai/sync
+    newName: vimbai/sync
+    newTag: local
+  - name: ghcr.io/benwellonedge28/vimbai/worker
+    newName: vimbai/worker
+    newTag: local

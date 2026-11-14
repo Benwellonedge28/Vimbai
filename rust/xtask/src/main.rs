@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{boundaries, catalog, domains, flutter, gateway, openapi, reachability};
+use xtask::{boundaries, catalog, domains, flutter, gateway, manifests, openapi, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -29,6 +29,7 @@ COMMANDS:
     boundaries --graph print every crate with its family and its internal dependencies
     boundaries --rules print the rule table as the documentation states it
     boundaries --exceptions print the tolerated dependencies and why
+    manifests          report a cluster, compose or image declaration that does not hold, and exit 1 if any
 ";
 
 fn main() -> ExitCode {
@@ -123,6 +124,21 @@ fn main() -> ExitCode {
             if found.is_empty() {
                 ExitCode::SUCCESS
             } else {
+                ExitCode::FAILURE
+            }
+        }
+        // P10.5: the estate, as declared. The cluster is base plus overlays, compose names only what exists, and every
+        // image is built by something.
+        "manifests" => {
+            let found = manifests::manifest_problems(&root);
+            for finding in &found {
+                println!("{finding}");
+            }
+            if found.is_empty() {
+                println!("manifests: the cluster, the compose estate and the images agree with the repository");
+                ExitCode::SUCCESS
+            } else {
+                println!("manifests: {} outstanding", found.len());
                 ExitCode::FAILURE
             }
         }

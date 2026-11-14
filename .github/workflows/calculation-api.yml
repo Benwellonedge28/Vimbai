@@ -36,7 +36,10 @@ jobs:
         with:
           # the workspace root, because every crate in it is a path dependency
           context: ./rust
-          file: ./rust/apps/api-server/Dockerfile
+          file: ./infrastructure/docker/Dockerfile.rust
+          build-args: |
+            PACKAGE=vimbai_api
+            BIN=vimbai-api
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

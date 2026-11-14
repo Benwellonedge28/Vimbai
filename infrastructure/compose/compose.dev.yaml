@@ -1,0 +1,36 @@
+# Development: the same estate, on this machine, with the ports open and the store on disk.
+#
+#   docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.dev.yaml up --build
+#
+# Nothing here is a different shape from production. It is the same three binaries with a volume they can write to and a
+# port a browser can reach.
+
+services:
+  engine:
+    environment:
+      VIMBAI_STORE_FILE: /data/store.json
+    volumes:
+      - engine-data:/data
+    ports:
+      - "8099:8099"
+
+  gateway:
+    ports:
+      - "8081:8081"
+
+  sync:
+    environment:
+      VIMBAI_STORE_FILE: /data/store.json
+    volumes:
+      - sync-data:/data
+    ports:
+      - "8100:8099"
+
+  neo4j:
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+volumes:
+  engine-data:
+  sync-data:

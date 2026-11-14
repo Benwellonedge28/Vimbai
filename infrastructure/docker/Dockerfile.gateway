@@ -1,0 +1,22 @@
+# The Go gateway: routing, authentication, rate limiting, resilience, proxying, observability. No financial logic.
+#
+# The context is gateway/go, because the gateway has no path dependencies outside itself.
+
+FROM golang:1.22-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# the version the module declares, as a variable so a rebuild does not need a new layer ordering
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/gateway .
+
+FROM alpine:3.20 AS runtime
+WORKDIR /app
+RUN addgroup -S gateway && adduser -S -G gateway -H gateway && apk add --no-cache ca-certificates curl
+COPY --from=build /out/gateway /usr/local/bin/gateway
+COPY --from=build /app/config ./config
+USER gateway
+EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s CMD curl -fsS http://127.0.0.1:8081/health || exit 1
+ENTRYPOINT ["/usr/local/bin/gateway"]

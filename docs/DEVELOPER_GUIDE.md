@@ -52,8 +52,7 @@ Vimbai follows a microservices architecture pattern with the following key compo
 | Containerization | Docker, Docker Compose |
 | Message Queue | RabbitMQ (optional) |
 | Monitoring | Prometheus, Grafana |
-| Mobile | Flutter (Dart) |
-| Web Frontend | React |
+| Mobile and web | Flutter (Dart), one app |
 
 ---
 
@@ -355,7 +354,8 @@ cargo run -p vimbai_local -- --data-dir /tmp/vimbai-data --port 8000
 curl -s localhost:8000/health
 ```
 
-4. **Run the server estate**: `docker-compose up -d` starts Neo4j, the gateway and the engine. The gateway routes and
+4. **Run the server estate**: `docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.dev.yaml up --build -d`
+   starts Neo4j, the engine, the gateway, the worker and the sync server. The gateway routes and
    authenticates; every calculation is answered by the engine at `calculation-api`.
 
 5. **Configure environment**: `cp .env.example .env` for the cluster-facing settings.
@@ -402,20 +402,20 @@ The suite starts the real `vimbai-local` binary for the offline tests. `scripts/
 
 ```bash
 # Build all services
-docker-compose build
+docker compose -f infrastructure/compose/compose.yaml build
 
 # Start all services
-docker-compose up -d
+docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.dev.yaml up -d
 
 # Scale a service
-docker-compose up -d --scale accounting-service=3
+docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.dev.yaml up -d --scale engine=3
 ```
 
 ### Monitoring Setup
 
 ```bash
 # Start monitoring stack
-docker-compose -f infrastructure/monitoring/docker-compose.monitoring.yml up -d
+docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.observability.yaml up -d
 
 # Access Prometheus
 http://localhost:9090
@@ -497,7 +497,7 @@ Alert rules defined in `infrastructure/monitoring/alert_rules.yml`:
 ### Common Issues
 
 1. **Database Connection Failed**
-   - Check Neo4j is running: `docker-compose ps neo4j`
+   - Check Neo4j is running: `docker compose -f infrastructure/compose/compose.yaml ps neo4j`
    - Verify credentials in `.env`
 
 2. **Authentication Failed**
@@ -513,10 +513,10 @@ Alert rules defined in `infrastructure/monitoring/alert_rules.yml`:
 
 ```bash
 # View service logs
-docker-compose logs accounting-service
+docker compose -f infrastructure/compose/compose.yaml logs engine
 
-# Follow logs
-docker-compose logs -f accounting-service
+# Follow the engine's logs
+docker compose -f infrastructure/compose/compose.yaml logs -f engine
 ```
 
 ---
