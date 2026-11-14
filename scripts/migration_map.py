@@ -6,9 +6,9 @@ destination, with its API ownership, data ownership, verification and retirement
 straight from the generated catalogue, so the map can never drift from the routes and the ownership that are actually in
 force.
 
-Run after generate_catalog.py:
+Run after the catalogue is written:
 
-    python3 scripts/generate_catalog.py && python3 scripts/migration_map.py
+    cargo run -p xtask -- catalog && python3 scripts/migration_map.py
 
 Deliberately generated: hand-editing the output would let it disagree with the catalogue, which is the failure this file
 exists to prevent.

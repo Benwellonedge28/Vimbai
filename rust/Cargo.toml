@@ -6,6 +6,7 @@ members = [
     "crates/common",
     "apps/api-server",
     "apps/local-runtime",
+    "xtask",
     "crates/adapters/database",
     "crates/adapters/wire",
     "crates/domains/automation",
