@@ -1,0 +1,521 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart'; // Import accounting models
+import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart'; // Import finance models
+import 'package:vimbai_mobile_client/features/multimodal/models/multimodal_models.dart'; // NEW: Import multimodal models
+import 'package:uuid/uuid.dart';
+import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
+
+/// An outbox item plus the Book it was created in, so replays hit the
+/// right Book even if the user has since switched Books on the device.
+class UnsyncedRef<T> {
+  final T item;
+  final String? bookId;
+  UnsyncedRef(this.item, this.bookId);
+}
+
+class DatabaseHelper {
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  static Database? _database;
+  final Uuid uuid = Uuid();
+
+  factory DatabaseHelper() {
+    return _instance;
+  }
+
+  DatabaseHelper._internal();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+
+  Future<Database> _initDatabase() async {
+    String path = join(await getDatabasesPath(), 'vimbai_offline.db');
+    return await openDatabase(
+      path,
+      version: 4, // v4: book-scoped offline stores + unsynced accounts + KV cache
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    // Create Account table
+    await db.execute('''
+          CREATE TABLE accounts(
+            id TEXT PRIMARY KEY,
+            account_number TEXT UNIQUE,
+            account_name TEXT,
+            account_type TEXT,
+            normal_balance TEXT,
+            description TEXT,
+            parent_account_number TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            is_synced INTEGER DEFAULT 1,
+            book_id TEXT
+          )
+        ''');
+
+    // Create JournalEntry table (for offline entries to be synced)
+    await db.execute('''
+          CREATE TABLE journal_entries(
+            id TEXT PRIMARY KEY,
+            entry_date TEXT,
+            description TEXT,
+            reference_number TEXT,
+            source_module TEXT,
+            is_synced INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+    // Create JournalLine table
+    await db.execute('''
+          CREATE TABLE journal_lines(
+            id TEXT PRIMARY KEY,
+            journal_entry_id TEXT,
+            account_number TEXT,
+            debit REAL,
+            credit REAL,
+            description TEXT,
+            FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE
+          )
+        ''');
+
+    // Create Budgets table
+    await db.execute('''
+          CREATE TABLE budgets(
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            start_date TEXT,
+            end_date TEXT,
+            currency TEXT,
+            description TEXT,
+            is_synced INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+    // Create BudgetItems table
+    await db.execute('''
+          CREATE TABLE budget_items(
+            id TEXT PRIMARY KEY,
+            budget_id TEXT,
+            category TEXT,
+            account_number TEXT,
+            budgeted_amount REAL,
+            budget_type TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
+          )
+        ''');
+    
+    // NEW: Create MultimodalTasks table
+    await db.execute('''
+          CREATE TABLE multimodal_tasks(
+            id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT 'self',
+            input_type TEXT,
+            data TEXT, -- Base64 encoded file data or URL
+            source_context TEXT,
+            is_synced INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+    // v4: generic KV cache for last-known server payloads (offline reads)
+    await db.execute('''
+          CREATE TABLE offline_cache(
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TEXT
+          )
+        ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Migrate from version 1 to 2: Add multimodal_tasks table
+      await db.execute('''
+            CREATE TABLE multimodal_tasks(
+              id TEXT PRIMARY KEY,
+              input_type TEXT,
+              data TEXT, -- Base64 encoded file data or URL
+              source_context TEXT,
+              is_synced INTEGER DEFAULT 0,
+              created_at TEXT,
+              updated_at TEXT
+            )
+          ''');
+    }
+    if (oldVersion < 3) {
+      // v2 -> v3: capture queue rows are replayed per-user
+      await db.execute(
+          'ALTER TABLE multimodal_tasks ADD COLUMN user_id TEXT DEFAULT \'self\'');
+    }
+    if (oldVersion < 4) {
+      // v3 -> v4: total-offline support. Accounts created offline get an
+      // outbox flag; cached rows remember which Book they belong to; a
+      // generic KV cache keeps last-known server payloads readable offline.
+      await db.execute('ALTER TABLE accounts ADD COLUMN is_synced INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE accounts ADD COLUMN book_id TEXT');
+      await db.execute('ALTER TABLE journal_entries ADD COLUMN book_id TEXT');
+      await db.execute('''
+            CREATE TABLE offline_cache(
+              key TEXT PRIMARY KEY,
+              value TEXT,
+              updated_at TEXT
+            )
+          ''');
+    }
+    // Add future migrations here
+  }
+
+
+  // --- Account CRUD ---
+  Future<int> insertAccount(Account account, {bool isSynced = true}) async {
+    final db = await database;
+    return await db.insert('accounts', {
+      'id': account.id ?? uuid.v4(),
+      'account_number': account.accountNumber,
+      'account_name': account.accountName,
+      'account_type': account.accountType,
+      'normal_balance': account.normalBalance,
+      'description': account.description,
+      'parent_account_number': account.parentAccountNumber,
+      'created_at': (account.createdAt ?? DateTime.now()).toIso8601String(),
+      'updated_at': (account.updatedAt ?? DateTime.now()).toIso8601String(),
+      'is_synced': isSynced ? 1 : 0,
+      'book_id': BookContext.instance.current?.id,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Accounts visible in the current Book (all cached rows when no Book
+  /// is selected).
+  Future<List<Account>> getAccounts() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('accounts',
+        where: 'book_id = ? OR book_id IS NULL',
+        whereArgs: [BookContext.instance.current?.id ?? '']);
+    return List.generate(maps.length, (i) {
+      return Account.fromJson(maps[i]);
+    });
+  }
+
+  Future<int> deleteAllAccounts() async {
+    final db = await database;
+    return await db.delete('accounts');
+  }
+
+  // --- Journal Entry CRUD ---
+  Future<int> insertJournalEntry(JournalEntry entry, {bool isSynced = false}) async {
+    final db = await database;
+    final entryId = entry.id;
+    final result = await db.insert('journal_entries', {
+      'id': entryId,
+      'book_id': BookContext.instance.current?.id,
+      'entry_date': entry.entryDate.toIso8601String(),
+      'description': entry.description,
+      'reference_number': entry.referenceNumber,
+      'source_module': entry.sourceModule,
+      'is_synced': isSynced ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    // Insert journal lines
+    for (var line in entry.lines) {
+      await db.insert('journal_lines', {
+        'id': uuid.v4(), // Unique ID for each line
+        'journal_entry_id': entryId,
+        'account_number': line.accountNumber,
+        'debit': line.debit,
+        'credit': line.credit,
+        'description': line.description,
+      });
+    }
+    return result;
+  }
+
+  Future<List<JournalEntry>> getUnsyncedJournalEntries() async {
+    final db = await database;
+    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', where: 'is_synced = ?', whereArgs: [0]);
+    List<JournalEntry> unsyncedEntries = [];
+
+    for (var entryMap in entryMaps) {
+      final List<Map<String, dynamic>> lineMaps = await db.query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      List<JournalLine> lines = List.generate(lineMaps.length, (i) {
+        return JournalLine.fromJson(lineMaps[i]);
+      });
+      unsyncedEntries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+    }
+    return unsyncedEntries;
+  }
+
+
+  Future<JournalEntry?> getJournalEntry(String entryId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> entryMaps =
+        await db.query('journal_entries', where: 'id = ?', whereArgs: [entryId], limit: 1);
+    if (entryMaps.isEmpty) return null;
+    final entryMap = entryMaps.first;
+    final List<Map<String, dynamic>> lineMaps =
+        await db.query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryId]);
+    final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
+    return JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()});
+  }
+
+  /// All journal entries currently cached locally (offline list view).
+  Future<List<JournalEntry>> getAllJournalEntriesFromLocal() async {
+    final db = await database;
+    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', where: 'book_id = ? OR book_id IS NULL', whereArgs: [BookContext.instance.current?.id ?? ''], orderBy: 'entry_date DESC');
+    List<JournalEntry> entries = [];
+    for (var entryMap in entryMaps) {
+      final List<Map<String, dynamic>> lineMaps = await db
+          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
+      entries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+    }
+    return entries;
+  }
+
+  Future<int> markJournalEntryAsSynced(String entryId) async {
+    final db = await database;
+    return await db.update('journal_entries', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [entryId]);
+  }
+
+  // --- Budget CRUD ---
+  Future<int> insertBudget(Budget budget, {bool isSynced = false}) async {
+    final db = await database;
+    final budgetId = budget.id ?? uuid.v4();
+    final result = await db.insert('budgets', {
+      'id': budgetId,
+      'name': budget.name,
+      'start_date': budget.startDate.toIso8601String(),
+      'end_date': budget.endDate.toIso8601String(),
+      'currency': budget.currency,
+      'description': budget.description,
+      'is_synced': isSynced ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Insert budget items
+    for (var item in budget.items) {
+      await insertBudgetItem(budgetId, item, isSynced: isSynced);
+    }
+    return result;
+  }
+
+  Future<Budget?> getBudget(String budgetId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> budgetMaps = await db.query('budgets', where: 'id = ?', whereArgs: [budgetId]);
+    if (budgetMaps.isNotEmpty) {
+      final budgetMap = budgetMaps.first;
+      final items = await getBudgetItemsForBudget(budgetId);
+      return Budget.fromJson({...budgetMap, 'items': items});
+    }
+    return null;
+  }
+
+  Future<List<Budget>> getBudgetsFromLocal() async {
+    final db = await database;
+    final List<Map<String, dynamic>> budgetMaps = await db.query('budgets');
+    List<Budget> budgets = [];
+    for (var budgetMap in budgetMaps) {
+      final items = await getBudgetItemsForBudget(budgetMap['id']);
+      budgets.add(Budget.fromJson({...budgetMap, 'items': items}));
+    }
+    return budgets;
+  }
+
+  Future<List<Budget>> getUnsyncedBudgets() async {
+    final db = await database;
+    final List<Map<String, dynamic>> budgetMaps = await db.query('budgets', where: 'is_synced = ?', whereArgs: [0]);
+    List<Budget> unsyncedBudgets = [];
+    for (var budgetMap in budgetMaps) {
+      final items = await getBudgetItemsForBudget(budgetMap['id']);
+      unsyncedBudgets.add(Budget.fromJson(
+          {...budgetMap, 'items': items.map((i) => i.toJson()).toList()}));
+    }
+    return unsyncedBudgets;
+  }
+
+  Future<int> markBudgetAsSynced(String budgetId) async {
+    final db = await database;
+    return await db.update('budgets', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [budgetId]);
+  }
+
+  Future<int> deleteAllBudgets() async {
+    final db = await database;
+    await db.delete('budget_items'); // Delete items first due to FK
+    return await db.delete('budgets');
+  }
+
+
+  // --- BudgetItem CRUD ---
+  Future<int> insertBudgetItem(String budgetId, BudgetItem item, {bool isSynced = false}) async {
+    final db = await database;
+    return await db.insert('budget_items', {
+      'id': item.id ?? uuid.v4(),
+      'budget_id': budgetId,
+      'category': item.category,
+      'account_number': item.accountNumber,
+      'budgeted_amount': item.budgetedAmount,
+      'budget_type': item.budgetType,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<BudgetItem>> getBudgetItemsForBudget(String budgetId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'budget_items',
+      where: 'budget_id = ?',
+      whereArgs: [budgetId],
+    );
+    return List.generate(maps.length, (i) {
+      return BudgetItem.fromJson(maps[i]);
+    });
+  }
+
+  Future<int> updateBudgetItemLocal(BudgetItem item) async {
+    final db = await database;
+    return await db.update('budget_items', {
+      'category': item.category,
+      'account_number': item.accountNumber,
+      'budgeted_amount': item.budgetedAmount,
+      'budget_type': item.budgetType,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, where: 'id = ?', whereArgs: [item.id]);
+  }
+
+  Future<int> deleteBudgetItemLocal(String itemId) async {
+    final db = await database;
+    return await db.delete('budget_items', where: 'id = ?', whereArgs: [itemId]);
+  }
+
+  // NEW: --- Multimodal Task CRUD ---
+  Future<int> insertMultimodalTask(MultimodalInput task, {bool isSynced = false}) async {
+    final db = await database;
+    final taskId = uuid.v4(); // Always generate a new local ID for pending tasks
+    final result = await db.insert('multimodal_tasks', {
+      'id': taskId,
+      'user_id': task.userId,
+      'input_type': task.inputType.name, // enum member name (e.g. 'image')
+      'data': task.dataUrl ?? task.rawText, // base64 for files or raw URL for URL inputs
+      'source_context': task.metadata['source_context'],
+      'is_synced': isSynced ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    return result;
+  }
+
+  Future<List<MultimodalInput>> getUnsyncedMultimodalTasks() async {
+    final db = await database;
+    final List<Map<String, dynamic>> taskMaps = await db.query('multimodal_tasks', where: 'is_synced = ?', whereArgs: [0]);
+    return List.generate(taskMaps.length, (i) {
+      final row = taskMaps[i];
+      final inputType = MultimodalInputType.values
+          .byName((row['input_type'] as String? ?? 'text'));
+      final data = row['data'] as String?;
+      return MultimodalInput(
+        id: row['id'] as String,
+        userId: row['user_id'] as String? ?? 'self',
+        inputType: inputType,
+        dataUrl: inputType == MultimodalInputType.text ? null : data,
+        rawText: inputType == MultimodalInputType.text ? data : null,
+        metadata: {'source_context': row['source_context']},
+        createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? DateTime.now(),
+        updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? '') ?? DateTime.now(),
+      );
+    });
+  }
+
+  Future<int> markMultimodalTaskAsSynced(String taskId) async {
+    final db = await database;
+    return await db.update('multimodal_tasks', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [taskId]);
+  }
+
+  /// Unsynced journal entries with the Book they were created in, so the
+  /// sync replay attaches the original Book header, not the current one.
+  Future<List<UnsyncedRef<JournalEntry>>> getUnsyncedJournalEntriesWithBooks() async {
+    final db = await database;
+    final entryMaps =
+        await db.query('journal_entries', where: 'is_synced = ?', whereArgs: [0]);
+    final refs = <UnsyncedRef<JournalEntry>>[];
+    for (final entryMap in entryMaps) {
+      final lineMaps = await db
+          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final lines = List.generate(lineMaps.length, (i) => JournalLine.fromJson(lineMaps[i]));
+      refs.add(UnsyncedRef(
+        JournalEntry.fromJson(
+            {...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}),
+        entryMap['book_id'] as String?,
+      ));
+    }
+    return refs;
+  }
+
+  /// Accounts created offline (waiting for the sync replay).
+  Future<List<UnsyncedRef<Account>>> getUnsyncedAccounts() async {
+    final db = await database;
+    final maps =
+        await db.query('accounts', where: 'is_synced = ?', whereArgs: [0]);
+    return maps
+        .map((row) => UnsyncedRef(Account.fromJson(row), row['book_id'] as String?))
+        .toList();
+  }
+
+  Future<int> markAccountAsSynced(String accountNumber) async {
+    final db = await database;
+    return await db.update('accounts', {'is_synced': 1},
+        where: 'account_number = ?', whereArgs: [accountNumber]);
+  }
+
+  // --- Generic offline KV cache (last-known server payloads) ---
+
+  Future<void> putOfflineCache(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'offline_cache',
+      {'key': key, 'value': value, 'updated_at': DateTime.now().toIso8601String()},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> getOfflineCache(String key) async {
+    final db = await database;
+    final rows = await db.query('offline_cache', where: 'key = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  /// How many records (accounts, journal entries, captures) are waiting
+  /// to sync. Powers the "pending sync" indicator in the UI.
+  Future<int> pendingSyncCount() async {
+    final db = await database;
+    final journals = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM journal_entries WHERE is_synced = 0')) ??
+        0;
+    final captures = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM multimodal_tasks WHERE is_synced = 0')) ??
+        0;
+    final accounts = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM accounts WHERE is_synced = 0')) ??
+        0;
+    return journals + captures + accounts;
+  }
+}

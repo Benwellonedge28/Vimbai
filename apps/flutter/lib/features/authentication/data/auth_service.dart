@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/features/authentication/models/user.dart';
-import 'package:vimbai_mobile_client/services/api_client.dart';
-import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
-import 'package:vimbai_mobile_client/config.dart';
-import 'package:vimbai_mobile_client/services/sync_service.dart'; // For API URL
+import 'package:vimbai_mobile_client/core/api/api_client.dart';
+import 'package:vimbai_mobile_client/core/local_db/user_local_data.dart';
+import 'package:vimbai_mobile_client/app/config.dart';
+import 'package:vimbai_mobile_client/core/offline/sync_service.dart'; // For API URL
 
 /// Client for the identity-service via the API gateway.
 ///

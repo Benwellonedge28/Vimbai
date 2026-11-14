@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/login_page.dart';
-import 'package:vimbai_mobile_client/pages/home_page.dart';
+import 'package:vimbai_mobile_client/app/home_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 
 void main() {

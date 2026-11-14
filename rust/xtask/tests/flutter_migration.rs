@@ -47,39 +47,68 @@ fn the_baseline_is_evidence_rather_than_a_list_of_names() {
         left.len(),
         "the pinned list and the layer folders must agree, or the list stops meaning anything"
     );
+}
+
+/// The exit criterion of P7, as a test: those five folders hold no dart file at all.
+#[test]
+fn no_dart_file_is_left_in_a_layer_folder() {
+    let left = flutter::leftovers(repo());
     assert!(
-        !pinned.is_empty(),
-        "the migration is not finished, so it is not empty"
+        left.is_empty(),
+        "P7 is finished when this is empty: {left:?}"
+    );
+    assert!(
+        flutter::baseline(repo()).is_empty(),
+        "nothing needs pinning once nothing is left behind"
     );
 }
 
 #[test]
-fn the_first_migrated_feature_has_the_parts_it_actually_holds() {
+fn each_feature_holds_the_parts_it_actually_has() {
     let features = flutter::features(repo());
-    let authentication = features
+    let names: Vec<&str> = features
         .iter()
-        .find(|feature| feature.name == "authentication")
-        .expect("authentication is the first feature moved");
-    for part in ["presentation", "data", "models"] {
+        .map(|feature| feature.name.as_str())
+        .collect();
+    for expected in [
+        "accounting",
+        "authentication",
+        "banking",
+        "books",
+        "budgeting",
+        "group_savings",
+        "household_finance",
+        "multimodal",
+        "npo",
+        "personal_finance",
+        "reporting",
+    ] {
         assert!(
-            authentication.parts.iter().any(|has| has == part),
-            "authentication should hold {part}: {:?}",
-            authentication.parts
+            names.contains(&expected),
+            "{expected} should have its own folder: {names:?}"
         );
     }
-    assert!(
-        !authentication.parts.iter().any(|has| has == "application"),
-        "a part with no file in it is not migrated, and is not claimed"
-    );
+    for feature in &features {
+        assert!(
+            !feature.parts.is_empty(),
+            "{} is a folder with no file in it, which git would not even keep",
+            feature.name
+        );
+        assert!(
+            feature.parts.iter().any(|part| part == "presentation"),
+            "{} has no screen, so it is not a feature yet: {:?}",
+            feature.name,
+            feature.parts
+        );
+    }
 }
 
 #[test]
-fn the_migration_is_real_progress_rather_than_a_rename() {
-    // the exit criterion of P7 is that those folders hold nothing; until then this says how far in it is
-    let left = flutter::leftovers(repo()).len();
+fn every_file_moved_and_none_was_lost() {
+    // the count before P7 started, so a move that dropped a file is a failure rather than a smaller tree
     let all = flutter::dart_files(repo()).len();
     assert!(
-        left < all,
-        "some files have moved: {left} of {all} still in a layer folder"
+        all >= 58,
+        "the app had 58 dart files when P7 started: {all}"
     );
 }

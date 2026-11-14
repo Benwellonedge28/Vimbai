@@ -16,6 +16,12 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- The Flutter migration finished. All 58 dart files left `lib/models`, `lib/pages`, `lib/services`, `lib/widgets` and
+  `lib/local_db`: eleven feature folders under `lib/features/`, plus `lib/core/` for the api client, local database, sync
+  queue and event socket and `lib/app/` for the shell. Every import was rewritten and the gate proves each one still names a
+  file the app has. `apps/flutter/migration-baseline.txt` is empty, and `docs/flutter-structure.md` records the layout.
+- The dart build cache (`apps/flutter/.dart_tool`) is no longer tracked; it is build output, and a tracked build cache is
+  a merge conflict waiting to happen.
 - The Flutter feature-first migration started. Authentication - sign in, register, its service and the account it produces -
   moved from `lib/pages`, `lib/services` and `lib/models` into `lib/features/authentication/` with every import rewritten.
   A new gate (`cargo run -p xtask -- flutter`, six tests) fails if a dart file is added to one of the five layer folders
