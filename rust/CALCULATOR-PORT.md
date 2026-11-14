@@ -1692,6 +1692,20 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   mostly parameterised is thin evidence. risk-assessment-service read as ready on the strength of one path while its
   dashboard was still published at a different address. Check the parameterised paths by hand.
 
+- Retiring a service proves the FIXED paths it published, so a parameterised address can move unnoticed and become a
+  404 for a client that still calls it. scripts/retire_coverage.py counts fixed paths only, by design. An audit of every
+  retired service's last main.py (from git) against the engine found nine with at least one address no handler answers.
+  Restored so far, each at the address the service published: /reconcile/{id}/auto-match and /reconcile/{id}/post-adjustments
+  (bank-reconciliation), /backup/{id}/restore under the encrypted-backup prefix, /profiles/user/{user_id}
+  (financial-identity), and /right-issues/{id}/accept and /renounce. rust/apps/api-server/tests/published_addresses_http.rs
+  pins them, and distinguishes a missing route from a missing record: no route reaches no handler and answers no error body.
+
+  Still open from that audit, each needing a namespace decision rather than a route: bank-relationship (/summary/{company})
+  and expense-tracking (/summary/{company}) publish the same flat address and cannot both keep it, so they need their own
+  prefixes and strip_prefix=false; banking-integration (/transactions/{connection_id}), personal-finance (/goals/{user},
+  /income/{user}, /overview/{user}) and zero-trust-data (/policies/{policy_id}) need the same treatment and a handler
+  mapped per path first.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

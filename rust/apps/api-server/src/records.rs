@@ -17383,6 +17383,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/backups", get(get_backups))
         .route("/backups/:id", get(get_backup).delete(delete_backup))
         .route("/backups/:id/restore", post(post_backup_restore))
+        // encrypted-backup-service published the restore under its own prefix as /backup/{id}/restore
+        .route(
+            "/encrypted-backup/backup/:backup_id/restore",
+            post(post_backup_restore),
+        )
         .route("/restores", get(get_restores))
 
         // The Book's data shelf: warehouse tables and queries, and the ETL pipelines behind them
@@ -17442,6 +17447,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))
         .route("/profiles/by-subject/:user", get(get_profile_for_subject))
+        // financial-identity-service addressed the same read as /profiles/user/{user_id}
+        .route("/profiles/user/:user", get(get_profile_for_subject))
         .route("/profiles/:id", get(get_profile))
         .route("/profiles/:id/verify", put(put_profile_verify))
 
@@ -17658,6 +17665,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_bank_reconciliation),
         )
         .route("/outstanding-items", get(get_bank_outstanding_items))
+        // bank-reconciliation-service published these two steps at /reconcile/{id}/..., and the gateway strips its
+        // prefix, so the engine answers the address the service itself used rather than only /bank-reconcile/{id}/...
+        .route(
+            "/reconcile/:reconciliation_id/auto-match",
+            post(post_bank_auto_match),
+        )
+        .route(
+            "/reconcile/:reconciliation_id/post-adjustments",
+            post(post_bank_adjustments),
+        )
 
         // payables: the purchases ledger and its control account. The plain /transactions, /reconcile and
         // /control-account/summary already answer the sales ledger, so each of these is named for the side of
@@ -18091,6 +18108,10 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/right-issues/right-issues/:issue_id", get(one_right_issue))
         .route("/right-issues/right-issues/:issue_id/accept", post(accept_rights))
         .route("/right-issues/right-issues/:issue_id/renounce", post(renounce_rights))
+        // right-issues-service published both decisions at /right-issues/{id}/accept and /renounce, which is one
+        // segment shallower than the issue's own path because the gateway keeps that service's prefix
+        .route("/right-issues/:issue_id/accept", post(accept_rights))
+        .route("/right-issues/:issue_id/renounce", post(renounce_rights))
         .route("/ordinary-shares/dividends", get(ordinary_dividends).post(declare_ordinary_dividend))
         .route("/ordinary-shares/dividends/:dividend_id/pay", post(pay_ordinary_dividend))
         .route("/preference-shares/classes", get(preference_classes).post(create_preference_class))
