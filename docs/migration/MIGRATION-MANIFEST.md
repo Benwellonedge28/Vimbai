@@ -1,0 +1,615 @@
+# Migration manifest
+
+> *Historical document.* This is historical snapshot of the service manifest at the time the migration ran. The live inventory is catalog/services/catalog.yaml, generated from the gateway route table.
+>
+> Kept for the record, not maintained. See `docs/ROADMAP.md` for what is being built now.
+
+A snapshot of the migration as it finished, kept for history: the generator (`scripts/migration_manifest.py`) is gone, and `cargo run -p xtask -- catalog` plus `catalog/ownership.json` are the source of truth now. Do not edit by hand.
+one row here and exactly one owner domain. A routed service with no owner is reported below
+and fails the test, rather than quietly dropping out of the plan.
+
+The domain is the business responsibility. Where a service already runs on a Rust engine the
+row says `rust`; everything else is still Python and carries the gate it has to pass first.
+
+## Where things stand
+
+```
+routed services          137
+already on a Rust engine 137
+still Python             0
+owner domains            38
+```
+
+## accounting
+
+_accounting workflows and the statements they produce_
+
+Lands in `rust/crates/domains/accounting`.
+
+```
+service                                         port  routes  records  engine
+accounting-service                              8099       0       no  rust
+accounting-standards-service                    8095       0       no  rust
+balance-sheet-service                           8099       0       no  rust
+cash-flow-service                               8099       0       no  rust
+cash-flow-statement-service                     8099       0       no  rust
+cashbook-service                                8099       0       no  rust
+company-accounting-service                      8099       0       no  rust
+departmental-accounting-service                 8099       0       no  rust
+fund-accounting-service                         8099       0       no  rust
+ifrs-reporting-service                          8099       0       no  rust
+intercompany-service                            8099       0       no  rust
+revenue-recognition-service                     8099       0       no  rust
+trading-account-service                         8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## admin
+
+_the feature catalogue and each caller's own view of it, organisation configuration, rollouts, requests and the audit trail_
+
+Lands in `rust/crates/platform/admin`.
+
+```
+service                                         port  routes  records  engine
+admin-service                                   8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## alerts
+
+_the rules a Book watches, and the alerts they raise_
+
+Lands in `rust/crates/platform/alerts`.
+
+```
+service                                         port  routes  records  engine
+alerts-service                                  8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## analytics
+
+_benchmarking, warehousing and data movement_
+
+Lands in `rust/crates/domains/analytics`.
+
+```
+service                                         port  routes  records  engine
+performance-benchmarking-service                8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## assets
+
+_fixed, intangible, biological and investment assets_
+
+Lands in `rust/crates/domains/assets`.
+
+```
+service                                         port  routes  records  engine
+biological-assets-service                       8099       0       no  rust
+disposal-account-service                        8099       0       no  rust
+disposal-group-service                          8099       0       no  rust
+fixed-assets-register-service                   8099       0       no  rust
+fixed-assets-schedule-service                   8099       0       no  rust
+intangible-assets-service                       8099       0       no  rust
+investment-property-service                     8099       0       no  rust
+lease-termination-service                       8099       0       no  rust
+revaluation-model-service                       8099       0       no  rust
+revaluation-reserve-service                     8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## audit
+
+_audit engagements, sampling and evidence_
+
+Lands in `rust/crates/domains/audit`.
+
+```
+service                                         port  routes  records  engine
+audit-compliance-service                        8099       0       no  rust
+audit-engagement-service                        8099       0       no  rust
+audit-sampling-service                          8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## authentication
+
+_proving who someone is: single sign-on verification, and the second factor a person carries_
+
+Lands in `rust/crates/platform/identity`.
+
+```
+service                                         port  routes  records  engine
+mfa-auth-service                                9003       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## automation
+
+_scheduled and triggered automation_
+
+Lands in `rust/crates/domains/automation`.
+
+```
+service                                         port  routes  records  engine
+automation-engine-service                       8000       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## banking
+
+_bank connectivity and reconciliation_
+
+Lands in `rust/crates/domains/banking`.
+
+```
+service                                         port  routes  records  engine
+bank-feed-service                               8097       0       no  rust
+bank-reconciliation-service                     8099       0       no  rust
+bank-relationship-service                       8099       0       no  rust
+banking-integration-service                     8099       0       no  rust
+currency-service                                8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## budgeting
+
+_budgets, forecasts and scenario planning_
+
+Lands in `rust/crates/domains/budgeting`.
+
+```
+service                                         port  routes  records  engine
+activity-based-budget-service                   8099       0       no  rust
+appropriation-control-service                   8099       0       no  rust
+rolling-forecast-service                        8099       0       no  rust
+scenario-analysis-service                       8099       0       no  rust
+scenario-modeling-service                       8099       0       no  rust
+sensitivity-analysis-service                    8099       0       no  rust
+zero-based-budgeting-service                    8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## cache
+
+_keyed values with a life, a size limit and the cache's own counts_
+
+Lands in `rust/crates/platform/cache`.
+
+```
+service                                         port  routes  records  engine
+cache-service                                   8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## calculations
+
+_the calculation surface the client calls_
+
+Lands in `rust/crates/application`.
+
+```
+service                                         port  routes  records  engine
+calculation-api                                 8099       0       no  rust
+realtime-calculation-engine                     8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## compliance
+
+_regulatory and controls compliance_
+
+Lands in `rust/crates/domains/compliance`.
+
+```
+service                                         port  routes  records  engine
+privacy-admin-dashboard-service                 8099       0       no  rust
+regulatory-compliance-service                   8099       0       no  rust
+risk-assessment-service                         8099       0       no  rust
+sox-compliance-service                          8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## costing
+
+_cost accumulation, apportionment, product and job costing_
+
+Lands in `rust/crates/domains/costing`.
+
+```
+service                                         port  routes  records  engine
+absorption-costing-service                      9003       0       no  rust
+absorption-costing-statement-service            8099       0       no  rust
+basis-apportionment-service                     8022       0       no  rust
+cvp-analysis-service                            8099       0       no  rust
+job-costing-service                             8099       0       no  rust
+overhead-absorption-rate-service                8092       0       no  rust
+process-costing-service                         8099       0       no  rust
+product-costing-service                         8099       0       no  rust
+selling-price-reduction-service                 8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## data
+
+_the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them_
+
+Lands in `rust/crates/domains/data`.
+
+```
+service                                         port  routes  records  engine
+data-warehouse-service                          8099       0       no  rust
+encrypted-backup-service                        8099       0       no  rust
+etl-service                                     8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## documents
+
+_document storage and rendering_
+
+Lands in `rust/crates/platform/documents`.
+
+```
+service                                         port  routes  records  engine
+document-service                                8096       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## equity
+
+_share capital, reserves and equity movements_
+
+Lands in `rust/crates/domains/equity`.
+
+```
+service                                         port  routes  records  engine
+authorized-share-capital-service                8099       0       no  rust
+bonus-shares-service                            8099       0       no  rust
+capital-reconstruction-service                  8099       0       no  rust
+capital-redemption-reserve-service              8099       0       no  rust
+debentures-service                              8099       0       no  rust
+equity-changes-service                          8099       0       no  rust
+general-reserve-service                         8061       0       no  rust
+initial-investment-service                      8099       0       no  rust
+issued-share-capital-service                    8099       0       no  rust
+ordinary-shares-service                         8090       0       no  rust
+preference-shares-service                       8102       0       no  rust
+retained-profits-service                        8113       0       no  rust
+right-issues-service                            8099       0       no  rust
+share-premium-service                           8099       0       no  rust
+share-redemption-service                        8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## events
+
+_publishing an event inside a Book, the subscriptions that listen and every delivery attempt_
+
+Lands in `rust/crates/platform/events`.
+
+```
+service                                         port  routes  records  engine
+message-bus-service                             8099       0       no  rust
+websocket-service                               8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## finance
+
+_financial management and decision support_
+
+Lands in `rust/crates/domains/finance`.
+
+```
+service                                         port  routes  records  engine
+continue-shutdown-decision-service              8032       0       no  rust
+insurance-claims-service                        8099       0       no  rust
+internal-rate-return-service                    8099       0       no  rust
+investment-monitoring-service                   8099       0       no  rust
+net-present-value-service                       8099       0       no  rust
+payback-period-service                          8099       0       no  rust
+personal-finance-service                        8099       0       no  rust
+trade-finance-service                           8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## identity
+
+_the financial identity a Book knows a person by, and the verification done against it_
+
+Lands in `rust/crates/domains/identity`.
+
+```
+service                                         port  routes  records  engine
+financial-identity-service                      8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## integrations
+
+_webhooks, GraphQL and external feeds_
+
+Lands in `rust/crates/platform/integrations`.
+
+```
+service                                         port  routes  records  engine
+graphql-service                                 8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## invoicing
+
+_issuing and tracking invoices, and the plans a Book bills on_
+
+Lands in `rust/crates/domains/invoicing`.
+
+```
+service                                         port  routes  records  engine
+invoicing-service                               8099       0       no  rust
+subscription-plans-service                      8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## kernel
+
+_ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services' HTTP and record surface_
+
+Lands in `rust/crates/kernel/ledger-services`.
+
+```
+service                                         port  routes  records  engine
+control-account-reconciliation-service          8099       0       no  rust
+double-entry-principles-service                 8099       0       no  rust
+financial-integrity-service                     8099       0       no  rust
+financial-state-machine-service                 8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## multimodal
+
+_document, image and audio understanding_
+
+Lands in `rust/crates/domains/multimodal`.
+
+```
+service                                         port  routes  records  engine
+multimodal-pipeline-service                     8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## notifications
+
+_each person's inbox, their preferences and the templates behind a notice_
+
+Lands in `rust/crates/platform/notifications`.
+
+```
+service                                         port  routes  records  engine
+notifications-service                           8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## npo
+
+_non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale_
+
+Lands in `rust/crates/domains/npo`.
+
+```
+service                                         port  routes  records  engine
+npo-scale-service                               8099       0       no  rust
+npo-service                                     8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## partnerships
+
+_partnership registers and the changes made to them, and community savings groups_
+
+Lands in `rust/crates/domains/partnerships`.
+
+```
+service                                         port  routes  records  engine
+family-community-group-service                  8099       0       no  rust
+partnership-agreement-service                   8099       0       no  rust
+partnership-changes-service                     8099       0       no  rust
+partnership-dissolution-service                 8099       0       no  rust
+partnership-revaluation-service                 8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## payables
+
+_purchase ledger and expense capture_
+
+Lands in `rust/crates/domains/payables`.
+
+```
+service                                         port  routes  records  engine
+expense-tracking-service                        8099       0       no  rust
+purchases-ledger-control-service                8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## payments
+
+_Vimbai Pay: orchestration, lifecycle and providers_
+
+Lands in `rust/crates/domains/payments`.
+
+```
+service                                         port  routes  records  engine
+pos-integration-service                         8095       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## payroll
+
+_payroll and benefits_
+
+Lands in `rust/crates/domains/payroll`.
+
+```
+service                                         port  routes  records  engine
+benefits-admin-service                          8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## receivables
+
+_sales ledger, bad debts and provisions against them_
+
+Lands in `rust/crates/domains/receivables`.
+
+```
+service                                         port  routes  records  engine
+bad-debts-recovery-service                      8099       0       no  rust
+provision-bad-debts-service                     8099       0       no  rust
+provision-doubtful-debts-service                8099       0       no  rust
+sales-ledger-control-service                    8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## reporting
+
+_report assembly and distribution_
+
+Lands in `rust/crates/domains/reporting`.
+
+```
+service                                         port  routes  records  engine
+dashboard-service                               8099       0       no  rust
+report-automation-service                       8099       0       no  rust
+report-distribution-service                     8099       0       no  rust
+reporting-service                               8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## security
+
+_zero-trust access control: policies and the decisions taken against them_
+
+Lands in `rust/crates/domains/security`.
+
+```
+service                                         port  routes  records  engine
+zero-trust-data-service                         8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## sync
+
+_the shared Books a person belongs to, who else is in them, their devices and the entries those devices push_
+
+Lands in `rust/crates/platform/offline-sync`.
+
+```
+service                                         port  routes  records  engine
+book-sync-service                               8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## taxation
+
+_tax accounting, planning and compliance_
+
+Lands in `rust/crates/domains/taxation`.
+
+```
+service                                         port  routes  records  engine
+tax-accounting-service                          8099       0       no  rust
+tax-compliance-service                          8099       0       no  rust
+tax-planning-service                            8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## treasury
+
+_cash, liquidity, debt and currency management_
+
+Lands in `rust/crates/domains/treasury`.
+
+```
+service                                         port  routes  records  engine
+cash-management-service                         8099       0       no  rust
+cash-optimization-service                       8099       0       no  rust
+debt-management-service                         8099       0       no  rust
+foreign-exchange-service                        8099       0       no  rust
+petty-cash-service                              8099       0       no  rust
+sovereign-treasury-service                      8099       0       no  rust
+treasury-analytics-service                      8099       0       no  rust
+treasury-compliance-service                     8099       0       no  rust
+treasury-management-service                     8099       0       no  rust
+treasury-policy-service                         8099       0       no  rust
+treasury-reporting-service                      8099       0       no  rust
+treasury-risk-service                           8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## webhooks
+
+_the endpoints a Book subscribes, the events dispatched to them and how each delivery went_
+
+Lands in `rust/crates/platform/webhooks`.
+
+```
+service                                         port  routes  records  engine
+webhook-service                                 8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## workflow
+
+_the definitions a step runs through and the instances that walk them_
+
+Lands in `rust/crates/domains/workflow`.
+
+```
+service                                         port  routes  records  engine
+distributed-workflow-orchestration-service      8099       0       no  rust
+workflow-service                                8099       0       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+

@@ -1,0 +1,176 @@
+# Rust migration backlog
+
+> *Historical document.* This is historical snapshot of the port backlog. Every routed service now answers from the Rust engine and there is no Python left, so the counts below describe a stage that has passed.
+>
+> Kept for the record, not maintained. See `docs/ROADMAP.md` for what is being built now.
+
+A snapshot of the migration as it finished, kept for history: the generator (`scripts/migration_backlog.py`) is gone, and the catalogue (`catalog/services/catalog.yaml`) plus `cargo run -p xtask -- gateway` answer these questions today.
+exactly once here: either proven on a Rust engine, or on the backlog with its size and
+whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
+
+## Where things stand
+
+The gateway routes 137 services, 0 of them with Python source. 137 answer from a Rust engine; 0 are still Python-only, and 137 has no Python source at all because it published no endpoints of its own.
+
+Of the backlog, 0 own no records and can be ported as pure functions; 0 own records and
+need vimbai_store alongside the maths.
+
+### Already on a Rust engine
+
+137 services.
+
+```
+absorption-costing-service                     9003  routes=0   records=no  rust http (no python source)
+absorption-costing-statement-service           8099  routes=0   records=no  rust http (no python source)
+accounting-service                             8099  routes=0   records=no  rust http (no python source)
+accounting-standards-service                   8095  routes=0   records=no  rust http (no python source)
+activity-based-budget-service                  8099  routes=0   records=no  rust http (no python source)
+admin-service                                  8099  routes=0   records=no  rust http (no python source)
+alerts-service                                 8099  routes=0   records=no  rust http (no python source)
+appropriation-control-service                  8099  routes=0   records=no  rust http (no python source)
+audit-compliance-service                       8099  routes=0   records=no  rust http (no python source)
+audit-sampling-service                         8099  routes=0   records=no  rust http (no python source)
+authorized-share-capital-service               8099  routes=0   records=no  rust http (no python source)
+automation-engine-service                      8000  routes=0   records=no  rust http (no python source)
+bad-debts-recovery-service                     8099  routes=0   records=no  rust http (no python source)
+balance-sheet-service                          8099  routes=0   records=no  rust http (no python source)
+bank-feed-service                              8097  routes=0   records=no  rust http (no python source)
+bank-reconciliation-service                    8099  routes=0   records=no  rust http (no python source)
+bank-relationship-service                      8099  routes=0   records=no  rust http (no python source)
+banking-integration-service                    8099  routes=0   records=no  rust http (no python source)
+basis-apportionment-service                    8022  routes=0   records=no  rust http (no python source)
+benefits-admin-service                         8099  routes=0   records=no  rust http (no python source)
+biological-assets-service                      8099  routes=0   records=no  rust http (no python source)
+bonus-shares-service                           8099  routes=0   records=no  rust http (no python source)
+cache-service                                  8099  routes=0   records=no  rust http (no python source)
+capital-reconstruction-service                 8099  routes=0   records=no  rust http (no python source)
+capital-redemption-reserve-service             8099  routes=0   records=no  rust http (no python source)
+cash-flow-service                              8099  routes=0   records=no  rust http (no python source)
+cash-flow-statement-service                    8099  routes=0   records=no  rust http (no python source)
+cash-management-service                        8099  routes=0   records=no  rust http (no python source)
+cash-optimization-service                      8099  routes=0   records=no  rust http (no python source)
+cashbook-service                               8099  routes=0   records=no  rust http (no python source)
+company-accounting-service                     8099  routes=0   records=no  rust http (no python source)
+continue-shutdown-decision-service             8032  routes=0   records=no  rust http (no python source)
+control-account-reconciliation-service         8099  routes=0   records=no  rust http (no python source)
+currency-service                               8099  routes=0   records=no  rust http (no python source)
+cvp-analysis-service                           8099  routes=0   records=no  rust http (no python source)
+dashboard-service                              8099  routes=0   records=no  rust http (no python source)
+data-warehouse-service                         8099  routes=0   records=no  rust http (no python source)
+debentures-service                             8099  routes=0   records=no  rust http (no python source)
+debt-management-service                        8099  routes=0   records=no  rust http (no python source)
+departmental-accounting-service                8099  routes=0   records=no  rust http (no python source)
+disposal-account-service                       8099  routes=0   records=no  rust http (no python source)
+disposal-group-service                         8099  routes=0   records=no  rust http (no python source)
+distributed-workflow-orchestration-service     8099  routes=0   records=no  rust http (no python source)
+document-service                               8096  routes=0   records=no  rust http (no python source)
+double-entry-principles-service                8099  routes=0   records=no  rust http (no python source)
+encrypted-backup-service                       8099  routes=0   records=no  rust http (no python source)
+equity-changes-service                         8099  routes=0   records=no  rust http (no python source)
+etl-service                                    8099  routes=0   records=no  rust http (no python source)
+expense-tracking-service                       8099  routes=0   records=no  rust http (no python source)
+family-community-group-service                 8099  routes=0   records=no  rust http (no python source)
+financial-identity-service                     8099  routes=0   records=no  rust http (no python source)
+financial-integrity-service                    8099  routes=0   records=no  rust http (no python source)
+financial-state-machine-service                8099  routes=0   records=no  rust http (no python source)
+fixed-assets-register-service                  8099  routes=0   records=no  rust http (no python source)
+fixed-assets-schedule-service                  8099  routes=0   records=no  rust http (no python source)
+foreign-exchange-service                       8099  routes=0   records=no  rust http (no python source)
+fund-accounting-service                        8099  routes=0   records=no  rust http (no python source)
+general-reserve-service                        8061  routes=0   records=no  rust http (no python source)
+graphql-service                                8099  routes=0   records=no  rust http (no python source)
+ifrs-reporting-service                         8099  routes=0   records=no  rust http (no python source)
+initial-investment-service                     8099  routes=0   records=no  rust http (no python source)
+insurance-claims-service                       8099  routes=0   records=no  rust http (no python source)
+intangible-assets-service                      8099  routes=0   records=no  rust http (no python source)
+intercompany-service                           8099  routes=0   records=no  rust http (no python source)
+internal-rate-return-service                   8099  routes=0   records=no  rust http (no python source)
+investment-monitoring-service                  8099  routes=0   records=no  rust http (no python source)
+investment-property-service                    8099  routes=0   records=no  rust http (no python source)
+invoicing-service                              8099  routes=0   records=no  rust http (no python source)
+issued-share-capital-service                   8099  routes=0   records=no  rust http (no python source)
+job-costing-service                            8099  routes=0   records=no  rust http (no python source)
+lease-termination-service                      8099  routes=0   records=no  rust http (no python source)
+message-bus-service                            8099  routes=0   records=no  rust http (no python source)
+mfa-auth-service                               9003  routes=0   records=no  rust http (no python source)
+multimodal-pipeline-service                    8099  routes=0   records=no  rust http (no python source)
+net-present-value-service                      8099  routes=0   records=no  rust http (no python source)
+notifications-service                          8099  routes=0   records=no  rust http (no python source)
+npo-service                                    8099  routes=0   records=no  rust http (no python source)
+ordinary-shares-service                        8090  routes=0   records=no  rust http (no python source)
+overhead-absorption-rate-service               8092  routes=0   records=no  rust http (no python source)
+partnership-agreement-service                  8099  routes=0   records=no  rust http (no python source)
+partnership-changes-service                    8099  routes=0   records=no  rust http (no python source)
+partnership-dissolution-service                8099  routes=0   records=no  rust http (no python source)
+partnership-revaluation-service                8099  routes=0   records=no  rust http (no python source)
+payback-period-service                         8099  routes=0   records=no  rust http (no python source)
+performance-benchmarking-service               8099  routes=0   records=no  rust http (no python source)
+personal-finance-service                       8099  routes=0   records=no  rust http (no python source)
+petty-cash-service                             8099  routes=0   records=no  rust http (no python source)
+pos-integration-service                        8095  routes=0   records=no  rust http (no python source)
+preference-shares-service                      8102  routes=0   records=no  rust http (no python source)
+privacy-admin-dashboard-service                8099  routes=0   records=no  rust http (no python source)
+process-costing-service                        8099  routes=0   records=no  rust http (no python source)
+product-costing-service                        8099  routes=0   records=no  rust http (no python source)
+provision-bad-debts-service                    8099  routes=0   records=no  rust http (no python source)
+provision-doubtful-debts-service               8099  routes=0   records=no  rust http (no python source)
+purchases-ledger-control-service               8099  routes=0   records=no  rust http (no python source)
+realtime-calculation-engine                    8099  routes=0   records=no  rust http (no python source)
+regulatory-compliance-service                  8099  routes=0   records=no  rust http (no python source)
+report-automation-service                      8099  routes=0   records=no  rust http (no python source)
+report-distribution-service                    8099  routes=0   records=no  rust http (no python source)
+reporting-service                              8099  routes=0   records=no  rust http (no python source)
+retained-profits-service                       8113  routes=0   records=no  rust http (no python source)
+revaluation-model-service                      8099  routes=0   records=no  rust http (no python source)
+revaluation-reserve-service                    8099  routes=0   records=no  rust http (no python source)
+revenue-recognition-service                    8099  routes=0   records=no  rust http (no python source)
+right-issues-service                           8099  routes=0   records=no  rust http (no python source)
+risk-assessment-service                        8099  routes=0   records=no  rust http (no python source)
+rolling-forecast-service                       8099  routes=0   records=no  rust http (no python source)
+sales-ledger-control-service                   8099  routes=0   records=no  rust http (no python source)
+scenario-analysis-service                      8099  routes=0   records=no  rust http (no python source)
+scenario-modeling-service                      8099  routes=0   records=no  rust http (no python source)
+selling-price-reduction-service                8099  routes=0   records=no  rust http (no python source)
+sensitivity-analysis-service                   8099  routes=0   records=no  rust http (no python source)
+share-premium-service                          8099  routes=0   records=no  rust http (no python source)
+share-redemption-service                       8099  routes=0   records=no  rust http (no python source)
+sovereign-treasury-service                     8099  routes=0   records=no  rust http (no python source)
+sox-compliance-service                         8099  routes=0   records=no  rust http (no python source)
+subscription-plans-service                     8099  routes=0   records=no  rust http (no python source)
+tax-accounting-service                         8099  routes=0   records=no  rust http (no python source)
+tax-compliance-service                         8099  routes=0   records=no  rust http (no python source)
+tax-planning-service                           8099  routes=0   records=no  rust http (no python source)
+trade-finance-service                          8099  routes=0   records=no  rust http (no python source)
+trading-account-service                        8099  routes=0   records=no  rust http (no python source)
+treasury-analytics-service                     8099  routes=0   records=no  rust http (no python source)
+treasury-compliance-service                    8099  routes=0   records=no  rust http (no python source)
+treasury-management-service                    8099  routes=0   records=no  rust http (no python source)
+treasury-policy-service                        8099  routes=0   records=no  rust http (no python source)
+treasury-reporting-service                     8099  routes=0   records=no  rust http (no python source)
+treasury-risk-service                          8099  routes=0   records=no  rust http (no python source)
+webhook-service                                8099  routes=0   records=no  rust http (no python source)
+websocket-service                              8099  routes=0   records=no  rust http (no python source)
+workflow-service                               8099  routes=0   records=no  rust http (no python source)
+zero-based-budgeting-service                   8099  routes=0   records=no  rust http (no python source)
+zero-trust-data-service                        8099  routes=0   records=no  rust http (no python source)
+book-sync-service                              8099  routes=0   records=no  rust http (no python source)
+npo-scale-service                              8099  routes=0   records=no  rust http (no python source)
+audit-engagement-service                       8099  routes=0   records=no  rust http (no python source)
+calculation-api                                8099  routes=0   records=no  rust http (no python source)
+```
+
+### Backlog: no records owned (port the maths only)
+
+0 services.
+
+```
+```
+
+### Backlog: owns records (needs vimbai_store)
+
+0 services.
+
+```
+```
+
+

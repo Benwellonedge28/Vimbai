@@ -1,0 +1,5 @@
+# Stable, unpinned. A pinned version here would be a second place to update and would make a local `cargo` disagree with
+# CI over which compiler to download; the workspace sets its edition in rust/Cargo.toml instead.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

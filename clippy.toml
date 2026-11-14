@@ -1,0 +1,2 @@
+# No lint is configured away. The workspace runs `clippy -D warnings`, so a lint that fires on real code is fixed rather
+# than silenced; this file exists so a genuine, reviewed exception has an obvious home instead of a #[allow] in the source.

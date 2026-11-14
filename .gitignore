@@ -1,21 +1,28 @@
+# Rust
+rust/target/
+target/
 
-# Go build artifacts
-api-gateway/vimbai-gateway
+# Go
+gateway/go/vimbai-gateway
 *.exe
 
-# Frontend build
-web-frontend/dist/
-web-frontend/node_modules/
+# Flutter
+apps/flutter/.dart_tool/
+apps/flutter/build/
+apps/flutter/.flutter-plugins
+apps/flutter/.flutter-plugins-dependencies
+apps/flutter/.packages
 
-# IDE
+# Retired from the tracked tree: the React UI is being replaced by apps/flutter, so its build output and
+# dependencies are not versioned either. The source stays on disk and in history.
+web-frontend/
+
+# Local state and live data never go in the repository.
+*.db
+*.sqlite3
+
+# Editors and OS
 .idea/
 .vscode/
 *.swp
-# local sqlite databases
-book-sync-service/*.db
-*.sqlite3
-
-# Rust seam build artefacts
-library/native/target/
-library/native/dist/
-*.whl
+.DS_Store

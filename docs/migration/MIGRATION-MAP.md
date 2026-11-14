@@ -1,0 +1,807 @@
+# Vimbai migration map
+
+> *Historical document.* This is historical snapshot of the Python-to-Rust service mapping, kept as evidence of what was retired and where each service's answers ended up. It is not a live inventory: the live one is catalog/services/catalog.yaml.
+>
+> Kept for the record, not maintained. See `docs/ROADMAP.md` for what is being built now.
+
+A snapshot of the migration as it finished, kept for history: the generators that produced it (`scripts/migration_map.py`) are gone, and `catalog/services/catalog.yaml` is the live inventory. Do not edit by hand, and do not read this as current state.
+
+Every routed service, the domain that owns it, the crate it answers from, the address the gateway publishes it on, whether it owns records, and what retires its Python directory.
+
+- Routed services: 137
+- Answering from a Rust crate: 137
+- Still answering from Python: 0
+- Domains: 39
+
+## Ownership rules this map is held to
+
+1. One crate per business domain. A service never gets a crate of its own when a domain crate already exists.
+2. `ledger-core` stays the sole authority for posting integrity, immutability, reversal rules and the hash chain. No domain crate posts its own ledger.
+3. A module never creates another module's authoritative source of truth.
+4. Each gateway path is registered once, by one service.
+5. No fixed semantic limits on accounts, users, organisations, volumes or providers.
+
+## accounting — 13/13 on Rust
+
+*Responsibility:* accounting workflows and the statements they produce
+
+*Destination:* `rust/crates/domains/accounting`
+
+```text
+service                                      address                            eps  owns engine crate
+accounting-service                           /accounting                          0  -    rust   rust/crates/domains/accounting
+accounting-standards-service                 /accounting-standards                0  -    rust   rust/crates/domains/accounting
+balance-sheet-service                        /balance-sheet                       0  -    rust   rust/crates/domains/accounting
+cash-flow-service                            /cash-flow                           0  -    rust   rust/crates/domains/accounting
+cash-flow-statement-service                  /cash-flow-statement                 0  -    rust   rust/crates/domains/accounting
+cashbook-service                             /cashbook                            0  -    rust   rust/crates/domains/accounting
+company-accounting-service                   /company-accounting                  0  -    rust   rust/crates/domains/accounting
+departmental-accounting-service              /departmental-accounting             0  -    rust   rust/crates/domains/accounting
+fund-accounting-service                      /fund-accounting                     0  -    rust   rust/crates/domains/accounting
+ifrs-reporting-service                       /ifrs-reporting                      0  -    rust   rust/crates/domains/accounting
+intercompany-service                         /intercompany                        0  -    rust   rust/crates/domains/accounting
+revenue-recognition-service                  /revenue-recognition                 0  -    rust   rust/crates/domains/accounting
+trading-account-service                      /trading-account                     0  -    rust   rust/crates/domains/accounting
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `accounting-standards-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `balance-sheet-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-flow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-flow-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cashbook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `company-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `departmental-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `fund-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `ifrs-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `intercompany-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `revenue-recognition-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `trading-account-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## admin — 1/1 on Rust
+
+*Responsibility:* the feature catalogue and each caller's own view of it, organisation configuration, rollouts, requests and the audit trail
+
+*Destination:* `rust/crates/platform/admin`
+
+```text
+service                                      address                            eps  owns engine crate
+admin-service                                /admin                               0  -    rust   rust/crates/platform/admin
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `admin-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## alerts — 1/1 on Rust
+
+*Responsibility:* the rules a Book watches, and the alerts they raise
+
+*Destination:* `rust/crates/platform/alerts`
+
+```text
+service                                      address                            eps  owns engine crate
+alerts-service                               /alerts                              0  -    rust   rust/crates/platform/alerts
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `alerts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## analytics — 1/1 on Rust
+
+*Responsibility:* benchmarking, warehousing and data movement
+
+*Destination:* `rust/crates/domains/analytics`
+
+```text
+service                                      address                            eps  owns engine crate
+performance-benchmarking-service             /performance-benchmarking            0  -    rust   rust/crates/domains/analytics
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `performance-benchmarking-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## assets — 10/10 on Rust
+
+*Responsibility:* fixed, intangible, biological and investment assets
+
+*Destination:* `rust/crates/domains/assets`
+
+```text
+service                                      address                            eps  owns engine crate
+biological-assets-service                    /biological-assets                   0  -    rust   rust/crates/domains/assets
+disposal-account-service                     /disposal-account                    0  -    rust   rust/crates/domains/assets
+disposal-group-service                       /disposal-group                      0  -    rust   rust/crates/domains/assets
+fixed-assets-register-service                /fixed-assets-register               0  -    rust   rust/crates/domains/assets
+fixed-assets-schedule-service                /fixed-assets-schedule               0  -    rust   rust/crates/domains/assets
+intangible-assets-service                    /intangible-assets                   0  -    rust   rust/crates/domains/assets
+investment-property-service                  /investment-property                 0  -    rust   rust/crates/domains/assets
+lease-termination-service                    /lease-termination                   0  -    rust   rust/crates/domains/assets
+revaluation-model-service                    /revaluation-model                   0  -    rust   rust/crates/domains/assets
+revaluation-reserve-service                  /revaluation-reserve                 0  -    rust   rust/crates/domains/assets
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `biological-assets-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `disposal-account-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `disposal-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `fixed-assets-register-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `fixed-assets-schedule-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `intangible-assets-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `investment-property-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `lease-termination-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `revaluation-model-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `revaluation-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## audit — 3/3 on Rust
+
+*Responsibility:* audit engagements, sampling and evidence
+
+*Destination:* `rust/crates/domains/audit`
+
+```text
+service                                      address                            eps  owns engine crate
+audit-compliance-service                     /audit-compliance                    0  -    rust   rust/crates/domains/audit
+audit-engagement-service                     /audit-engagement                    0  -    rust   rust/crates/domains/audit
+audit-sampling-service                       /audit-sampling                      0  -    rust   rust/crates/domains/audit
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `audit-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `audit-engagement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `audit-sampling-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## authentication — 1/1 on Rust
+
+*Responsibility:* proving who someone is: single sign-on verification, and the second factor a person carries
+
+*Destination:* `rust/crates/platform/identity`
+
+```text
+service                                      address                            eps  owns engine crate
+mfa-auth-service                             /mfa-auth                            0  -    rust   rust/crates/platform/identity
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `mfa-auth-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## automation — 1/1 on Rust
+
+*Responsibility:* scheduled and triggered automation
+
+*Destination:* `rust/crates/domains/automation`
+
+```text
+service                                      address                            eps  owns engine crate
+automation-engine-service                    /automation                          0  -    rust   rust/crates/domains/automation
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `automation-engine-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## banking — 5/5 on Rust
+
+*Responsibility:* bank connectivity and reconciliation
+
+*Destination:* `rust/crates/domains/banking`
+
+```text
+service                                      address                            eps  owns engine crate
+bank-feed-service                            /bank-feed                           0  -    rust   rust/crates/domains/banking
+bank-reconciliation-service                  /bank-reconciliation                 0  -    rust   rust/crates/domains/banking
+bank-relationship-service                    /bank-relationship                   0  -    rust   rust/crates/domains/banking
+banking-integration-service                  /banking-integration                 0  -    rust   rust/crates/domains/banking
+currency-service                             /currency                            0  -    rust   rust/crates/domains/banking
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `bank-feed-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `bank-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `bank-relationship-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `banking-integration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `currency-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## budgeting — 7/7 on Rust
+
+*Responsibility:* budgets, forecasts and scenario planning
+
+*Destination:* `rust/crates/domains/budgeting`
+
+```text
+service                                      address                            eps  owns engine crate
+activity-based-budget-service                /activity-based-budget               0  -    rust   rust/crates/domains/budgeting
+appropriation-control-service                /appropriation-control               0  -    rust   rust/crates/domains/budgeting
+rolling-forecast-service                     /rolling-forecast                    0  -    rust   rust/crates/domains/budgeting
+scenario-analysis-service                    /scenario-analysis                   0  -    rust   rust/crates/domains/budgeting
+scenario-modeling-service                    /scenario-modeling                   0  -    rust   rust/crates/domains/budgeting
+sensitivity-analysis-service                 /sensitivity-analysis                0  -    rust   rust/crates/domains/budgeting
+zero-based-budgeting-service                 /zero-based-budgeting                0  -    rust   rust/crates/domains/budgeting
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `activity-based-budget-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `appropriation-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `rolling-forecast-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `scenario-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `scenario-modeling-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sensitivity-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `zero-based-budgeting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## cache — 1/1 on Rust
+
+*Responsibility:* keyed values with a life, a size limit and the cache's own counts
+
+*Destination:* `rust/crates/platform/cache`
+
+```text
+service                                      address                            eps  owns engine crate
+cache-service                                /cache                               0  -    rust   rust/crates/platform/cache
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `cache-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## calculations — 2/2 on Rust
+
+*Responsibility:* the calculation surface the client calls
+
+*Destination:* `rust/crates/application`
+
+```text
+service                                      address                            eps  owns engine crate
+calculation-api                              /calcs                               0  -    rust   rust/crates/application
+realtime-calculation-engine                  /realtime-calculation                0  -    rust   rust/crates/application
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `calculation-api` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `realtime-calculation-engine` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## compliance — 4/4 on Rust
+
+*Responsibility:* regulatory and controls compliance
+
+*Destination:* `rust/crates/domains/compliance`
+
+```text
+service                                      address                            eps  owns engine crate
+privacy-admin-dashboard-service              /privacy-admin-dashboard             0  -    rust   rust/crates/domains/compliance
+regulatory-compliance-service                /regulatory-compliance               0  -    rust   rust/crates/domains/compliance
+risk-assessment-service                      /risk-assessment                     0  -    rust   rust/crates/domains/compliance
+sox-compliance-service                       /sox-compliance                      0  -    rust   rust/crates/domains/compliance
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `privacy-admin-dashboard-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `regulatory-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `risk-assessment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sox-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## costing — 9/9 on Rust
+
+*Responsibility:* cost accumulation, apportionment, product and job costing
+
+*Destination:* `rust/crates/domains/costing`
+
+```text
+service                                      address                            eps  owns engine crate
+absorption-costing-service                   /absorption-costing                  0  -    rust   rust/crates/domains/costing
+absorption-costing-statement-service         /absorption-costing-statement        0  -    rust   rust/crates/domains/costing
+basis-apportionment-service                  /basis-apportionment                 0  -    rust   rust/crates/domains/costing
+cvp-analysis-service                         /cvp-analysis                        0  -    rust   rust/crates/domains/costing
+job-costing-service                          /job-costing                         0  -    rust   rust/crates/domains/costing
+overhead-absorption-rate-service             /overhead-absorption-rate            0  -    rust   rust/crates/domains/costing
+process-costing-service                      /process-costing                     0  -    rust   rust/crates/domains/costing
+product-costing-service                      /product-costing                     0  -    rust   rust/crates/domains/costing
+selling-price-reduction-service              /selling-price-reduction             0  -    rust   rust/crates/domains/costing
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `absorption-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `absorption-costing-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `basis-apportionment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cvp-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `job-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `overhead-absorption-rate-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `process-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `product-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `selling-price-reduction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## data — 3/3 on Rust
+
+*Responsibility:* the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them
+
+*Destination:* `rust/crates/domains/data`
+
+```text
+service                                      address                            eps  owns engine crate
+data-warehouse-service                       /data-warehouse                      0  -    rust   rust/crates/domains/data
+encrypted-backup-service                     /encrypted-backup                    0  -    rust   rust/crates/domains/data
+etl-service                                  /etl                                 0  -    rust   rust/crates/domains/data
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `data-warehouse-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `encrypted-backup-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `etl-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## documents — 1/1 on Rust
+
+*Responsibility:* document storage and rendering
+
+*Destination:* `rust/crates/platform/documents`
+
+```text
+service                                      address                            eps  owns engine crate
+document-service                             /document                            0  -    rust   rust/crates/platform/documents
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `document-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## equity — 15/15 on Rust
+
+*Responsibility:* share capital, reserves and equity movements
+
+*Destination:* `rust/crates/domains/equity`
+
+```text
+service                                      address                            eps  owns engine crate
+authorized-share-capital-service             /authorized-share-capital            0  -    rust   rust/crates/domains/equity
+bonus-shares-service                         /bonus-shares                        0  -    rust   rust/crates/domains/equity
+capital-reconstruction-service               /capital-reconstruction              0  -    rust   rust/crates/domains/equity
+capital-redemption-reserve-service           /capital-redemption-reserve          0  -    rust   rust/crates/domains/equity
+debentures-service                           /debentures                          0  -    rust   rust/crates/domains/equity
+equity-changes-service                       /equity-changes                      0  -    rust   rust/crates/domains/equity
+general-reserve-service                      /general-reserve                     0  -    rust   rust/crates/domains/equity
+initial-investment-service                   /initial-investment                  0  -    rust   rust/crates/domains/equity
+issued-share-capital-service                 /issued-share-capital                0  -    rust   rust/crates/domains/equity
+ordinary-shares-service                      /ordinary-shares                     0  -    rust   rust/crates/domains/equity
+preference-shares-service                    /preference-shares                   0  -    rust   rust/crates/domains/equity
+retained-profits-service                     /retained-profits                    0  -    rust   rust/crates/domains/equity
+right-issues-service                         /right-issues                        0  -    rust   rust/crates/domains/equity
+share-premium-service                        /share-premium                       0  -    rust   rust/crates/domains/equity
+share-redemption-service                     /share-redemption                    0  -    rust   rust/crates/domains/equity
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `authorized-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `bonus-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `capital-reconstruction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `capital-redemption-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `debentures-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `equity-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `general-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `initial-investment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `issued-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `ordinary-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `preference-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `retained-profits-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `right-issues-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `share-premium-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `share-redemption-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## events — 2/2 on Rust
+
+*Responsibility:* publishing an event inside a Book, the subscriptions that listen and every delivery attempt
+
+*Destination:* `rust/crates/platform/events`
+
+```text
+service                                      address                            eps  owns engine crate
+message-bus-service                          /message-bus                         0  -    rust   rust/crates/platform/events
+websocket-service                            /websocket                           0  -    rust   rust/crates/platform/events
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `message-bus-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `websocket-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## finance — 8/8 on Rust
+
+*Responsibility:* financial management and decision support
+
+*Destination:* `rust/crates/domains/finance`
+
+```text
+service                                      address                            eps  owns engine crate
+continue-shutdown-decision-service           /continue-shutdown-decision          0  -    rust   rust/crates/domains/finance
+insurance-claims-service                     /insurance-claims                    0  -    rust   rust/crates/domains/finance
+internal-rate-return-service                 /internal-rate-return                0  -    rust   rust/crates/domains/finance
+investment-monitoring-service                /investment-monitoring               0  -    rust   rust/crates/domains/finance
+net-present-value-service                    /net-present-value                   0  -    rust   rust/crates/domains/finance
+payback-period-service                       /payback-period                      0  -    rust   rust/crates/domains/finance
+personal-finance-service                     /personal-finance                    0  -    rust   rust/crates/domains/finance
+trade-finance-service                        /trade-finance                       0  -    rust   rust/crates/domains/finance
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `continue-shutdown-decision-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `insurance-claims-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `internal-rate-return-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `investment-monitoring-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `net-present-value-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `payback-period-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `personal-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `trade-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## identity — 1/1 on Rust
+
+*Responsibility:* the financial identity a Book knows a person by, and the verification done against it
+
+*Destination:* `rust/crates/domains/identity`
+
+```text
+service                                      address                            eps  owns engine crate
+financial-identity-service                   /financial-identity                  0  -    rust   rust/crates/domains/identity
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `financial-identity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## integrations — 1/1 on Rust
+
+*Responsibility:* webhooks, GraphQL and external feeds
+
+*Destination:* `rust/crates/platform/integrations`
+
+```text
+service                                      address                            eps  owns engine crate
+graphql-service                              /graphql                             0  -    rust   rust/crates/platform/integrations
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `graphql-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## invoicing — 2/2 on Rust
+
+*Responsibility:* issuing and tracking invoices, and the plans a Book bills on
+
+*Destination:* `rust/crates/domains/invoicing`
+
+```text
+service                                      address                            eps  owns engine crate
+invoicing-service                            /invoicing                           0  -    rust   rust/crates/domains/invoicing
+subscription-plans-service                   /subscription-plans                  0  -    rust   rust/crates/domains/invoicing
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `invoicing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `subscription-plans-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## kernel — 4/4 on Rust
+
+*Responsibility:* ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services' HTTP and record surface
+
+*Destination:* `rust/crates/kernel/ledger-services`
+
+```text
+service                                      address                            eps  owns engine crate
+control-account-reconciliation-service       /control-account-reconciliation      0  -    rust   rust/crates/kernel/ledger-services
+double-entry-principles-service              /double-entry-principles             0  -    rust   rust/crates/kernel/ledger-services
+financial-integrity-service                  /financial-integrity                 0  -    rust   rust/crates/kernel/ledger-services
+financial-state-machine-service              /financial-state-machine             0  -    rust   rust/crates/kernel/ledger-services
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `control-account-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `double-entry-principles-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `financial-integrity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `financial-state-machine-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## multimodal — 1/1 on Rust
+
+*Responsibility:* document, image and audio understanding
+
+*Destination:* `rust/crates/domains/multimodal`
+
+```text
+service                                      address                            eps  owns engine crate
+multimodal-pipeline-service                  /multimodal                          0  -    rust   rust/crates/domains/multimodal
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `multimodal-pipeline-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## notifications — 1/1 on Rust
+
+*Responsibility:* each person's inbox, their preferences and the templates behind a notice
+
+*Destination:* `rust/crates/platform/notifications`
+
+```text
+service                                      address                            eps  owns engine crate
+notifications-service                        /notifications                       0  -    rust   rust/crates/platform/notifications
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `notifications-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## npo — 2/2 on Rust
+
+*Responsibility:* non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale
+
+*Destination:* `rust/crates/domains/npo`
+
+```text
+service                                      address                            eps  owns engine crate
+npo-scale-service                            /npo-scale                           0  -    rust   rust/crates/domains/npo
+npo-service                                  /npo                                 0  -    rust   rust/crates/domains/npo
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `npo-scale-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `npo-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## partnerships — 5/5 on Rust
+
+*Responsibility:* partnership registers and the changes made to them, and community savings groups
+
+*Destination:* `rust/crates/domains/partnerships`
+
+```text
+service                                      address                            eps  owns engine crate
+family-community-group-service               /family-community-group              0  -    rust   rust/crates/domains/partnerships
+partnership-agreement-service                /partnership-agreement               0  -    rust   rust/crates/domains/partnerships
+partnership-changes-service                  /partnership-changes                 0  -    rust   rust/crates/domains/partnerships
+partnership-dissolution-service              /partnership-dissolution             0  -    rust   rust/crates/domains/partnerships
+partnership-revaluation-service              /partnership-revaluation             0  -    rust   rust/crates/domains/partnerships
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `family-community-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-agreement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-dissolution-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-revaluation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## payables — 2/2 on Rust
+
+*Responsibility:* purchase ledger and expense capture
+
+*Destination:* `rust/crates/domains/payables`
+
+```text
+service                                      address                            eps  owns engine crate
+expense-tracking-service                     /expense-tracking                    0  -    rust   rust/crates/domains/payables
+purchases-ledger-control-service             /purchases-ledger-control            0  -    rust   rust/crates/domains/payables
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `expense-tracking-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `purchases-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## payments — 1/1 on Rust
+
+*Responsibility:* Vimbai Pay: orchestration, lifecycle and providers
+
+*Destination:* `rust/crates/domains/payments`
+
+```text
+service                                      address                            eps  owns engine crate
+pos-integration-service                      /pos-integration                     0  -    rust   rust/crates/domains/payments
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `pos-integration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## payroll — 1/1 on Rust
+
+*Responsibility:* payroll and benefits
+
+*Destination:* `rust/crates/domains/payroll`
+
+```text
+service                                      address                            eps  owns engine crate
+benefits-admin-service                       /benefits-admin                      0  -    rust   rust/crates/domains/payroll
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `benefits-admin-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## receivables — 4/4 on Rust
+
+*Responsibility:* sales ledger, bad debts and provisions against them
+
+*Destination:* `rust/crates/domains/receivables`
+
+```text
+service                                      address                            eps  owns engine crate
+bad-debts-recovery-service                   /bad-debts-recovery                  0  -    rust   rust/crates/domains/receivables
+provision-bad-debts-service                  /provision-bad-debts                 0  -    rust   rust/crates/domains/receivables
+provision-doubtful-debts-service             /provision-doubtful-debts            0  -    rust   rust/crates/domains/receivables
+sales-ledger-control-service                 /sales-ledger-control                0  -    rust   rust/crates/domains/receivables
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `bad-debts-recovery-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `provision-bad-debts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `provision-doubtful-debts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sales-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## reporting — 4/4 on Rust
+
+*Responsibility:* report assembly and distribution
+
+*Destination:* `rust/crates/domains/reporting`
+
+```text
+service                                      address                            eps  owns engine crate
+dashboard-service                            /dashboard                           0  -    rust   rust/crates/domains/reporting
+report-automation-service                    /report-automation                   0  -    rust   rust/crates/domains/reporting
+report-distribution-service                  /report-distribution                 0  -    rust   rust/crates/domains/reporting
+reporting-service                            /reporting                           0  -    rust   rust/crates/domains/reporting
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `dashboard-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `report-automation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `report-distribution-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## security — 1/1 on Rust
+
+*Responsibility:* zero-trust access control: policies and the decisions taken against them
+
+*Destination:* `rust/crates/domains/security`
+
+```text
+service                                      address                            eps  owns engine crate
+zero-trust-data-service                      /zero-trust-data                     0  -    rust   rust/crates/domains/security
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `zero-trust-data-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## sync — 1/1 on Rust
+
+*Responsibility:* the shared Books a person belongs to, who else is in them, their devices and the entries those devices push
+
+*Destination:* `rust/crates/platform/offline-sync`
+
+```text
+service                                      address                            eps  owns engine crate
+book-sync-service                            /book-sync                           0  -    rust   rust/crates/platform/offline-sync
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `book-sync-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## taxation — 3/3 on Rust
+
+*Responsibility:* tax accounting, planning and compliance
+
+*Destination:* `rust/crates/domains/taxation`
+
+```text
+service                                      address                            eps  owns engine crate
+tax-accounting-service                       /tax-accounting                      0  -    rust   rust/crates/domains/taxation
+tax-compliance-service                       /tax-compliance                      0  -    rust   rust/crates/domains/taxation
+tax-planning-service                         /tax-planning                        0  -    rust   rust/crates/domains/taxation
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `tax-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `tax-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `tax-planning-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## treasury — 12/12 on Rust
+
+*Responsibility:* cash, liquidity, debt and currency management
+
+*Destination:* `rust/crates/domains/treasury`
+
+```text
+service                                      address                            eps  owns engine crate
+cash-management-service                      /cash-management                     0  -    rust   rust/crates/domains/treasury
+cash-optimization-service                    /cash-optimization                   0  -    rust   rust/crates/domains/treasury
+debt-management-service                      /debt-management                     0  -    rust   rust/crates/domains/treasury
+foreign-exchange-service                     /foreign-exchange                    0  -    rust   rust/crates/domains/treasury
+petty-cash-service                           /petty-cash                          0  -    rust   rust/crates/domains/treasury
+sovereign-treasury-service                   /sovereign-treasury                  0  -    rust   rust/crates/domains/treasury
+treasury-analytics-service                   /treasury-analytics                  0  -    rust   rust/crates/domains/treasury
+treasury-compliance-service                  /treasury-compliance                 0  -    rust   rust/crates/domains/treasury
+treasury-management-service                  /treasury-management                 0  -    rust   rust/crates/domains/treasury
+treasury-policy-service                      /treasury-policy                     0  -    rust   rust/crates/domains/treasury
+treasury-reporting-service                   /treasury-reporting                  0  -    rust   rust/crates/domains/treasury
+treasury-risk-service                        /treasury-risk                       0  -    rust   rust/crates/domains/treasury
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `cash-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-optimization-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `debt-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `foreign-exchange-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `petty-cash-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sovereign-treasury-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-analytics-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-policy-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-risk-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## webhooks — 1/1 on Rust
+
+*Responsibility:* the endpoints a Book subscribes, the events dispatched to them and how each delivery went
+
+*Destination:* `rust/crates/platform/webhooks`
+
+```text
+service                                      address                            eps  owns engine crate
+webhook-service                              /webhook                             0  -    rust   rust/crates/platform/webhooks
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `webhook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## workflow — 2/2 on Rust
+
+*Responsibility:* the definitions a step runs through and the instances that walk them
+
+*Destination:* `rust/crates/domains/workflow`
+
+```text
+service                                      address                            eps  owns engine crate
+distributed-workflow-orchestration-service   /distributed-workflow-orchestration   0  -    rust   rust/crates/domains/workflow
+workflow-service                             /workflow                            0  -    rust   rust/crates/domains/workflow
+```
+
+| service | proof today | retires when |
+| --- | --- | --- |
+| `distributed-workflow-orchestration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `workflow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+
+## What is left
+
+Nothing. Every routed service answers from a Rust crate.
+
+## Completion gates
+
+A ported service is not finished until all of these hold:
+
+1. Each fixed path in the Python service has exactly one route registered in the API server.
+2. The crate's own tests cover the calculators, and an HTTP route test covers the surface.
+3. Record shapes and Book scoping match, so a caller cannot see another Book's rows.
+4. `./scripts/preflight.sh` is clean: formatting, clippy at deny warnings, workspace tests, the Python
+   extension build, lint and pytest, and the seam parity checks.
+5. The port tracker, the catalogue and this map all name the service as ported.
+
+

@@ -399,9 +399,9 @@ Updated in the same commit that lands the work. `—` means not started.
 
 | Phase | Work | State | Evidence |
 | --- | --- | --- | --- |
-| P0 | ADRs 001-006, 008 | — | |
-| P0 | Documentation index and migration fold | — | |
-| P0 | Root files and untracking | — | |
+| P0 | ADRs 001-006, 008 | done | `docs/decisions/`; ADR-007 waits on decision 5.1 |
+| P0 | Documentation index and migration fold | done | `docs/README.md`; six documents moved and marked historical |
+| P0 | Root files and untracking | done | `VERSION`, `CHANGELOG.md`, `.editorconfig`, `rust-toolchain.toml`, `rustfmt.toml`, `clippy.toml`, `CODE_OF_CONDUCT.md`, `Makefile`; `web-frontend/` and both `.db` files untracked |
 | P1 | Boundary documents and dependency gate | — | |
 | P2 | Organisations and tenancy | — | |
 | P3 | Financial integrity suite | — | |

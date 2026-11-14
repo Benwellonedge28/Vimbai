@@ -1,0 +1,3 @@
+# Defaults, stated so nobody has to guess. Changing a setting here reformats the whole workspace, so a change is its own
+# commit with nothing else in it.
+edition = "2021"
