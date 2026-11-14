@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use xtask::{catalog, crates, manifests, reachability, wiring, workflows};
+use xtask::{boundaries, catalog, crates, manifests, reachability, wiring, workflows};
 
 fn root() -> PathBuf {
     xtask::catalog::repo_root()
@@ -127,6 +127,42 @@ fn every_probe_the_cluster_asks_for_is_answered() {
 fn every_gateway_entry_forwards_to_something_that_exists() {
     let findings = manifests::entries_without_a_backend(&root());
     assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
+fn every_tolerated_dependency_names_an_adr_that_exists() {
+    // P11.1: a gate may tolerate something, but not quietly. Each exception has to point at the decision that accepted
+    // it, and the pointer has to resolve - an exception citing a document nobody wrote is a comment, not a decision.
+    let decisions = root().join("docs/decisions");
+    let mut checked = 0usize;
+    for exception in boundaries::exceptions() {
+        let Some(start) = exception.reason.find("ADR-0") else {
+            panic!(
+                "{} -> {} is tolerated with no ADR named: {}",
+                exception.from, exception.to, exception.reason
+            );
+        };
+        let tail = &exception.reason[start..];
+        let code: String = tail
+            .chars()
+            .take_while(|character| *character != '-')
+            .collect();
+        let files: Vec<String> = std::fs::read_dir(&decisions)
+            .expect("docs/decisions")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            files.iter().any(|file| file.starts_with(&code)),
+            "{} is tolerated citing {code}, which no file in docs/decisions answers to ({files:?})",
+            exception.from
+        );
+        checked += 1;
+    }
+    assert!(
+        checked <= 1,
+        "the tolerances grew to {checked}; that is a decision, not a drift"
+    );
 }
 
 #[test]

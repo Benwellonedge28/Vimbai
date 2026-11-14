@@ -1,0 +1,14 @@
+[package]
+name = "vimbai_scale"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "The scale suite: what the platform does at magnitudes and concurrency it was not written against. Exact money at forty digits, and many writers on one Book at once."
+
+[dependencies]
+vimbai_common = { path = "../../crates/common" }
+vimbai-ledger-core = { path = "../../crates/kernel/ledger-core" }
+vimbai_store = { path = "../../crates/adapters/database" }
+serde_json = { workspace = true }

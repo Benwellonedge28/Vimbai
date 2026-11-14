@@ -221,9 +221,10 @@ const EXCEPTIONS: [Exception; 1] = [Exception {
     rule: "R2",
     from: "vimbai_ledger_services",
     to: "vimbai_store",
-    reason: "The kernel's reading half reconciles control accounts and reports integrity by reading the ledger back out \
-             of the store. The posting authority, vimbai-ledger-core, stays pure and store-free, which is the guarantee \
-             that matters; reading is not posting.",
+    reason: "The kernel's reading half reconciles control accounts, reports integrity and replays documents by reading \
+             the ledger back out of the store. The posting authority, vimbai-ledger-core, stays pure and store-free, \
+             which is the guarantee that matters; reading is not posting. See docs/decisions/ADR-009-\
+             kernel-reads-the-store.md.",
 }];
 
 /// The tolerated dependencies, for a report or a test to read.

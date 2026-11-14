@@ -23,3 +23,14 @@ names a package, the catalogue and any documentation that references a path.
 - This repository will differ from the proposed tree in 16 path names, permanently, and that is recorded here rather than
   rediscovered each time somebody diffs the two.
 - Rust package names, import paths and the catalogue stay stable, so nothing that consumes them has to move.
+
+## Review at close-out (P11.4)
+
+Asked again now that the tree is finished: is a rename cheap enough to be worth it?
+
+It is cheaper than it was - the crates no longer have to move beside a Python service directory of the same name, and
+`cargo` does not care about either spelling - but it is still 16 crate paths, 16 package names, every `use` path that
+names one, the catalogue, the gate's crate graph and the domain pages. The benefit has not changed: consistency with a
+document nobody reads at build time.
+
+Decision: unchanged. The underscores stay. The refusal is now recorded twice, so nobody has to work it out again.

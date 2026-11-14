@@ -3212,6 +3212,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_scale"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai-ledger-core",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
 name = "vimbai_service_accounting"
 version = "0.1.0"
 dependencies = [

@@ -367,6 +367,9 @@ Tasks
 
 - P11.1 Empty the exception baselines: `infrastructure/kubernetes/stripped-path-collisions.json`, the known method
   gaps, and any pinned tolerance list. Each entry is either fixed or written up as a permanent, reasoned exception.
+  **Done:** the collisions file is empty, the method gaps list is gone (both are enforced, not pinned), and the one
+  remaining tolerance - the kernel's reading half reading the store - is ADR-009, cited by the gate, with a test that
+  refuses an exception citing an ADR that does not exist.
 - P11.2 Rewrite `docs/architecture/overview.md` from the finished tree rather than the proposed one.
 - P11.3 `docs/migration/migration-status.md` set to complete, with the three permanent divergences stated.
 - P11.4 ADR-008 reviewed: are any of the naming refusals now cheap enough to reverse?
@@ -425,6 +428,6 @@ Updated in the same commit that lands the work. `—` means not started.
 | P8 | Data layer | blocked | needs decision 5.1 |
 | P9 | Sync server | done | `rust/apps/sync-server` (`vimbai-sync`): the engine's own router behind a surface of `/health`, `/identity`, `/books`, everything else 404. Conflict rule in `crates/platform/offline-sync/src/conflict.rs` (refusal by default, six families may lose an update and say so, batch decided before it is written); push answers `accepted` / `already_stored` / `records`; the gateway rules moved to `crates/adapters/gateway` so the sync server and the on-device runtime share one copy. `docs/SYNC.md`; 5 process tests + 6 unit tests |
 | P10 | Infrastructure | done | P10.3 diverges: the Helm chart is deleted, kustomize base + overlays is the one story |
-| P11 | Close-out | — | |
+| P11 | Close-out | done | one tolerated dependency, recorded in ADR-009; Helmless cluster; VERSION 1.0.0 |
 
 Out of scope, recorded so they are not quietly resumed: Vimbai Pay (ADR-005), developer platform (ADR-006).

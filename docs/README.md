@@ -22,12 +22,15 @@ pull request.
 | 005 | Vimbai Pay is not built |
 | 006 | The developer platform is deferred, with its trigger conditions |
 | 008 | Crate directory names are not renamed for cosmetic consistency |
+| 009 | The kernel's reading half reads the store; the posting authority stays store-free |
 
 ADR-007 (data storage) is deliberately absent. It is written when the storage direction is decided; see the blocked phase
 in `ROADMAP.md`.
 
 ## Architecture
 
+- `architecture/overview.md` - **start here.** The platform as built: one engine, what each binary may and may not do,
+  the crate families, how money is carried, where the tree differs from the design document and why.
 - `architecture/system-boundaries.md` - what each layer owns, and where one part stops and the next begins.
 - `architecture/dependency-rules.md` - the rules between crates, the one tolerated dependency, and the gate behind them.
   `cargo run -p xtask -- boundaries` applies them; a test fails if this page and the code disagree.
@@ -35,8 +38,11 @@ in `ROADMAP.md`.
 
 ## Operations
 
+- `LOCAL-RUNTIME.md` - **clone to running.** The on-device runtime: one binary, one data directory, the engine and the
+  gateway's rules in one process. Start here if you want something running before reading anything else.
 - `WORKER.md` - the scheduled-automation worker: the schedule a rule carries, and how a run happens exactly once.
-- `LOCAL-RUNTIME.md` - the on-device runtime: one binary, one data directory, everything served by the engine.
+- `DEVELOPER_GUIDE.md` - working on the codebase day to day.
+- `routes-snapshot.json` - the published address set, useful for diffing after a change.
 
 ## Domains
 
@@ -47,19 +53,17 @@ catalogue does not have, or if a page leaves out one of its own prefixes.
 
 `domains/payments.md` states POS till support only, and that Vimbai Pay is not built, per ADR-005.
 
-## Operations and local use
+## Migration
 
-- `LOCAL-RUNTIME.md` - the on-device runtime: one binary, one data directory, offline behaviour.
-- `DEVELOPER_GUIDE.md` - working on the codebase day to day.
-- `routes-snapshot.json` - the published address set, useful for diffing after a change.
-
-## Migration (historical)
-
-`migration/` keeps the documents that recorded the Python-to-Rust move. They are snapshots, annotated as such, and are not
-maintained. The live inventory is `catalog/services/catalog.yaml`; the live gate is `cargo run -p xtask -- gateway`.
+- `migration/migration-status.md` - **complete.** What moved, how each retiring service was held to its published
+  addresses, and the five outcomes that are decisions rather than leftovers.
+- `migration/MIGRATION-MAP.md`, `MIGRATION-MANIFEST.md`, `RUST-MIGRATION-BACKLOG.md` - snapshots from while it was
+  running. Kept as history, not maintained. The live inventory is `catalog/services/catalog.yaml`; the live gate is
+  `cargo run -p xtask -- gateway`.
 
 ## Not written yet, and why
 
-Contract policies (roadmap P6), data ownership and migration (blocked on the storage decision), operations runbooks and
-deployment topology (roadmap P10), compliance detail beyond financial integrity (roadmap P3), and anything belonging to
-Vimbai Pay or the developer platform, which are out of scope by ADR-005 and ADR-006.
+The data-store decision (ADR-007 - Neo4j, relational, or split by ownership) and, with it, data ownership and migration.
+Attaching the 180 unattributed prefix groups to catalogue owners. Operations runbooks beyond the manifests. Compliance
+detail beyond financial integrity. Anything belonging to Vimbai Pay or the developer platform, which are out of scope by
+ADR-005 and ADR-006.

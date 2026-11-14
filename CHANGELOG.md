@@ -2,12 +2,23 @@
 
 Notable changes, newest first. Format follows Keep a Changelog; versions follow semantic versioning.
 
-The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0.0 lands with the close-out phase.
+## [1.0.0] - 2026-11-14
 
-## [Unreleased]
+The roadmap in `docs/ROADMAP.md` is complete: every phase has landed, and the two things deliberately out of scope -
+Vimbai Pay and the developer platform - are decisions with ADRs rather than gaps.
 
 ### Added
 
+- The scale suite (`rust/tests/scale`, `vimbai_scale`): what the platform does at magnitudes and concurrency it was not
+  written against. Forty-digit amounts stored and read back unchanged; twenty thousand thirty-digit addends totalling
+  identically in either order; a thirty-digit amount allocated across a thousand parts adding back to the whole to the
+  last minor unit; sixteen and then a hundred writers on one Book losing nothing, with exact totals, Book-wide, and large
+  amounts intact under contention. Its helpers are library functions, not test-local code, so a later suite hammers the
+  store the same way rather than writing a second summing rule.
+- ADR-009 records the one tolerated dependency: the kernel's reading half reads the store, while the posting authority
+  stays store-free. The gate cites it, and a test refuses an exception citing an ADR that does not exist.
+- `docs/architecture/overview.md` rewritten from the finished tree, and `docs/migration/migration-status.md` set to
+  complete with the five permanent outcomes stated.
 - Infrastructure is one story per environment: `infrastructure/docker` holds one Dockerfile for the three Rust
   binaries (engine, worker, sync) plus the gateway and the Flutter web app; `infrastructure/compose` is the estate with
   dev / test / observability layered on top of it rather than repeated; `infrastructure/kubernetes` is `base/` plus
