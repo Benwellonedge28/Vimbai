@@ -126,7 +126,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "bank-relationship-service",
@@ -762,7 +762,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "realtime-calculation-engine",

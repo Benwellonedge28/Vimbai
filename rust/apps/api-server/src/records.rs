@@ -18818,6 +18818,60 @@ fn published_prefix_aliases(graph: GraphHandle) -> Router {
             get(get_cache_entry).delete(delete_cache_entry),
         )
         .route("/cache/stats", get(get_cache_stats))
+        // bank reconciliation: it publishes /reconcile as well, which the sales ledger's control account answers, so the
+        // statements, the cash book and the reconciliations are served under its own prefix.
+        .route(
+            "/bank-reconciliation/statements",
+            post(post_bank_statement).get(get_bank_statements),
+        )
+        .route(
+            "/bank-reconciliation/statements/:statement_id",
+            get(get_bank_statement),
+        )
+        .route(
+            "/bank-reconciliation/cash-book",
+            post(post_bank_cash_entry).get(get_bank_cash_book),
+        )
+        .route(
+            "/bank-reconciliation/reconcile",
+            post(post_bank_reconciliation),
+        )
+        .route(
+            "/bank-reconciliation/reconcile/:reconciliation_id/auto-match",
+            post(post_bank_auto_match),
+        )
+        .route(
+            "/bank-reconciliation/reconcile/:reconciliation_id/post-adjustments",
+            post(post_bank_adjustments),
+        )
+        .route(
+            "/bank-reconciliation/reconciliations",
+            get(get_bank_reconciliations),
+        )
+        .route(
+            "/bank-reconciliation/reconciliations/:reconciliation_id",
+            get(get_bank_reconciliation),
+        )
+        .route(
+            "/bank-reconciliation/outstanding-items",
+            get(get_bank_outstanding_items),
+        )
+        // purchases ledger control: its /transactions, /reconcile and /control-account/summary are the same words the
+        // sales ledger publishes, and the flat addresses answer the sales side, so the purchases side is served at the
+        // addresses its clients already call - under its own prefix, where nothing else can claim them.
+        .route(
+            "/purchases-ledger-control/transactions",
+            post(post_creditor_transaction),
+        )
+        .route(
+            "/purchases-ledger-control/control-account/summary",
+            get(get_purchases_control_summary),
+        )
+        .route("/purchases-ledger-control/creditors", get(get_creditors))
+        .route(
+            "/purchases-ledger-control/reconcile",
+            post(reconcile_purchases_control_account),
+        )
         .route(
             "/notifications/notifications",
             get(get_my_inbox).post(post_notification),
