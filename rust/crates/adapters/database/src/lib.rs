@@ -48,6 +48,11 @@ pub use neo4j_client::Neo4jGraph;
 pub struct BookScope {
     pub user_id: String,
     pub book_id: String,
+    /// Where this read starts, when the caller is following a cursor rather than asking for the top of a list.
+    ///
+    /// It rides on the scope for one reason: every listing in every domain already receives the scope, so a page that
+    /// seeks costs one field instead of a new parameter on sixty functions.
+    pub after: Option<String>,
 }
 
 impl BookScope {
@@ -55,7 +60,14 @@ impl BookScope {
         Self {
             user_id: user_id.into(),
             book_id: book_id.into(),
+            after: None,
         }
+    }
+
+    /// The same scope, reading from a place instead of from the top.
+    pub fn after(mut self, id: impl Into<String>) -> Self {
+        self.after = Some(id.into());
+        self
     }
 
     fn params(&self) -> Value {
@@ -873,6 +885,37 @@ pub trait Graph {
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
+    /// A Book's records that come after a place, in id order, bounded.
+    ///
+    /// `store_list` answers a page from the top of a Book and stops wherever the store's cap falls. That is fine while a
+    /// Book is small and wrong the moment it is not: a client following cursors could never reach row 501. This answers
+    /// from a place instead, so how far a caller can walk depends on the Book rather than on the handler's cap.
+    ///
+    /// Id order rather than newest-first is deliberate: an id never moves, so a page cannot skip a record that was
+    /// written while the client was reading the previous one, which is the whole reason a cursor exists.
+    fn store_list_after(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.book_id = $book_id AND x.id > $after\n\
+             RETURN x\n\
+             ORDER BY x.id\n\
+             LIMIT $limit",
+            label = kind.label,
+            edge = kind.edge
+        );
+        let mut params = scope.params();
+        params["after"] = json!(after);
+        params["limit"] = json!(limit as i64);
+        let rows = self.run(&cypher, params)?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
     /// A Book's records with the children each one owns, newest first and bounded.
     fn store_list_with_children(
         &self,
@@ -1333,7 +1376,10 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
     }
 
     pub fn list(&self, scope: &BookScope, limit: usize) -> Result<Vec<Value>, StoreError> {
-        self.graph.store_list(self.kind, scope, limit)
+        match scope.after.as_deref() {
+            Some(after) => self.graph.store_list_after(self.kind, scope, after, limit),
+            None => self.graph.store_list(self.kind, scope, limit),
+        }
     }
 
     /// The lines that moved one account, fetched through the edges rather than by reading every entry in the Book.

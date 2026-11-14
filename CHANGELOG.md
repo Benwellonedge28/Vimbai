@@ -14,6 +14,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Cursor paging no longer stops at a handler's cap. A cursor used to be an offset into the answer the engine had already
+  built, so a Book holding more records than one listing was willing to produce could not be walked past that cap. A cursor now
+  also names the row it reached (`v1:{offset}:{id}`, and the old `v1:{offset}` still decodes), the paging layer puts that place
+  on the request it forwards, and the store seeks: every backend answers `store_list_after` in id order - memory by filtering
+  what it holds, SQLite and Postgres by asking the database, the device file store through the memory graph - so the cap bounds
+  one answer instead of the whole walk. A handler that does not list through the store is detected (its rows include ids at or
+  below the cursor) and windowed by count as before, so nothing that worked stopped working. Proved by writing 1,200 rules into
+  a Book whose listing answers at most 1,000 and walking every page: all 1,200 reached, none of them twice.
 - Every server this repository ships now serves behind the same door: the engine (`governed_router`), the on-device
   runtime and the sync server all take `api::governed`, which reads `VIMBAI_API_MAX_IN_FLIGHT` and `VIMBAI_API_TIMEOUT_MS`
   in one place rather than each binary having its own idea of the numbers. A new gate (`cargo run -p xtask -- boundaries`'s

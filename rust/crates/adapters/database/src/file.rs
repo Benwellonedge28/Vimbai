@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use serde_json::Value;
 
 use crate::fake::MemoryGraph;
-use crate::{Graph, StoreError};
+use crate::{BookScope, Graph, RecordKind, StoreError};
 
 pub struct FileGraph {
     held: MemoryGraph,
@@ -85,6 +85,16 @@ fn changes_something(cypher: &str) -> bool {
 }
 
 impl Graph for FileGraph {
+    fn store_list_after(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        self.held.store_list_after(kind, scope, after, limit)
+    }
+
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
         let rows = self.held.run(cypher, params)?;
         if changes_something(cypher) {

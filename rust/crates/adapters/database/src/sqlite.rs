@@ -320,6 +320,17 @@ impl Graph for SqliteGraph {
         listed(&connection, kind.label, Some(&scope.book_id), limit)
     }
 
+    fn store_list_after(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let connection = self.lock()?;
+        listed_after(&connection, kind.label, &scope.book_id, after, limit)
+    }
+
     fn store_list_with_children(
         &self,
         kind: RecordKind,
@@ -845,6 +856,37 @@ fn owned(
         .optional()
         .map_err(graph)?;
     text.map(|text| unquote(&text)).transpose()
+}
+
+/// A Book's records after a place, in id order.
+///
+/// The id lives inside `props`, so the seek reads it out of the JSON rather than needing a column for it: the row's
+/// identity is already written, and a second copy of it in a column would be a fact stored twice.
+fn listed_after(
+    connection: &Connection,
+    kind: &str,
+    book_id: &str,
+    after: &str,
+    limit: usize,
+) -> Result<Vec<Value>, StoreError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT props FROM records
+             WHERE kind = ?1 AND book_id = ?2 AND json_extract(props, '$.id') > ?3
+             ORDER BY json_extract(props, '$.id')
+             LIMIT ?4",
+        )
+        .map_err(graph)?;
+    let rows = statement
+        .query_map(params![kind, book_id, after, limit as i64], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(graph)?;
+    let mut answer = Vec::new();
+    for row in rows {
+        answer.push(unquote(&row.map_err(graph)?)?);
+    }
+    Ok(answer)
 }
 
 fn listed(

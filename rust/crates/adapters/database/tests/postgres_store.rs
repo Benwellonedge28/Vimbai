@@ -11,6 +11,8 @@
 use serde_json::{json, Value};
 
 use vimbai_store::postgres::PostgresGraph;
+
+const PRODUCT_COST: RecordKind = RecordKind::new("ProductCost", "OWNS_PRODUCT_COST");
 use vimbai_store::shared::SharedRecords;
 use vimbai_store::{
     BookScope, Graph, PlatformRecords, RecordKind, Records, JOURNAL_ENTRY, JOURNAL_LINE,
@@ -63,6 +65,7 @@ fn scope(book: &str, user: &str) -> BookScope {
     BookScope {
         book_id: book.into(),
         user_id: user.into(),
+        after: None,
     }
 }
 
@@ -452,4 +455,45 @@ fn the_store_carries_a_book_between_sqlite_and_postgres() {
         Vec::<String>::new(),
         "what arrived is not what left"
     );
+}
+
+/// A page that seeks, on the deployment store, where the database does the walking.
+///
+/// The same promise as the device store: rows after a place in id order, so a Book that outgrows a handler's cap is still
+/// walkable. Here the seeking is `props ->> 'id' > $3` and an index on the row's own identity, not a page read into memory
+/// and filtered afterwards.
+#[test]
+fn a_page_seeks_from_a_place_rather_than_counting_from_the_top() {
+    let Some(database) = Database::open() else {
+        eprintln!("skipped: VIMBAI_TEST_POSTGRES is not set");
+        return;
+    };
+    let store = database.store();
+    let records = Records::new(&store, PRODUCT_COST);
+    let mut written = Vec::new();
+    for index in 0..60 {
+        let created = records
+            .create(
+                &scope("book-1", "sam"),
+                &json!({"label": format!("cost {index:03}")}),
+            )
+            .expect("a record");
+        written.push(created["id"].as_str().unwrap_or_default().to_owned());
+    }
+    written.sort();
+
+    let half = &written[30];
+    let after = records
+        .list(&scope("book-1", "sam").after(half.clone()), 20)
+        .expect("a page after a place");
+    assert_eq!(after.len(), 20);
+    assert_eq!(
+        after[0]["id"].as_str(),
+        Some(written[31].as_str()),
+        "the page starts at the row after the place"
+    );
+    for row in &after {
+        let id = row["id"].as_str().unwrap_or_default();
+        assert!(id > half.as_str(), "{id} is not past the place asked from");
+    }
 }

@@ -341,6 +341,16 @@ impl Graph for PostgresGraph {
         self.with(|client| listed(client, kind.label, Some(&scope.book_id), limit))
     }
 
+    fn store_list_after(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        self.with(|client| listed_after(client, kind.label, &scope.book_id, after, limit))
+    }
+
     fn store_list_with_children(
         &self,
         kind: RecordKind,
@@ -760,6 +770,25 @@ fn owned(
         .map_err(fault)?;
     row.map(|row| row.try_get::<_, Value>("props").map_err(fault))
         .transpose()
+}
+
+/// A Book's records after a place, in id order, seeked by the database rather than by the caller.
+fn listed_after(
+    client: &mut impl GenericClient,
+    kind: &str,
+    book_id: &str,
+    after: &str,
+    limit: usize,
+) -> Result<Vec<Value>, StoreError> {
+    let rows = client
+        .query(
+            "SELECT props FROM store_records
+             WHERE kind = $1 AND book_id = $2 AND props ->> 'id' > $3
+             ORDER BY props ->> 'id' LIMIT $4",
+            &[&kind, &book_id, &after, &(limit as i64)],
+        )
+        .map_err(fault)?;
+    rows_to_value(&rows, "props")
 }
 
 fn listed(

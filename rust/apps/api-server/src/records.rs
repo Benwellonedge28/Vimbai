@@ -73,8 +73,15 @@ pub(crate) fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> 
             .filter(|value| !value.is_empty())
             .map(str::to_owned)
     };
+    // where a paging read starts, set by the layer in front of this router rather than by the client directly, so a
+    // client cannot ask a store to seek from a place it was never given
+    let after = header("x-vimbai-after");
+    let scoped = |user_id: String, book_id: String| match &after {
+        Some(after) => BookScope::new(user_id, book_id).after(after.clone()),
+        None => BookScope::new(user_id, book_id),
+    };
     match (header("x-user-id"), header("x-book-id")) {
-        (Some(user_id), Some(book_id)) => Ok(BookScope::new(user_id, book_id)),
+        (Some(user_id), Some(book_id)) => Ok(scoped(user_id, book_id)),
         _ => Err(Box::new(
             (
                 StatusCode::BAD_REQUEST,
@@ -97,6 +104,7 @@ pub(crate) fn user_scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Respon
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
     match user_id {
+        // a listing is never opened before its Book exists, so this door has no place to seek from
         Some(user_id) => Ok(BookScope::new(user_id, "")),
         None => Err(Box::new(
             (

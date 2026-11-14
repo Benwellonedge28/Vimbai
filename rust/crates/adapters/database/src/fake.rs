@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{Graph, StoreError};
+use crate::{BookScope, Graph, RecordKind, StoreError};
 
 pub struct FakeGraph {
     rows: RefCell<Vec<Value>>,
@@ -235,6 +235,42 @@ impl MemoryGraph {
 }
 
 impl Graph for MemoryGraph {
+    fn store_list_after(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let nodes = self
+            .nodes
+            .lock()
+            .expect("the memory graph is never poisoned");
+        let mut rows: Vec<Value> = nodes
+            .iter()
+            .filter(|node| node.label == kind.label)
+            .filter(|node| {
+                node.props.get("book_id").and_then(Value::as_str) == Some(&scope.book_id)
+            })
+            .filter(|node| {
+                node.props
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(|id| id > after)
+                    .unwrap_or(false)
+            })
+            .map(|node| node.props.clone())
+            .collect();
+        rows.sort_by_key(|row| {
+            row.get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        });
+        rows.truncate(limit);
+        Ok(rows)
+    }
+
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
         // a create with children writes the parent and each child, and answers the parent with its lines
         if cypher.contains("CREATE (x:") && cypher.contains("UNWIND $children") {

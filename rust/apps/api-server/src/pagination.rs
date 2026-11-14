@@ -10,13 +10,17 @@
 //! or `cursor` gets the envelope. A caller who wants the new behaviour asks for it, which is the only honest way to add a
 //! shape beside an existing one.
 //!
-//! Two things this deliberately does not do:
+//! A cursor names a row as well as a count, and that second half is what removes the ceiling this layer used to have. It
+//! windows the rows a handler produced; but when the cursor carries the id of the last row handed over, the request goes on to
+//! the store with that place on it, the store seeks, and the answer starts after the cursor rather than at the top. A Book
+//! holding more records than a handler is willing to produce in one answer is therefore still walkable to its end: the cap
+//! bounds one answer and stops bounding the walk. A handler whose listing does not go through the store answers with the top of
+//! its list again, which is recognised (those rows include ids at or below the cursor) and windowed by count exactly as before.
 //!
-//! * It does not re-query the store. It windows the rows the handler produced, and every list handler already caps what it
-//!   reads. So `has_more` is true when the engine had more rows to give, and paging past its cap is a matter of raising that
-//!   handler's cap, not of asking for a bigger page. The alternative - teaching sixty handlers to seek from a cursor - is the
-//!   work of a phase, and shipping the shape now with a stated ceiling beats shipping neither.
-//! * It does not sort. A handler's order is the handler's, and a cursor refers to a position in the answer the engine gave.
+//! What it still does not do:
+//!
+//! * It does not sort. A windowed page keeps the handler's order; a seeked page arrives in id order, which is the only order
+//!   in which a page cannot skip a record written while the previous one was being read.
 //!
 //! A caller who wants the page as it is produced rather than all at once asks for `application/x-ndjson` and gets one
 //! record per line, written as the engine hands each one over, with the paging facts in headers (`x-total-count`,
@@ -38,19 +42,57 @@ pub const MAX_PAGE: usize = 500;
 /// The page a caller asked for when they said nothing.
 pub const DEFAULT_PAGE: usize = 50;
 
-/// A cursor is the offset into the rows the engine produced, written so a client cannot invent one by counting.
-fn encode(offset: usize) -> String {
-    use base64::Engine as _;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!("v1:{offset}"))
+/// A cursor is a place in a Book, not a number a client can count to.
+///
+/// It carries two things: how far into the answer the page ended, and the id of the last row handed over. The id is what
+/// lets the store seek - `v1:{offset}` cursors handed out before this still decode, and still page, by counting alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Place {
+    offset: usize,
+    after: Option<String>,
 }
 
-fn decode(cursor: &str) -> Option<usize> {
+fn encode(place: &Place) -> String {
+    use base64::Engine as _;
+    let text = match &place.after {
+        Some(after) => format!("v1:{}:{after}", place.offset),
+        None => format!("v1:{}", place.offset),
+    };
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(text)
+}
+
+fn decode(cursor: &str) -> Option<Place> {
     use base64::Engine as _;
     let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(cursor.trim())
         .ok()?;
     let text = String::from_utf8(raw).ok()?;
-    text.strip_prefix("v1:")?.parse().ok()
+    let rest = text.strip_prefix("v1:")?;
+    match rest.split_once(':') {
+        Some((offset, after)) => Some(Place {
+            offset: offset.parse().ok()?,
+            after: Some(after.to_owned()).filter(|id| !id.is_empty()),
+        }),
+        None => Some(Place {
+            offset: rest.parse().ok()?,
+            after: None,
+        }),
+    }
+}
+
+/// The id of a row, when it has one, which is what a cursor is built from.
+fn id_of(row: &Value) -> Option<&str> {
+    row.get("id").and_then(Value::as_str)
+}
+
+/// The rows that come strictly after a place, in id order, and whether the answer shows it obeyed.
+///
+/// A handler whose listing goes through the store answers with rows past the cursor. A handler that does not hands back
+/// the top of its list again, and those rows include ids at or below the cursor - which is exactly how the two are told
+/// apart without every handler having to say which it is.
+fn rows_after(rows: &[Value], after: &str) -> bool {
+    let ids: Vec<&str> = rows.iter().filter_map(id_of).collect();
+    !ids.is_empty() && ids.iter().all(|id| *id > after)
 }
 
 /// The query parameters this layer reads, from a raw query string.
@@ -100,10 +142,13 @@ async fn window(request: Request, next: Next) -> Response {
             }
         },
     };
-    let offset = match asked_cursor.as_deref() {
-        None => 0,
+    let place = match asked_cursor.as_deref() {
+        None => Place {
+            offset: 0,
+            after: None,
+        },
         Some(cursor) => match decode(cursor) {
-            Some(offset) => offset,
+            Some(place) => place,
             None => {
                 return (
                     StatusCode::UNPROCESSABLE_ENTITY,
@@ -113,6 +158,13 @@ async fn window(request: Request, next: Next) -> Response {
             }
         },
     };
+    let offset = place.offset;
+    let mut request = request;
+    if let Some(after) = &place.after {
+        if let Ok(value) = axum::http::HeaderValue::from_str(after) {
+            request.headers_mut().insert("x-vimbai-after", value);
+        }
+    }
 
     let lines_wanted = request
         .headers()
@@ -155,16 +207,47 @@ async fn window(request: Request, next: Next) -> Response {
         _ => return Response::from_parts(parts, Body::from(bytes)),
     };
 
-    let total = rows.len();
-    let start = offset.min(total);
-    let end = (start + limit).min(total);
-    let page = rows[start..end].to_vec();
-    let next = (end < total).then(|| encode(end));
+    // Two ways a page can be produced, and the store decides which one a caller gets.
+    //
+    // When the cursor names a row and the handler answered with rows past it, the store seeked: the handler's own cap no
+    // longer bounds the walk, so page five hundred is one statement away instead of unreachable. Otherwise the answer is
+    // the top of the list again and it is windowed by count, which is what this layer did before it could seek, and what a
+    // handler that does not list through the store still gets.
+    let seeked = place
+        .after
+        .as_deref()
+        .map(|after| rows_after(&rows, after))
+        .unwrap_or(false);
+    let (page, taken, total) = if seeked {
+        let taken = rows.len().min(limit);
+        let page = rows[..taken].to_vec();
+        (page, taken, rows.len())
+    } else {
+        let total = rows.len();
+        let start = offset.min(total);
+        let end = (start + limit).min(total);
+        (rows[start..end].to_vec(), end - start, total)
+    };
+    let last = page.last().and_then(id_of).map(str::to_owned);
+    // A windowed answer knows whether more follow, because it is counting rows it holds. A seeked one only knows what the
+    // handler was willing to produce: a full page may be the end, so the next request answers empty and the client stops.
+    // Erring that way costs one empty answer; erring the other way would silently hide rows.
+    let more = if seeked {
+        rows.len() >= limit
+    } else {
+        offset + taken < total
+    };
+    let next = more.then(|| {
+        encode(&Place {
+            offset: offset + taken,
+            after: last.clone(),
+        })
+    });
     let mut envelope = json!({
         "items": page,
         "has_more": next.is_some(),
         "next_cursor": next,
-        "count": end - start,
+        "count": taken,
     });
     if let Some(name) = &key {
         // the rows keep the name the handler gave them, so a client reading `rates` still reads `rates`
@@ -241,14 +324,48 @@ mod tests {
 
     #[test]
     fn a_cursor_round_trips_and_nothing_else_does() {
-        assert_eq!(decode(&encode(0)), Some(0));
-        assert_eq!(decode(&encode(120)), Some(120));
+        let top = Place {
+            offset: 0,
+            after: None,
+        };
+        assert_eq!(decode(&encode(&top)), Some(top));
+        let deep = Place {
+            offset: 120,
+            after: Some("rule:42".into()),
+        };
+        assert_eq!(decode(&encode(&deep)), Some(deep));
         assert_eq!(decode("not-a-cursor"), None);
         assert_eq!(
             decode("djE6bm90LWEtbnVtYmVy"),
             None,
             "the version is checked, not assumed"
         );
+    }
+
+    #[test]
+    fn a_cursor_from_before_the_seek_still_pages_by_count() {
+        // a client holding one of these must not be broken by the layer learning to seek
+        assert_eq!(
+            decode("djE6NDA"),
+            Some(Place {
+                offset: 40,
+                after: None
+            })
+        );
+    }
+
+    #[test]
+    fn an_answer_past_the_cursor_is_told_from_the_top_of_the_list() {
+        let page = vec![json!({"id": "rule:11"}), json!({"id": "rule:12"})];
+        assert!(
+            rows_after(&page, "rule:10"),
+            "these rows come after rule:10"
+        );
+        assert!(
+            !rows_after(&page, "rule:40"),
+            "the same rows are the top of the list when the cursor is further on"
+        );
+        assert!(!rows_after(&[], "rule:10"), "an empty answer seeks nothing");
     }
 
     #[test]

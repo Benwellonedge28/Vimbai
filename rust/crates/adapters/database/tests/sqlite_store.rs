@@ -385,3 +385,59 @@ fn a_row_shared_by_a_book_is_written_listed_found_and_removed() {
         "a second removal was accepted"
     );
 }
+
+/// A page that seeks, rather than a page that counts.
+///
+/// The device store answers a Book's records from the top and stops at whatever cap the caller asked for. This is the other
+/// question: rows after a place, in id order, so a client following cursors reaches the end of a Book no matter how large it
+/// grows. Two hundred records are written, a page is taken from the middle, and the walk continues from there without
+/// repeating or losing anything.
+#[test]
+fn a_page_seeks_from_a_place_rather_than_counting_from_the_top() {
+    let store = SqliteGraph::in_memory().expect("a store");
+    let records = Records::new(&store, PRODUCT_COST);
+    let mut written = Vec::new();
+    for index in 0..200 {
+        let created = records
+            .create(&scope(), &json!({"label": format!("cost {index:03}")}))
+            .expect("a record");
+        written.push(created["id"].as_str().unwrap_or_default().to_owned());
+    }
+    written.sort();
+
+    let half = &written[100];
+    let after = records
+        .list(&scope().after(half.clone()), 40)
+        .expect("a page after a place");
+    assert_eq!(after.len(), 40, "the page is the size asked for");
+    for row in &after {
+        let id = row["id"].as_str().unwrap_or_default();
+        assert!(id > half.as_str(), "{id} is not past the place asked from");
+        assert!(written.contains(&id.to_owned()), "{id} was never written");
+    }
+    assert_eq!(
+        after[0]["id"].as_str(),
+        Some(written[101].as_str()),
+        "the page starts at the row after the place, not somewhere beyond it"
+    );
+
+    // and the walk reaches the end: eleven pages of forty cover the hundred rows that follow the place
+    let mut seen = 0;
+    let mut cursor = half.clone();
+    loop {
+        let page = records
+            .list(&scope().after(cursor.clone()), 40)
+            .expect("a page");
+        if page.is_empty() {
+            break;
+        }
+        seen += page.len();
+        cursor = page
+            .last()
+            .and_then(|row| row["id"].as_str())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(seen <= 200, "the walk is going in circles");
+    }
+    assert_eq!(seen, 99, "every row after the place, exactly once");
+}
