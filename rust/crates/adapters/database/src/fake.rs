@@ -72,6 +72,16 @@ impl Graph for FakeGraph {
         let last = scripts.len() - 1;
         Ok(scripts[index.min(last)].clone())
     }
+
+    // A scripted fake answers statements, not edges: it has nowhere to put them, and a test using it is asking about the
+    // statements a caller writes rather than about traversal.
+    fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
+        Ok(Vec::new())
+    }
+
+    fn create_edge(&self, _from: &str, _label: &str, _to: &str) -> Result<(), StoreError> {
+        Ok(())
+    }
 }
 
 /// One stored node.
@@ -636,6 +646,41 @@ impl Graph for MemoryGraph {
             .into_iter()
             .map(|props| json!({ "x": props }))
             .collect())
+    }
+
+    fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
+        Ok(self
+            .edges
+            .lock()
+            .expect("the memory graph is never poisoned")
+            .iter()
+            .map(|edge| (edge.from.clone(), edge.label.clone(), edge.to.clone()))
+            .collect())
+    }
+
+    fn create_edge(&self, from: &str, label: &str, to: &str) -> Result<(), StoreError> {
+        // both ends have to be here: an edge to a record that was never written is a dangling read waiting to happen
+        let known = |id: &str| {
+            self.nodes
+                .lock()
+                .expect("the memory graph is never poisoned")
+                .iter()
+                .any(|node| node.props.get("id").and_then(Value::as_str) == Some(id))
+        };
+        if !known(from) || !known(to) {
+            return Err(StoreError::Invalid(format!(
+                "{from} -> {label} -> {to} names a record that is not stored"
+            )));
+        }
+        self.edges
+            .lock()
+            .expect("the memory graph is never poisoned")
+            .push(Edge {
+                from: from.to_string(),
+                label: label.to_string(),
+                to: to.to_string(),
+            });
+        Ok(())
     }
 }
 

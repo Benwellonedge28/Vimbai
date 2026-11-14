@@ -25,6 +25,8 @@
 use serde_json::{json, Map, Value};
 
 pub mod amounts;
+/// Moving records between stores: the thing that makes the store trait worth having.
+pub mod dump;
 /// A graph that records what it was asked and answers from a script, for the tests of the crates
 /// that sit on this one.
 #[doc(hidden)]
@@ -696,6 +698,32 @@ impl std::error::Error for StoreError {}
 /// the driver quiet in exactly one file.
 pub trait Graph {
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError>;
+
+    /// Every edge the store holds, as `(from id, label, to id)`.
+    ///
+    /// An edge is data here, not an inference: a dump that re-derived its edges from fields would restore yesterday's
+    /// data using today's rules, which is how a migration quietly rewrites history.
+    ///
+    /// The default refuses rather than answering nothing, and that distinction is the point: a store that cannot report
+    /// its edges must fail a dump loudly, because a dump that quietly came out without relationships would look like a
+    /// complete migration and would not be one. A scripted fake in a test never dumps, so it never reaches this.
+    fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
+        Err(StoreError::Graph(
+            "this store does not report its edges, so its records cannot be moved faithfully"
+                .into(),
+        ))
+    }
+
+    /// Write one edge between two records that already exist.
+    ///
+    /// Refuses by default for the same reason: a restore into a store that cannot hold an edge would arrive missing every
+    /// relationship and report success.
+    fn create_edge(&self, _from: &str, _label: &str, _to: &str) -> Result<(), StoreError> {
+        Err(StoreError::Graph(
+            "this store cannot be given an edge, so records cannot be restored into it faithfully"
+                .into(),
+        ))
+    }
 }
 
 /// Book-scoped CRUD over one record kind.
@@ -1261,6 +1289,37 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         );
         let rows = self.graph.run(&cypher, json!({ "id": id }))?;
         Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// Put a record back exactly as it was, owners and all.
+    ///
+    /// Every other door here is a request door: it cleans a payload and refuses one that names an owner, because a caller
+    /// must not choose whose Book it writes into. This one is not. It is what a restore uses when the rows are the same rows
+    /// arriving in a different database, so it keeps `user_id` and `book_id` as stored, and its edges arrive from the dump
+    /// rather than being inferred from them.
+    ///
+    /// The id is required and the payload is written verbatim: a restore that quietly renumbered a record would have moved
+    /// data rather than preserved it.
+    pub fn reinstate(&self, record: &Value) -> Result<Value, StoreError> {
+        let props = record
+            .as_object()
+            .cloned()
+            .ok_or_else(|| StoreError::Invalid("a record must be an object".into()))?;
+        if props.get("id").and_then(Value::as_str).is_none() {
+            return Err(StoreError::Invalid(format!(
+                "a {} restored from a dump needs its id",
+                self.kind.label
+            )));
+        }
+        let cypher = format!(
+            "CREATE (x:{label})\nSET x = $props\nRETURN x",
+            label = self.kind.label
+        );
+        let rows = self.graph.run(&cypher, json!({ "props": props }))?;
+        rows.into_iter()
+            .next()
+            .map(unwrap_node)
+            .ok_or_else(|| StoreError::Graph(format!("{} was not reinstated", self.kind.label)))
     }
 
     /// Look a record up by a property the caller already holds - a username, an email, a token. Not a way to browse:

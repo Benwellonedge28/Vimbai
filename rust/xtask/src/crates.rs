@@ -16,8 +16,11 @@ use crate::catalog::{self, Row};
 
 /// The store's own work: the record shapes, the Book scoping, the driver and the helpers their tests use. Nothing here
 /// computes a business figure.
-const STORE_MODULES: [&str; 9] = [
+const STORE_MODULES: [&str; 10] = [
     "amounts.rs",
+    // moving records between stores: machinery about where a record lives, which is the store's business and not a
+    // service's. It knows a record's kind and properties and nothing about what either means.
+    "dump.rs",
     "fake.rs",
     "file.rs",
     "lib.rs",
@@ -29,8 +32,9 @@ const STORE_MODULES: [&str; 9] = [
 ];
 
 /// The modules the store's `lib.rs` may declare: the same machinery under its module names.
-const STORE_DECLARATIONS: [&str; 8] = [
+const STORE_DECLARATIONS: [&str; 9] = [
     "amounts",
+    "dump",
     "fake",
     "file",
     "neo4j_client",

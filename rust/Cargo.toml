@@ -8,6 +8,7 @@ members = [
     "apps/local-runtime",
     "apps/worker",
     "apps/sync-server",
+    "apps/store-move",
     "crates/adapters/gateway",
     "xtask",
     "tests/financial-integrity",

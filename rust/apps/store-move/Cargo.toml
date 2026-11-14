@@ -1,0 +1,16 @@
+[package]
+name = "vimbai_store_move"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Move a store's records into another store: the operator's half of the store trait"
+default-run = "vimbai-store-move"
+
+[[bin]]
+name = "vimbai-store-move"
+path = "src/main.rs"
+
+[dependencies]
+vimbai_store = { path = "../../crates/adapters/database" }
+serde_json = { workspace = true }

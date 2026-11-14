@@ -92,6 +92,15 @@ impl Graph for FileGraph {
         }
         Ok(rows)
     }
+
+    fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
+        self.held.all_edges()
+    }
+
+    fn create_edge(&self, from: &str, label: &str, to: &str) -> Result<(), StoreError> {
+        self.held.create_edge(from, label, to)?;
+        self.write_out()
+    }
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ use neo4j::driver::Record;
 use neo4j::driver::{ConnectionConfig, Driver, DriverConfig};
 use neo4j::retry::ExponentialBackoff;
 use neo4j::{ValueReceive, ValueSend};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::{Graph, StoreError};
 
@@ -104,6 +104,35 @@ impl Graph for Neo4jGraph {
             .map_err(|error| StoreError::Graph(error.to_string()))?;
 
         Ok(result.records.into_iter().map(row_to_json).collect())
+    }
+
+    fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
+        // `a.id`/`b.id` rather than the nodes: the id is the platform's identity, and it is what a dump can name
+        let rows = self.run(
+            "MATCH (a)-[r]->(b)\nRETURN a.id AS from_id, type(r) AS label, b.id AS to_id",
+            json!({}),
+        )?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|row| {
+                let text = |key: &str| row.get(key).and_then(Value::as_str).map(str::to_owned);
+                Some((text("from_id")?, text("label")?, text("to_id")?))
+            })
+            .collect())
+    }
+
+    fn create_edge(&self, from: &str, label: &str, to: &str) -> Result<(), StoreError> {
+        // the label is an identifier in Cypher and cannot be a parameter, so it is checked instead of interpolated
+        if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(StoreError::Invalid(format!("{label} is not an edge name")));
+        }
+        self.run(
+            &format!(
+                "MATCH (a)\nWHERE a.id = $from\nMATCH (b)\nWHERE b.id = $to\nMERGE (a)-[:{label}]->(b)"
+            ),
+            json!({"from": from, "to": to}),
+        )?;
+        Ok(())
     }
 }
 

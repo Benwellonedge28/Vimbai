@@ -21,11 +21,9 @@ pull request.
 | 004 | API versioning and the conventions clients can rely on |
 | 005 | Vimbai Pay is not built |
 | 006 | The developer platform is deferred, with its trigger conditions |
+| 007 | One system of record (Postgres) with SQLite on a device, and the tool that moves the data off it |
 | 008 | Crate directory names are not renamed for cosmetic consistency |
 | 009 | The kernel's reading half reads the store; the posting authority stays store-free |
-
-ADR-007 (data storage) is deliberately absent. It is written when the storage direction is decided; see the blocked phase
-in `ROADMAP.md`.
 
 ## Architecture
 
@@ -63,7 +61,7 @@ catalogue does not have, or if a page leaves out one of its own prefixes.
 
 ## Not written yet, and why
 
-The data-store decision (ADR-007 - Neo4j, relational, or split by ownership) and, with it, data ownership and migration.
-Attaching the 180 unattributed prefix groups to catalogue owners. Operations runbooks beyond the manifests. Compliance
-detail beyond financial integrity. Anything belonging to Vimbai Pay or the developer platform, which are out of scope by
-ADR-005 and ADR-006.
+A Postgres implementation of the store (ADR-007 decides it; the driver and a server to test against are not in this
+repository yet). Attaching the 180 unattributed prefix groups to catalogue owners. Operations runbooks beyond the
+manifests. Compliance detail beyond financial integrity. Anything belonging to Vimbai Pay or the developer platform,
+which are out of scope by ADR-005 and ADR-006.

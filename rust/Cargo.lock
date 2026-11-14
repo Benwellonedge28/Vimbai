@@ -3516,6 +3516,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_store_move"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_store",
+]
+
+[[package]]
 name = "vimbai_sync"
 version = "0.1.0"
 dependencies = [

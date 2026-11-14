@@ -96,14 +96,14 @@ P0 documents and hygiene
            ├── P3 financial integrity      │    └── P7 Flutter feature-first
            ├── P4 worker                   │
            └── P5 domain documentation ────┘
-                └── P8 data layer (needs your database decision)
+                └── P8 data layer (decided: ADR-007)
                      └── P9 sync-server
                           └── P10 infrastructure
                                └── P11 close-out
 ```
 
 P2 gates P6 and P7 because a contract or a client data layer written before the organisation boundary exists has to be
-rewritten after it. P8 needs a decision from you (see section 5) before it can start.
+rewritten after it. P8 was the one phase waiting on you; it stopped waiting when ADR-007 was accepted.
 
 ---
 
@@ -299,23 +299,33 @@ Exit criteria
 
 ### P8. Data layer
 
-Blocked on the decision in section 5. Not started before it.
+**Decided in ADR-007.** Postgres is the system of record for a deployment, SQLite on a device, and Neo4j stays behind the
+trait as a working backend and a possible read model rather than something to build on.
 
-Tasks
+Tasks, in the order they were done:
 
-- P8.1 `docs/architecture/data-ownership.md`: which component is authoritative for each record, and the transaction
-  boundary around accounting and payment records.
-- P8.2 `data/schemas/` per domain; `data/migrations/registry.yaml` with ordered versions and a rollback path.
-- P8.3 `data/seeds/` for currencies, jurisdictions and accounting standards, loaded idempotently.
-- P8.4 A migration mechanism that works for both the file store and the server store. Today there is none.
-- P8.5 `data/backup/` policies and a verified restore, exercised by a test rather than described in prose.
+- P8.1 **Done.** A record and its edge doors: `all_edges` and `create_edge` on the store trait, so a relationship is
+  something the store is asked for rather than something a caller infers.
+- P8.2 **Done.** `vimbai_store::dump` takes every record of every record kind, plus every edge, and restores them exactly as
+  they were. Edges travel as data on purpose: a restore that re-derived relationships from fields would rebuild yesterday's
+  data using today's rules, and a migration that quietly rewrites history is worse than one that fails.
+- P8.3 **Done.** `vimbai-store-move <from> <to> [dump file]` with `file:<path>` and `neo4j` stores, comparing the arrival
+  against the source and exiting 1 on anything it cannot prove. Nothing is removed from the source.
+- P8.4 **Done.** A gate over the dump catalogue: `KINDS` is checked against the constants the crate declares, so a record
+  kind cannot be added and silently never move.
+- P8.5 Shrink `Graph` from `run(cypher)` to semantic doors, so a new backend is an implementation rather than a Cypher
+  interpreter. The two edge doors are the first of them.
+- P8.6 A Postgres implementation, on a machine that has Postgres to test against.
+- P8.7 SQLite for the on-device runtime, replacing the JSON file.
 
 Exit criteria
 
-- A migration applies, rolls back, and re-applies cleanly against a copy of a real store file.
-- Seeds are safe to run twice.
-
----
+- *Met.* A Book written in one store arrives identical in another: every record, every edge, an amount carried to
+  thirty-nine digits, and a book-scoped read that still works on the far side. Nine tests, and a swap between two
+  different implementations rather than two instances of the same one.
+- *Met.* A dump that is truncated or edited is refused rather than half loaded.
+- Not yet met: a migration applied, rolled back and re-applied against a copy of a real store file. That needs the
+  relational store, so it belongs with P8.6.
 
 ### P9. Offline and sync
 
@@ -397,10 +407,8 @@ Borrowed from the target architecture's completion gates. A phase is finished wh
 
 ## 5. Decisions needed from you
 
-1. *Database direction (blocks P8).* Keep Neo4j as the server store, move accounting and payment records to a
-   transactional relational store, or keep both with a split by ownership? My recommendation is to keep the property
-   store for relationships and add a relational store only for records needing multi-statement transactions, decided
-   after the data-ownership map exists. It is your call and the roadmap does not assume an answer.
+1. *Database direction.* **Answered in ADR-007:** Postgres as the system of record, SQLite on a device, Neo4j kept behind
+   the trait rather than extended.
 2. *Deployment target (shapes P10).* Kubernetes primary with Compose for development, or the reverse? Today both exist
    and neither is authoritative.
 3. *Untracking `web-frontend/` (P0.12).* Confirmed reversible from history, but it is your data.
@@ -425,7 +433,7 @@ Updated in the same commit that lands the work. `—` means not started.
 | P5 | Domain documentation | — | |
 | P6 | Contracts | done | `contracts/openapi/v1/` (6 hand-written + 31 generated); `openapi` / `openapi --check`; 5 tests; three policies + `request-conventions.md`; all eight ADR-004 conventions implemented - idempotency keys (8 tests) and opt-in cursor pagination (8 tests). **Open:** cursor pagination windows the answer rather than seeking in the store |
 | P7 | Flutter feature-first | done, P7.4/P7.5 open | `cargo run -p xtask -- flutter` (6 tests): nothing may be added to a layer folder, the pinned `apps/flutter/migration-baseline.txt` must shrink as files move, every import must name a file the app has, and each feature reports only the parts that hold a file. **Done:** all 58 dart files moved - eleven features (`accounting`, `authentication`, `banking`, `books`, `budgeting`, `group_savings`, `household_finance`, `multimodal`, `npo`, `personal_finance`, `reporting`) plus `lib/core/` and `lib/app/`; `apps/flutter/migration-baseline.txt` is empty and the exit criterion holds as a test. `docs/flutter-structure.md` records the layout. **Open:** P7.4 app tests (needs a dart toolchain, which CI does not have) and P7.5 platform folders (generated by `flutter create` once the structure settles) |
-| P8 | Data layer | blocked | needs decision 5.1 |
+| P8 | Data layer | in progress | P8.1-P8.4 done and green; P8.5 the semantic trait, then P8.6 Postgres, P8.7 SQLite |
 | P9 | Sync server | done | `rust/apps/sync-server` (`vimbai-sync`): the engine's own router behind a surface of `/health`, `/identity`, `/books`, everything else 404. Conflict rule in `crates/platform/offline-sync/src/conflict.rs` (refusal by default, six families may lose an update and say so, batch decided before it is written); push answers `accepted` / `already_stored` / `records`; the gateway rules moved to `crates/adapters/gateway` so the sync server and the on-device runtime share one copy. `docs/SYNC.md`; 5 process tests + 6 unit tests |
 | P10 | Infrastructure | done | P10.3 diverges: the Helm chart is deleted, kustomize base + overlays is the one story |
 | P11 | Close-out | done | one tolerated dependency, recorded in ADR-009; Helmless cluster; VERSION 1.0.0 |

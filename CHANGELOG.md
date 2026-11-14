@@ -2,6 +2,19 @@
 
 Notable changes, newest first. Format follows Keep a Changelog; versions follow semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- ADR-007: Postgres is the system of record for a deployment, SQLite on a device, and Neo4j stays behind the store trait
+  as a working backend rather than being extended. It closes the decision P8 was waiting on.
+- Moving the data between stores: `vimbai_store::dump` carries every record of every kind and every edge, and
+  `vimbai-store-move` puts them into another store and compares the arrival against the source. Edges travel as data, so a
+  restore cannot rebuild yesterday's relationships with today's rules. Nine tests, including a move between two different
+  implementations and an amount carried intact at thirty-nine digits.
+- Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
+  for rather than something a caller infers from fields.
+
 ## [1.0.0] - 2026-11-14
 
 The roadmap in `docs/ROADMAP.md` is complete: every phase has landed, and the two things deliberately out of scope -
