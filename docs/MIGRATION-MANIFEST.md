@@ -266,7 +266,7 @@ Lands in `rust/crates/platform/documents`.
 
 ```
 service                                         port  routes  records  engine
-document-service                                8096      14      yes  rust
+document-service                                8096       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

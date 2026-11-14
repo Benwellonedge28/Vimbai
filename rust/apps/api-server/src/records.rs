@@ -17127,6 +17127,41 @@ async fn get_expense_summary(
 
 pub fn service_root_router(graph: GraphHandle) -> Router {
     Router::new()
+        // document-service published its register under /document. The handlers already answer the same operations at
+        // the engine's own addresses, so these name them where the service's clients call them - one implementation,
+        // two names, no second copy of the filing rules.
+        .route(
+            "/document/documents",
+            post(post_document).get(get_documents),
+        )
+        .route("/document/documents/batch", post(post_documents_batch))
+        .route(
+            "/document/documents/batch/link",
+            post(post_documents_batch_link),
+        )
+        .route("/document/documents/search", post(post_documents_search))
+        .route(
+            "/document/documents/:document_id",
+            get(get_document).put(put_document).delete(delete_document),
+        )
+        .route(
+            "/document/documents/:document_id/download",
+            get(get_document_download),
+        )
+        .route(
+            "/document/documents/:document_id/preview",
+            get(get_document_preview),
+        )
+        .route(
+            "/document/documents/:document_id/ocr",
+            post(post_document_ocr),
+        )
+        .route(
+            "/document/documents/:document_id/link",
+            post(post_document_link),
+        )
+        .route("/document/statistics", get(get_document_statistics))
+
         .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
 
         // the ledger kernel: double entry rules (nothing stored)

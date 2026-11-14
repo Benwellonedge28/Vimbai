@@ -569,22 +569,8 @@ services:
   gateway_path: /document
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /documents
-  - POST /documents/batch
-  - GET /documents/{document_id}
-  - GET /documents/{document_id}/download
-  - GET /documents/{document_id}/preview
-  - PUT /documents/{document_id}
-  - DELETE /documents/{document_id}
-  - POST /documents/search
-  - POST /documents/{document_id}/ocr
-  - GET /documents
-  - GET /statistics
-  - POST /documents/batch/link
-  - POST /documents/{document_id}/link
+  records: false
+  endpoints: []
 - name: double-entry-principles-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
