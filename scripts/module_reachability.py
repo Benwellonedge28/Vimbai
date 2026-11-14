@@ -138,40 +138,68 @@ def build(root: str = "rust"):
     return files, crates, nodes, edges
 
 
+def _reexports(root: str = "rust") -> dict[tuple[str, str], tuple[str, ...]]:
+    """Which module a crate-root re-export actually names.
+
+    `pub use amortization::{amortization_from_json, ...};` in lib.rs is how a door reaches a module it never names: the
+    door calls `assets::amortization_from_json`. Reading the re-export is exact. Guessing by "the first module that
+    happens to define that function name" is not - it read a different answer on different runs, and the whole gate
+    depended on the guess.
+    """
+    found: dict[tuple[str, str], tuple[str, ...]] = {}
+    for path, (crate, module) in build(root)[2].items():
+        if module:
+            continue
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        for group in re.finditer(r"pub use ([a-z_0-9]+)::\{([^}]*)\}", source):
+            head = group.group(1)
+            for item in group.group(2).split(","):
+                name = item.split(" as ")[-1].strip()
+                if name:
+                    found.setdefault((crate, name), (head,) + tuple(item.split("::")[1:]))
+        for one in re.finditer(r"pub use ([a-z_0-9]+)::([a-z_0-9]+);", source):
+            found.setdefault((crate, one.group(2)), (one.group(1),))
+    return found
+
+
 def reachable(root: str = "rust") -> set[str]:
     """The .rs files a door can reach, following imports through as many crates as it takes."""
     files, crates, nodes, edges = build(root)
     by_node: dict[tuple[str, tuple[str, ...]], list[str]] = collections.defaultdict(list)
     for path, node in nodes.items():
         by_node[node].append(path)
+    reexports = _reexports(root)
 
-    # A door often calls `assets::depreciation_batch_from_json`, a function re-exported by the crate
-    # root, not a module path. Resolving those names to the module that defines them is the
-    # difference between "dead" and "wired by a re-export".
-    defines: dict[tuple[str, str], tuple[str, ...]] = {}
+    # Where a function name is defined, for the doors that call a plain re-export with no module of its own. Sorted and
+    # kept whole: a name defined in two modules means the door reaches both, not whichever the file system listed first.
+    defines: dict[tuple[str, str], set[tuple[str, ...]]] = collections.defaultdict(set)
     for path, (crate, module) in nodes.items():
         with open(path, encoding="utf-8") as handle:
             for name in re.findall(r"^pub fn ([a-z0-9_]+)", handle.read(), re.M):
-                defines.setdefault((crate, name), module)
+                defines[(crate, name)].add(module)
 
-    queue = [nodes[path] for path in files if path.startswith(tuple(DOORS))]
+    queue = sorted(nodes[path] for path in files if path.startswith(tuple(DOORS)))
     seen: set[tuple[str, tuple[str, ...]]] = set()
     while queue:
         node = queue.pop()
         if node in seen:
             continue
         seen.add(node)
-        for crate, module in edges.get(node, ()):
+        for crate, module in sorted(edges.get(node, ())):
+            modules = [module]
             roots = {m[0] for c, m in by_node if c == crate and m}
             if module and module[0] not in roots:
-                resolved = defines.get((crate, module[0]))
-                if resolved:
-                    module = resolved
-            queue.extend(
-                candidate
-                for candidate in by_node
-                if candidate[0] == crate and module[: len(candidate[1])] == candidate[1]
-            )
+                if (crate, module[0]) in reexports:
+                    modules = [reexports[(crate, module[0])] + tuple(module[1:])]
+                elif defines.get((crate, module[0])):
+                    modules = sorted(defines[(crate, module[0])])
+            for reach in modules:
+                queue.extend(
+                    candidate
+                    for candidate in sorted(by_node)
+                    if candidate[0] == crate and reach[: len(candidate[1])] == candidate[1]
+                )
     return {path for node in seen for path in by_node[node]}
 
 

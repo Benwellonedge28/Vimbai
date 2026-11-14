@@ -41,6 +41,29 @@ def _unreachable():
         os.chdir(cwd)
 
 
+def test_a_crate_root_reexport_is_read_rather_than_guessed():
+    """The gate used to guess which module defines a re-exported function.
+
+    `assets::amortization_from_json` is a door's way of naming `assets::amortization`: the function is defined in
+    `amortization.rs` and re-exported by lib.rs. The checker used to resolve that by asking "which module defines
+    `amortization_from_json`" and taking the first answer the file system offered, which read `budgeting::cash` as
+    reachable on one run and dead on the next. It now reads the `pub use` line, which is what the compiler reads.
+    """
+    reexports = module_reachability._reexports()
+    assert reexports[("vimbai_assets", "amortization_from_json")] == ("amortization",)
+    assert reexports[("vimbai_assets", "amortization")] == ("amortization",)
+
+
+def test_the_verdict_does_not_depend_on_iteration_order():
+    """Two runs in one process must agree, and the answer must be complete rather than first-found."""
+    first = module_reachability.unreachable_modules()
+    second = module_reachability.unreachable_modules()
+    assert first == second
+    # A module the re-export reading resolves must not also be reported dead: that was the bug's signature.
+    assert "assets::amortization" not in first
+    assert "service_accounting::ifrs_reports" not in first
+
+
 def test_the_maths_the_tracker_calls_unreachable_is_still_unreachable():
     dead = _unreachable()
     routed = sorted(f"{service} -> {module}" for service, module in UNROUTED.items() if module not in dead)
