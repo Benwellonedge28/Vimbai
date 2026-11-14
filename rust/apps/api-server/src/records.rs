@@ -199,6 +199,17 @@ pub fn from_env() -> Option<GraphHandle> {
             }
         };
     }
+    // The deployment store. Postgres is the system of record for a deployment (ADR-007); Neo4j stays reachable below for
+    // anyone still running it, rather than being removed from under them.
+    if std::env::var("VIMBAI_POSTGRES_URL").is_ok() {
+        return match store::postgres::PostgresGraph::from_env() {
+            Ok(graph) => Some(Arc::new(graph) as GraphHandle),
+            Err(error) => {
+                eprintln!("cannot open the deployment store: {error}");
+                None
+            }
+        };
+    }
     match store::Neo4jGraph::from_env() {
         Ok(graph) => Some(Arc::new(graph) as GraphHandle),
         Err(error) => {

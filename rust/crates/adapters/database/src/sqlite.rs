@@ -18,6 +18,7 @@ use std::sync::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
+use crate::columns::{checked_property, id_of, indexed, now_seq, unquote};
 use crate::*;
 use crate::{Graph, RecordKind, StoreError};
 
@@ -222,17 +223,6 @@ fn rollback(connection: &mut Connection) -> Result<(), StoreError> {
             .map_err(graph)?;
     }
     Ok(())
-}
-
-/// The columns a record is indexed by, read out of the record itself so a caller never supplies them separately.
-fn indexed(props: &Value) -> (Option<String>, Option<String>, Option<String>) {
-    let text = |name: &str| props.get(name).and_then(Value::as_str).map(str::to_owned);
-    (text("book_id"), text("user_id"), text("created_at"))
-}
-
-fn unquote(text: &str) -> Result<Value, StoreError> {
-    serde_json::from_str(text)
-        .map_err(|problem| StoreError::Graph(format!("a stored record is unreadable: {problem}")))
 }
 
 impl Graph for SqliteGraph {
@@ -779,13 +769,6 @@ fn remove_record(
     Ok(())
 }
 
-fn id_of(props: &Value) -> Result<&str, StoreError> {
-    props
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| StoreError::Invalid("a stored record needs an id".into()))
-}
-
 fn insert_one(connection: &Connection, kind: &str, props: &Value) -> Result<(), StoreError> {
     let (book, user, created) = indexed(props);
     connection
@@ -846,16 +829,6 @@ fn insert_edge(
         )
         .map_err(graph)?;
     Ok(())
-}
-
-/// A monotonic-ish stamp for ordering. The wall clock in microseconds, which is enough to keep a Book's entries in the
-/// order they were written even when two land in the same millisecond.
-fn now_seq() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_micros() as i64)
-        .unwrap_or(0)
 }
 
 fn owned(
@@ -922,21 +895,6 @@ fn children_of(
         answer.push(unquote(&row.map_err(graph)?)?);
     }
     Ok(answer)
-}
-
-/// A property name is a column the code holds, never a caller's text. Anything else would be a statement built by
-/// concatenation, which is the mistake this whole design exists to avoid.
-fn checked_property(property: &str) -> Result<&str, StoreError> {
-    if property.is_empty()
-        || !property
-            .chars()
-            .all(|letter| letter.is_ascii_alphanumeric() || letter == '_')
-    {
-        return Err(StoreError::Invalid(format!(
-            "'{property}' is not a property name"
-        )));
-    }
-    Ok(property)
 }
 
 fn find_by(

@@ -43,8 +43,18 @@ What it does not give us, and a ledger needs:
 - The store trait becomes the swap boundary in practice, not just in name. Work still to do, in order: shrink the trait so
   it is semantic rather than `run(cypher)` (the two edge doors added with the move are the first of those), then a Postgres
   implementation, then SQLite for the device.
-- A Postgres adapter cannot be written honestly without a server to test against. It lands on a machine with Postgres
-  available, with the round-trip gate pointed at it, not before.
+- A Postgres adapter cannot be written honestly without a server to test against. It was built only once a Postgres was
+  available, with the round-trip gate pointed at it: eleven tests against Postgres 15, including a Book carried from
+  SQLite into Postgres and compared on arrival. Two defects only a real server could show were fixed on the way, and both
+  are recorded here because they are properties of this decision rather than of one file:
+  - *The client must not be driven from inside another runtime.* The synchronous Postgres client runs its own runtime, so
+    a query issued on the engine's async thread panicked with "cannot start a runtime from within a runtime". Every
+    operation now runs on a thread of its own, which also means a slow query cannot stall other requests. Any future
+    backend with a synchronous client has the same constraint.
+  - *A `jsonb` column takes a value, not its text.* Postgres infers the parameter type from the target column and refuses
+    to convert a string into `jsonb`; the record travels as a value. The same applies to anyone adding a typed column.
+- Preflight starts a throwaway Postgres when the server binaries are installed, so these tests run rather than skipping. A
+  test that skips is a test nobody runs.
 - The data is movable today, which is the property that made deferring safe: nothing about this decision is expensive to
   reverse.
 - One thing this ADR does *not* decide: ownership of the 180 prefix groups with no catalogue entry. That is a documentation

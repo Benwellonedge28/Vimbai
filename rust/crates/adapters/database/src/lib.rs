@@ -26,6 +26,7 @@ use serde_json::{json, Map, Value};
 
 pub mod amounts;
 /// Moving records between stores: the thing that makes the store trait worth having.
+pub(crate) mod columns;
 pub mod dump;
 /// A graph that records what it was asked and answers from a script, for the tests of the crates
 /// that sit on this one.
@@ -33,6 +34,7 @@ pub mod dump;
 pub mod fake;
 pub mod file;
 pub mod neo4j_client;
+pub mod postgres;
 pub mod query;
 pub mod read;
 pub mod shared;

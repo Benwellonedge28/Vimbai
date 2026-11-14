@@ -14,7 +14,7 @@ vimbai-store-move - move a store's records into another store
 USAGE:
     vimbai-store-move <from> <to> [dump file]
 
-    <from>, <to>     file:<path>  or  neo4j
+    <from>, <to>     file:<path> | sqlite:<path> | postgres:<dsn> | neo4j
     [dump file]      write the dump to this path as well, so the move can be replayed
 
 Neo4j is configured by NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD and NEO4J_DATABASE.

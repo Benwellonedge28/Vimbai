@@ -14,6 +14,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Postgres as the deployment store, behind the same semantic doors. Eleven tests against a real Postgres 15: Book
+  isolation, an entry and its lines in one transaction, a refused posting leaving nothing behind, a thirty-nine digit
+  amount exact, shared rows, twenty-four concurrent writers losing nothing, four Books at once, and a Book carried from
+  SQLite into Postgres and compared on arrival. The engine prefers `VIMBAI_POSTGRES_URL` to Neo4j, which stays reachable
+  for anyone still running it. Two defects the fake could not have shown were fixed on the way: the synchronous client
+  panicked inside the engine's async runtime ("cannot start a runtime from within a runtime"), so each operation now runs
+  on its own thread, and a `jsonb` parameter sent as text was refused, so the record travels as a value. `store-move`
+  learned `sqlite:` and `postgres:`, and preflight starts a throwaway Postgres when the server binaries are installed.
 - SQLite as the device store, replacing the JSON file. It answers the semantic doors natively, with a real schema, WAL
   and numbered migrations that each roll back; an entry and its lines arrive in one transaction, a refused posting leaves
   nothing behind, and two hundred concurrent writers lose nothing. Shared rows (memberships, sync batches, organisation

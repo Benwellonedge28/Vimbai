@@ -5,17 +5,22 @@
 //! half of that: taking the data out of one and putting it into the other, with a comparison that says whether the move
 //! was faithful before anybody points traffic at the new one.
 //!
-//! A store is named as `file:<path>` for the on-device one, or `neo4j` for the server one (configured by `NEO4J_URI`,
-//! `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`, the same variables the engine reads).
+//! A store is named as `file:<path>` for the on-device JSON store, `sqlite:<path>` for the device store, `postgres:<dsn>`
+//! for the deployment store, or `neo4j` for the older server store (configured by `NEO4J_URI`, `NEO4J_USER`,
+//! `NEO4J_PASSWORD`, `NEO4J_DATABASE`, the same variables the engine reads).
 
 use vimbai_store::dump::{Dump, Restored};
 use vimbai_store::file::FileGraph;
 use vimbai_store::neo4j_client::Neo4jGraph;
+use vimbai_store::postgres::PostgresGraph;
+use vimbai_store::sqlite::SqliteGraph;
 use vimbai_store::{Graph, StoreError};
 
 /// One side of a move, as the command line names it.
 pub enum Store {
     File(Box<FileGraph>),
+    Sqlite(Box<SqliteGraph>),
+    Postgres(Box<PostgresGraph>),
     Neo4j(Box<Neo4jGraph>),
 }
 
@@ -27,12 +32,18 @@ impl Store {
                 "a memory store cannot be a source or a destination: it holds nothing once the process ends"
                     .into(),
             )),
-            other => match other.strip_prefix("file:") {
-                Some(path) if !path.trim().is_empty() => {
+            other => match other.split_once(':') {
+                Some(("file", path)) if !path.trim().is_empty() => {
                     Ok(Self::File(Box::new(FileGraph::open(path)?)))
                 }
+                Some(("sqlite", path)) if !path.trim().is_empty() => {
+                    Ok(Self::Sqlite(Box::new(SqliteGraph::open(path)?)))
+                }
+                Some(("postgres", dsn)) if !dsn.trim().is_empty() => Ok(Self::Postgres(Box::new(
+                    PostgresGraph::connect(dsn, 4)?,
+                ))),
                 _ => Err(StoreError::Invalid(format!(
-                    "{other} is not a store: use file:<path> or neo4j"
+                    "{other} is not a store: use file:<path>, sqlite:<path>, postgres:<dsn> or neo4j"
                 ))),
             },
         }
@@ -41,6 +52,8 @@ impl Store {
     pub fn graph(&self) -> &dyn Graph {
         match self {
             Self::File(graph) => graph.as_ref(),
+            Self::Sqlite(graph) => graph.as_ref(),
+            Self::Postgres(graph) => graph.as_ref(),
             Self::Neo4j(graph) => graph.as_ref(),
         }
     }

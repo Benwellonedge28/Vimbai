@@ -12,6 +12,8 @@ vimbai_common = { path = "../../common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rusqlite = { version = "0.42.0", features = ["bundled"] }
+# the deployment store: pure Rust, so the engine does not need libpq on the machine it runs on
+postgres = { version = "0.19", features = ["with-serde_json-1"] }
 
 [dev-dependencies]
 tempfile = "3"
