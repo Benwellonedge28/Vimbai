@@ -25,14 +25,14 @@ Every routed service, the domain that owns it, the crate it answers from, the ad
 
 ```text
 service                                      address                            eps  owns engine crate
-accounting-service                           /accounting                          1  recs rust   rust/crates/domains/accounting
+accounting-service                           /accounting                          0  -    rust   rust/crates/domains/accounting
 accounting-standards-service                 /accounting-standards               20  recs rust   rust/crates/domains/accounting
 balance-sheet-service                        /balance-sheet                       0  -    rust   rust/crates/domains/accounting
 cash-flow-service                            /cash-flow                           0  -    rust   rust/crates/domains/accounting
 cash-flow-statement-service                  /cash-flow-statement                 0  -    rust   rust/crates/domains/accounting
 cashbook-service                             /cashbook                            0  -    rust   rust/crates/domains/accounting
 company-accounting-service                   /company-accounting                  0  -    rust   rust/crates/domains/accounting
-departmental-accounting-service              /departmental-accounting            22  recs rust   rust/crates/domains/accounting
+departmental-accounting-service              /departmental-accounting             0  -    rust   rust/crates/domains/accounting
 fund-accounting-service                      /fund-accounting                     0  -    rust   rust/crates/domains/accounting
 ifrs-reporting-service                       /ifrs-reporting                      0  -    rust   rust/crates/domains/accounting
 intercompany-service                         /intercompany                        0  -    rust   rust/crates/domains/accounting
@@ -42,14 +42,14 @@ trading-account-service                      /trading-account                   
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `accounting-standards-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 | `balance-sheet-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `cash-flow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `cash-flow-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `cashbook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `company-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `departmental-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `departmental-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `fund-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `ifrs-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `intercompany-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |

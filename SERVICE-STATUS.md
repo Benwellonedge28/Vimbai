@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          31
+live and routed          29
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -20,7 +20,6 @@ unrouted, undecided      2
 Routed by the API gateway and deployed. These are the running product.
 
 `absorption-costing-service`
-`accounting-service`
 `accounting-standards-service`
 `admin-service`
 `automation-engine-service`
@@ -31,7 +30,6 @@ Routed by the API gateway and deployed. These are the running product.
 `cache-service`
 `continue-shutdown-decision-service`
 `currency-service`
-`departmental-accounting-service`
 `disposal-account-service`
 `document-service`
 `general-reserve-service`

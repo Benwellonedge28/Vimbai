@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 31 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 107 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 29 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 109 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -18,7 +18,7 @@ need vimbai_store alongside the maths.
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
 absorption-costing-statement-service           8099  routes=0   records=no  rust http (no python source)
-accounting-service                             8000  routes=1   records=yes rust http
+accounting-service                             8099  routes=0   records=no  rust http (no python source)
 accounting-standards-service                   8095  routes=20  records=yes rust http
 activity-based-budget-service                  8099  routes=0   records=no  rust http (no python source)
 admin-service                                  8099  routes=27  records=yes rust http
@@ -55,7 +55,7 @@ dashboard-service                              8099  routes=0   records=no  rust
 data-warehouse-service                         8099  routes=0   records=no  rust http (no python source)
 debentures-service                             8099  routes=0   records=no  rust http (no python source)
 debt-management-service                        8099  routes=0   records=no  rust http (no python source)
-departmental-accounting-service                8100  routes=22  records=yes rust http
+departmental-accounting-service                8099  routes=0   records=no  rust http (no python source)
 disposal-account-service                       8045  routes=6   records=no  rust http
 disposal-group-service                         8099  routes=0   records=no  rust http (no python source)
 distributed-workflow-orchestration-service     8099  routes=0   records=no  rust http (no python source)

@@ -29,6 +29,7 @@ pub mod amounts;
 /// that sit on this one.
 #[doc(hidden)]
 pub mod fake;
+pub mod file;
 pub mod neo4j_client;
 pub mod query;
 pub mod read;

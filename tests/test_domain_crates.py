@@ -34,6 +34,9 @@ STORE_MODULES = {
     # person. A shared Book's members are different people reading one another's rows, and the rows still belong to a
     # service; what lives here is only how they are found and stored, gated by the membership check the caller makes.
     "shared.rs",
+    # machinery too: the store over a file rather than a server, so the on-device runtime can hold a Book without a
+    # database. It knows the record statements and nothing about what the records mean.
+    "file.rs",
 }
 
 
@@ -63,7 +66,7 @@ def test_the_store_declares_no_service_module():
     with open(os.path.join(STORE, "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     declared = set(re.findall(r"^pub mod (\w+);", text, re.MULTILINE))
-    machinery = {"amounts", "fake", "neo4j_client", "query", "read", "shared", "write"}
+    machinery = {"amounts", "fake", "neo4j_client", "query", "read", "shared", "write", "file"}
     assert declared <= machinery, (
         f"the store still re-exports a domain module: {sorted(declared - machinery)}"
     )

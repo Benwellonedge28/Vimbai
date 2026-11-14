@@ -153,6 +153,17 @@ pub(crate) fn query_param(query: Option<&str>, name: &str) -> Option<String> {
 /// deployment without records configured simply does not mount these routes rather than failing
 /// to boot.
 pub fn from_env() -> Option<GraphHandle> {
+    // A machine with no database to talk to - the on-device runtime - hands the engine a file instead, and gets the
+    // same store over it. This is chosen before Neo4j so an offline install cannot fall back to a server it has not got.
+    if let Ok(path) = std::env::var("VIMBAI_STORE_FILE") {
+        return match store::file::FileGraph::open(&path) {
+            Ok(graph) => Some(Arc::new(graph) as GraphHandle),
+            Err(error) => {
+                eprintln!("cannot open the store at {path}: {error}");
+                None
+            }
+        };
+    }
     match store::Neo4jGraph::from_env() {
         Ok(graph) => Some(Arc::new(graph) as GraphHandle),
         Err(error) => {

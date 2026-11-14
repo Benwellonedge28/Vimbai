@@ -15,6 +15,14 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("JWT_SECRET", "local-test-secret")
 
 from vimbai_local.launcher import CORE_MEMBERS, build_app  # noqa: E402
+from vimbai_local.engine import binary_path  # noqa: E402
+
+# Accounting and departmental accounting live in the engine now, so the offline profile needs its binary. A machine that
+# has not built one is told so rather than left believing the Book is being kept somewhere.
+needs_engine = pytest.mark.skipif(
+    binary_path() is None,
+    reason="the engine binary is not built; preflight builds it, or set VIMBAI_ENGINE_BIN",
+)
 
 
 @pytest.fixture()
@@ -57,6 +65,7 @@ def _create_book(client, auth):
     return book_id
 
 
+@needs_engine
 def test_health_reports_core_profile(local_stack):
     client, _ = local_stack
     resp = client.get("/health")
@@ -76,6 +85,7 @@ def test_unauthenticated_call_rejected(local_stack):
     assert resp.status_code == 401
 
 
+@needs_engine
 def test_book_scoped_write_read_and_isolation(local_stack):
     client, _ = local_stack
     auth_a, _ = _register_and_login(client, "a")
@@ -97,23 +107,29 @@ def test_book_scoped_write_read_and_isolation(local_stack):
         headers=headers_a,
     )
     assert created.status_code in (200, 201), created.text
-    dept_id = created.json().get("id")
+    dept_id = _created_id(created.json())
 
     listing = client.get("/departmental-accounting/departments", headers=headers_a)
     assert listing.status_code == 200
     items = listing.json() if isinstance(listing.json(), list) else listing.json().get("departments", [])
     assert dept_id in [d.get("id") for d in items]
 
-    # User B sees none of user A's data and cannot use A's Book.
+    # User B sees none of user A's data and cannot use A's Book. The engine refuses a book-scoped read with no book at
+    # all rather than answering an empty list, so a refusal counts as isolation as long as nothing of A's comes back.
     listing_b = client.get("/departmental-accounting/departments", headers=auth_b)
-    assert listing_b.status_code == 200
-    b_items = listing_b.json() if isinstance(listing_b.json(), list) else listing_b.json().get("departments", [])
-    assert dept_id not in [d.get("id") for d in b_items]
+    assert listing_b.status_code in (200, 400, 403), listing_b.text
+    if listing_b.status_code == 200:
+        body = listing_b.json()
+        b_items = body if isinstance(body, list) else body.get("departments", [])
+        assert dept_id not in [d.get("id") for d in b_items]
+    else:
+        assert dept_id not in listing_b.text
 
     stolen = client.get("/departmental-accounting/departments", headers={**auth_b, "X-Book-ID": book_id})
     assert stolen.status_code == 403
 
 
+@needs_engine
 def test_data_survives_full_restart(local_stack):
     client, data_dir = local_stack
     auth_a, username = _register_and_login(client, "a")
@@ -133,7 +149,7 @@ def test_data_survives_full_restart(local_stack):
         headers=headers_a,
     )
     assert created.status_code in (200, 201), created.text
-    dept_id = created.json()["id"]
+    dept_id = _created_id(created.json())
 
     # --- simulate a machine restart: rebuild everything from the data dir ---
     app2, loaded, skipped, _ = build_app(profile="core", data_dir=data_dir, port=8000)
@@ -155,6 +171,15 @@ def test_data_survives_full_restart(local_stack):
     assert listing.status_code == 200
     items = listing.json() if isinstance(listing.json(), list) else listing.json().get("departments", [])
     assert dept_id in [d.get("id") for d in items]
+
+
+def _created_id(payload):
+    """The id of a record a create answered.
+
+    A department create answers with the department and the cost centre it opened in the chart of accounts, which is
+    why this reads one level in: the Python service opened that account too, but kept quiet about it.
+    """
+    return (payload.get("department") or payload)["id"]
 
 
 def _book_list(payload):

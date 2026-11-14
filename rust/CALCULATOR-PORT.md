@@ -1719,6 +1719,25 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   (banking-integration). One address is a real gap rather than a missing route, recorded in KNOWN_GAPS with its reason:
   banking-integration's per-connection transaction feed, which the engine has no read for.
 
+### The on-device store
+
+The local runtime served the bookkeeping services by importing them, so retiring those directories would have taken the
+offline profile with them. The engine can hold the Book itself now: `vimbai_store::file::FileGraph` keeps the same
+in-memory graph the tests use and writes it out after every statement that changes something, landing through a rename
+under a lock so a crash mid-write leaves the previous file. `VIMBAI_STORE_FILE` makes the engine choose that store before
+it looks for Neo4j, because a machine with no database must not fall back to one.
+
+`vimbai_local/engine.py` starts the binary beside the Python runtime and forwards a retired service's address to it with
+the form its gateway entry forwards (prefix kept or stripped). A machine without a binary keeps whatever Python is still
+on disk and says so in `/health`, and `scripts/preflight.sh` builds the binary so the offline tests run rather than skip.
+
+Retired with that in place: accounting-service and departmental-accounting-service. Still on Python deliberately:
+book-sync-service, because the local gateway's Book membership check reads its sqlite tables, so retiring it needs that
+check to read the engine first. Two shapes changed with the move and both are the engine's being stricter or fuller: a
+department create answers with the department and the cost centre it opened, where the service answered with the
+department alone and opened the account silently, and a book-scoped read with no book is refused rather than answered
+with an empty list.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

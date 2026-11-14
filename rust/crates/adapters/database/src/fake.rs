@@ -1,8 +1,12 @@
-//! A graph that records what it was asked and answers from a script. Tests only.
+//! The engine's own graph, written out rather than spoken to a database.
+//!
+//! `FakeGraph` scripts answers for a test. `MemoryGraph` is the store's real statements held in memory, which is what a
+//! test walks a record through and what the on-device runtime keeps on disk through `FileGraph`.
 
 use std::cell::RefCell;
 use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{Graph, StoreError};
@@ -71,7 +75,7 @@ impl Graph for FakeGraph {
 }
 
 /// One stored node.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Node {
     label: String,
     props: Value,
@@ -82,7 +86,7 @@ struct Node {
 /// refuses anything else rather than guessing. Records are scoped the way the real store scopes them, which is
 /// what lets a test show that one Book cannot see another's.
 /// One edge between two stored nodes, by the ids they carry.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Edge {
     pub from: String,
     pub label: String,
@@ -134,6 +138,54 @@ fn stated(params: &Value, key: &str) -> String {
 impl MemoryGraph {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Everything held, as plain JSON, so it can be written to a file and read back.
+    pub fn snapshot(&self) -> Value {
+        let nodes: Vec<Value> = self
+            .nodes
+            .lock()
+            .expect("the memory graph is never poisoned")
+            .iter()
+            .map(|node| json!({"label": node.label, "props": node.props}))
+            .collect();
+        let edges = self
+            .edges
+            .lock()
+            .expect("the memory graph is never poisoned")
+            .clone();
+        json!({"nodes": nodes, "edges": edges})
+    }
+
+    /// Replace everything held with a snapshot taken by `snapshot`, which is how a file comes back as a graph.
+    pub fn restore(&self, snapshot: &Value) {
+        let nodes: Vec<Node> = snapshot
+            .get("nodes")
+            .and_then(Value::as_array)
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|row| {
+                        Some(Node {
+                            label: row.get("label")?.as_str()?.to_string(),
+                            props: row.get("props")?.clone(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let edges: Vec<Edge> = snapshot
+            .get("edges")
+            .cloned()
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
+        *self
+            .nodes
+            .lock()
+            .expect("the memory graph is never poisoned") = nodes;
+        *self
+            .edges
+            .lock()
+            .expect("the memory graph is never poisoned") = edges;
     }
 
     /// Every edge of one label, oldest first, so a test can see what a write joined up.

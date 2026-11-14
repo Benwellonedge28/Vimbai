@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service accounting-service finance-service budget-service "
+            services: "identity-service finance-service budget-service "
           - group: advanced-accounting
             services: "currency-service general-reserve-service "
           - group: platform-automation

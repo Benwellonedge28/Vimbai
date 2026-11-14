@@ -19,9 +19,10 @@
     {
       "name": "accounting-service",
       "path": "/accounting",
-      "url": "http://localhost:8000",
-      "port": 8000,
-      "auth_required": true
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "accounting-standards-service",
@@ -314,8 +315,8 @@
     {
       "name": "departmental-accounting-service",
       "path": "/departmental-accounting",
-      "url": "http://localhost:9011",
-      "port": 8100,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

@@ -24,14 +24,14 @@ Lands in `rust/crates/domains/accounting`.
 
 ```
 service                                         port  routes  records  engine
-accounting-service                              8000      54      yes  rust
+accounting-service                              8099       0       no  rust
 accounting-standards-service                    8095      20      yes  rust
 balance-sheet-service                           8099       0       no  rust
 cash-flow-service                               8099       0       no  rust
 cash-flow-statement-service                     8099       0       no  rust
 cashbook-service                                8099       0       no  rust
 company-accounting-service                      8099       0       no  rust
-departmental-accounting-service                 8100      22      yes  rust
+departmental-accounting-service                 8099       0       no  rust
 fund-accounting-service                         8099       0       no  rust
 ifrs-reporting-service                          8099       0       no  rust
 intercompany-service                            8099       0       no  rust

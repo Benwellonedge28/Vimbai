@@ -37,12 +37,9 @@ CORE_MEMBERS = (
     ("book-sync", "book-sync-service"),
 )
 
-# A service retired to the Rust engine has no directory left, and loading it would only produce a skip. The profile is
-# therefore whatever of it is still on disk: the local runtime is a Python convenience, not the definition of the
-# platform, and it shrinks as Python leaves rather than holding it in place.
-CORE_MEMBERS = tuple(
-    member for member in CORE_MEMBERS if os.path.isdir(os.path.join(REPO_ROOT, member[1]))
-)
+# The core profile is what offline bookkeeping needs, not what happens to be importable: a member whose directory is gone
+# is served from the engine instead (see engine.py), and only a machine with no engine binary falls back to skipping it.
+# The list is therefore not filtered by what is on disk, or a retired service would quietly vanish from the profile.
 
 
 def _load_services_json():
@@ -99,6 +96,7 @@ def _service_pkg(service_dir):
 
 def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
     """Assemble the composite local application. Returns (app, loaded, skipped)."""
+    from vimbai_local import engine as engine_mod
     from vimbai_local import store as store_mod
     from vimbai_local.gateway import LocalGatewayMiddleware, load_or_create_secret
 
@@ -121,7 +119,18 @@ def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
 
     loaded, skipped, persisted = [], [], []
     book_sync_db_path = None
+    # Services that live in the engine now have no directory to import. The engine runs beside this process over a
+    # store file, and each of those addresses is forwarded to it so the client's URL does not change.
+    engine = engine_mod.Engine(data_dir)
+    engine_up = engine.start() if engine.binary else False
     for path_prefix, service_dir in members:
+        if not os.path.isdir(os.path.join(REPO_ROOT, service_dir)):
+            if engine_up:
+                engine_mod.mount(app, engine, path_prefix, service_dir)
+                loaded.append(f"/{path_prefix} (engine)")
+            else:
+                skipped.append((f"/{path_prefix}", "retired to the engine, which is not built on this machine"))
+            continue
         try:
             mod = _import_service(service_dir)
             pkg = _service_pkg(service_dir)
@@ -148,10 +157,15 @@ def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
         book_sync_db=book_sync_db,
     )
 
+    @app.on_event("shutdown")
+    def stop_engine():
+        engine.stop()
+
     @app.get("/health")
     def local_health():
         return {
             "service": "vimbai-local",
+            "engine": "running" if engine_up else "not built",
             "profile": profile,
             "status": "healthy",
             "data_dir": data_dir,

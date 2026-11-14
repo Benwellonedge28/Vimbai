@@ -159,13 +159,12 @@ services:
 - name: accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8000
+  port: 8099
   gateway_path: /accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
+  records: false
+  endpoints: []
 - name: accounting-standards-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -624,34 +623,12 @@ services:
 - name: departmental-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8100
+  port: 8099
   gateway_path: /departmental-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /departments
-  - GET /departments
-  - GET /departments/{department_id}
-  - PUT /departments/{department_id}
-  - GET /departments/{department_id}/hierarchy
-  - POST /allocation-rules
-  - GET /allocation-rules
-  - DELETE /allocation-rules/{rule_id}
-  - POST /cost-pools
-  - GET /cost-pools
-  - GET /cost-pools/{pool_id}
-  - POST /allocate
-  - GET /allocations/{pool_id}
-  - POST /inter-department-bills
-  - GET /inter-department-bills
-  - POST /inter-department-bills/{bill_id}/approve
-  - GET /departments/{department_id}/financials
-  - GET /departments/{department_id}/performance-report
-  - GET /reports/department-comparison
-  - POST /reports/department-comparison
-  - GET /reports/cost-distribution
+  records: false
+  endpoints: []
 - name: disposal-account-service
   domain: assets
   target: rust/crates/domains/assets
