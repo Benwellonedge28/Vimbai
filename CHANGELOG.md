@@ -6,6 +6,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- `ci.yml` is deleted, and it had not been running anything. Three of its jobs still listed `lint-python` and
+  `test-python-services` under `needs` after those jobs were deleted with the Python services, so GitHub rejected the whole
+  file and its CodeQL, Trivy, Grype, ZAP, SBOM and failure-notifier jobs had not executed since. Every job it had also carried
+  `continue-on-error: true`. What was worth keeping moved to `security-scan.yml`: `cargo audit` over the lock file the engine
+  ships, and CodeQL over the gateway (retargeted from `python, javascript, typescript` to `go`). What it duplicated is covered
+  elsewhere: Go build and test by `ci-main.yml`, image builds by `docker-publish.yml` and `calculation-api.yml`, deploys by
+  `cd-production.yml`. Its ZAP job scanned `https://www.example.com` and its Grype job scanned the same filesystem Trivy
+  already covers, so neither is missed. The deploy job it carried is the one thing not restored anywhere: it applied the
+  production overlay on every push to `main`, a second untagged door into production beside the release workflow.
 - The pipeline index describes the pipelines that exist. `.github/workflows/README.md` still described a Python matrix over
   300+ microservices, `ruff` and `bandit`, Codecov, Helm and Terraform - none of which is how this repository works - so the one
   page that says what gates a change was telling readers about gates that do not exist. It now names each workflow, when it

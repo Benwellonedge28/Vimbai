@@ -58,6 +58,47 @@ jobs:
           category: TRIVY-SECURITY-SCAN
         continue-on-error: true
 
+  # The Rust engine ships a lock file; `cargo audit` reads it against the advisory database. This is the check that used to
+  # live in the all-in-one `ci.yml`, where every job carried `continue-on-error` and the workflow could not even compile.
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Audit the dependencies the engine ships
+        working-directory: rust
+        run: cargo audit --json > cargo-audit-report.json || (cat cargo-audit-report.json; exit 1)
+      - name: Upload the audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cargo-audit-report
+          path: rust/cargo-audit-report.json
+          retention-days: 30
+
+  # CodeQL for the gateway, which is the one language here that CodeQL understands. It used to run in `ci.yml` over
+  # `python, javascript, typescript` - two languages this repository no longer has and one it only has as a legacy tree.
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          queries: security-extended
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:go"
+
   generate-sbom:
     runs-on: ubuntu-latest
     steps:

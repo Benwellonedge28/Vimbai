@@ -1,6 +1,6 @@
 # The pipelines
 
-There are fourteen workflows, and each one is here for a reason that can be stated in a sentence. This page used to describe a Python
+There are thirteen workflows, and each one is here for a reason that can be stated in a sentence. This page used to describe a Python
 matrix over 300+ microservices, `ruff` and `bandit`, Codecov, Helm and Terraform. None of that is true any more: the services
 are Rust (ADR-001), the deployment story is kustomize, and there is no Terraform to format. A stale index is worse than no
 index, because it makes work look gated when it is not - so this page is checked. `workflows::documented_workflows` fails the
@@ -19,7 +19,7 @@ build when a workflow file is not named here, or when this page names one that n
 
 | Workflow | Starts on | What it does |
 | --- | --- | --- |
-| `security-scan.yml` | weekly, and by hand | Secret scan, dependency scan, SBOM. |
+| `security-scan.yml` | weekly, and by hand | Secret scan (TruffleHog), dependency scan (Trivy, advisory), `cargo audit` over the lock file the engine ships, CodeQL over the gateway, and an SBOM. |
 | `registry-cleanup.yml` | schedule, and by hand | Prunes old images from the registry. |
 | `repo-management.yml` | schedule, and on a pull request | Stale-issue sweep, and pull-request validation. |
 | `cd-rollback.yml` | by hand only | Rolls a deployment back to a named version. |
@@ -34,17 +34,20 @@ build when a workflow file is not named here, or when this page names one that n
 | `docker-publish.yml` | a changed `Dockerfile` or dependency manifest, and by hand | Publishes the changed images. |
 | `calculation-api.yml` | a change under `rust/`, and by hand | Publishes the engine image. |
 
-## The legacy all-in-one, and why it is still here
+## What was removed, and why
 
-`ci.yml` predates the split above and repeats parts of it: CodeQL, a Go build and test, a Docker build, a kustomize deploy,
-and the security scans (`zap-scan`, `trivy-scan`, `grype-scan`, `dependency-vulnerabilities`, `sbom`). Its Go test step is the
-only copy of the gateway's test in a pipeline that always runs it, and the scans are what the platform's security story is
-built on, so the workflow is not deleted while those are unique to it. What is *not* acceptable is a duplicated step that can
-fail to fail: its `go test` no longer hides behind `|| echo`, and `workflows::swallowed_test_failures` reports any workflow
-that runs a test suite and then discards the verdict.
+`ci.yml` was a 400-line all-in-one. It is gone, and it is worth saying why rather than leaving its absence to be wondered at.
+It had stopped running at all: two of its jobs, `lint-python` and `test-python-services`, were deleted when the services became
+Rust, and three other jobs still listed them under `needs`, so GitHub rejected the whole file and none of its jobs - CodeQL,
+Trivy, Grype, ZAP, the SBOM, the failure notifier - had executed since. What it still had that mattered was `cargo audit` and
+CodeQL, both now in `security-scan.yml`. What it duplicated is covered: its Go build and test by `ci-main.yml`, its image build
+by `docker-publish.yml` and `calculation-api.yml`, its deploy by `cd-production.yml`. That last one is the reason not to restore
+it: it applied the production overlay on every push to `main`, so production had a second, untagged door beside the release
+workflow. Its ZAP job scanned `https://www.example.com` and its Grype job scanned the same filesystem Trivy already covers, so
+neither is missed.
 
 ## Secrets
 
-`KUBECONFIG` (or `KUBE_CONFIG_STAGING` and `KUBE_CONFIG_PRODUCTION`) for the deploy steps, and `GITHUB_TOKEN` for image pushes
-and releases. The deploy step in `ci.yml` checks for the kubeconfig and skips, saying so, rather than failing a change that
+`KUBECONFIG`, `KUBE_CONFIG_STAGING` and `KUBE_CONFIG_PRODUCTION` for the two deploy workflows, and `GITHUB_TOKEN` for image
+pushes and releases. The deploy steps check for the kubeconfig first and skip, saying so, rather than failing a change that
 could not be deployed from a fork.

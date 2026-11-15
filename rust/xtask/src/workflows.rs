@@ -440,18 +440,44 @@ pub fn documented_workflows(root: &Path) -> Vec<String> {
             ));
         }
     }
-    // the other direction: a `.yml` the index mentions has to exist, or the index describes a gate that was deleted
-    for word in index.split(|character: char| {
-        character.is_whitespace() || character == '`' || character == '|' || character == ','
-    }) {
-        let candidate = word.trim_matches(|character: char| character == ')' || character == '(');
-        if candidate.ends_with(".yml") && !existing.iter().any(|name| name == candidate) {
-            problems.push(format!(
-                "the workflow index names {candidate}, which does not exist"
-            ));
+    // the other direction: a `.yml` the index presents as current has to exist. A line that says it was removed is not
+    // claiming it still runs, and saying plainly what was deleted and why is worth more than never naming it.
+    for line in index.lines() {
+        if names_a_removal(line) {
+            continue;
+        }
+        for word in line.split(|character: char| {
+            character.is_whitespace() || character == '`' || character == '|' || character == ','
+        }) {
+            // a sentence ends in a full stop, and `gone.yml.` names the same file as `gone.yml`
+            let candidate = word.trim_matches(|character: char| {
+                matches!(character, ')' | '(' | '.' | ':' | ';' | '"')
+            });
+            if candidate.ends_with(".yml") && !existing.iter().any(|name| name == candidate) {
+                problems.push(format!(
+                    "the workflow index names {candidate}, which does not exist"
+                ));
+            }
         }
     }
     problems
+}
+
+/// Whether a line of the index is describing something that was removed rather than something that runs.
+fn names_a_removal(line: &str) -> bool {
+    let lowered = line.to_lowercase();
+    // not the bare word "gone": a file called `gone.yml` would silence the check about itself
+    [
+        "removed",
+        "deleted",
+        "no longer",
+        "stopped running",
+        " is gone",
+        " was ",
+        " were ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
 }
 
 /// The workflow that gates a merge.
