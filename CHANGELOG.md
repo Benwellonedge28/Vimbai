@@ -14,11 +14,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   a caller becomes somebody and cannot require a token. `cargo run -p xtask -- gateway` reports any self-declared route the engine
   does not answer, so a door to nothing fails the build, and the gateway README now documents the addresses that exist instead of
   the retired services' shapes.
-- The first honest reading of the catalogue against the engine found twenty-six published prefixes with no engine route under
-  them - `/invoicing` (the work happens at `/invoices`), `/multimodal` (the capture surface is at `/tasks`), `/book-sync` (the sync
-  server serves it, not the engine) and their neighbours. They are pinned by name in a test, so a twenty-seventh fails the build and
-  resolving one without shrinking the list fails it too. The audit could not see these either: it asks whether an address a retired
-  service published still answers, not whether a published prefix answers anything at all.
+- The complement of the audit's question is now asked too. The audit reads a stripping entry - one that forwards `/prefix/rest` to
+  the engine's `/rest` - against the endpoints its retired service last published, so it covers the shape whose target is decided
+  per request. Nothing covered the other shape: an entry that forwards unstripped has to be an address the engine answers itself, and
+  that is now asserted for every such entry. (The first draft of this reported twenty-six broken prefixes. They were all stripping
+  entries, judged by a rule that could not see them: the check mis-filing a shape, not a defect. Both shapes are covered now, and the
+  test says which one it is judging so the mistake is not made twice.)
 
 - A manifest could configure something nothing reads, and every file involved looked right. Three of them were live: the sync
   server was handed `VIMBAI_SYNC_ADDR` and ignored it, so the pod bound `127.0.0.1:8100` while declaring container port 8099 -

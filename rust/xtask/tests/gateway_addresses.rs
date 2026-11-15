@@ -149,49 +149,33 @@ fn a_gateway_with_no_door_at_all_fails_rather_than_passing() {
     assert!(!dead.is_empty(), "an empty scan must fail, not pass");
 }
 
-/// The prefixes the catalogue publishes that the engine answers nothing for.
-///
-/// The audit asks a different question - whether an address a retired service published still answers at the form the gateway
-/// forwards - so an entry whose address nobody ever asked about passes it. These twenty-six prefix the engine has no route under:
-/// the regexes are of prefixes like `/invoicing` (whose work happens at `/invoices`), `/multimodal` (whose capture surface is at
-/// `/tasks`) and `/book-sync` (which the sync server serves, not the engine), so each is a published door to nothing rather than a
-/// missing handler. Pinning the set means a twenty-seventh fails the build, and resolving one without shrinking this list fails it
-/// too, which is the least that keeps the count from quietly growing.
-const UNANSWERED_PREFIXES: [&str; 26] = [
-    "/audit-compliance",
-    "/audit-sampling",
-    "/bad-debts-recovery",
-    "/bank-relationship",
-    "/banking-integration",
-    "/book-sync",
-    "/control-account-reconciliation",
-    "/data-warehouse",
-    "/distributed-workflow-orchestration",
-    "/double-entry-principles",
-    "/financial-identity",
-    "/financial-integrity",
-    "/financial-state-machine",
-    "/invoicing",
-    "/multimodal",
-    "/performance-benchmarking",
-    "/privacy-admin-dashboard",
-    "/realtime-calculation",
-    "/report-distribution",
-    "/reporting",
-    "/rolling-forecast",
-    "/sales-ledger-control",
-    "/subscription-plans",
-    "/tax-accounting",
-    "/tax-planning",
-    "/webhook",
-];
-
+/// A stripping entry forwards `/prefix/rest` to the engine's `/rest`, so what it reaches is decided per request and its client
+/// paths are the retired service's own. That is what the published-address audit reads out of git, and it is why this rule cannot
+/// reach those entries: the withdrawn version of this test listed twenty-six of them as answering nothing, which was the check
+/// mis-filing a shape it had not considered rather than a defect in the catalogue.
 #[test]
-fn the_prefixes_the_engine_answers_nothing_for_are_the_ones_named() {
+fn an_entry_that_strips_is_not_judged_by_its_own_path() {
+    let root = root();
+    let stripping = xtask::gateway::entries(&root)
+        .into_iter()
+        .filter(|entry| entry.strip_prefix)
+        .count();
+    assert!(
+        stripping > 0,
+        "the manifest has stripping entries; this rule has to keep accounting for them"
+    );
+}
+
+/// Every entry that forwards unstripped must be an address the engine answers. A stripping entry is the audit's question, not
+/// this one, so the two rules cover the two shapes between them: nothing here is a prefix the engine does not answer at the form
+/// the gateway forwards it, and nothing there is a published endpoint that stops answering.
+#[test]
+fn every_unstripped_entry_is_an_address_the_engine_answers() {
     let root = root();
     let addressed = xtask::gateway::engine_routes(&root);
-    let mut unanswered: Vec<String> = xtask::gateway::entries(&root)
+    let unanswered: Vec<String> = xtask::gateway::entries(&root)
         .into_iter()
+        .filter(|entry| !entry.strip_prefix)
         .map(|entry| entry.path.trim_end_matches('/').to_string())
         .filter(|prefix| {
             !addressed
@@ -199,11 +183,5 @@ fn the_prefixes_the_engine_answers_nothing_for_are_the_ones_named() {
                 .any(|address| address == prefix || address.starts_with(&format!("{prefix}/")))
         })
         .collect();
-    unanswered.sort();
-    unanswered.dedup();
-    let named: Vec<String> = UNANSWERED_PREFIXES.iter().map(|p| p.to_string()).collect();
-    assert_eq!(
-        unanswered, named,
-        "the list of published prefixes the engine does not answer has changed"
-    );
+    assert!(unanswered.is_empty(), "{unanswered:#?}");
 }
