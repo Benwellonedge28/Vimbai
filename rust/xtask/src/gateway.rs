@@ -439,6 +439,59 @@ pub fn misrouted(root: &Path) -> Vec<String> {
     findings
 }
 
+/// The routes the gateway declares in Go rather than in the catalogue, and whether the engine answers them.
+///
+/// The gateway carried twenty-two of these beside `services.json`: `/accounts`, `/journal-entries`, `/budgets`, `/customers`,
+/// `/banks`, `/customers` and their neighbours, each with its own `*_SERVICE_URL` in the manifest, each pointing at a service
+/// retired into the engine. Nothing read the catalogue for those prefixes and nothing read the code for the catalogue's, so a
+/// client calling `/accounts` reached a host that does not resolve while `/accounting/accounts` reached the engine that
+/// answers it. Neither the address audit, the parity tests nor the manifest gate could see it: they read the manifest, and the
+/// manifest was not where those routes were.
+///
+/// One static route is legitimate: `/identity`, because signing in has to answer without a token. So the rule is not "no static
+/// routes" but "a static route is an address the engine answers", which is what makes it a door rather than a promise.
+pub fn static_routes(root: &Path) -> Vec<(String, bool)> {
+    let Ok(text) = std::fs::read_to_string(root.join("gateway/go/config/config.go")) else {
+        return Vec::new();
+    };
+    let answered = engine_routes(root);
+    let mut routes = Vec::new();
+    for line in text.lines() {
+        let Some(at) = line.find("{Path: \"") else {
+            continue;
+        };
+        let rest = &line[at + "{Path: \"".len()..];
+        let Some(end) = rest.find('"') else {
+            continue;
+        };
+        let path = &rest[..end];
+        let prefix = path.trim_end_matches('/');
+        let reaches_engine = answered
+            .iter()
+            .any(|address| address == prefix || address.starts_with(&format!("{prefix}/")));
+        routes.push((path.to_string(), reaches_engine));
+    }
+    routes
+}
+
+/// Static routes the engine does not answer: a door to a service that is not there, invisible to every other check.
+pub fn dead_static_routes(root: &Path) -> Vec<String> {
+    let routes = static_routes(root);
+    if routes.is_empty() {
+        return vec![
+            "the gateway declares no route of its own, so this scan is reading nothing (the /identity door has to be there)"
+                .to_string(),
+        ];
+    }
+    routes
+        .into_iter()
+        .filter(|(_, reaches_engine)| !reaches_engine)
+        .map(|(path, _)| {
+            format!("{path} is a route the gateway declares itself, and the engine answers nothing under it")
+        })
+        .collect()
+}
+
 /// Does this entry forward to the engine rather than to a container of its own?
 pub(crate) fn forward_to_engine(entry: &Entry) -> bool {
     forwards_to_engine(entry)

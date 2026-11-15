@@ -41,12 +41,6 @@ type Config struct {
 	Port                         int
 	JwtSecret                    string
 	IdentityServiceURL           string
-	AccountingServiceURL         string
-	FinanceServiceURL            string
-	MultimodalServiceURL         string
-	BankingIntegrationServiceURL string
-	SupplyChainServiceURL        string // RENAMED FROM InvoicingServiceURL
-	FraudDetectionServiceURL     string
 	Routes                       []Route
 	RateLimit                    RateLimitConfig
 }
@@ -73,12 +67,6 @@ func LoadConfig() *Config {
 		Port:                         port,
 		JwtSecret:                    os.Getenv("JWT_SECRET"),
 		IdentityServiceURL:           getEnv("IDENTITY_SERVICE_URL", "http://localhost:8099"),
-		AccountingServiceURL:         getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
-		FinanceServiceURL:            getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
-		MultimodalServiceURL:         getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
-		BankingIntegrationServiceURL: getEnv("BANKING_INTEGRATION_SERVICE_URL", "http://localhost:8003"),
-		SupplyChainServiceURL:        getEnv("SUPPLY_CHAIN_SERVICE_URL", "http://localhost:8004"), // RENAMED
-		FraudDetectionServiceURL:     getEnv("FRAUD_DETECTION_SERVICE_URL", "http://localhost:8005"),
 		RateLimit: RateLimitConfig{
 			Enabled:           rateLimitEnabled,
 			RequestsPerSecond: rateLimitRPS,
@@ -87,34 +75,13 @@ func LoadConfig() *Config {
 		},
 	}
 
+	// One static door, and the reason it is not a catalogue entry: signing in is how a caller becomes somebody, so it has to
+	// answer without a token. Everything else the gateway publishes comes from config/services.json, which is the same file the
+	// on-device runtime and the audit read. Twenty-two routes used to sit here, hand-written, each with its own service URL in
+	// the environment: they named services that have since been retired into the engine, so every one of them forwarded to a
+	// host that does not resolve while the catalogue published the same prefix to an address that answers.
 	cfg.Routes = []Route{
-		// The engine answers /identity/<path> itself (identity lives in rust/crates/platform/identity and its HTTP
-		// surface in rust/apps/api-server/src/identity.rs), so the prefix is NOT stripped: the same address a client
-		// already calls reaches the one implementation. The door stays open, because signing in is how a caller
-		// becomes somebody.
 		{Path: "/identity", TargetURL: cfg.IdentityServiceURL, AuthRequired: false, StripPrefix: false},
-		{Path: "/accounts", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
-		{Path: "/journal-entries", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
-		{Path: "/financial-statements", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
-		{Path: "/ledgers", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
-		{Path: "/trial-balance", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
-		{Path: "/budgets", TargetURL: cfg.FinanceServiceURL, AuthRequired: true},
-		{Path: "/financial-ratios", TargetURL: cfg.FinanceServiceURL, AuthRequired: true},
-		{Path: "/multimodal", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/process-document-ocr", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/process-audio-to-text", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/process-multimodal-input", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/multimodal-to-journal-entry", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/tasks", TargetURL: cfg.MultimodalServiceURL, AuthRequired: true},
-		{Path: "/banking-integration", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
-		{Path: "/banks", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
-		{Path: "/transactions", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
-		{Path: "/customers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},       // ROUTED TO NEW SERVICE
-		{Path: "/sales-invoices", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},  // RENAMED ROUTE
-		{Path: "/suppliers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},       // NEW ROUTE
-		{Path: "/inventory-items", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
-		{Path: "/purchase-orders", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
-		{Path: "/fraud-detection", TargetURL: cfg.FraudDetectionServiceURL, AuthRequired: true},
 	}
 
 	// Merge dynamic routes from services.json if available

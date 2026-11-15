@@ -6,6 +6,20 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The gateway had two routing tables. One was `config/services.json`, which the engine, the on-device runtime and the audit all
+  read; the other was twenty-two routes written in Go beside it, each with its own `*_SERVICE_URL` in the manifest, each pointing
+  at a service retired into the engine. Clients calling `/accounts`, `/budgets`, `/customers` or `/banks` reached hosts that do not
+  resolve, while `/accounting/accounts` reached the engine that answers the same surface. No check could see it: the address audit
+  reads the manifest, and those routes were not in the manifest. The table is now one route, `/identity`, because signing in is how
+  a caller becomes somebody and cannot require a token. `cargo run -p xtask -- gateway` reports any self-declared route the engine
+  does not answer, so a door to nothing fails the build, and the gateway README now documents the addresses that exist instead of
+  the retired services' shapes.
+- The first honest reading of the catalogue against the engine found twenty-six published prefixes with no engine route under
+  them - `/invoicing` (the work happens at `/invoices`), `/multimodal` (the capture surface is at `/tasks`), `/book-sync` (the sync
+  server serves it, not the engine) and their neighbours. They are pinned by name in a test, so a twenty-seventh fails the build and
+  resolving one without shrinking the list fails it too. The audit could not see these either: it asks whether an address a retired
+  service published still answers, not whether a published prefix answers anything at all.
+
 - A manifest could configure something nothing reads, and every file involved looked right. Three of them were live: the sync
   server was handed `VIMBAI_SYNC_ADDR` and ignored it, so the pod bound `127.0.0.1:8100` while declaring container port 8099 -
   a sync endpoint no client in the cluster could reach; the engine was handed `OTEL_EXPORTER_OTLP_ENDPOINT` with no

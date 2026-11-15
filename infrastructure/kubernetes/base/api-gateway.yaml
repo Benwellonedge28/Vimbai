@@ -40,18 +40,6 @@ spec:
               key: JWT_SECRET
         - name: IDENTITY_SERVICE_URL
           value: "http://calculation-api:8099"
-        - name: ACCOUNTING_SERVICE_URL
-          value: "http://accounting-service:8000"
-        - name: FINANCE_SERVICE_URL
-          value: "http://finance-service:8001"
-        - name: MULTIMODAL_SERVICE_URL
-          value: "http://multimodal-service:8002"
-        - name: BANKING_INTEGRATION_SERVICE_URL
-          value: "http://banking-service:8003"
-        - name: SUPPLY_CHAIN_SERVICE_URL
-          value: "http://supply-chain-service:8004"
-        - name: FRAUD_DETECTION_SERVICE_URL
-          value: "http://fraud-detection-service:8005"
         - name: RATE_LIMIT_ENABLED
           value: "true"
         - name: RATE_LIMIT_RPS

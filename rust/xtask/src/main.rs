@@ -27,6 +27,7 @@ COMMANDS:
     gateway --addresses  print every address the engine answers, one per line
     gateway --misrouted  print every routed prefix the engine answers while its entry forwards elsewhere
     gateway --ports  print every entry whose stated port is not the port its address names
+    gateway --static  print the routes the gateway declares in Go, and whether the engine answers each
     openapi            rewrite contracts/openapi/v1/domains/ from the engine's routes
     openapi --check    report an address with no contract, a contract with no address, or a stale file
     owners             print which crate answers each prefix the catalogue no longer routes
@@ -331,6 +332,13 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         }
+        "gateway" if args.iter().any(|argument| argument == "--static") => {
+            let routes = gateway::static_routes(&root);
+            for (path, reaches_engine) in &routes {
+                println!("{path} answered_by_engine={reaches_engine}");
+            }
+            ExitCode::SUCCESS
+        }
         "gateway" if args.iter().any(|argument| argument == "--ports") => {
             let findings = gateway::port_drift(&root);
             for finding in &findings {
@@ -371,6 +379,16 @@ fn main() -> ExitCode {
                 println!("  {path}: {}", names.join(", "));
             }
             problems += collisions.len();
+
+            let doors = gateway::dead_static_routes(&root);
+            println!(
+                "routes the gateway declares that the engine does not answer: {}",
+                doors.len()
+            );
+            for line in &doors {
+                println!("  {line}");
+            }
+            problems += doors.len();
 
             if problems == 0 {
                 ExitCode::SUCCESS

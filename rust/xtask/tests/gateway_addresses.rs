@@ -11,7 +11,10 @@
 //! These read the retired services' last `main.py` out of git, so the check is against what the gateway promised rather
 //! than against what the router happens to say today.
 
-use xtask::gateway::{audit, method_gaps, misrouted, port_drift, stripped_collisions};
+use xtask::gateway::{
+    audit, dead_static_routes, method_gaps, misrouted, port_drift, static_routes,
+    stripped_collisions,
+};
 
 fn root() -> std::path::PathBuf {
     xtask::catalog::repo_root()
@@ -94,5 +97,113 @@ fn a_stated_port_is_the_port_the_address_names() {
     assert!(
         findings.is_empty(),
         "these entries state a port their address contradicts: {findings:#?}"
+    );
+}
+
+/// The gateway's own route table sat outside every check: the address audit reads the manifest, and the manifest is not where
+/// those routes were. Twenty-two of them named services retired into the engine, so the gateway published `/accounts` and
+/// `/budgets` as doors to hosts that do not resolve.
+#[test]
+fn the_routes_the_gateway_declares_itself_are_ones_the_engine_answers() {
+    let root = root();
+    let routes = static_routes(&root);
+    assert!(
+        routes.iter().any(|(path, _)| path == "/identity"),
+        "the /identity door has to be declared: signing in cannot need a token. Found {routes:#?}"
+    );
+    let dead = dead_static_routes(&root);
+    assert!(dead.is_empty(), "{dead:#?}");
+}
+
+/// A directory shaped like the repository, with one engine route in it, so a rule that compares a door against the engine has
+/// somewhere to look rather than a tree that is not there.
+fn with_one_engine_route(name: &str, gateway: &str) -> std::path::PathBuf {
+    let directory = std::env::temp_dir().join(format!("vimbai-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&directory);
+    std::fs::create_dir_all(directory.join("gateway/go/config")).expect("a directory");
+    std::fs::create_dir_all(directory.join("rust/apps/api-server/src")).expect("a directory");
+    std::fs::write(directory.join("gateway/go/config/config.go"), gateway).expect("a config");
+    std::fs::write(
+        directory.join("rust/apps/api-server/src/identity.rs"),
+        ".route(\"/identity/users\", post(sign_in))\n",
+    )
+    .expect("an engine route");
+    directory
+}
+
+#[test]
+fn a_route_the_gateway_invents_is_reported() {
+    let directory = with_one_engine_route(
+        "static-routes",
+        "cfg.Routes = []Route{\n\t{Path: \"/identity\", TargetURL: cfg.IdentityServiceURL},\n\t{Path: \"/accounts\", TargetURL: cfg.AccountingServiceURL},\n}\n",
+    );
+    let dead = dead_static_routes(&directory);
+    assert_eq!(dead.len(), 1, "{dead:#?}");
+    assert!(dead[0].contains("/accounts"), "{dead:#?}");
+}
+
+#[test]
+fn a_gateway_with_no_door_at_all_fails_rather_than_passing() {
+    let directory = with_one_engine_route("static-empty", "cfg.Routes = []Route{}\n");
+    let dead = dead_static_routes(&directory);
+    assert!(!dead.is_empty(), "an empty scan must fail, not pass");
+}
+
+/// The prefixes the catalogue publishes that the engine answers nothing for.
+///
+/// The audit asks a different question - whether an address a retired service published still answers at the form the gateway
+/// forwards - so an entry whose address nobody ever asked about passes it. These twenty-six prefix the engine has no route under:
+/// the regexes are of prefixes like `/invoicing` (whose work happens at `/invoices`), `/multimodal` (whose capture surface is at
+/// `/tasks`) and `/book-sync` (which the sync server serves, not the engine), so each is a published door to nothing rather than a
+/// missing handler. Pinning the set means a twenty-seventh fails the build, and resolving one without shrinking this list fails it
+/// too, which is the least that keeps the count from quietly growing.
+const UNANSWERED_PREFIXES: [&str; 26] = [
+    "/audit-compliance",
+    "/audit-sampling",
+    "/bad-debts-recovery",
+    "/bank-relationship",
+    "/banking-integration",
+    "/book-sync",
+    "/control-account-reconciliation",
+    "/data-warehouse",
+    "/distributed-workflow-orchestration",
+    "/double-entry-principles",
+    "/financial-identity",
+    "/financial-integrity",
+    "/financial-state-machine",
+    "/invoicing",
+    "/multimodal",
+    "/performance-benchmarking",
+    "/privacy-admin-dashboard",
+    "/realtime-calculation",
+    "/report-distribution",
+    "/reporting",
+    "/rolling-forecast",
+    "/sales-ledger-control",
+    "/subscription-plans",
+    "/tax-accounting",
+    "/tax-planning",
+    "/webhook",
+];
+
+#[test]
+fn the_prefixes_the_engine_answers_nothing_for_are_the_ones_named() {
+    let root = root();
+    let addressed = xtask::gateway::engine_routes(&root);
+    let mut unanswered: Vec<String> = xtask::gateway::entries(&root)
+        .into_iter()
+        .map(|entry| entry.path.trim_end_matches('/').to_string())
+        .filter(|prefix| {
+            !addressed
+                .iter()
+                .any(|address| address == prefix || address.starts_with(&format!("{prefix}/")))
+        })
+        .collect();
+    unanswered.sort();
+    unanswered.dedup();
+    let named: Vec<String> = UNANSWERED_PREFIXES.iter().map(|p| p.to_string()).collect();
+    assert_eq!(
+        unanswered, named,
+        "the list of published prefixes the engine does not answer has changed"
     );
 }

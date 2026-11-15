@@ -36,10 +36,14 @@ The API Gateway requires the following environment variables. In the compose est
 
 -   `PORT`: The port the gateway will listen on (default `8081`).
 -   `JWT_SECRET`: The secret key used to sign and verify JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` the calculation API signs and verifies tokens with, or the gateway and the engine will disagree about who the caller is.**
--   `IDENTITY_SERVICE_URL`: Internal URL of the service answering `/identity` (the calculation API, e.g. `http://calculation-api:8099`). The prefix is not stripped, because the engine answers `/identity/<path>` itself.
--   `ACCOUNTING_SERVICE_URL`: Internal URL of the Accounting Service (e.g., `http://accounting-service:8000`).
--   `FINANCE_SERVICE_URL`: Internal URL of the Finance Service (e.g., `http://finance-service:8001`).
--   `MULTIMODAL_SERVICE_URL`: Internal URL of the Multimodal Pipeline Service (e.g., `http://multimodal-pipeline-service:8002`).
+-   `IDENTITY_SERVICE_URL`: Internal URL of the engine that answers `/identity` (e.g. `http://calculation-api:8099`). The prefix is not stripped, because the engine answers `/identity/<path>` itself.
+-   `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`: the gateway's own request limit.
+
+There are no per-service URL variables. Every route except the `/identity` door is read from `config/services.json`, the same
+manifest the engine, the on-device runtime and the address audit share. This file used to list six, one per retired service, and
+the routes they fed forwarded to hosts that no longer resolve: a gateway that published `/accounts` and `/budgets` while the
+catalogue published the accounting surface the engine actually answers. If a prefix needs routing, add it there, where every
+component reads it.
 
 ### 3. Running the Services (with Docker Compose)
 
@@ -50,8 +54,8 @@ docker compose -f infrastructure/compose/compose.yaml up --build
 ```
 
 This command will:
-1.  Build all Vimbai microservices, including the `api-gateway` Docker image.
-2.  Start Neo4j and all microservice containers.
+1.  Build the engine, the gateway, the worker and the sync server, and pull the database image.
+2.  Start them, with the gateway in front of the engine.
 
 The API Gateway will be accessible at `http://localhost:8081`.
 
@@ -72,12 +76,15 @@ Clients (e.g., the mobile app, Postman, curl) should now send all requests to th
 ```
 This will return a JWT token from the Identity Service.
 
-#### Example: Get Chart of Accounts (Authentication required by Gateway)
+#### Example: list the chart of accounts (the gateway requires a token)
 
-**Endpoint:** `GET http://localhost:8081/accounts/` (Routes to `ACCOUNTING_SERVICE_URL/accounts/`)
+**Endpoint:** `GET http://localhost:8081/accounting/accounts` (the catalogue routes `/accounting` to the engine, unstripped)
 **Headers:**
 -   `Authorization: Bearer <YOUR_JWT_TOKEN_HERE>`
 -   `Content-Type: application/json`
+
+The bare `/accounts`, `/journal-entries`, `/budgets` and `/customers` addresses this file used to document were the retired
+services' shape. The engine answers the same surfaces under `/accounting/...`, which is what the catalogue publishes.
 
 ---
 
@@ -95,18 +102,16 @@ go mod tidy
 # Set environment variables (replace with your actual service URLs and secret)
 export PORT=8081
 export JWT_SECRET="your_super_secret_jwt_key"
-export IDENTITY_SERVICE_URL="http://localhost:8080" # If running identity service locally
-export ACCOUNTING_SERVICE_URL="http://localhost:8000" # If running accounting service locally
-export FINANCE_SERVICE_URL="http://localhost:8001" # If running finance service locally
-export MULTIMODAL_SERVICE_URL="http://localhost:8002" # If running multimodal service locally
+export IDENTITY_SERVICE_URL="http://localhost:8099" # The engine, answering /identity
 
 # Run
 go run main.go
 ```
 
-## Future Enhancements
+## What it deliberately does not do
 
--   Implement more advanced gateway features: rate limiting, caching, logging, circuit breakers.
--   Fine-grained routing rules.
+-   No financial logic: no calculation, no ledger posting, no settlement. It authenticates, rate-limits and forwards.
+-   No routing table of its own. A route that is not in `config/services.json` (or the `/identity` door) does not exist, and a
+    gate fails the build if a static route names an address the engine does not answer.
 -   Centralized error handling and response normalization.
 -   Service discovery integration.
