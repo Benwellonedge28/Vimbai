@@ -8,6 +8,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
+import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
+import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
+import 'package:vimbai_mobile_client/features/organisations/presentation/put_book_in_organisation_sheet.dart';
 
 class _TierChoice {
   final String id;
@@ -120,13 +123,17 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
         description: _descriptionCtrl.text.trim(),
         folder: _folder,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('"${book.name}" is ready')));
-        // pop with the id so the Books page makes it the active context
-        Navigator.of(context).pop(book.id);
-      }
+      if (!mounted) return;
+      // The first-run moment: a Book that is inside nobody's organisation cannot be shared with anybody. Offered here,
+      // once, rather than left for the person to discover later. Everything about it is best-effort - if the server cannot
+      // be reached the Book still exists, which is the promise the offline store makes.
+      await _offerOrganisation(book);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('"${book.name}" is ready')));
+      // pop with the id so the Books page makes it the active context
+      Navigator.of(context).pop(book.id);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -135,6 +142,28 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
           _error = 'Could not create the Book: $e';
         });
       }
+    }
+  }
+
+  /// Offer to put the new Book into an organisation, and say so when it lands there.
+  ///
+  /// Asked once, only if the person has an organisation they can put a Book into; a person with none sees nothing rather
+  /// than an empty choice. Any failure is silent by design - the Book was made, and a note about a server that did not
+  /// answer would land on top of the thing that did work.
+  Future<void> _offerOrganisation(VBook book) async {
+    try {
+      final mine = await OrganisationService().mine();
+      final manageable = mine.where((o) => o.canManageBooks).toList();
+      if (!mounted || manageable.isEmpty) return;
+      // Even with one organisation it is asked rather than assumed: moving somebody's Book into a shared space is their
+      // decision, and a change they did not ask for is the one kind of help that costs trust.
+      await PutBookInOrganisationSheet.show(
+        context,
+        bookId: book.id,
+        bookName: book.name,
+      );
+    } catch (_) {
+      // Offline, refused, or nothing to offer: the Book is still the person's.
     }
   }
 

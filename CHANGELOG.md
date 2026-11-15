@@ -11,12 +11,16 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   belonged to nobody and no way to hand it to an accountant or a partner. There is now a service (list what you belong to,
   open one, put a Book inside it, list its Books), a setup page reachable from the home screen, and the engine's own
   refusal wording kept so a member who cannot move a Book is told why rather than shown a status number.
+- A Book that has just been made offers to go into an organisation straight away, which is the moment it would otherwise
+  become a private dead end. Only organisations the person can actually put a Book into are listed (offering a refusal as an
+  option is a lie), even a single organisation is asked rather than assumed, and the whole offer is best-effort: offline, the
+  Book still exists, and nothing is written about a server that did not answer.
 - From the organisation page a person can put a Book that is on their device into an organisation, which is the step that
   actually makes it shareable. The Books already inside are left out of the offer, both lists are asked for at the moment of
   the tap (a Book may be newer than the page), and the engine's refusal is shown rather than retried.
 - The organisation page tells "you have none yet" apart from "the call failed". A failed read leaves the list as empty as a
   real one, and a page that says you own nothing because the server did not answer sends people off to open a second
-  organisation they already have. Fifteen app tests cover the service, the three states of the page, and putting a Book in.
+  organisation they already have. Twenty-one app tests cover the service, the three states of the page, putting a Book in, and the share offer shown when a Book is made.
 - Passwords follow NIST SP 800-63B instead of a length limit and nothing else. Eight characters minimum counted as
   characters rather than bytes, so a password written in Amharic or Devanagari is not refused for being shorter than it
   looks; no composition rules and no expiry, because those push people towards `Password1!` and `Autumn2024!`; the
