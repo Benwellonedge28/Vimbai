@@ -27,6 +27,9 @@ pub struct Gateway {
     pub secret: String,
     /// The published prefixes and which of them the engine answers stripped down.
     pub mounts: Vec<Mount>,
+    /// The published prefixes this machine does not serve, because its profile left them out. A caller is told the address
+    /// is not on this machine rather than being forwarded to an engine that would answer it and make the profile a lie.
+    pub unserved: Vec<Mount>,
     /// The engine's own router, so membership is asked of the thing that holds the Book rather than a second copy of it.
     pub engine: Router,
 }
@@ -59,6 +62,15 @@ pub async fn check(State(gateway): State<Gateway>, mut request: Request, next: N
         if !is_member(&gateway.engine, &claims.subject, &book_id).await {
             return refusal(403, &format!("No active membership in book {book_id}"));
         }
+    }
+
+    // A profile serves a list of prefixes. Everything else is this machine saying, after the caller has proved who they
+    // are, that the address is not one it offers - which is the difference between a core install and a full one.
+    if let Some(mount) = addresses::mount_for(&gateway.unserved, &path) {
+        return refusal(
+            404,
+            &format!("{} is not served by this machine's profile", mount.prefix),
+        );
     }
 
     // The verified identity replaces anything the client sent, so `X-User-Id` cannot be claimed.

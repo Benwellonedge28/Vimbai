@@ -18,13 +18,16 @@ use vimbai_gateway::gateway;
 use vimbai_gateway::Gateway;
 
 /// The bookkeeping loop an offline machine actually needs: the chart of accounts and the double-entry journal, the
-/// departmental books, the audit trail, the door you sign in through, and the Book itself. Every one of them is served
-/// by the engine, so this is a list of what is exercised rather than a list of what is loaded.
-const CORE_MEMBERS: [&str; 5] = [
+/// departmental books, the audit trail, and the Book itself. Every one is a prefix in the gateway's manifest, which is what
+/// a profile is a list of.
+///
+/// Signing in is not on the list. `/identity` is an open door in the gateway rather than a routed prefix - it has to be,
+/// because a profile that refused to authenticate a caller could never serve anything else - so it answers on both profiles
+/// and is not a member any of them can withhold.
+const CORE_MEMBERS: [&str; 4] = [
     "accounting",
     "departmental-accounting",
     "audit-compliance",
-    "identity",
     "book-sync",
 ];
 
@@ -38,7 +41,7 @@ fn main() {
     std::env::set_var("VIMBAI_JWT_SECRET", secret_in(&data_dir));
     std::env::set_var("VIMBAI_STORE_FILE", &data_dir);
     std::env::set_var("VIMBAI_LOCAL_PROFILE", &options.profile);
-    std::env::set_var("VIMBAI_LOCAL_MEMBERS", CORE_MEMBERS.join(","));
+    std::env::set_var("VIMBAI_LOCAL_MEMBERS", options.members().join(","));
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -65,9 +68,14 @@ async fn serve(options: Options) {
         options.data_dir.display()
     );
     let engine = api::router();
+    // The profile decides which prefixes this machine serves, and everything it does not serve is refused rather than
+    // forwarded: a core install answers the bookkeeping loop and says so, and `--profile full` answers every address the
+    // cluster gateway routes. Before this, both answered all of them and only `/health` knew the difference.
+    let (served_mounts, unserved_mounts) = options.mounts();
     let gateway = Gateway {
         secret: std::env::var("VIMBAI_JWT_SECRET").unwrap_or_default(),
-        mounts: addresses::mounts(addresses::manifest()),
+        mounts: served_mounts,
+        unserved: unserved_mounts,
         engine,
     };
     // the door goes outside the gateway: the bound is on work the machine is doing, and the gateway's own checks are work
@@ -84,6 +92,29 @@ struct Options {
 }
 
 impl Options {
+    /// The prefixes this profile serves, and the prefixes it refuses: the bookkeeping loop, or every address the manifest
+    /// routes. Both lists come from the same manifest the cluster gateway routes from.
+    fn mounts(&self) -> (Vec<addresses::Mount>, Vec<addresses::Mount>) {
+        let manifest = addresses::manifest();
+        if self.profile == "full" {
+            return (addresses::mounts(manifest), Vec::new());
+        }
+        (
+            addresses::mounts_for(manifest, &CORE_MEMBERS),
+            addresses::mounts_without(manifest, &CORE_MEMBERS),
+        )
+    }
+
+    /// The member names `/health` reports, which are the prefixes actually served rather than a constant that may disagree
+    /// with them.
+    fn members(&self) -> Vec<String> {
+        self.mounts()
+            .0
+            .into_iter()
+            .map(|mount| mount.prefix.trim_start_matches('/').to_string())
+            .collect()
+    }
+
     fn from_args(args: impl Iterator<Item = String>) -> Self {
         let mut options = Options {
             profile: "core".to_string(),

@@ -54,6 +54,30 @@ pub fn mounts(manifest: &str) -> Vec<Mount> {
     mounts
 }
 
+/// The mounts a profile serves, given the member names it claims.
+///
+/// A profile is not a label on the health door: an offline machine that says it is running the core bookkeeping loop should
+/// answer the bookkeeping addresses and refuse the rest, rather than answering all 138 while reporting five. A member names
+/// the mount it serves by the same string the manifest publishes, so `/bank-feed` is `bank-feed`.
+pub fn mounts_for(manifest: &str, members: &[&str]) -> Vec<Mount> {
+    mounts(manifest)
+        .into_iter()
+        .filter(|mount| {
+            let name = mount.prefix.trim_start_matches('/');
+            members.contains(&name)
+        })
+        .collect()
+}
+
+/// The mounts a profile leaves out, which are the addresses it has to refuse rather than forward.
+pub fn mounts_without(manifest: &str, members: &[&str]) -> Vec<Mount> {
+    let served = mounts_for(manifest, members);
+    mounts(manifest)
+        .into_iter()
+        .filter(|mount| !served.contains(mount))
+        .collect()
+}
+
 /// Which mount a path belongs to: the longest prefix that names it as a whole segment, so `/books` is not `/book-sync`
 /// and `/audition` belongs to nobody.
 pub fn mount_for<'a>(mounts: &'a [Mount], path: &str) -> Option<&'a Mount> {
@@ -139,5 +163,41 @@ mod tests {
                 .unwrap_or_else(|| panic!("{prefix} missing from the manifest"));
             assert_eq!(mount.strip, strip, "{prefix}");
         }
+    }
+
+    #[test]
+    fn a_profile_serves_the_prefixes_it_names_and_refuses_the_rest() {
+        let services = vec![
+            serde_json::json!({"path": "/accounting", "strip_prefix": false}),
+            serde_json::json!({"path": "/bank-feed", "strip_prefix": false}),
+            serde_json::json!({"path": "/book-sync", "strip_prefix": true}),
+        ];
+        let manifest = serde_json::to_string(&serde_json::json!({ "services": services })).unwrap();
+        let served = mounts_for(&manifest, &["accounting", "book-sync"]);
+        assert_eq!(
+            served
+                .iter()
+                .map(|mount| mount.prefix.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/accounting", "/book-sync"],
+            "the core profile serves its members and nothing else"
+        );
+        let refused = mounts_without(&manifest, &["accounting", "book-sync"]);
+        assert_eq!(
+            refused
+                .iter()
+                .map(|mount| mount.prefix.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/bank-feed"],
+            "a prefix the profile leaves out is the one a caller is refused on"
+        );
+        assert!(
+            mount_for(&refused, "/bank-feed/rules").is_some(),
+            "and the refusal has to match the addresses under it, not just the bare prefix"
+        );
+        assert!(
+            mount_for(&refused, "/bank-feedish").is_none(),
+            "a prefix that merely starts the same way is somebody else's"
+        );
     }
 }

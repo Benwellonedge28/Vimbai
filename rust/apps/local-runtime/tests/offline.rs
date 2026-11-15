@@ -73,17 +73,27 @@ impl Runtime {
     /// and then a test talks to somebody else's process - which is exactly how one of these failed once while the whole
     /// workspace was running beside it.
     fn start(data_dir: &Path) -> Option<Runtime> {
+        Runtime::start_with(data_dir, &[])
+    }
+
+    /// The same machine, told which profile to run.
+    fn start_with(data_dir: &Path, extra: &[&str]) -> Option<Runtime> {
         let binary = binary();
         if !binary.is_file() {
             eprintln!("skipped: {} is not built", binary.display());
             return None;
         }
         std::fs::create_dir_all(data_dir).expect("a data directory");
-        let mut child = Command::new(&binary)
+        let mut command = Command::new(&binary);
+        command
             .arg("--port")
             .arg("0")
             .arg("--data-dir")
-            .arg(data_dir)
+            .arg(data_dir);
+        for argument in extra {
+            command.arg(argument);
+        }
+        let mut child = command
             .stdout(Stdio::piped())
             .spawn()
             .expect("the runtime starts");
@@ -485,4 +495,69 @@ fn a_burst_at_a_laptop_runtime_is_answered_in_turn() {
         assert_eq!(caller.join().expect("a caller finishes"), 200);
     }
     runtime.stop();
+}
+
+#[test]
+fn the_core_profile_refuses_what_it_does_not_serve_and_a_full_one_answers_it() {
+    // The profile used to be a label on the health door: both profiles answered all 138 prefixes while `/health` reported
+    // a handful of members. A core install now serves the bookkeeping loop and refuses the rest, so what the machine says about
+    // itself is what it does.
+    let dir = scratch("profile");
+    let Some(mut core) = Runtime::start(&dir) else {
+        return;
+    };
+    let (status, body) = core.get("/health", &[]);
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        body.contains("\"services_loaded\":4"),
+        "the core profile should report the four prefixes it serves: {body}"
+    );
+    let (status, body) = core.get("/bank-feed/rules", &[]);
+    assert_eq!(
+        status, 401,
+        "an unauthenticated caller is stopped before the profile is consulted: {body}"
+    );
+    let auth = sign_up(&core, "profile-core");
+    let (status, body) = core.get("/bank-feed/rules", &pairs(&auth));
+    assert_eq!(
+        status, 404,
+        "the core profile does not serve the bank feed, and says so: {body}"
+    );
+    assert!(
+        body.contains("/bank-feed"),
+        "the refusal should name the prefix it left out: {body}"
+    );
+    // and the bookkeeping loop it does serve is still reached: what accounting answers is accounting's business, but it is
+    // not refused for belonging to a profile this machine is not running
+    let (status, body) = core.get("/accounting/accounts", &pairs(&auth));
+    assert_ne!(
+        status, 404,
+        "the core profile serves accounting and must not refuse it: {body}"
+    );
+    core.stop();
+
+    let full_dir = scratch("profile-full");
+    let Some(mut full) = Runtime::start_with(&full_dir, &["--profile", "full"]) else {
+        return;
+    };
+    let (status, body) = full.get("/health", &[]);
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        body.contains("\"full\""),
+        "health does not name the full profile: {body}"
+    );
+    let auth = sign_up(&full, "profile-full");
+    let (status, body) = full.get("/bank-feed/rules", &pairs(&auth));
+    assert_ne!(
+        status, 404,
+        "a full install serves what the cluster gateway routes: {body}"
+    );
+    // the same address that was refused on the core install, asked of a machine that serves it: the engine may still want a
+    // Book in the header, which is its rule and not a profile's
+    let (status, body) = full.get("/bank-feed/", &pairs(&auth));
+    assert_ne!(
+        status, 404,
+        "the bank feed is not refused on a full install: {body}"
+    );
+    full.stop();
 }

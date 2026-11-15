@@ -57,6 +57,8 @@ async fn serve(options: Options) {
     let gateway = Gateway {
         secret: std::env::var("VIMBAI_JWT_SECRET").unwrap_or_default(),
         mounts: addresses::mounts(addresses::manifest()),
+        // the sync server already refuses everything outside its own surface, so no prefix is left out here
+        unserved: Vec::new(),
         engine: engine.clone(),
     };
     let served = api::governed(engine.layer(axum::middleware::from_fn(surface_only)).layer(

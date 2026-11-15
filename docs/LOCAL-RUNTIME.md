@@ -22,11 +22,14 @@ directory with a note saying what it is, for a machine that has no Rust toolchai
 
 ## Profiles
 
-1. *core* (default) - the bookkeeping loop an offline machine needs: identity (register / login), book-sync (Books and
-   memberships), accounting (chart of accounts and the double-entry journal), departmental-accounting and
-   audit-compliance. `/health` reports `services_loaded: 5` and nothing skipped.
-2. *full* - the same process answers every address the gateway routes; the flag changes what `/health` says it is for,
-   because there is no second process to start.
+1. *core* (default) - the bookkeeping loop an offline machine needs: book-sync (Books and memberships), accounting (chart
+   of accounts and the double-entry journal), departmental-accounting and audit-compliance. Those four prefixes answer; any
+   other prefix the manifest routes is refused with a 404 that names it, so the profile is what the machine does rather than
+   a label on the health door. `/health` reports `services_loaded: 4` and nothing skipped. Signing in is not on the list:
+   `/identity` is an open door in the gateway rather than a routed prefix, so it answers on both profiles.
+2. *full* - the same process answers every address the gateway routes, all 138 prefixes, because nothing is left out.
+   `/health` reports the count it is actually serving rather than a constant, so the two profiles are told apart by what
+   they answer and not by a flag nobody checks.
 
 ## How it works
 

@@ -35,6 +35,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   engine answers that forwards elsewhere fails the build.
 - A gate fails if any routed service answers no address, which is the check that would have caught all of the above the day
   the Python service behind each one went away.
+- The on-device profile is now what the machine does, not a label on the health door. `vimbai-local` used to mount every
+  prefix the manifest routes whichever profile it was told to run, while `/health` reported five members for `core` - so a
+  core install answered `/bank-feed` and said it was not serving it. A profile now names the prefixes it serves,
+  `addresses::mounts_for`/`mounts_without` split the manifest by that list, and the gateway refuses an address outside the
+  profile with a 404 that names the prefix, after the caller has proved who they are. `/health` reports the members actually
+  served, which for `full` is all 138 rather than a constant. `identity` came off the core list while doing this: `/identity`
+  is an open door in the gateway rather than a routed prefix - a profile that refused to authenticate a caller could not
+  serve anything - so it answers on both profiles and was never a member either could withhold. Two tests start the real binary on both profiles: the core one
+  answers accounting and refuses the bank feed; the full one answers both.
 - An operator's runbook (`docs/operations/RUNBOOK.md`): the startup line to look for, a bind failure, a worker that exits
   for want of a store, which setting chooses which store, how to test reachability and schema without starting the engine,
   the migration refusal with what to do about it (upgrade - ADR-011 says why), which layer each status code came from, the
