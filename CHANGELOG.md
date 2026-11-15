@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The deployment-store tests now run in CI instead of skipping there. They answer against Postgres or they skip, and a skip
+  reads exactly like a pass: `library-ci.yml` had the variable's tests and no server. It starts a `postgres:16` service with a
+  readiness check and names it in `VIMBAI_TEST_POSTGRES`, the same shape preflight gives them on a laptop. A gate,
+  `workflows::postgres_test_problems`, reads which test files look for that variable and fails when the pipeline that runs the
+  workspace suite neither provides it nor starts a server to reach - and fails when nothing looks for it at all, so the scan
+  cannot pass over an empty set.
 - One Flutter gate instead of two. `mobile-analyze.yml` ran the same four steps (`pub get`, format, analyze, `flutter test`) on
   the same pinned version as `test-flutter` in `ci-main.yml`, path-filtered so it fired on the pushes that already ran the
   other: two copies of one gate is two places for it to drift, so the core pipeline is the one place. The toolchain gate

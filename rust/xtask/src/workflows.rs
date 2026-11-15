@@ -302,8 +302,80 @@ fn covers_the_app(pattern: &str) -> bool {
     "apps/flutter".starts_with(directory) && !directory.is_empty()
 }
 
+/// The tests that need a real Postgres, and whether the pipeline gives them one.
+///
+/// A test that skips is a test nobody runs, and the deployment-store suite is the one that proves the engine answers from the
+/// store a deployment actually uses. Preflight starts a throwaway server so those tests run on a laptop; the pipeline has to
+/// do the same, by starting a `postgres` service and naming its connection string in `VIMBAI_TEST_POSTGRES`. Without it the
+/// job is green because the tests never ran, which reads exactly like green because they passed.
+pub fn postgres_test_problems(root: &Path) -> Vec<String> {
+    let readers = test_files_reading(root, "VIMBAI_TEST_POSTGRES");
+    if readers.is_empty() {
+        return vec![
+            "no test reads VIMBAI_TEST_POSTGRES, so the scan that watches the pipeline has nothing to hold"
+                .to_string(),
+        ];
+    }
+    let pipeline =
+        std::fs::read_to_string(root.join(".github/workflows").join(GATING_RUST_PIPELINE))
+            .unwrap_or_default();
+    if pipeline.is_empty() {
+        return vec![format!(
+            "{GATING_RUST_PIPELINE} is gone, so nothing runs the workspace suite in CI"
+        )];
+    }
+    let mut problems = Vec::new();
+    if !pipeline.contains("VIMBAI_TEST_POSTGRES") {
+        problems.push(format!(
+            "{GATING_RUST_PIPELINE} never sets VIMBAI_TEST_POSTGRES, so {} skip instead of testing the deployment store",
+            readers.join(", ")
+        ));
+    }
+    if !pipeline.contains("image: postgres") {
+        problems.push(format!(
+            "{GATING_RUST_PIPELINE} names VIMBAI_TEST_POSTGRES but starts no Postgres service for it to reach"
+        ));
+    }
+    problems
+}
+
+/// Every `.rs` file under `rust/` that mentions `needle`, relative to the repository root.
+fn test_files_reading(root: &Path, needle: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut stack = vec![root.join("rust")];
+    while let Some(directory) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|extension| extension != "rs") {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            // the declaration in the gate's own source is not a test that needs a server
+            if text.contains(needle) && !path.ends_with("xtask/src/workflows.rs") {
+                if let Ok(relative) = path.strip_prefix(root) {
+                    found.push(relative.to_string_lossy().into_owned());
+                }
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
 /// The workflow that gates a merge.
 const GATING_PIPELINE: &str = "ci-main.yml";
+
+/// The workflow that runs the Rust workspace suite.
+const GATING_RUST_PIPELINE: &str = "library-ci.yml";
 
 #[cfg(test)]
 mod trigger_rule_tests {

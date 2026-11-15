@@ -15,6 +15,22 @@ jobs:
   test:
     name: Rust fmt / clippy / test
     runs-on: ubuntu-latest
+    # The deployment-store tests answer against Postgres or they skip. A skip reads like a pass, so the pipeline starts the
+    # server the same way preflight does on a laptop, and names it in the variable the tests look for.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -48,4 +64,5 @@ jobs:
         env:
           VIMBAI_LOCAL_BIN: ${{ github.workspace }}/rust/target/debug/vimbai-local
           VIMBAI_SYNC_BIN: ${{ github.workspace }}/rust/target/debug/vimbai-sync
+          VIMBAI_TEST_POSTGRES: host=127.0.0.1 port=5432 user=postgres password=postgres dbname=postgres
 

@@ -505,6 +505,68 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
 }
 
 #[test]
+fn the_pipeline_gives_the_deployment_store_tests_a_postgres() {
+    // This repository: the tests that read VIMBAI_TEST_POSTGRES must find a server in the pipeline, or they skip and the job
+    // is green for the wrong reason.
+    let root = root();
+    assert_eq!(
+        workflows::postgres_test_problems(&root),
+        Vec::<String>::new(),
+        "the deployment-store tests skip in CI"
+    );
+
+    // and the scan has to be able to fail: a pipeline without the service, and one without the variable, are both reported
+    let scratch = std::env::temp_dir().join(format!("vimbai_pg_gate_{}", std::process::id()));
+    let workflows = scratch.join(".github").join("workflows");
+    std::fs::create_dir_all(&workflows).expect("a scratch directory");
+    std::fs::create_dir_all(scratch.join("rust").join("apps")).expect("a scratch crate");
+    std::fs::write(
+        scratch.join("rust/apps/store_test.rs"),
+        "fn dsn() { std::env::var(\"VIMBAI_TEST_POSTGRES\").ok(); }\n",
+    )
+    .expect("a test that reads the variable");
+
+    std::fs::write(
+        workflows.join("library-ci.yml"),
+        "jobs:\n  test:\n    steps:\n      - run: cargo test --workspace\n",
+    )
+    .expect("a pipeline with no server");
+    let silent = workflows::postgres_test_problems(&scratch);
+    assert!(
+        silent
+            .iter()
+            .any(|problem| problem.contains("VIMBAI_TEST_POSTGRES")),
+        "a pipeline that never provides the variable went unnoticed: {silent:?}"
+    );
+
+    std::fs::write(
+        workflows.join("library-ci.yml"),
+        "jobs:\n  test:\n    steps:\n      - run: cargo test --workspace\n        env:\n          VIMBAI_TEST_POSTGRES: x\n",
+    )
+    .expect("a pipeline with the variable and no server");
+    let unreachable = workflows::postgres_test_problems(&scratch);
+    assert!(
+        unreachable
+            .iter()
+            .any(|problem| problem.contains("no Postgres service")),
+        "a variable pointing at nothing went unnoticed: {unreachable:?}"
+    );
+
+    std::fs::write(
+        workflows.join("library-ci.yml"),
+        "jobs:\n  test:\n    services:\n      postgres:\n        image: postgres:16\n    steps:\n      - run: cargo test --workspace\n        env:\n          VIMBAI_TEST_POSTGRES: x\n",
+    )
+    .expect("a pipeline that provides both");
+    assert_eq!(
+        workflows::postgres_test_problems(&scratch),
+        Vec::<String>::new(),
+        "a pipeline with both has to pass"
+    );
+
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
 fn the_runbook_names_settings_the_code_reads() {
     // A runbook is read while something is down. A setting renamed in the code and left behind in the page sends an
     // operator to a variable nothing reads, and they conclude the platform ignores them.
