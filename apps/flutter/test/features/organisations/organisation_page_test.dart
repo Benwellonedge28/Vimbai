@@ -7,18 +7,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
+import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
 import 'package:vimbai_mobile_client/features/organisations/models/organisation_models.dart';
 import 'package:vimbai_mobile_client/features/organisations/presentation/organisation_page.dart';
 
 /// A service that answers from memory, so the page can be walked without a network.
 class _FakeService extends OrganisationService {
-  _FakeService({this.existing = const [], this.failure})
+  _FakeService({this.existing = const [], this.failure, this.inside = const []})
     : super(token: 'a-token');
 
   final List<VOrganisation> existing;
   final String? failure;
+
+  /// Book ids the organisation already holds.
+  final List<String> inside;
   int created = 0;
+  final List<String> moved = [];
+
+  @override
+  Future<List<String>> books(String organisationId) async => inside;
+
+  @override
+  Future<void> moveBook(String organisationId, String bookId) async {
+    moved.add('$organisationId/$bookId');
+  }
 
   @override
   Future<List<VOrganisation>> mine() async {
@@ -34,11 +47,17 @@ class _FakeService extends OrganisationService {
   }
 }
 
-Future<void> _open(WidgetTester tester, OrganisationService service) async {
+Future<void> _open(
+  WidgetTester tester,
+  OrganisationService service, {
+  Future<List<VBook>> Function()? localBooks,
+}) async {
   SharedPreferences.setMockInitialValues({});
   ApiClient.timeout = const Duration(milliseconds: 200);
   await tester.pumpWidget(
-    MaterialApp(home: OrganisationPage(service: service)),
+    MaterialApp(
+      home: OrganisationPage(service: service, localBooks: localBooks),
+    ),
   );
   await tester.pumpAndSettle();
 }
@@ -97,6 +116,57 @@ void main() {
     expect(service.created, 1);
     expect(find.text('Mukandara Holdings'), findsOneWidget);
     expect(find.text('You are its owner'), findsOneWidget);
+  });
+
+  testWidgets('a Book on the device that is not inside can be put in', (
+    tester,
+  ) async {
+    final service = _FakeService(
+      existing: const [
+        VOrganisation(id: 'org-1', name: 'Holdings', role: 'owner'),
+      ],
+    );
+    await _open(
+      tester,
+      service,
+      localBooks: () async => [
+        VBook(id: 'book-7', name: 'Household', tier: 'business'),
+      ],
+    );
+
+    await tester.tap(find.text('Put a Book in Holdings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Household'), findsOneWidget);
+
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+
+    expect(service.moved, ['org-1/book-7']);
+  });
+
+  testWidgets('a Book already inside is not offered twice', (tester) async {
+    final service = _FakeService(
+      existing: const [
+        VOrganisation(id: 'org-1', name: 'Holdings', role: 'owner'),
+      ],
+      inside: const ['book-7'],
+    );
+    await _open(
+      tester,
+      service,
+      localBooks: () async => [
+        VBook(id: 'book-7', name: 'Household', tier: 'business'),
+      ],
+    );
+
+    await tester.tap(find.text('Put a Book in Holdings'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Every Book on this device is already in Holdings.'),
+      findsOneWidget,
+    );
+    expect(service.moved, isEmpty);
   });
 
   testWidgets('a nameless organisation is not sent', (tester) async {
