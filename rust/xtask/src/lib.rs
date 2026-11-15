@@ -12,6 +12,7 @@ pub mod documentation;
 pub mod domains;
 pub mod flutter;
 pub mod gateway;
+pub mod images;
 pub mod makefile;
 pub mod manifests;
 pub mod openapi;

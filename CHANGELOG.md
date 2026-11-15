@@ -6,6 +6,17 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- `docker-publish.yml` had never published an image. It found "changed services" by looking for a top-level directory holding a
+  Dockerfile - the shape the Python microservices had - and no such directory exists here, so every matrix entry set
+  `exists=false` and skipped itself: a green job, beside four Deployments asking ghcr.io for images nobody had pushed. The engine
+  image was built by a second workflow, `calculation-api.yml`, which is why nobody noticed the first one doing nothing. There is now
+  one workflow publishing the four images the cluster pulls, from the three Dockerfiles that exist, with the Dockerfile named in the
+  matrix so a missing one fails the build instead of being skipped past; `calculation-api.yml` is deleted rather than left racing it
+  to push `:latest`. The gateway's manifest asked for `vimbai/api-gateway` on Docker Hub, which no credential here can push to, and
+  now asks for the same ghcr path as the other three.
+- `cargo run -p xtask -- images` (`make images`) keeps the two halves comparing: every image a manifest or compose file pulls has to
+  be published by a workflow, every image published has to be pulled by something, and every Dockerfile a build step names has to
+  exist. A third-party image is recognised by its registry rather than listed, so a new `postgres:16` needs no edit.
 - A `needs:` that names a job that no longer exists is answered by GitHub rejecting the whole workflow file: no run at all, no
   error anyone reads, the pipeline simply stops existing. That is how `ci.yml` died - three jobs still needing `lint-python` and
   `test-python-services` after the Python jobs were deleted - and nothing local caught it, because nothing local reads

@@ -1,107 +1,124 @@
 name: Publish Docker Images
 
+# The images the cluster actually pulls, built from the Dockerfiles that actually exist.
+#
+# This workflow used to detect "changed services" by looking for a top-level directory with a Dockerfile in it - a shape the
+# Python microservices had and this repository does not - so every matrix entry skipped itself and the job was green while
+# publishing nothing, next to manifests asking ghcr.io for images nobody had ever pushed. The set is now stated once, in the
+# matrix, and a Dockerfile that is not there fails the build instead of being skipped past.
+
 on:
   push:
     branches: ["main"]
     paths:
-      - '**/Dockerfile'
-      - '**/requirements.txt'
-      - '**/go.mod'
-      - '**/go.sum'
-      - '**/package.json'
+      - 'rust/**'
+      - 'gateway/go/**'
+      - 'infrastructure/docker/**'
+      - 'apps/flutter/**'
+      - '.github/workflows/docker-publish.yml'
   workflow_dispatch:
     inputs:
-      service:
-        description: 'Specific service to build (leave empty for all changed)'
+      images:
+        description: 'Which image to build (calculation-api, sync, worker, api-gateway) or all'
         required: false
+        default: 'all'
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: benwellonedge28/vimbai
+  NAMESPACE: ghcr.io/benwellonedge28/vimbai
 
 jobs:
-  detect-changed:
-    name: Detect Changed Services
-    runs-on: ubuntu-latest
-    outputs:
-      services: ${{ steps.detect.outputs.services }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Detect changed services
-        id: detect
-        run: |
-          if [ -n "${{ github.event.inputs.service }}" ]; then
-            echo "services=[\"${{ github.event.inputs.service }}\"]" >> $GITHUB_OUTPUT
-          else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -oP '^[a-z][a-z0-9-]+/' | sed 's/\///' | sort -u || true)
-            if [ -z "$CHANGED" ]; then
-              echo "services=[]" >> $GITHUB_OUTPUT
-            else
-              SERVICES=$(echo "$CHANGED" | jq -R . | jq -s -c .)
-              echo "services=$SERVICES" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-  build-and-push:
-    name: Build and Push
-    needs: detect-changed
-    if: needs.detect-changed.outputs.services != '[]'
+  # The engine, the worker and the sync server are three entry points into one workspace, so they are one Dockerfile with two
+  # build arguments rather than three that would drift apart the first time a dependency changed.
+  rust-images:
+    name: Build ${{ matrix.image }}
+    if: github.event.inputs.images == '' || github.event.inputs.images == 'all' || github.event.inputs.images == matrix.image
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
-      matrix:
-        service: ${{ fromJson(needs.detect-changed.outputs.services) }}
       fail-fast: false
+      matrix:
+        include:
+          - image: calculation-api
+            package: vimbai_api
+            bin: vimbai-api
+          - image: sync
+            package: vimbai_sync
+            bin: vimbai-sync
+          - image: worker
+            package: vimbai_worker
+            bin: vimbai-worker
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check if Dockerfile exists
-        id: check
-        run: |
-          if [ -f "${{ matrix.service }}/Dockerfile" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "No Dockerfile for ${{ matrix.service }}, skipping"
-          fi
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        if: steps.check.outputs.exists == 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container registry
-        if: steps.check.outputs.exists == 'true'
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        if: steps.check.outputs.exists == 'true'
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          images: ${{ env.NAMESPACE }}/${{ matrix.image }}
           tags: |
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
-        if: steps.check.outputs.exists == 'true'
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          file: infrastructure/docker/Dockerfile.rust
+          context: rust
           platforms: linux/amd64
           push: true
-          # only the analytics service answers from the Rust library so far
           build-args: |
+            PACKAGE=${{ matrix.package }}
+            BIN=${{ matrix.bin }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=rust-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=rust-${{ matrix.image }}
+
+  gateway-image:
+    name: Build api-gateway
+    if: github.event.inputs.images == '' || github.event.inputs.images == 'all' || github.event.inputs.images == 'api-gateway'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.NAMESPACE }}/api-gateway
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          file: infrastructure/docker/Dockerfile.gateway
+          context: gateway/go
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # the version the gateway reports on /health is the commit it was built from
+          build-args: |
+            VERSION=${{ github.sha }}
+          cache-from: type=gha,scope=gateway
+          cache-to: type=gha,mode=max,scope=gateway

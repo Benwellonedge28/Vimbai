@@ -529,22 +529,13 @@ pub fn image_problems(root: &Path) -> Vec<String> {
             ));
         }
     }
-    // and the other way round: a workflow naming a Dockerfile that is not here
-    for line in named.lines() {
-        let trimmed = line.trim();
-        let Some(index) = trimmed.find("infrastructure/docker/") else {
-            continue;
-        };
-        let reference = &trimmed[index + "infrastructure/docker/".len()..];
-        let file: String = reference
-            .chars()
-            .take_while(|character| !character.is_whitespace() && *character != '"')
-            .collect();
-        if file.is_empty() {
-            continue;
-        }
-        if !directory.join(&file).is_file() {
-            problems.push(format!("{file} is named as an image but does not exist"));
+    // and the other way round: a build step naming a Dockerfile that is not here. Read as a `file:` key rather than by looking for
+    // the path anywhere in the text, because `paths: - 'infrastructure/docker/**'` is a trigger, not a build.
+    for dockerfile in crate::images::published_dockerfiles(root) {
+        if !root.join(&dockerfile).is_file() {
+            problems.push(format!(
+                "{dockerfile} is named as a build and does not exist"
+            ));
         }
     }
     problems.sort();

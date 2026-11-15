@@ -31,8 +31,7 @@ build when a workflow file is not named here, or when this page names one that n
 | `release-automation.yml` | a push to `main` | Creates the release for the version in `VERSION`. |
 | `cd-staging.yml` | a push to `develop` | Builds and deploys to staging. |
 | `cd-production.yml` | a `v*.*.*` tag | Builds and deploys to production. |
-| `docker-publish.yml` | a changed `Dockerfile` or dependency manifest, and by hand | Publishes the changed images. |
-| `calculation-api.yml` | a change under `rust/`, and by hand | Publishes the engine image. |
+| `docker-publish.yml` | a change under `rust/`, `gateway/go/` or `infrastructure/docker/`, and by hand | Publishes the four images the cluster pulls (engine, sync, worker, gateway). |
 
 ## What was removed, and why
 
@@ -41,7 +40,7 @@ It had stopped running at all: two of its jobs, `lint-python` and `test-python-s
 Rust, and three other jobs still listed them under `needs`, so GitHub rejected the whole file and none of its jobs - CodeQL,
 Trivy, Grype, ZAP, the SBOM, the failure notifier - had executed since. What it still had that mattered was `cargo audit` and
 CodeQL, both now in `security-scan.yml`. What it duplicated is covered: its Go build and test by `ci-main.yml`, its image build
-by `docker-publish.yml` and `calculation-api.yml`, its deploy by `cd-production.yml`. That last one is the reason not to restore
+by `docker-publish.yml`, its deploy by `cd-production.yml`. That last one is the reason not to restore
 it: it applied the production overlay on every push to `main`, so production had a second, untagged door beside the release
 workflow. Its ZAP job scanned `https://www.example.com` and its Grype job scanned the same filesystem Trivy already covers, so
 neither is missed.

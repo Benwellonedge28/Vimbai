@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: vimbai/api-gateway:latest
+        image: ghcr.io/benwellonedge28/vimbai/api-gateway:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8081
