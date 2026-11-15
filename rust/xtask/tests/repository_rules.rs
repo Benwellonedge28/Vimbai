@@ -676,6 +676,29 @@ fn the_documentation_index_names_every_document_and_runs_only_commands_that_exis
         "naming what was deleted is how a reader learns it is gone"
     );
 
+    // the scripts are prose too: preflight.sh pointed at "the mobile workflow" long after it was folded into ci-main.yml
+    std::fs::create_dir_all(scratch.join("scripts")).expect("a scripts directory");
+    std::fs::write(
+        scratch.join("scripts/preflight.sh"),
+        "#!/bin/bash\n# they run in the `ci.yml` job\n",
+    )
+    .expect("a script naming a workflow that exists");
+    assert!(
+        documentation::stale_references(&scratch).is_empty(),
+        "a script naming a workflow that exists has to pass"
+    );
+    std::fs::write(
+        scratch.join("scripts/preflight.sh"),
+        "#!/bin/bash\n# they run in the mobile workflow, in mobile-analyze.yml\n",
+    )
+    .expect("a script naming a workflow that was deleted");
+    assert!(
+        documentation::stale_references(&scratch)
+            .iter()
+            .any(|problem| problem.contains("mobile-analyze.yml")),
+        "a script pointing at a deleted workflow went unnoticed"
+    );
+
     std::fs::write(scratch.join("docs/forgotten.md"), "# never indexed\n")
         .expect("an unlisted page");
     let unlisted = documentation::documentation_index(&scratch);

@@ -245,26 +245,53 @@ pub fn stale_references(root: &Path) -> Vec<String> {
     }
 
     let mut problems = Vec::new();
+    let mut sources: Vec<(String, String)> = Vec::new();
     for document in documents(root)
         .into_iter()
         .chain(std::iter::once("README.md".to_string()))
     {
-        let Ok(text) = std::fs::read_to_string(root.join("docs").join(&document)) else {
-            continue;
-        };
+        if let Ok(text) = std::fs::read_to_string(root.join("docs").join(&document)) {
+            sources.push((format!("docs/{document}"), text));
+        }
+    }
+    // The scripts carry prose too, and `preflight.sh` told every reader for months that the app's tests "run in the mobile
+    // workflow" after that workflow had been deleted. A name in a script is held to the same rule as a name in a page.
+    if let Ok(entries) = std::fs::read_dir(root.join("scripts")) {
+        let mut scripts: Vec<String> = entries
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| name.ends_with(".sh"))
+            .collect();
+        scripts.sort();
+        for script in scripts {
+            if let Ok(text) = std::fs::read_to_string(root.join("scripts").join(&script)) {
+                sources.push((format!("scripts/{script}"), text));
+            }
+        }
+    }
+
+    for (document, text) in sources {
         for line in text.lines() {
-            if names_a_removal(line) || line.trim_start().starts_with('#') {
+            // a markdown heading is structure, but a shell comment is where a script's prose lives
+            let heading = document.starts_with("docs/") && line.trim_start().starts_with('#');
+            if names_a_removal(line) || heading {
                 continue;
             }
-            for token in inline_code(line) {
+            let mut tokens = inline_code(line);
+            if document.starts_with("scripts/") {
+                tokens.extend(bare_names(line));
+            }
+            for token in tokens {
                 if let Some(reference) = token
                     .strip_suffix(".md")
                     .filter(|rest| rest.starts_with("ADR-"))
                 {
                     let with_suffix = format!("{reference}.md");
-                    if !decision_files.iter().any(|file| file == &with_suffix) {
+                    if document.starts_with("docs/")
+                        && !decision_files.iter().any(|file| file == &with_suffix)
+                    {
                         problems.push(format!(
-                            "docs/{document} cites `{with_suffix}`, which is not in docs/decisions"
+                            "{document} cites `{with_suffix}`, which is not in docs/decisions"
                         ));
                     }
                 } else if token.ends_with(".yml") || token.ends_with(".yaml") {
@@ -275,7 +302,7 @@ pub fn stale_references(root: &Path) -> Vec<String> {
                         || files.contains(&token);
                     if !known {
                         problems.push(format!(
-                            "docs/{document} names `{token}`, which is not a file in the repository"
+                            "{document} names `{token}`, which is not a file in the repository"
                         ));
                     }
                 }
@@ -310,6 +337,16 @@ fn every_file(directory: &Path, found: &mut Vec<String>) {
             found.push(name.to_string());
         }
     }
+}
+
+/// A file name written without backticks, the way a shell script writes one.
+fn bare_names(line: &str) -> Vec<String> {
+    line.split(|character: char| {
+        character.is_whitespace() || matches!(character, '(' | ')' | '"' | '`')
+    })
+    .filter(|word| (word.ends_with(".yml") || word.ends_with(".yaml")) && !word.contains('$'))
+    .map(|word| word.to_string())
+    .collect()
 }
 
 /// The inline-code spans on a line, without their backticks.

@@ -6,6 +6,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The scripts are held to the same reference rule as the pages, and `scripts/preflight.sh` was the reason. It told every reader
+  that where flutter is not on `PATH` the app's tests "run in the mobile workflow" - a workflow deleted when `mobile-analyze.yml`
+  was folded into `test-flutter`, so the line named a job that no longer runs. It now names the `test-flutter` job and
+  `ci-main.yml`. `documentation::stale_references` also reads `scripts/*.sh`, where a file name is written without backticks, and
+  a shell comment is prose worth checking - a markdown `#` is a heading, a shell `#` is a sentence.
 - A dead reference in the documentation fails a build. `docs/ROADMAP.md`, the working plan, cited
   `docs/decisions/ADR-005-vimbai-pay-deferred.md` for as long as it took anyone to notice the decision had been recorded as
   `ADR-005-vimbai-pay-not-built.md`; the reader following it got nothing, in the one document that says what to build next.

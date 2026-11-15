@@ -89,14 +89,14 @@ if [ "$want_rust" = 1 ]; then
   fi
 
   # The Flutter app has its own toolchain, and this script does not install one: where flutter is on PATH the app's tests run
-  # here, and where it is not they run in the mobile workflow. Saying which happened is the point - a silent skip reads like
-  # a pass.
+  # here, and where it is not they run in the `test-flutter` job of `ci-main.yml`. Saying which happened is the point - a silent
+  # skip reads like a pass.
   if command -v flutter >/dev/null 2>&1; then
     step "flutter app tests"
     (cd apps/flutter && flutter pub get >/dev/null && flutter test) || fail "flutter test in apps/flutter"
   else
     step "flutter app tests"
-    printf '    skipped: no flutter on PATH (the mobile workflow runs them)\n'
+    printf '    skipped: no flutter on PATH (the test-flutter job in ci-main.yml runs them)\n'
   fi
 
   step "workspace tests"
