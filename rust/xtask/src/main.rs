@@ -10,7 +10,7 @@ use std::process::ExitCode;
 
 use xtask::{
     boundaries, catalog, documentation, domains, flutter, gateway, makefile, manifests, openapi,
-    owners, published, reachability, readme,
+    owners, published, reachability, readme, safety,
 };
 
 const USAGE: &str = "\
@@ -33,6 +33,7 @@ COMMANDS:
     reachability       report the modules no door can reach, one per line
     readme             check the front page's figure and citations against the catalogue and the decisions
     docs               check the index, the counts, the references and the tests a page names
+    safety             check the safe-Rust rule and that no Python is left
     makefile           check every target is .PHONY, described by `make help`, and runs a command xtask has
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
@@ -202,6 +203,21 @@ fn main() -> ExitCode {
             }
             if problems.is_empty() {
                 println!("docs: the index names every document, every path exists, and every count is the count");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
+        }
+        "safety" => {
+            let mut problems = safety::roots_without_the_attribute(&root);
+            problems.extend(safety::unsafe_that_does_something(&root));
+            problems.extend(safety::python_files(&root));
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!(
+                    "safety: every crate root forbids unsafe code, no unsafe code, and no Python in the repository"
+                );
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE

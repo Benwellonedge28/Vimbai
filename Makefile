@@ -3,7 +3,7 @@ CARGO := cargo
 MANIFEST := rust/Cargo.toml
 XTASK := $(CARGO) run -q -p xtask --manifest-path $(MANIFEST) --
 
-.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests build
+.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests safety build
 
 help:
 	@echo "make help          this list"
@@ -18,6 +18,7 @@ help:
 	@echo "make boundaries    check crate dependency rules"
 	@echo "make rules         the repository gates"
 	@echo "make docs          check the documentation index against the documents"
+	@echo "make safety        check the safe-Rust rule and that no Python is left"
 	@echo "make readme        check the front page against the catalogue and the decisions"
 	@echo "make makefile      check this file against its own targets and help"
 	@echo "make routes        regenerate the published address snapshot"
@@ -62,6 +63,9 @@ docs:
 
 readme:
 	$(XTASK) readme
+
+safety:
+	$(XTASK) safety
 
 makefile:
 	$(XTASK) makefile

@@ -265,7 +265,9 @@ pub fn files_using_unsafe(root: &Path) -> Vec<String> {
 }
 
 /// A line with its string literals emptied, so a message about unsafe code is not read as unsafe code.
-fn strip_strings(line: &str) -> String {
+/// A line with the contents of its string literals blanked, because a gate that states its rule in a string is not
+/// writing code. Shared: `safety` asks the same question of a whole file.
+pub fn strip_strings(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut inside = false;
     let mut escaped = false;

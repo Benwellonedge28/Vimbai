@@ -4,7 +4,11 @@ Where to read what. The repository is the source of truth; this index exists so 
 document is current. It is checked rather than trusted: `cargo run -p xtask -- docs` fails if a document under `docs/` is
 missing from here, if a path named here does not exist, if a command named here is not a command `xtask` has, or if the
 domain-page count beside it disagrees with `domains/`. Across the whole of `docs/`, a decision cited by its file name and a
-workflow it names by file also have to exist, because a dead reference is a reader's next click. A page that names the test proving one of its claims is checked against the file it names: that test has to be defined there.
+workflow it names by file also have to exist, because a dead reference is a reader's next click. `cargo run -p xtask -- safety` (or `make safety`) holds the two standing rules that the deleted Python suite used to check:
+every crate root forbids unsafe code - integration test crates included, because each one is its own crate - no real `unsafe`
+block anywhere, and no Python in the repository.
+
+A page that names the test proving one of its claims is checked against the file it names: that test has to be defined there.
 
 ## Start here
 

@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The two standing rules nothing was checking are now a command and a test. Safe Rust only, and no Python, were enforced by the
+  deleted pytest suite; both are true today, which is the state a rule stops being true in - a new integration test crate without
+  `#![forbid(unsafe_code)]` builds, passes its own tests and quietly brings back the ability to write `unsafe` in that file.
+  `cargo run -p xtask -- safety` (`make safety`) checks every crate root - library, binary, build script, and each integration
+  target, because an integration test is a crate of its own - then reads every `.rs` for a real `unsafe` block and every file for
+  Python by extension or project name. Reading only what can be governed keeps prose out: `unsafe {` inside a string literal is a
+  gate stating its own rule, not a use of one, and the string stripper is now shared with the crate scan rather than copied. The
+  tree walk it needs became `repository::files`, replacing the two private copies.
 - The proofs a page names have to exist. `docs/compliance/financial-integrity.md` opens by promising that "every claim names the
   test that fails if the claim stops being true", and until now nothing checked the names: renaming one of those tests would have
   left the promise standing with nothing behind it. `documentation::named_tests_exist` reads every `tests/<file>.rs::<test>`

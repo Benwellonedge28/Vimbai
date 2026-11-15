@@ -229,8 +229,7 @@ pub fn stale_references(root: &Path) -> Vec<String> {
         .unwrap_or_default();
     decision_files.sort();
 
-    let mut files: Vec<String> = Vec::new();
-    every_file(root, &mut files);
+    let files = crate::repository::files(root);
     let mut workflows: Vec<String> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(root.join(".github/workflows")) {
         for entry in entries.filter_map(|entry| entry.ok()) {
@@ -313,33 +312,6 @@ pub fn stale_references(root: &Path) -> Vec<String> {
     problems
 }
 
-fn every_file(directory: &Path, found: &mut Vec<String>) {
-    let Ok(entries) = std::fs::read_dir(directory) else {
-        return;
-    };
-    for entry in entries.filter_map(|entry| entry.ok()) {
-        let path = entry.path();
-        let skipped = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| {
-                matches!(
-                    name,
-                    "target" | ".git" | "node_modules" | ".dart_tool" | "build"
-                )
-            })
-            .unwrap_or(false);
-        if skipped {
-            continue;
-        }
-        if path.is_dir() {
-            every_file(&path, found);
-        } else if let Some(name) = path.to_str() {
-            found.push(name.to_string());
-        }
-    }
-}
-
 /// A page that names the test proving its claim, where the test is not there to be run.
 ///
 /// `docs/compliance/financial-integrity.md` opens by promising that "every claim names the test that fails if the claim stops
@@ -347,8 +319,7 @@ fn every_file(directory: &Path, found: &mut Vec<String>) {
 /// reading. A reference is written `tests/parity.rs::the_name`, so it is decidable: the file has to exist, and the function has
 /// to be defined in it.
 pub fn named_tests_exist(root: &Path) -> Vec<String> {
-    let mut files: Vec<String> = Vec::new();
-    every_file(root, &mut files);
+    let files = crate::repository::files(root);
     if files.is_empty() {
         return vec!["the repository has no files to resolve a test reference against".to_string()];
     }
