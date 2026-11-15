@@ -14,6 +14,20 @@ import 'package:vimbai_mobile_client/core/api/api_client.dart';
 void main() {
   final originalTransport = ApiClient.transport;
   final originalTimeout = ApiClient.timeout;
+  test(
+    'a refused connection is the offline answer, not an unhandled error',
+    () async {
+      ApiClient.transport = MockClient((request) async {
+        throw http.ClientException('connection refused', request.url);
+      });
+
+      await expectLater(
+        ApiClient().post(Uri.parse('http://127.0.0.1:1/identity/users/login')),
+        throwsA(isA<OfflineException>()),
+      );
+    },
+  );
+
   tearDown(() {
     ApiClient.transport = originalTransport;
     ApiClient.timeout = originalTimeout;

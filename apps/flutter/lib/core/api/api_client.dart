@@ -61,6 +61,12 @@ class ApiClient {
       throw OfflineException('No network connection: ${e.message}');
     } on HttpException catch (e) {
       throw OfflineException(e.message);
+    } on http.ClientException catch (e) {
+      // `package:http` reports a refused or dropped connection as its own ClientException, not as a SocketException, so
+      // without this every caller that handles being offline - which is every page in the app - got an unhandled error
+      // instead. That is the shape a dead engine takes on a phone: the connection is refused before a socket error is
+      // ever raised. It is not retried for the same reason a write is not: the server may have done the work.
+      throw OfflineException(e.message);
     }
   }
 

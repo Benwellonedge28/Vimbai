@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
+import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/features/authentication/models/user.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/core/local_db/user_local_data.dart';
@@ -7,6 +8,12 @@ import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/core/offline/sync_service.dart'; // For API URL
 
 /// Client for the identity-service via the API gateway.
+///
+/// The engine decides who someone is, on every sign-in and every registration, whether or not the phone has a network.
+/// On a device the engine runs locally, so "offline" is not a reason to stop asking it: the previous version of this
+/// class read `connectivity_plus` and, with no connection, admitted any username whose profile was already on the phone
+/// and fabricated an account for any registration. Both were gaps a person could walk through with a wrong password,
+/// and neither produced a token, so the session could not read anything anyway.
 ///
 /// Real contract (gateway strips the /identity prefix before proxying):
 ///   POST /identity/users/register  JSON  {email, username, password, ...}
@@ -31,35 +38,30 @@ class AuthService {
     String password,
     String roleName,
   ) async {
-    final connectivityResults = await Connectivity().checkConnectivity();
-    if (connectivityResults.contains(ConnectivityResult.none) ||
-        connectivityResults.isEmpty) {
-      // Offline registration: Store locally and queue for sync
-      print('Offline registration attempt: $username. Will sync later.');
-      final tempUser = User(
-        id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-        username: username,
-        email: email,
-        role: roleName,
-      );
-      await UserLocalData.saveUser(tempUser);
-      return true;
-    }
-
-    // Online registration through the gateway. role_ids stays empty: the
+    // Registration goes to the engine. role_ids stays empty: the
     // identity service seeds default roles on startup and validates any
     // provided ids, so an unknown role name must not be sent.
-    final response = await _client.post(
-      Uri.parse('$_baseUrl/identity/users/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'username': username,
-        'email': email,
-        'password': password,
-        'first_name': username,
-        'role_ids': <String>[],
-      }),
-    );
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/users/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'username': username,
+          'email': email,
+          'password': password,
+          'first_name': username,
+          'role_ids': <String>[],
+        }),
+      );
+    } on OfflineException catch (failure) {
+      // The engine could not be asked, so no account exists. Saying so is the honest answer: an account made up on the
+      // phone is not an account, and letting the person in would mean a book they can never open on any other machine.
+      print(
+        'Registration refused: the accounting engine could not be reached ($failure).',
+      );
+      return false;
+    }
 
     if (response.statusCode == 201) {
       final data = json.decode(response.body) as Map<String, dynamic>;
@@ -78,29 +80,26 @@ class AuthService {
   }
 
   Future<bool> login(String username, String password) async {
-    final connectivityResults = await Connectivity().checkConnectivity();
-
-    if (connectivityResults.contains(ConnectivityResult.none) ||
-        connectivityResults.isEmpty) {
-      final localUser = await UserLocalData.getUser();
-      if (localUser != null && localUser.username == username) {
-        print('Offline login successful for $username.');
-        return true;
-      }
+    // OAuth2 password flow: the identity service expects form data, not JSON.
+    //
+    // There is deliberately no "we look offline, so let them in" branch. The password is checked by the engine that
+    // holds the account, which on a device is the engine running beside the app; a phone with no network and a live
+    // local engine still signs in, and a phone that cannot reach its engine is told so rather than admitted.
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/users/login'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body:
+            'username=${Uri.encodeQueryComponent(username)}'
+            '&password=${Uri.encodeQueryComponent(password)}',
+      );
+    } on OfflineException catch (failure) {
       print(
-        'Offline login failed for $username. No local user found or mismatch.',
+        'Sign-in refused: the accounting engine could not be reached ($failure).',
       );
       return false;
     }
-
-    // OAuth2 password flow: the identity service expects form data, not JSON.
-    final response = await _client.post(
-      Uri.parse('$_baseUrl/identity/users/login'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body:
-          'username=${Uri.encodeQueryComponent(username)}'
-          '&password=${Uri.encodeQueryComponent(password)}',
-    );
 
     if (response.statusCode != 200) {
       print('Online login failed: ${response.statusCode} - ${response.body}');

@@ -8,6 +8,33 @@
 
 use std::path::Path;
 
+/// Writes a generated file so a reader sees either the whole old file or the whole new one, never a half of either.
+///
+/// The generators in this crate are also called from tests, and cargo runs tests in parallel: one test regenerating the
+/// catalogue while another reads it is normal here. A plain `fs::write` truncates first, so a reader could catch the file
+/// empty or short - which is how one check reported 139 routed services while the catalogue held 143, four entries having
+/// momentarily not been written yet. Writing beside the target and renaming into place makes the swap one step.
+pub fn write_atomic(path: &Path, body: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let beside = path.with_extension(format!(
+        "{}.writing-{}",
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("out"),
+        std::process::id()
+    ));
+    std::fs::write(&beside, body)?;
+    match std::fs::rename(&beside, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let _ = std::fs::remove_file(&beside);
+            Err(error)
+        }
+    }
+}
+
 /// Build output and editor state, never the repository's own files.
 // `ephemeral` is Flutter's own build output: it writes a Python helper into ios/Flutter/ephemeral on every build, and
 // a generated helper is not the repository deciding to keep Python.

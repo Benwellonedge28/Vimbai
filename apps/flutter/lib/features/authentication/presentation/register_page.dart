@@ -27,6 +27,17 @@ class _RegisterPageState extends State<RegisterPage> {
     final email = _emailController.text;
     final password = _passwordController.text;
 
+    // The engine decides what a password may be; this only saves a round trip for the one rule a person can see for
+    // themselves. Deliberately no complexity rule, because the engine has none: length is the requirement, so telling
+    // someone to add a symbol here would be inventing a rule the engine does not hold them to.
+    if (password.runes.length < 8) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Use at least 8 characters.';
+      });
+      return;
+    }
+
     final success = await _authService.register(
       username,
       email,
@@ -77,7 +88,13 @@ class _RegisterPageState extends State<RegisterPage> {
               TextField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  helperText:
+                      'At least 8 characters. A few words you will '
+                      'remember is stronger than a short word with symbols.',
+                  helperMaxLines: 2,
+                ),
               ),
               const SizedBox(height: 24),
               _isLoading

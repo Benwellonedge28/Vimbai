@@ -416,11 +416,8 @@ pub fn write(root: &Path, check: bool) -> Result<(), String> {
             stale.push(path.display().to_string());
             continue;
         }
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|error| format!("{}: {error}", parent.display()))?;
-        }
-        std::fs::write(&path, &text).map_err(|error| format!("{}: {error}", path.display()))?;
+        crate::repository::write_atomic(&path, &text)
+            .map_err(|error| format!("{}: {error}", path.display()))?;
     }
     if stale.is_empty() {
         Ok(())

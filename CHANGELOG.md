@@ -4,7 +4,44 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Added
+
+- Passwords follow NIST SP 800-63B instead of a length limit and nothing else. Eight characters minimum counted as
+  characters rather than bytes, so a password written in Amharic or Devanagari is not refused for being shorter than it
+  looks; no composition rules and no expiry, because those push people towards `Password1!` and `Autumn2024!`; the
+  commonly tried passwords refused; a single repeated character refused; and the account's own username or email refused as
+  its password. One module (`vimbai_sso::password`) holds the rules, and registration, password change and password reset
+  all go through it, so there is one answer to "what may a password be" rather than three.
+- Unicode is normalised (NFKC) before hashing, so the same password typed on a phone keyboard and a laptop is one password.
+  Checking tries the stored form first and the normalised form second, so every hash made before this still verifies.
+- bcrypt now runs at cost 12 with `needs_rehash`, and a hash made at an older cost is replaced on the next successful
+  sign-in. That is the only moment a password is in the clear, so it is the only moment the upgrade is free; nobody is
+  forced to change anything and no account is locked out.
+- Sign-in is throttled. Five wrong guesses put that identifier aside for fifteen minutes, answering 429 with `retry_after`
+  and a stated wait, and a correct password clears the count. It is counted whether or not the account exists, so the
+  throttle cannot be used to find out which usernames do.
+- A weak password is refused with the reason in the person's own words ("Use at least 8 characters", "That password is one
+  of the most commonly used") rather than "requirements not met", which leaves them guessing which requirement.
+
 ### Fixed
+
+- A wrong password opened the app. Two fallbacks stood between the engine's refusal and the person: the sign-in page turned
+  any failed sign-in into a session whenever a profile was already cached on the phone, and the auth service, when the
+  phone reported no connection, admitted any username whose profile was there. Registration had the same shape - with no
+  connection it invented a local account that existed nowhere else and returned success, so the person believed they had
+  registered and could never sign in from another machine. All three are gone: the engine checks the password on every
+  sign-in and creates every account, which it can do on a device because the engine runs locally, and an engine that cannot
+  be reached now says so instead of admitting anyone. Cached data on the phone is for reading what is already there, not
+  for deciding who somebody is.
+- The app's shared HTTP client did not recognise a refused connection. `package:http` reports that as its own
+  `ClientException`, not as a `SocketException`, so every page that handles being offline got an unhandled error instead -
+  which is the shape a dead engine takes on a phone. It now maps to the offline answer like the other two, and a test
+  covers it.
+
+### Added
+
+- `cargo run -p xtask -- flutter` now fails when a file under the authentication feature reads `connectivity_plus`. Who
+  somebody is, is the engine's answer; a phone's connection state says nothing about a password.
 
 - A Book full of posted entries reported nothing. The on-device file store and the in-memory store each returned a listed
   entry one level down, so trial balance, income statement and balance sheet read a record's outer wrapper and counted

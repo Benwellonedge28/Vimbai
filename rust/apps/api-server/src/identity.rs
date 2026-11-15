@@ -30,6 +30,7 @@ use mfa::accounts::{
     self, default_roles, hash_password, issue_access_token, issue_mfa_token, permissions_for,
     sign_in, AccountError, MfaMethod, Role, SignIn, User, UserStatus, CAPABILITIES,
 };
+use mfa::password;
 use serde_json::{json, Value};
 use store::{PlatformRecords, RecordKind};
 
@@ -88,6 +89,15 @@ fn refusal(failure: AccountError) -> Response {
     error(failure.status(), &failure.message())
 }
 
+/// Hash a password, or say in the person's own words what is wrong with it.
+///
+/// The rules are in [`password`]; the only thing this adds is that the refusal keeps its reason instead of collapsing to
+/// "does not meet the requirements". A person told "choose something nobody else would" can fix it; a person told the
+/// requirements were not met has to guess which one.
+fn hashed(password: &str, names: &[&str]) -> Result<String, Box<Response>> {
+    password::hash(password, names).map_err(|fault| Box::new(error(400, fault.message())))
+}
+
 /// One live thing: a token, a session or a code. Held in memory because it is a thing being used right now.
 #[derive(Default)]
 struct Live {
@@ -101,6 +111,39 @@ struct Live {
     codes: BTreeMap<String, Code>,
     /// a counter, so two things made in the same nanosecond are still two things
     made: u64,
+    /// identifier -> how many sign-ins have just failed for it, and when that count was last added to
+    attempts: BTreeMap<String, Attempts>,
+}
+
+/// The wrong guesses made against one identifier.
+///
+/// Kept in live state for the same reason a session is: it is a thing happening now, not a fact about the account. It
+/// exists because a password is guessed by trying it, and an engine that answers as fast as it is asked is an engine that
+/// helps. Five wrong guesses put the identifier aside for a quarter of an hour; a right one clears the count, so somebody
+/// who remembers their password is never left locked out by their own typo.
+#[derive(Clone, Copy)]
+struct Attempts {
+    wrong: u32,
+    first: DateTime<Utc>,
+    last: DateTime<Utc>,
+}
+
+/// How many wrong guesses an identifier may make, and how long the pause lasts.
+const SIGN_IN_ATTEMPTS: u32 = 5;
+const SIGN_IN_PAUSE_MINUTES: i64 = 15;
+
+impl Attempts {
+    /// Whether this identifier is still in its pause, and how long is left if so.
+    fn pause_left(&self, at: DateTime<Utc>) -> Option<i64> {
+        if self.wrong < SIGN_IN_ATTEMPTS {
+            return None;
+        }
+        let until = self.last + Duration::minutes(SIGN_IN_PAUSE_MINUTES);
+        if at >= until {
+            return None;
+        }
+        Some((until - at).num_seconds().max(1))
+    }
 }
 
 struct Session {
@@ -119,6 +162,44 @@ struct Code {
 fn live() -> &'static Mutex<Live> {
     static LIVE: OnceLock<Mutex<Live>> = OnceLock::new();
     LIVE.get_or_init(|| Mutex::new(Live::default()))
+}
+
+/// How long `identifier` must wait before another attempt is answered, if it is in a pause.
+fn sign_in_pause(identifier: &str) -> Option<i64> {
+    let folded = identifier.trim().to_lowercase();
+    let held = live().lock().expect("the identity state is never poisoned");
+    held.attempts
+        .get(&folded)
+        .and_then(|entry| entry.pause_left(now()))
+}
+
+/// Record a wrong guess, starting the count afresh once the pause has run out.
+fn record_wrong(identifier: &str) {
+    let folded = identifier.trim().to_lowercase();
+    let at = now();
+    let mut held = live().lock().expect("the identity state is never poisoned");
+    let entry = held.attempts.entry(folded).or_insert(Attempts {
+        wrong: 0,
+        first: at,
+        last: at,
+    });
+    if entry.pause_left(at).is_none() && entry.wrong >= SIGN_IN_ATTEMPTS {
+        // the pause is over: this attempt is the first of a new count
+        entry.wrong = 0;
+        entry.first = at;
+    }
+    entry.wrong += 1;
+    entry.last = at;
+}
+
+/// A correct password clears the count, so a person who mistyped twice is not two guesses nearer a lockout.
+fn clear_wrong(identifier: &str) {
+    let folded = identifier.trim().to_lowercase();
+    live()
+        .lock()
+        .expect("the identity state is never poisoned")
+        .attempts
+        .remove(&folded);
 }
 
 /// A unique name for something made now. Not a secret: anything that has to be unguessable uses [`random_token`].
@@ -703,7 +784,18 @@ async fn register(
             )
                 .into_response()
         }
-        Err(failure) => refusal(failure),
+        Err(failure) => {
+            // the collision cases keep their own answers; a weak password is explained rather than named
+            if failure == AccountError::WeakPassword {
+                let sent_password = sent.get("password").cloned().unwrap_or_default();
+                let sent_name = sent.get("username").cloned().unwrap_or_default();
+                let sent_email = sent.get("email").cloned().unwrap_or_default();
+                if let Err(fault) = password::check(&sent_password, &[&sent_name, &sent_email]) {
+                    return error(400, fault.message());
+                }
+            }
+            refusal(failure)
+        }
     }
 }
 
@@ -721,6 +813,19 @@ async fn login(
         .unwrap_or_default();
     let password = sent.get("password").cloned().unwrap_or_default();
 
+    // Too many wrong guesses already: answer at once, and say how long to wait, rather than hashing another try.
+    if let Some(seconds) = sign_in_pause(&identifier) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [("retry-after", seconds.to_string())],
+            Json(json!({
+                "error": format!("Too many sign-in attempts. Try again in {seconds} seconds."),
+                "retry_after": seconds,
+            })),
+        )
+            .into_response();
+    }
+
     let users: Vec<User> = PlatformRecords::new(graph.as_ref(), ACCOUNT)
         .list(100_000)
         .unwrap_or_default()
@@ -730,6 +835,18 @@ async fn login(
 
     match sign_in(&users, &identifier, &password) {
         Ok(SignIn::Allowed(user)) => {
+            clear_wrong(&identifier);
+            // The password is only in the clear here, so this is the moment a hash made with an older cost can be
+            // replaced. Best effort: a rehash that fails leaves a working account, just a slower one.
+            if accounts::needs_rehash(&user.password_hash) {
+                let names = [user.username.as_str(), user.email.as_str()];
+                if let Ok(fresh) = hash_password(&password, &names) {
+                    let _ = accounts_of(&graph).update(
+                        &user.id,
+                        &json!({ "password_hash": fresh, "updated_at": iso(now()) }),
+                    );
+                }
+            }
             let ip = headers
                 .get("x-forwarded-for")
                 .and_then(|value| value.to_str().ok())
@@ -774,6 +891,8 @@ async fn login(
                     );
                 }
             }
+            // Counted whether or not the account exists, so the throttle cannot be used to find out which names do.
+            record_wrong(&identifier);
             refusal(failure)
         }
     }
@@ -981,9 +1100,10 @@ async fn change_password(
         );
         return error(400, "Current password is incorrect");
     }
-    let hash = match hash_password(&wanted) {
+    let names = [user.username.as_str(), user.email.as_str()];
+    let hash = match hashed(&wanted, &names) {
         Ok(hash) => hash,
-        Err(failure) => return refusal(failure),
+        Err(answer) => return *answer,
     };
     let _ = accounts_of(&graph).update(
         &user_id,
@@ -1563,12 +1683,13 @@ async fn confirm_password_reset(
             .remove(&key);
         return error(400, "Reset token expired");
     }
-    let Some(_user) = stored_user(&graph, &user_id) else {
+    let Some(user) = stored_user(&graph, &user_id) else {
         return error(404, "User not found");
     };
-    let hash = match hash_password(&wanted) {
+    let names = [user.username.as_str(), user.email.as_str()];
+    let hash = match hashed(&wanted, &names) {
         Ok(hash) => hash,
-        Err(failure) => return refusal(failure),
+        Err(answer) => return *answer,
     };
     let _ = accounts_of(&graph).update(
         &user_id,

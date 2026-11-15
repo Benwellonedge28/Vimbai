@@ -165,5 +165,6 @@ pub fn write(root: &Path, check: bool) -> Result<(), String> {
             path.display()
         ));
     }
-    std::fs::write(&path, generated).map_err(|error| format!("{}: {error}", path.display()))
+    crate::repository::write_atomic(&path, &generated)
+        .map_err(|error| format!("{}: {error}", path.display()))
 }

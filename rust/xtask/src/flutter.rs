@@ -17,6 +17,10 @@
 //!   there is no dart toolchain in CI.
 //! * `features` - each feature folder and which of the four inner folders it has, so a half-migrated feature is visible
 //!   rather than discovered later.
+//! * `identity_reads_no_radio` - a file that decides who somebody is reading `connectivity_plus`. It did exactly that: with
+//!   no connection the sign-in admitted any username already on the phone, and the page above it turned an engine refusal
+//!   into a session whenever a cached profile existed, so a wrong password opened a device that had been used before. Who
+//!   someone is, is the engine's answer and nobody else's.
 //!
 //! Everything is a plain library function, so the P4 worker, a future CI shard or an editor hook can call it rather than
 //! reimplementing the scan.
@@ -253,6 +257,41 @@ pub fn features(repo: &Path) -> Vec<Feature> {
     found
 }
 
+/// Files under the authentication feature that ask the radio who somebody is.
+///
+/// The engine holds the accounts and the password hashes; a phone's connection state says nothing about either. Reading it
+/// in the code that decides a sign-in is how this went wrong twice, so the rule is checked rather than remembered.
+pub fn identity_reads_no_radio(repo: &Path) -> Vec<Finding> {
+    let dir = app_root(repo)
+        .join("lib")
+        .join("features")
+        .join("authentication");
+    let mut found = Vec::new();
+    let mut files = Vec::new();
+    walk(&dir, &app_root(repo), &mut files);
+    files.sort();
+    for file in files {
+        let path = app_root(repo).join(&file);
+        let Ok(body) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for line in body.lines() {
+            let code = line.split("//").next().unwrap_or_default();
+            if code.contains("connectivity_plus")
+                || code.contains("Connectivity()")
+                || code.contains("ConnectivityResult")
+            {
+                found.push(Finding {
+                    file: file.clone(),
+                    detail: "decides identity from the phone's connection; the engine answers who somebody is".into(),
+                });
+                break;
+            }
+        }
+    }
+    found
+}
+
 /// Everything the gate objects to, in one list, so a failure is one report rather than five passes.
 pub fn findings(repo: &Path) -> Vec<Finding> {
     let mut out: Vec<Finding> = regressions(repo)
@@ -268,6 +307,7 @@ pub fn findings(repo: &Path) -> Vec<Finding> {
         detail: format!("named in {BASELINE} but no longer in an old layer folder; trim the pinned list"),
     }));
     out.extend(dangling_imports(repo));
+    out.extend(identity_reads_no_radio(repo));
     out.sort();
     out
 }
@@ -294,6 +334,46 @@ mod tests {
         let path = root.join("apps/flutter").join(file);
         std::fs::create_dir_all(path.parent().unwrap()).expect("a folder");
         std::fs::write(path, body).expect("a file");
+    }
+
+    #[test]
+    fn a_sign_in_that_reads_the_radio_is_reported() {
+        let root = scratch();
+        write(
+            &root,
+            "lib/features/authentication/data/auth_service.dart",
+            "import 'package:connectivity_plus/connectivity_plus.dart';\n",
+        );
+        write(
+            &root,
+            "lib/features/authentication/presentation/login_page.dart",
+            "void go() { final r = ConnectivityResult.none; }\n",
+        );
+        write(
+            &root,
+            "lib/features/accounting/presentation/page.dart",
+            "import 'package:connectivity_plus/connectivity_plus.dart';\n",
+        );
+
+        let found = identity_reads_no_radio(&root);
+        let files: Vec<&str> = found.iter().map(|one| one.file.as_str()).collect();
+        assert_eq!(files.len(), 2, "{found:?}");
+        assert!(files.iter().any(|file| file.ends_with("auth_service.dart")));
+        assert!(files.iter().any(|file| file.ends_with("login_page.dart")));
+        // a page that reads the radio to decide whether to show cached data is not deciding identity
+        assert!(!files.iter().any(|file| file.contains("accounting")));
+    }
+
+    #[test]
+    fn a_comment_that_mentions_the_radio_is_not_a_reading_of_it() {
+        let root = scratch();
+        write(
+            &root,
+            "lib/features/authentication/data/auth_service.dart",
+            "// this class used to read connectivity_plus and admit anyone\nvoid go() {}\n",
+        );
+
+        assert!(identity_reads_no_radio(&root).is_empty());
     }
 
     #[test]

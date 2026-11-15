@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/app/home_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/register_page.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -27,30 +26,14 @@ class _LoginPageState extends State<LoginPage> {
     final username = _usernameController.text;
     final password = _passwordController.text;
 
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    final isOnline = connectivityResult != ConnectivityResult.none;
-
-    bool success = false;
-    if (isOnline) {
-      // Try online login first
-      success = await _authService.login(username, password);
-      if (!success) {
-        _errorMessage = 'Online login failed. Check credentials.';
-        // Fallback to offline if online failed but local user exists
-        final localUser = await _authService.isLoggedIn();
-        if (localUser) {
-          success = true;
-          _errorMessage =
-              'Online login failed, but logged in using cached data (offline mode).';
-        }
-      }
-    } else {
-      // Directly try offline login
-      success = await _authService.login(username, password);
-      if (!success) {
-        _errorMessage =
-            'Offline login failed. No cached user or credentials mismatch.';
-      }
+    // One path to the books: the engine checks the password and answers. There is deliberately no fallback that turns a
+    // refused password into a session - the shipped page did exactly that, treating a cached profile on the phone as
+    // enough to sign in when the engine said no, so a wrong password opened a device that had been used before. Cached
+    // data is for reading what is already on the phone, not for deciding who someone is.
+    final success = await _authService.login(username, password);
+    if (!success) {
+      _errorMessage =
+          'Sign-in failed. Check your username and password, and that the accounting engine is running.';
     }
 
     setState(() {

@@ -764,3 +764,103 @@ async fn an_organisation_is_readable_by_its_members_and_invisible_to_everyone_el
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(body["detail"], json!("Organization not found"));
 }
+
+#[tokio::test]
+async fn a_password_nobody_would_guess_wrongly_is_refused_at_the_door_with_a_reason() {
+    let graph = Arc::new(MemoryGraph::new());
+    for (password, expected) in [
+        ("short", "at least 8 characters"),
+        ("password", "most commonly used"),
+        ("aaaaaaaa", "more than one distinct character"),
+        ("tariro tariro", "your own username"),
+    ] {
+        let (status, body) = call(
+            graph.clone(),
+            Method::POST,
+            "/users/register",
+            Some(json!({
+                "email": "tariro@example.com",
+                "username": "tariro",
+                "first_name": "Tariro",
+                "last_name": "Moyo",
+                "role_ids": ["accountant"],
+                "password": password,
+            })),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{password}: {body}");
+        let said = body["detail"].as_str().unwrap_or_default().to_lowercase();
+        assert!(
+            said.contains(expected),
+            "{password} should be refused because it needs {expected}, and the answer said {said}"
+        );
+    }
+
+    // and the form the rule actually asks for is accepted
+    let made = registered(graph.clone(), "tariro", "correct horse battery").await;
+    assert_eq!(made["username"], json!("tariro"));
+}
+
+#[tokio::test]
+async fn a_run_of_wrong_guesses_is_paused_rather_than_answered_forever() {
+    let graph = Arc::new(MemoryGraph::new());
+    registered(graph.clone(), "throttled", "correct horse battery").await;
+
+    // four wrong guesses are simply wrong
+    for _ in 0..4 {
+        let (status, _) = call(
+            graph.clone(),
+            Method::POST,
+            "/users/login",
+            Some(json!({ "username": "throttled", "password": "not the password" })),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    // the fifth starts the pause, and the answer says how long it is
+    let (status, _fifth) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({ "username": "throttled", "password": "not the password" })),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the fifth guess is still just wrong"
+    );
+
+    // from here even the right password waits: that is what makes a run of guesses expensive
+    let (paused, answer) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({ "username": "throttled", "password": "correct horse battery" })),
+        None,
+    )
+    .await;
+    assert_eq!(paused, StatusCode::TOO_MANY_REQUESTS, "{answer}");
+    let wait = answer["retry_after"].as_i64().unwrap_or_default();
+    assert!(wait > 0 && wait <= 15 * 60, "the wait is stated: {answer}");
+    assert!(answer["error"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("Too many"));
+
+    // and a different identifier is unaffected, so one person's typo does not lock the door for everyone
+    registered(graph.clone(), "ruvimbo", "another long phrase").await;
+    let (fine, _) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({ "username": "ruvimbo", "password": "another long phrase" })),
+        None,
+    )
+    .await;
+    assert_eq!(fine, StatusCode::OK);
+}

@@ -327,25 +327,31 @@ impl AccountError {
     }
 }
 
-/// bcrypt's own limit. A longer password cannot be hashed faithfully, so it is refused rather than truncated into
-/// something else the person did not choose.
-const MAX_PASSWORD_BYTES: usize = 72;
+/// bcrypt's own limit, re-exported so this module and [`crate::password`] cannot disagree about it.
+pub use crate::password::MAX_BYTES as MAX_PASSWORD_BYTES;
 
 /// Hash a password the way this platform stores them.
-pub fn hash_password(password: &str) -> Result<String, AccountError> {
-    if password.is_empty() || password.len() > MAX_PASSWORD_BYTES {
-        return Err(AccountError::WeakPassword);
-    }
-    bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|_| AccountError::WeakPassword)
+///
+/// The rules live in [`crate::password`], following NIST SP 800-63B: eight characters at least, no composition rules, the
+/// obviously guessable refused, and NFKC normalisation so one password typed on two keyboards is one password. `names`
+/// are the account's username and email, so a password cannot be the name it protects. Empty and over-long passwords are
+/// the same refusal they always were.
+pub fn hash_password(password: &str, names: &[&str]) -> Result<String, AccountError> {
+    crate::password::hash(password, names).map_err(|_| AccountError::WeakPassword)
 }
 
 /// Check a password against a stored hash. A hash this build cannot read is a failed password, never an error that
 /// says so: the same answer goes back for both.
 pub fn verify_password(password: &str, hash: &str) -> bool {
-    if password.len() > MAX_PASSWORD_BYTES {
-        return false;
-    }
-    bcrypt::verify(password, hash).unwrap_or(false)
+    crate::password::verify(password, hash)
+}
+
+/// Whether a stored hash was made with today's cost, so it can be replaced on the next successful sign-in.
+///
+/// Cheap to ask and worth asking: a password is the one secret that is only available in the clear at sign-in, so that is
+/// the moment to move it to a stronger hash. Nothing is forced on the person and no account is locked out.
+pub fn needs_rehash(hash: &str) -> bool {
+    crate::password::needs_rehash(hash)
 }
 
 /// Register an account, refusing the collisions the shipped service refused. Checks run in the shipped order so a
@@ -376,6 +382,8 @@ pub fn register(
     }
 
     let stamp = now.to_rfc3339();
+    // The password is checked against the names it protects before anything is moved into the record.
+    let password_hash = hash_password(&wanted.password, &[&wanted.username, &wanted.email])?;
     Ok(User {
         id: wanted.id,
         email,
@@ -390,7 +398,7 @@ pub fn register(
         organization_id: wanted.organization_id,
         mfa_enabled: false,
         mfa_method: MfaMethod::Totp,
-        password_hash: hash_password(&wanted.password)?,
+        password_hash,
         created_at: stamp.clone(),
         updated_at: stamp,
         last_login: None,
@@ -613,7 +621,7 @@ mod tests {
 
     #[test]
     fn a_password_hashes_and_comes_back_the_same_but_never_in_clear() {
-        let hash = hash_password("correct horse battery").expect("hashed");
+        let hash = hash_password("correct horse battery", &[]).expect("hashed");
         assert!(
             hash.starts_with("$2"),
             "bcrypt format, as this platform already stores: {hash}"
@@ -636,11 +644,14 @@ mod tests {
 
     #[test]
     fn a_password_that_cannot_be_hashed_faithfully_is_refused_rather_than_cut_short() {
-        assert_eq!(hash_password(""), Err(AccountError::WeakPassword));
+        assert_eq!(hash_password("", &[]), Err(AccountError::WeakPassword));
         let too_long = "a".repeat(MAX_PASSWORD_BYTES + 1);
-        assert_eq!(hash_password(&too_long), Err(AccountError::WeakPassword));
+        assert_eq!(
+            hash_password(&too_long, &[]),
+            Err(AccountError::WeakPassword)
+        );
         // and a too-long password never verifies, whatever the stored hash is
-        let hash = hash_password("short enough").expect("hashed");
+        let hash = hash_password("short enough", &[]).expect("hashed");
         assert!(!verify_password(&too_long, &hash));
     }
 
