@@ -190,6 +190,8 @@ class AccountInDB {
 // --- Mobile-facing Journal Entry models (offline-first) ---
 @JsonSerializable(explicitToJson: true)
 class JournalLine {
+  // the engine and the local table both write `account_number`; reading `accountNumber` threw on every line
+  @JsonKey(name: 'account_number')
   final String accountNumber;
   final String? description;
   final double debit;

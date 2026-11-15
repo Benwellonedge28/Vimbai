@@ -6,6 +6,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- An entry the engine answered could not be read even once its money parsed: `JournalLine` read `accountNumber` while the
+  engine and the local `journal_lines` table both write `account_number`, so every posted entry, every listed entry and the
+  offline copy threw on the first line. The model now carries the wire name, which fixes the engine path and the local path
+  together, and a test parses both forms.
 - Money read in the app now takes the engine's form everywhere it arrives, not only in accounting: the cash flow section,
   a bank-feed transaction's amount and balance, the budget variance report and the NPO revenue band all declared `double`
   and cast the string the engine sends, which throws instead of parsing. All of them use `amountFromJson`.

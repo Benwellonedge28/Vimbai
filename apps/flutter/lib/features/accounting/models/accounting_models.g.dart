@@ -166,7 +166,7 @@ Map<String, dynamic> _$AccountInDBToJson(AccountInDB instance) =>
     };
 
 JournalLine _$JournalLineFromJson(Map<String, dynamic> json) => JournalLine(
-  accountNumber: json['accountNumber'] as String,
+  accountNumber: json['account_number'] as String,
   description: json['description'] as String?,
   debit: amountFromJson(json['debit']),
   credit: amountFromJson(json['credit']),
@@ -174,7 +174,7 @@ JournalLine _$JournalLineFromJson(Map<String, dynamic> json) => JournalLine(
 
 Map<String, dynamic> _$JournalLineToJson(JournalLine instance) =>
     <String, dynamic>{
-      'accountNumber': instance.accountNumber,
+      'account_number': instance.accountNumber,
       'description': instance.description,
       'debit': instance.debit,
       'credit': instance.credit,
