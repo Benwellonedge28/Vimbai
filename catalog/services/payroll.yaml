@@ -14,12 +14,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /benefits-admin/
-  - GET /benefits-admin/employee/{employee_id}/enrollments
-  - GET /benefits-admin/employee/{employee_id}/leave
   - GET /benefits-admin/employee/{}/enrollments
   - GET /benefits-admin/employee/{}/leave
-  - GET /benefits-admin/health
   - GET /benefits-admin/plans
   - POST /benefits-admin/enroll
   - POST /benefits-admin/leave/accrue

@@ -14,16 +14,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /authorized-share-capital/
-  - GET /authorized-share-capital/health
   - GET /authorized-share-capital/share-classes
-  - GET /authorized-share-capital/share-classes/{class_id}/issuances
   - GET /authorized-share-capital/share-classes/{}
   - GET /authorized-share-capital/share-classes/{}/issuances
   - GET /authorized-share-capital/summary
   - POST /authorized-share-capital/share-classes
-  - POST /authorized-share-capital/share-classes/{class_id}/buyback
-  - POST /authorized-share-capital/share-classes/{class_id}/issue
   - POST /authorized-share-capital/share-classes/{}/buyback
   - POST /authorized-share-capital/share-classes/{}/issue
 - name: bonus-shares-service
@@ -35,8 +30,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /bonus-shares/
-  - GET /bonus-shares/health
   - GET /bonus-shares/issues
   - POST /bonus-shares/issue
 - name: capital-reconstruction-service
@@ -48,17 +41,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /capital-reconstruction/
-  - GET /capital-reconstruction/health
   - GET /capital-reconstruction/reconstructions
-  - GET /capital-reconstruction/reconstructions/{reconstruction_id}
   - GET /capital-reconstruction/reconstructions/{}
-  - GET /capital-reconstruction/summary/{company_id}
   - GET /capital-reconstruction/summary/{}
   - POST /capital-reconstruction/reconstructions/create
-  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/adjustments/add
-  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/approve
-  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/reserve-conversions/add
   - POST /capital-reconstruction/reconstructions/{}/adjustments/add
   - POST /capital-reconstruction/reconstructions/{}/approve
   - POST /capital-reconstruction/reconstructions/{}/reserve-conversions/add
@@ -71,11 +57,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /capital-redemption-reserve/
   - GET /capital-redemption-reserve/creations
-  - GET /capital-redemption-reserve/health
   - GET /capital-redemption-reserve/redemptions
-  - GET /capital-redemption-reserve/summary/{company_id}
   - GET /capital-redemption-reserve/summary/{}
   - GET /capital-redemption-reserve/utilizations
   - POST /capital-redemption-reserve/creations/create
@@ -90,19 +73,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /debentures/
   - GET /debentures/classes
-  - GET /debentures/health
   - GET /debentures/interest
   - GET /debentures/issues
   - POST /debentures/classes/create
-  - POST /debentures/classes/{debenture_class_id}/interest/accrue
-  - POST /debentures/classes/{debenture_class_id}/issue
-  - POST /debentures/classes/{debenture_class_id}/redeem
   - POST /debentures/classes/{}/interest/accrue
   - POST /debentures/classes/{}/issue
   - POST /debentures/classes/{}/redeem
-  - POST /debentures/interest/{interest_id}/pay
   - POST /debentures/interest/{}/pay
 - name: equity-changes-service
   domain: equity
@@ -113,10 +90,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /equity-changes/
-  - GET /equity-changes/statements/{company_id}
   - GET /equity-changes/statements/{}
-  - GET /equity-changes/transactions/{company_id}
   - GET /equity-changes/transactions/{}
   - POST /equity-changes/statement
   - POST /equity-changes/transactions
@@ -129,17 +103,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /general-reserve/
-  - GET /general-reserve/health
   - GET /general-reserve/reserves
-  - GET /general-reserve/reserves/{reserve_id}
-  - GET /general-reserve/reserves/{reserve_id}/history
   - GET /general-reserve/reserves/{}
   - GET /general-reserve/reserves/{}/history
   - POST /general-reserve/reserves
   - POST /general-reserve/reserves/create
-  - POST /general-reserve/reserves/{reserve_id}/allocate
-  - POST /general-reserve/reserves/{reserve_id}/utilize
   - POST /general-reserve/reserves/{}/allocate
   - POST /general-reserve/reserves/{}/utilize
 - name: initial-investment-service
@@ -151,10 +119,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /initial-investment/
-  - GET /initial-investment/get/{investment_id}
   - GET /initial-investment/get/{}
-  - GET /initial-investment/health
   - GET /initial-investment/list
   - POST /initial-investment/create
   - POST /initial-investment/simple
@@ -168,13 +133,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /issued-share-capital/
-  - GET /issued-share-capital/health
-  - GET /issued-share-capital/issues/{company_id}
   - GET /issued-share-capital/issues/{}
-  - GET /issued-share-capital/shareholders/{company_id}
   - GET /issued-share-capital/shareholders/{}
-  - GET /issued-share-capital/summary/{company_id}
   - GET /issued-share-capital/summary/{}
   - POST /issued-share-capital/issue
   - POST /issued-share-capital/shareholders/register
@@ -187,12 +147,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /ordinary-shares/
   - GET /ordinary-shares/dividends
-  - GET /ordinary-shares/health
   - POST /ordinary-shares/dividends
   - POST /ordinary-shares/dividends/declare
-  - POST /ordinary-shares/dividends/{dividend_id}/pay
   - POST /ordinary-shares/dividends/{}/pay
 - name: preference-shares-service
   domain: equity
@@ -203,16 +160,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /preference-shares/
   - GET /preference-shares/classes
   - GET /preference-shares/dividends
-  - GET /preference-shares/health
   - POST /preference-shares/classes
   - POST /preference-shares/classes/create
-  - POST /preference-shares/classes/{share_class_id}/dividends/declare
-  - POST /preference-shares/classes/{share_class_id}/dividends/{dividend_id}/pay
-  - POST /preference-shares/classes/{share_class_id}/issue
-  - POST /preference-shares/classes/{share_class_id}/redeem
   - POST /preference-shares/classes/{}/dividends/declare
   - POST /preference-shares/classes/{}/dividends/{}/pay
   - POST /preference-shares/classes/{}/issue
@@ -226,12 +177,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /retained-profits/
   - GET /retained-profits/adjustments
   - GET /retained-profits/appropriations
-  - GET /retained-profits/health
   - GET /retained-profits/interim-dividends
-  - GET /retained-profits/summary/{company_id}
   - GET /retained-profits/summary/{}
   - POST /retained-profits/adjustments
   - POST /retained-profits/adjustments/create
@@ -239,7 +187,6 @@ services:
   - POST /retained-profits/appropriations/create
   - POST /retained-profits/interim-dividends
   - POST /retained-profits/interim-dividends/declare
-  - POST /retained-profits/interim-dividends/{dividend_id}/pay
   - POST /retained-profits/interim-dividends/{}/pay
 - name: right-issues-service
   domain: equity
@@ -250,17 +197,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /right-issues/
   - GET /right-issues/health
   - GET /right-issues/right-issues
   - GET /right-issues/right-issues/{}
-  - GET /right-issues/{right_issue_id}
   - GET /right-issues/{}
   - POST /right-issues/offer
   - POST /right-issues/right-issues/{}/accept
   - POST /right-issues/right-issues/{}/renounce
-  - POST /right-issues/{right_issue_id}/accept
-  - POST /right-issues/{right_issue_id}/renounce
   - POST /right-issues/{}/accept
   - POST /right-issues/{}/renounce
 - name: share-premium-service
@@ -272,10 +215,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /share-premium/
   - GET /share-premium/entries
-  - GET /share-premium/health
-  - GET /share-premium/summary/{company_id}
   - GET /share-premium/summary/{}
   - GET /share-premium/utilizations
   - POST /share-premium/adjustments/create
@@ -290,14 +230,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /share-redemption/
   - GET /share-redemption/crr-requirements
-  - GET /share-redemption/health
   - GET /share-redemption/redemptions
-  - GET /share-redemption/redemptions/{redemption_id}
   - GET /share-redemption/redemptions/{}
   - POST /share-redemption/redemptions/initiate
-  - POST /share-redemption/redemptions/{redemption_id}/complete
-  - POST /share-redemption/redemptions/{redemption_id}/fresh-issue
   - POST /share-redemption/redemptions/{}/complete
   - POST /share-redemption/redemptions/{}/fresh-issue

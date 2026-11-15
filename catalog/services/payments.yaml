@@ -14,16 +14,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /pos-integration/
   - GET /pos-integration/devices
-  - GET /pos-integration/devices/{device_id}
   - GET /pos-integration/devices/{}
   - GET /pos-integration/metrics
   - GET /pos-integration/transactions
-  - GET /pos-integration/transactions/{transaction_id}
   - GET /pos-integration/transactions/{}
   - POST /pos-integration/devices
-  - POST /pos-integration/integrations/{pos_type}/webhook
   - POST /pos-integration/integrations/{}/webhook
   - POST /pos-integration/inventory/reconcile
   - POST /pos-integration/inventory/sync
@@ -31,5 +27,4 @@ services:
   - POST /pos-integration/transactions
   - POST /pos-integration/transactions/batch
   - POST /pos-integration/transactions/{}/sync
-  - PUT /pos-integration/devices/{device_id}/status
   - PUT /pos-integration/devices/{}/status

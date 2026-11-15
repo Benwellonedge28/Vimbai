@@ -54,14 +54,38 @@ pub fn per_service(root: &Path) -> BTreeMap<String, Vec<Address>> {
     let rows = crate::catalog::rows_without_endpoints(root);
     let prefixes: Vec<String> = rows.iter().map(|row| row.gateway_path.clone()).collect();
     let under = by_prefix(root, &prefixes);
+    let answered = addresses(root);
+    let keeping = keeping(root);
     let mut published: BTreeMap<String, Vec<Address>> = BTreeMap::new();
     for row in &rows {
         let prefix = row.gateway_path.trim_end_matches('/').to_string();
         let mut found: BTreeSet<Address> = BTreeSet::new();
         for (method, path) in gateway::published(root, &row.name) {
+            let method = method.to_ascii_uppercase();
+            // What the engine is asked for is not always what the client writes: the gateway keeps the prefix for most
+            // entries and strips it for the rest, so the engine's side of the same address is the bare path there. Asking
+            // the engine for the client's form would report every stripping door as unanswered, which is how 26 of them
+            // looked dead when they were not.
+            let kept = keeping.get(&row.name).copied().unwrap_or(true);
+            let asked = if kept {
+                format!("{prefix}{path}")
+            } else {
+                path.clone()
+            };
+            // ... and it is kept only in a shape something answers. A path ending in a slash is the habitual one -
+            // `/accounts/` - and the engine answers `/accounts`, so the address is published as the shape that answers.
+            // One nothing answers is not published at all: a snapshot that names it is a claim the engine refuses.
+            let Some(answered_path) = answered_shape(&answered, &method, &asked) else {
+                continue;
+            };
+            let written = if kept {
+                answered_path
+            } else {
+                format!("{prefix}{answered_path}")
+            };
             found.insert(Address {
-                method: method.to_ascii_uppercase(),
-                path: format!("{prefix}{path}"),
+                method,
+                path: written,
             });
         }
         for address in under.get(&row.gateway_path).cloned().unwrap_or_default() {
@@ -70,6 +94,92 @@ pub fn per_service(root: &Path) -> BTreeMap<String, Vec<Address>> {
         published.insert(row.name.clone(), found.into_iter().collect());
     }
     published
+}
+
+/// Which entries keep the gateway prefix when forwarding, from the manifest rather than guessed.
+fn keeping(root: &Path) -> BTreeMap<String, bool> {
+    gateway::entries(root)
+        .into_iter()
+        .map(|entry| (entry.name.clone(), !entry.strip_prefix))
+        .collect()
+}
+
+/// The shape the engine answers for a path, or `None` when nothing answers it.
+///
+/// `gateway::shape` blanks parameter names *and* trims a trailing slash, which is right for comparing routes and wrong for
+/// this: the trailing slash is the difference between an address that answers and one that 404s, so it is tried first
+/// before the trimmed form is offered.
+fn answered_shape(answered: &[Address], method: &str, asked: &str) -> Option<String> {
+    let shaped = gateway::shape(asked);
+    let mut candidates = vec![shaped.clone()];
+    if asked.len() > 1 && asked.ends_with('/') {
+        candidates.insert(0, format!("{shaped}/"));
+    }
+    candidates
+        .into_iter()
+        .find(|candidate| answers(answered, method, candidate))
+}
+
+/// Does the engine route `engine` answer the path `path`, treating one parameter segment as any one segment?
+fn same_shape(engine: &str, path: &str) -> bool {
+    let engine: Vec<&str> = engine.split('/').collect();
+    let path: Vec<&str> = path.split('/').collect();
+    engine.len() == path.len()
+        && engine.iter().zip(&path).all(|(pattern, segment)| {
+            // a parameter stands for a real segment, never an empty one: `/accounts/` does not answer where
+            // `/accounts/{}` is routed, and that is exactly the difference a trailing slash makes
+            if *pattern == "{}" {
+                !segment.is_empty()
+            } else {
+                pattern == segment
+            }
+        })
+}
+
+/// Does the engine answer this address? A parameter stands for a real segment, so a trailing slash is never a parameter.
+pub fn answers(answered: &[Address], method: &str, path: &str) -> bool {
+    answered.iter().any(|address| {
+        // the scanner reads the method name as it was written; the snapshot writes it in capitals
+        address.method.eq_ignore_ascii_case(method) && same_shape(&address.path, path)
+    })
+}
+
+/// The addresses the snapshot publishes that the engine does not answer.
+///
+/// A published address is a promise: a client reads the snapshot, calls the address and expects an answer. The snapshot used
+/// to repeat the retired services' own paths, and 903 of them answered 404 - `/accounting/accounts/` among them, which is
+/// how the app's accounting screens came back empty. This holds every published address to the one test that matters.
+pub fn unanswered(root: &Path) -> Vec<String> {
+    let answered = addresses(root);
+    let keeping = keeping(root);
+    let prefixes: BTreeMap<String, String> = crate::catalog::rows_without_endpoints(root)
+        .into_iter()
+        .map(|row| (row.name, row.gateway_path.trim_end_matches('/').to_string()))
+        .collect();
+    let mut problems = Vec::new();
+    for (service, addresses) in per_service(root) {
+        let kept = keeping.get(&service).copied().unwrap_or(true);
+        let prefix = prefixes.get(&service).cloned().unwrap_or_default();
+        for address in addresses {
+            let mut asked = vec![address.path.clone()];
+            if !kept {
+                if let Some(rest) = address.path.strip_prefix(&prefix) {
+                    if !rest.is_empty() && rest != "/" {
+                        asked.push(rest.to_string());
+                    }
+                }
+            }
+            // one answered form is enough: the client writes the prefixed address and the gateway strips it, so the
+            // engine only ever sees the bare one
+            let unanswered = asked
+                .into_iter()
+                .all(|candidate| answered_shape(&answered, &address.method, &candidate).is_none());
+            if unanswered {
+                problems.push(format!("{service} publishes {}", address.written()));
+            }
+        }
+    }
+    problems
 }
 
 /// The addresses under each gateway prefix, in the order a reader expects: by path, then by method.

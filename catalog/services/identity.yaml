@@ -14,8 +14,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /financial-identity/
-  - GET /financial-identity/profiles/user/{user_id}
-  - GET /financial-identity/profiles/{profile_id}
+  - GET /financial-identity/profiles/user/{}
+  - GET /financial-identity/profiles/{}
   - POST /financial-identity/profiles
-  - PUT /financial-identity/profiles/{profile_id}/verify
+  - PUT /financial-identity/profiles/{}/verify

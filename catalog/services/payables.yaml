@@ -14,14 +14,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /expense-tracking/
-  - GET /expense-tracking/expenses/{company_id}
   - GET /expense-tracking/expenses/{}
-  - GET /expense-tracking/summary/{company_id}
   - GET /expense-tracking/summary/{}
   - POST /expense-tracking/expenses
-  - PUT /expense-tracking/expenses/{expense_id}/approve
-  - PUT /expense-tracking/expenses/{expense_id}/reject
   - PUT /expense-tracking/expenses/{}/approve
   - PUT /expense-tracking/expenses/{}/reject
 - name: purchases-ledger-control-service
@@ -33,9 +28,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /purchases-ledger-control/
   - GET /purchases-ledger-control/control-account/summary
   - GET /purchases-ledger-control/creditors
-  - GET /purchases-ledger-control/health
   - POST /purchases-ledger-control/reconcile
   - POST /purchases-ledger-control/transactions

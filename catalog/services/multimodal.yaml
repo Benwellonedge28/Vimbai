@@ -14,17 +14,16 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /multimodal/tasks/{task_id}
-  - GET /multimodal/
+  - DELETE /multimodal/tasks/{}
   - GET /multimodal/inbox
   - GET /multimodal/inbox/summary
-  - GET /multimodal/tasks/
-  - GET /multimodal/tasks/{task_id}
-  - GET /multimodal/tasks/{task_id}/corrections
-  - POST /multimodal/inbox/{task_id}/organize
-  - POST /multimodal/tasks/
-  - POST /multimodal/tasks/{task_id}/corrections
-  - PUT /multimodal/tasks/{task_id}
+  - GET /multimodal/tasks
+  - GET /multimodal/tasks/{}
+  - GET /multimodal/tasks/{}/corrections
+  - POST /multimodal/inbox/{}/organize
+  - POST /multimodal/tasks
+  - POST /multimodal/tasks/{}/corrections
+  - PUT /multimodal/tasks/{}
 - name: tasks-service
   domain: multimodal
   target: rust/crates/domains/multimodal

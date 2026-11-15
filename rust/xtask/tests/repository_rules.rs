@@ -1046,9 +1046,57 @@ fn every_routed_service_answers_at_least_one_address() {
         silent.is_empty(),
         "these routed services answer nothing: {silent:?}"
     );
+    // The floor follows the engine rather than a figure written here: the count fell from 2,500 to 1,184 when the
+    // snapshot stopped publishing addresses nothing answers, and a hand-written threshold would have read that correction
+    // as a regression. Half the engine's own routes is still far too many to reach by accident.
     let total: usize = published::per_service(&root()).values().map(Vec::len).sum();
+    let engine = xtask::gateway::engine_routes(&root()).len();
     assert!(
-        total > 1_700,
-        "the scan found only {total} addresses, so agreeing with the snapshot proves little"
+        total * 2 >= engine,
+        "the scan found only {total} addresses against {engine} engine routes, so agreeing with the snapshot proves little"
+    );
+}
+
+#[test]
+fn every_published_address_is_one_the_engine_answers() {
+    // The snapshot repeated the retired services' own paths long after nothing answered them: 903 addresses came back 404,
+    // and `/accounting/accounts/` - the trailing slash the app also called - was one of them. A published address is a
+    // promise, so every one of them is asked here of the engine that is supposed to answer it.
+    let problems = published::unanswered(&root());
+    assert!(problems.is_empty(), "{problems:#?}");
+}
+
+#[test]
+fn the_answer_check_knows_a_trailing_slash_from_a_parameter() {
+    // The check above is only worth its green if it can fail. `/accounting/accounts/` is the address that got through: a
+    // parameter segment matched the empty trailing one, so a path the engine 404s looked answered.
+    let answered = vec![published::Address {
+        method: "GET".to_string(),
+        path: "/accounting/accounts".to_string(),
+    }];
+    assert!(
+        published::answers(&answered, "GET", "/accounting/accounts"),
+        "the exact address should be answered"
+    );
+    assert!(
+        !published::answers(&answered, "GET", "/accounting/accounts/"),
+        "a trailing slash is not a parameter, and the engine 404s it"
+    );
+    assert!(
+        !published::answers(&answered, "POST", "/accounting/accounts"),
+        "the method is part of the address"
+    );
+
+    let parameterised = vec![published::Address {
+        method: "GET".to_string(),
+        path: "/accounting/accounts/{}".to_string(),
+    }];
+    assert!(
+        published::answers(&parameterised, "GET", "/accounting/accounts/1000"),
+        "a parameter stands for a real segment"
+    );
+    assert!(
+        !published::answers(&parameterised, "GET", "/accounting/accounts/"),
+        "an empty segment is not a parameter"
     );
 }

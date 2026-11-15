@@ -14,30 +14,29 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /admin/feature-requests/{request_id}
-  - DELETE /admin/rollout-schedules/{schedule_id}
-  - GET /admin/
+  - DELETE /admin/feature-requests/{}
+  - DELETE /admin/rollout-schedules/{}
   - GET /admin/audit-logs
   - GET /admin/config
-  - GET /admin/config/{key}
+  - GET /admin/config/{}
   - GET /admin/dashboard/stats
   - GET /admin/feature-requests
-  - GET /admin/feature-requests/{request_id}
+  - GET /admin/feature-requests/{}
   - GET /admin/features
   - GET /admin/features/categories
-  - GET /admin/features/{feature_id}
-  - GET /admin/features/{feature_id}/dependencies
-  - GET /admin/organizations/{organization_id}/features
+  - GET /admin/features/{}
+  - GET /admin/features/{}/dependencies
+  - GET /admin/organizations/{}/features
   - GET /admin/rollout-schedules
   - GET /admin/services/health
   - POST /admin/audit-logs
   - POST /admin/feature-requests
-  - POST /admin/features/{feature_id}/disable
-  - POST /admin/features/{feature_id}/enable
-  - POST /admin/organizations/{organization_id}/features/{feature_id}/disable
-  - POST /admin/organizations/{organization_id}/features/{feature_id}/enable
+  - POST /admin/features/{}/disable
+  - POST /admin/features/{}/enable
+  - POST /admin/organizations/{}/features/{}/disable
+  - POST /admin/organizations/{}/features/{}/enable
   - POST /admin/rollout-schedules
-  - PUT /admin/config/{key}
-  - PUT /admin/feature-requests/{request_id}/review
-  - PUT /admin/features/{feature_id}
-  - PUT /admin/organizations/{organization_id}/features/{feature_id}
+  - PUT /admin/config/{}
+  - PUT /admin/feature-requests/{}/review
+  - PUT /admin/features/{}
+  - PUT /admin/organizations/{}/features/{}

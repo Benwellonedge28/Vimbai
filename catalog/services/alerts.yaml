@@ -14,13 +14,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /alerts/rules/{rule_id}
+  - DELETE /alerts/rules/{}
   - GET /alerts
-  - GET /alerts/
   - GET /alerts/alerts
-  - GET /alerts/alerts/{alert_id}
+  - GET /alerts/alerts/{}
   - GET /alerts/rules
-  - GET /alerts/rules/{rule_id}
+  - GET /alerts/rules/{}
   - GET /alerts/stats
   - GET /alerts/{}
   - POST /alerts
@@ -28,11 +27,11 @@ services:
   - POST /alerts/evaluate
   - POST /alerts/rate
   - POST /alerts/rules
-  - POST /alerts/trigger/{rule_id}
-  - PUT /alerts/alerts/{alert_id}/acknowledge
-  - PUT /alerts/alerts/{alert_id}/dismiss
-  - PUT /alerts/alerts/{alert_id}/resolve
-  - PUT /alerts/rules/{rule_id}
+  - POST /alerts/trigger/{}
+  - PUT /alerts/alerts/{}/acknowledge
+  - PUT /alerts/alerts/{}/dismiss
+  - PUT /alerts/alerts/{}/resolve
+  - PUT /alerts/rules/{}
   - PUT /alerts/{}/acknowledge
   - PUT /alerts/{}/dismiss
   - PUT /alerts/{}/resolve

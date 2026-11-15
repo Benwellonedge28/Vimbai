@@ -14,13 +14,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /bad-debts-recovery/
   - GET /bad-debts-recovery/bad-debts
-  - GET /bad-debts-recovery/bad-debts/{debt_id}
+  - GET /bad-debts-recovery/bad-debts/{}
   - GET /bad-debts-recovery/health
   - GET /bad-debts-recovery/recovery-summary
   - POST /bad-debts-recovery/bad-debts/register
-  - POST /bad-debts-recovery/bad-debts/{debt_id}/recover
+  - POST /bad-debts-recovery/bad-debts/{}/recover
 - name: provision-bad-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -30,7 +29,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /provision-bad-debts/
   - GET /provision-bad-debts/health
   - GET /provision-bad-debts/policies
   - GET /provision-bad-debts/provision-history
@@ -47,13 +45,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /provision-doubtful-debts/
   - GET /provision-doubtful-debts/debtors
-  - GET /provision-doubtful-debts/health
   - GET /provision-doubtful-debts/provisions
   - POST /provision-doubtful-debts/calculate-provision
   - POST /provision-doubtful-debts/debtors/add
-  - POST /provision-doubtful-debts/debtors/{debtor_id}/assess
   - POST /provision-doubtful-debts/debtors/{}/assess
   - POST /provision-doubtful-debts/provision/create
 - name: sales-ledger-control-service
@@ -65,10 +60,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /sales-ledger-control/
   - GET /sales-ledger-control/control-account/summary
   - GET /sales-ledger-control/debtors
-  - GET /sales-ledger-control/debtors/{debtor_id}/balance
+  - GET /sales-ledger-control/debtors/{}/balance
   - GET /sales-ledger-control/health
   - POST /sales-ledger-control/reconcile
   - POST /sales-ledger-control/transactions

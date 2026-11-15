@@ -14,24 +14,17 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /bank-feed/connections/{connection_id}
   - DELETE /bank-feed/connections/{}
-  - DELETE /bank-feed/rules/{rule_id}
   - DELETE /bank-feed/rules/{}
   - GET /bank-feed
-  - GET /bank-feed/
   - GET /bank-feed/connections
-  - GET /bank-feed/connections/{connection_id}
-  - GET /bank-feed/connections/{connection_id}/balance
   - GET /bank-feed/connections/{}
   - GET /bank-feed/connections/{}/balance
   - GET /bank-feed/rules
   - GET /bank-feed/statistics
   - GET /bank-feed/sync/history
-  - GET /bank-feed/sync/{sync_id}
   - GET /bank-feed/sync/{}
   - GET /bank-feed/transactions
-  - GET /bank-feed/transactions/{transaction_id}
   - GET /bank-feed/transactions/{}
   - POST /bank-feed/connections
   - POST /bank-feed/rules
@@ -40,14 +33,10 @@ services:
   - POST /bank-feed/transactions/import
   - POST /bank-feed/transactions/import-batch
   - POST /bank-feed/transactions/import-mt940
-  - POST /bank-feed/transactions/{transaction_id}/link
   - POST /bank-feed/transactions/{}/link
   - POST /bank-feed/transactions/{}/reconcile
-  - POST /bank-feed/webhooks/{provider}
   - POST /bank-feed/webhooks/{}
-  - PUT /bank-feed/rules/{rule_id}
   - PUT /bank-feed/rules/{}
-  - PUT /bank-feed/transactions/{transaction_id}/status
   - PUT /bank-feed/transactions/{}/status
 - name: bank-reconciliation-service
   domain: banking
@@ -58,20 +47,14 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /bank-reconciliation/
   - GET /bank-reconciliation/cash-book
-  - GET /bank-reconciliation/health
   - GET /bank-reconciliation/outstanding-items
   - GET /bank-reconciliation/reconciliations
-  - GET /bank-reconciliation/reconciliations/{reconciliation_id}
   - GET /bank-reconciliation/reconciliations/{}
   - GET /bank-reconciliation/statements
-  - GET /bank-reconciliation/statements/{statement_id}
   - GET /bank-reconciliation/statements/{}
   - POST /bank-reconciliation/cash-book
   - POST /bank-reconciliation/reconcile
-  - POST /bank-reconciliation/reconcile/{reconciliation_id}/auto-match
-  - POST /bank-reconciliation/reconcile/{reconciliation_id}/post-adjustments
   - POST /bank-reconciliation/reconcile/{}/auto-match
   - POST /bank-reconciliation/reconcile/{}/post-adjustments
   - POST /bank-reconciliation/statements
@@ -84,13 +67,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /bank-relationship/
-  - GET /bank-relationship/quality-metrics/{relationship_id}
-  - GET /bank-relationship/relationships/{company_id}
-  - GET /bank-relationship/summary/{company_id}
+  - GET /bank-relationship/quality-metrics/{}
+  - GET /bank-relationship/relationships/{}
+  - GET /bank-relationship/summary/{}
   - POST /bank-relationship/quality-metrics
   - POST /bank-relationship/relationships
-  - PUT /bank-relationship/relationships/{rel_id}
+  - PUT /bank-relationship/relationships/{}
 - name: banking-integration-service
   domain: banking
   target: rust/crates/domains/banking
@@ -100,14 +82,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /banking-integration/connections/{connection_id}
-  - GET /banking-integration/
+  - DELETE /banking-integration/connections/{}
   - GET /banking-integration/connections
   - GET /banking-integration/health
-  - GET /banking-integration/transactions/{connection_id}
+  - GET /banking-integration/transactions/{}
   - POST /banking-integration/connect
-  - POST /banking-integration/sync/{connection_id}
-  - POST /banking-integration/transactions/{connection_id}/reconcile
+  - POST /banking-integration/sync/{}
+  - POST /banking-integration/transactions/{}/reconcile
 - name: currency-service
   domain: banking
   target: rust/crates/domains/banking
@@ -117,19 +98,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /currency/currencies/{code}
   - DELETE /currency/currencies/{}
-  - GET /currency/
   - GET /currency/currencies
-  - GET /currency/currencies/{code}
   - GET /currency/currencies/{}
-  - GET /currency/format/{currency_code}/{amount}
   - GET /currency/format/{}/{}
   - GET /currency/rates
-  - GET /currency/rates/history/{from_currency}/{to_currency}
   - GET /currency/rates/history/{}/{}
   - GET /currency/rates/latest
-  - GET /currency/rates/{from_currency}/{to_currency}
   - GET /currency/rates/{}/{}
   - GET /currency/stats
   - POST /currency/alerts/rate
@@ -139,7 +114,5 @@ services:
   - POST /currency/rates
   - POST /currency/triangulate
   - POST /currency/validate-transaction
-  - PUT /currency/currencies/{code}
   - PUT /currency/currencies/{}
-  - PUT /currency/rates/{from_currency}/{to_currency}
   - PUT /currency/rates/{}/{}

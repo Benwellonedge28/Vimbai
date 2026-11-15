@@ -14,21 +14,15 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /message-bus/subscriptions/{subscription_id}
   - DELETE /message-bus/subscriptions/{}
-  - GET /message-bus/
   - GET /message-bus/event-types
   - GET /message-bus/events
-  - GET /message-bus/events/{event_id}
-  - GET /message-bus/events/{event_id}/deliveries
   - GET /message-bus/events/{}
   - GET /message-bus/events/{}/deliveries
   - GET /message-bus/metrics
   - GET /message-bus/subscriptions
-  - GET /message-bus/subscriptions/{subscription_id}
   - GET /message-bus/subscriptions/{}
   - POST /message-bus/events/publish
-  - POST /message-bus/events/{event_type}/publish
   - POST /message-bus/events/{}/publish
   - POST /message-bus/subscriptions
   - POST /message-bus/trigger/approval-requested
@@ -45,9 +39,7 @@ services:
   records: false
   endpoints:
   - GET /websocket
-  - GET /websocket/
   - GET /websocket/stats
   - GET /websocket/ws/{}
-  - POST /websocket/broadcast/{channel}
   - POST /websocket/broadcast/{}
   - POST /websocket/events/ingest

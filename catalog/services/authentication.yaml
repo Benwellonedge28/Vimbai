@@ -14,12 +14,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /mfa-auth/
   - GET /mfa-auth/backup-codes
-  - GET /mfa-auth/health
   - GET /mfa-auth/status
   - POST /mfa-auth/challenge
-  - POST /mfa-auth/challenge/{challenge_id}/verify
   - POST /mfa-auth/challenge/{}/verify
   - POST /mfa-auth/setup
   - POST /mfa-auth/verify

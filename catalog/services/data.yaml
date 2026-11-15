@@ -14,7 +14,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /data-warehouse/
   - GET /data-warehouse/dimensions
   - GET /data-warehouse/etl
   - GET /data-warehouse/facts
@@ -32,14 +31,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /encrypted-backup/backups/{backup_id}
-  - GET /encrypted-backup/
+  - DELETE /encrypted-backup/backups/{}
   - GET /encrypted-backup/backups
-  - GET /encrypted-backup/backups/{backup_id}
+  - GET /encrypted-backup/backups/{}
   - GET /encrypted-backup/health
   - GET /encrypted-backup/restores
   - POST /encrypted-backup/backup
-  - POST /encrypted-backup/backup/{backup_id}/restore
   - POST /encrypted-backup/backup/{}/restore
 - name: etl-service
   domain: data
@@ -50,12 +47,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /etl/pipelines/{pipeline_id}
+  - DELETE /etl/pipelines/{}
   - GET /etl
-  - GET /etl/
   - GET /etl/health
   - GET /etl/pipelines
-  - GET /etl/pipelines/{pipeline_id}
+  - GET /etl/pipelines/{}
   - POST /etl
   - POST /etl/pipelines
-  - POST /etl/pipelines/{pipeline_id}/run
+  - POST /etl/pipelines/{}/run

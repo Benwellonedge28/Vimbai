@@ -34,7 +34,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /realtime-calculation/
   - POST /realtime-calculation/amortize
   - POST /realtime-calculation/depreciation
   - POST /realtime-calculation/irr

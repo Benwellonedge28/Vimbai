@@ -14,19 +14,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /automation/rules/{rule_id}
   - DELETE /automation/rules/{}
-  - GET /automation/
   - GET /automation/executions
-  - GET /automation/executions/{execution_id}
   - GET /automation/executions/{}
-  - GET /automation/health
   - GET /automation/rules
-  - GET /automation/rules/{rule_id}
   - GET /automation/rules/{}
-  - POST /automation/execute/{rule_id}
   - POST /automation/execute/{}
   - POST /automation/rules
-  - POST /automation/rules/{rule_id}/toggle
   - POST /automation/rules/{}/execute
   - POST /automation/rules/{}/toggle

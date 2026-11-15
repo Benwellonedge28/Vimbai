@@ -14,14 +14,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /control-account-reconciliation/
   - GET /control-account-reconciliation/errors
   - GET /control-account-reconciliation/health
   - GET /control-account-reconciliation/reports
   - GET /control-account-reconciliation/summary
   - POST /control-account-reconciliation/errors/report
-  - POST /control-account-reconciliation/errors/{error_id}/resolve
-  - POST /control-account-reconciliation/reconcile/{account_type}
+  - POST /control-account-reconciliation/errors/{}/resolve
+  - POST /control-account-reconciliation/reconcile/{}
 - name: double-entry-principles-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -31,13 +30,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /double-entry-principles/
-  - GET /double-entry-principles/account-rules/{account_type}
+  - GET /double-entry-principles/account-rules/{}
   - GET /double-entry-principles/account-types
   - GET /double-entry-principles/accounting-equation
   - GET /double-entry-principles/health
   - POST /double-entry-principles/calculate-entry
-  - POST /double-entry-principles/journal-entries/{entry_type}
+  - POST /double-entry-principles/journal-entries/{}
   - POST /double-entry-principles/transaction-analyzer
   - POST /double-entry-principles/validate-journal-entry
 - name: financial-integrity-service
@@ -49,9 +47,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /financial-integrity/
   - GET /financial-integrity/health
-  - GET /financial-integrity/report/{company_id}
+  - GET /financial-integrity/report/{}
   - POST /financial-integrity/check/balance
   - POST /financial-integrity/check/completeness
   - POST /financial-integrity/check/hash
@@ -64,10 +61,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /financial-state-machine/
-  - GET /financial-state-machine/documents/{doc_id}
-  - GET /financial-state-machine/documents/{doc_id}/history
+  - GET /financial-state-machine/documents/{}
+  - GET /financial-state-machine/documents/{}/history
   - GET /financial-state-machine/health
   - GET /financial-state-machine/states
   - POST /financial-state-machine/documents
-  - POST /financial-state-machine/documents/{doc_id}/transition
+  - POST /financial-state-machine/documents/{}/transition

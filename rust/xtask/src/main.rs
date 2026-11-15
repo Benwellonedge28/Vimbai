@@ -454,7 +454,10 @@ fn main() -> ExitCode {
                     if check {
                         println!("routes: current");
                     } else {
-                        let found = published::addresses(&root).len();
+                        // count what was written, not the engine's routes: those are a different set, and printing
+                        // one while writing the other reads as agreement between two figures that never met
+                        let found: usize =
+                            published::per_service(&root).values().map(Vec::len).sum();
                         println!("wrote docs/routes-snapshot.json: {found} addresses");
                     }
                     ExitCode::SUCCESS

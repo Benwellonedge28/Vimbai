@@ -14,7 +14,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /biological-assets/
   - POST /biological-assets/consumable-bearer-distinction
   - POST /biological-assets/disclosure-template
   - POST /biological-assets/fair-value-level1
@@ -30,9 +29,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /disposal-account/
   - GET /disposal-account/disposals
-  - GET /disposal-account/health
   - GET /disposal-account/summary
   - POST /disposal-account/disposal/calculate
   - POST /disposal-account/disposal/post
@@ -45,18 +42,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /disposal-group/
   - GET /disposal-group/groups
-  - GET /disposal-group/groups/{group_id}/assets
   - GET /disposal-group/groups/{}
   - GET /disposal-group/groups/{}/assets
-  - GET /disposal-group/health
   - POST /disposal-group/groups
-  - POST /disposal-group/groups/{group_id}/assets
-  - POST /disposal-group/groups/{group_id}/impairment-test
   - POST /disposal-group/groups/{}/assets
   - POST /disposal-group/groups/{}/impairment-test
-  - PUT /disposal-group/groups/{group_id}/status
   - PUT /disposal-group/groups/{}/status
 - name: fixed-assets-register-service
   domain: assets
@@ -67,17 +58,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /fixed-assets-register/
   - GET /fixed-assets-register/assets
-  - GET /fixed-assets-register/assets/{asset_id}
-  - GET /fixed-assets-register/assets/{asset_id}/depreciation
   - GET /fixed-assets-register/assets/{}
   - GET /fixed-assets-register/assets/{}/depreciation
-  - GET /fixed-assets-register/health
   - GET /fixed-assets-register/summary
   - POST /fixed-assets-register/assets
-  - POST /fixed-assets-register/assets/{asset_id}/depreciate
-  - POST /fixed-assets-register/assets/{asset_id}/dispose
   - POST /fixed-assets-register/assets/{}/depreciate
   - POST /fixed-assets-register/assets/{}/dispose
 - name: fixed-assets-schedule-service
@@ -89,16 +74,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /fixed-assets-schedule/
   - GET /fixed-assets-schedule/assets
-  - GET /fixed-assets-schedule/assets/{asset_id}
   - GET /fixed-assets-schedule/assets/{}
-  - GET /fixed-assets-schedule/health
   - GET /fixed-assets-schedule/schedule/latest
   - GET /fixed-assets-schedule/summary
   - POST /fixed-assets-schedule/assets
   - POST /fixed-assets-schedule/schedule/generate
-  - PUT /fixed-assets-schedule/assets/{asset_id}
   - PUT /fixed-assets-schedule/assets/{}
 - name: intangible-assets-service
   domain: assets
@@ -109,15 +90,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /intangible-assets/
   - GET /intangible-assets/assets
-  - GET /intangible-assets/assets/{asset_id}
-  - GET /intangible-assets/assets/{asset_id}/amortization
   - GET /intangible-assets/assets/{}
   - GET /intangible-assets/assets/{}/amortization
-  - GET /intangible-assets/health
   - POST /intangible-assets/assets
-  - POST /intangible-assets/assets/{asset_id}/amortize
   - POST /intangible-assets/assets/{}/amortize
 - name: investment-property-service
   domain: assets
@@ -128,7 +104,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /investment-property/
   - POST /investment-property/cost-model
   - POST /investment-property/fair-value-disclosure
   - POST /investment-property/fair-value-model
@@ -143,16 +118,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /lease-termination/
-  - GET /lease-termination/health
   - GET /lease-termination/terminations
-  - GET /lease-termination/terminations/{termination_id}
   - GET /lease-termination/terminations/{}
   - POST /lease-termination/terminations
-  - POST /lease-termination/terminations/{termination_id}/settlement
   - POST /lease-termination/terminations/{}/settlement
-  - PUT /lease-termination/terminations/{termination_id}/approve
-  - PUT /lease-termination/terminations/{termination_id}/complete
   - PUT /lease-termination/terminations/{}/approve
   - PUT /lease-termination/terminations/{}/complete
 - name: revaluation-model-service
@@ -164,7 +133,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /revaluation-model/
   - POST /revaluation-model/depreciation-after-revaluation
   - POST /revaluation-model/impairment-after-revaluation
   - POST /revaluation-model/indexation-allowance
@@ -179,12 +147,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /revaluation-reserve/
-  - GET /revaluation-reserve/cumulative/{asset_id}
   - GET /revaluation-reserve/cumulative/{}
-  - GET /revaluation-reserve/health
   - GET /revaluation-reserve/revaluations
-  - GET /revaluation-reserve/summary/{company_id}
   - GET /revaluation-reserve/summary/{}
   - POST /revaluation-reserve/revaluations/record
   - POST /revaluation-reserve/utilizations/record

@@ -44,18 +44,17 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /invoicing/customers/{customer_id}
-  - DELETE /invoicing/invoices/{invoice_number}
-  - GET /invoicing/
-  - GET /invoicing/customers/
-  - GET /invoicing/customers/{customer_id}
-  - GET /invoicing/invoices/
-  - GET /invoicing/invoices/{invoice_number}
-  - POST /invoicing/customers/
-  - POST /invoicing/invoices/
-  - POST /invoicing/invoices/{invoice_number}/record-payment
-  - PUT /invoicing/customers/{customer_id}
-  - PUT /invoicing/invoices/{invoice_number}
+  - DELETE /invoicing/customers/{}
+  - DELETE /invoicing/invoices/{}
+  - GET /invoicing/customers
+  - GET /invoicing/customers/{}
+  - GET /invoicing/invoices
+  - GET /invoicing/invoices/{}
+  - POST /invoicing/customers
+  - POST /invoicing/invoices
+  - POST /invoicing/invoices/{}/record-payment
+  - PUT /invoicing/customers/{}
+  - PUT /invoicing/invoices/{}
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -65,10 +64,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /subscription-plans/
   - GET /subscription-plans/health
   - GET /subscription-plans/plans
-  - GET /subscription-plans/subscriptions/{company_id}
+  - GET /subscription-plans/subscriptions/{}
   - POST /subscription-plans/plans
   - POST /subscription-plans/subscribe
   - POST /subscription-plans/upgrade

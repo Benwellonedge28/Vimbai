@@ -6,6 +6,18 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- `docs/routes-snapshot.json` published 903 addresses that answer 404, and the trailing slash the app itself called was one of
+  them: `/accounting/accounts/` was listed as live while the engine only matched `/accounting/accounts`. The snapshot repeated
+  each retired service's own paths, and the matcher that was supposed to hold it to the engine let an empty trailing segment
+  pass as a parameter, so a 404 read as answered. Parameter names are now written the way the engine writes them, an empty
+  segment is never a parameter, and an address nothing answers is not published: 1,184 addresses across the 143 routed
+  services, every one of them asked of the engine that answers it.
+- The answer check reads each entry's strip mode from the manifest. A stripping door's client address (`/admin/audit-logs`) is
+  not the engine's (`/audit-logs`), and comparing the client form alone made 26 working doors look dead.
+- The scanner that attributes a route to a mount compared method names case-sensitively while the snapshot writes them in
+  capitals, so `GET /audit-logs` read as unanswered.
+- `cargo run -p xtask -- routes` reported the engine's route count while writing the snapshot's, so the two figures it named had
+  never met.
 - The accounting screens were calling addresses the engine does not answer. `/accounting/accounts/`, `/accounting/journal-entries/`,
   `/accounting/income-statement/` and `/accounting/balance-sheet/` all carry a trailing slash the engine never matched, so the
   chart of accounts, the journal, the income statement and the balance sheet each came back 404 on a fresh Book - the bookkeeping

@@ -14,8 +14,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /webhook/
-  - GET /webhook/deliveries/{endpoint_id}
-  - GET /webhook/endpoints/{company_id}
-  - POST /webhook/dispatch/{company_id}
+  - GET /webhook/deliveries/{}
+  - GET /webhook/endpoints/{}
+  - POST /webhook/dispatch/{}
   - POST /webhook/endpoints

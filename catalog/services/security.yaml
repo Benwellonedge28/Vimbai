@@ -14,15 +14,10 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /zero-trust-data/policies/{policy_id}
   - DELETE /zero-trust-data/policies/{}
-  - GET /zero-trust-data/
   - GET /zero-trust-data/attempts
-  - GET /zero-trust-data/attempts/user/{user_id}
   - GET /zero-trust-data/attempts/user/{}
-  - GET /zero-trust-data/health
   - GET /zero-trust-data/policies
   - POST /zero-trust-data/evaluate
   - POST /zero-trust-data/policies
-  - PUT /zero-trust-data/policies/{policy_id}
   - PUT /zero-trust-data/policies/{}

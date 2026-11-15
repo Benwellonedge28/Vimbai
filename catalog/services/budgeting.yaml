@@ -14,15 +14,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /activity-based-budget/
   - GET /activity-based-budget/activities
   - GET /activity-based-budget/budgets
-  - GET /activity-based-budget/budgets/{budget_id}
   - GET /activity-based-budget/budgets/{}
-  - GET /activity-based-budget/health
   - POST /activity-based-budget/activities
   - POST /activity-based-budget/budgets
-  - PUT /activity-based-budget/budgets/{budget_id}/approve
   - PUT /activity-based-budget/budgets/{}/approve
 - name: appropriation-control-service
   domain: budgeting
@@ -33,10 +29,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /appropriation-control/
-  - GET /appropriation-control/appropriations/{company_id}
   - GET /appropriation-control/appropriations/{}
-  - GET /appropriation-control/check/{appropriation_id}
   - GET /appropriation-control/check/{}
   - POST /appropriation-control/appropriations
   - POST /appropriation-control/transactions
@@ -49,7 +42,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /budgeting/
   - POST /budgeting/analyze
   - POST /budgeting/budget
   - POST /budgeting/forecast
@@ -66,13 +58,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /rolling-forecast/
   - GET /rolling-forecast/forecasts
-  - GET /rolling-forecast/forecasts/{forecast_id}
+  - GET /rolling-forecast/forecasts/{}
   - GET /rolling-forecast/health
   - POST /rolling-forecast/forecasts
-  - POST /rolling-forecast/forecasts/{forecast_id}/roll
-  - POST /rolling-forecast/forecasts/{forecast_id}/update-actual
+  - POST /rolling-forecast/forecasts/{}/roll
+  - POST /rolling-forecast/forecasts/{}/update-actual
 - name: scenario-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -82,11 +73,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /scenario-analysis/
-  - GET /scenario-analysis/compare/{company_id}
   - GET /scenario-analysis/compare/{}
-  - GET /scenario-analysis/health
-  - GET /scenario-analysis/scenarios/{company_id}
   - GET /scenario-analysis/scenarios/{}
   - POST /scenario-analysis/analyze
   - POST /scenario-analysis/scenarios
@@ -99,37 +86,20 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /scenario-modeling/rules/{rule_id}
   - DELETE /scenario-modeling/rules/{}
-  - DELETE /scenario-modeling/scenarios/{scenario_id}
   - DELETE /scenario-modeling/scenarios/{}
-  - GET /scenario-modeling/
-  - GET /scenario-modeling/health
   - GET /scenario-modeling/rules
-  - GET /scenario-modeling/rules/
-  - GET /scenario-modeling/rules/{rule_id}
   - GET /scenario-modeling/rules/{}
   - GET /scenario-modeling/scenarios
-  - GET /scenario-modeling/scenarios/
-  - GET /scenario-modeling/scenarios/{scenario_id}
   - GET /scenario-modeling/scenarios/{}
-  - GET /scenario-modeling/what-if/scenario/{scenario_id}
   - GET /scenario-modeling/what-if/scenario/{}
-  - GET /scenario-modeling/what-if/{analysis_id}
   - GET /scenario-modeling/what-if/{}
   - POST /scenario-modeling/compare
-  - POST /scenario-modeling/compare/
   - POST /scenario-modeling/rules
-  - POST /scenario-modeling/rules/
   - POST /scenario-modeling/scenarios
-  - POST /scenario-modeling/scenarios/
   - POST /scenario-modeling/sensitivity
-  - POST /scenario-modeling/sensitivity/
   - POST /scenario-modeling/what-if
-  - POST /scenario-modeling/what-if/
-  - PUT /scenario-modeling/rules/{rule_id}
   - PUT /scenario-modeling/rules/{}
-  - PUT /scenario-modeling/scenarios/{scenario_id}
   - PUT /scenario-modeling/scenarios/{}
 - name: sensitivity-analysis-service
   domain: budgeting
@@ -140,8 +110,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /sensitivity-analysis/
-  - GET /sensitivity-analysis/analyses/{company_id}
   - GET /sensitivity-analysis/analyses/{}
   - POST /sensitivity-analysis/analyze
 - name: zero-based-budgeting-service
@@ -153,15 +121,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /zero-based-budgeting/
-  - GET /zero-based-budgeting/packages/{company_id}
   - GET /zero-based-budgeting/packages/{}
-  - GET /zero-based-budgeting/summary/{company_id}
   - GET /zero-based-budgeting/summary/{}
   - POST /zero-based-budgeting/packages
-  - POST /zero-based-budgeting/packages/{package_id}/items
   - POST /zero-based-budgeting/packages/{}/items
-  - PUT /zero-based-budgeting/items/{item_id}/priority
   - PUT /zero-based-budgeting/items/{}/priority
-  - PUT /zero-based-budgeting/packages/{package_id}/status
   - PUT /zero-based-budgeting/packages/{}/status

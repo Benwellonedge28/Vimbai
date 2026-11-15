@@ -16,11 +16,8 @@ services:
   endpoints:
   - DELETE /cache
   - DELETE /cache/cache
-  - DELETE /cache/cache/{key}
   - DELETE /cache/cache/{}
   - DELETE /cache/{}
-  - GET /cache/
-  - GET /cache/cache/{key}
   - GET /cache/cache/{}
   - GET /cache/health
   - GET /cache/stats

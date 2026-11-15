@@ -14,16 +14,15 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /audit-compliance/
   - GET /audit-compliance/analytics/summary
   - GET /audit-compliance/events
-  - GET /audit-compliance/events/{event_id}
+  - GET /audit-compliance/events/{}
   - GET /audit-compliance/health
   - GET /audit-compliance/integrity/verify
-  - GET /audit-compliance/integrity/verify-event/{event_id}
-  - GET /audit-compliance/lineage/{resource_id}
+  - GET /audit-compliance/integrity/verify-event/{}
+  - GET /audit-compliance/lineage/{}
   - GET /audit-compliance/search
-  - GET /audit-compliance/versions/{resource_type}/{resource_id}
+  - GET /audit-compliance/versions/{}/{}
   - POST /audit-compliance/compliance/gdpr
   - POST /audit-compliance/compliance/monitor
   - POST /audit-compliance/compliance/report
@@ -32,7 +31,7 @@ services:
   - POST /audit-compliance/planning/plan
   - POST /audit-compliance/reports/generate
   - POST /audit-compliance/trails/analyze
-  - POST /audit-compliance/versions/{resource_type}/{resource_id}
+  - POST /audit-compliance/versions/{}/{}
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit
@@ -42,18 +41,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /audit-engagement/
   - GET /audit-engagement/audit-types
-  - GET /audit-engagement/engagements/{company_id}
   - GET /audit-engagement/engagements/{}
-  - GET /audit-engagement/report/{engagement_id}
   - GET /audit-engagement/report/{}
   - POST /audit-engagement/engagements
-  - POST /audit-engagement/engagements/{engagement_id}/findings
   - POST /audit-engagement/engagements/{}/findings
-  - PUT /audit-engagement/engagements/{engagement_id}/status
   - PUT /audit-engagement/engagements/{}/status
-  - PUT /audit-engagement/findings/{finding_id}/remediate
   - PUT /audit-engagement/findings/{}/remediate
 - name: audit-sampling-service
   domain: audit
@@ -64,5 +57,4 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /audit-sampling/
   - POST /audit-sampling/sample

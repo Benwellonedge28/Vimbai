@@ -14,112 +14,59 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /accounting/accounts/{account_number}
   - DELETE /accounting/accounts/{}
-  - DELETE /accounting/journal-entries/{entry_id}
   - DELETE /accounting/journal-entries/{}
-  - GET /accounting/
   - GET /accounting/accounts
-  - GET /accounting/accounts/
-  - GET /accounting/accounts/{account_number}
-  - GET /accounting/accounts/{account_number}/period-activity
   - GET /accounting/accounts/{}
   - GET /accounting/accounts/{}/period-activity
   - GET /accounting/accounts/{}/postings
   - GET /accounting/balance-sheet
-  - GET /accounting/balance-sheet/
   - GET /accounting/bank-reconciliation
-  - GET /accounting/bank-reconciliation/
-  - GET /accounting/bank-reconciliation/latest/{bank_account}
   - GET /accounting/bank-reconciliation/latest/{}
   - GET /accounting/capital-calculations
-  - GET /accounting/capital-calculations/
-  - GET /accounting/capital-calculations/{calc_id}
   - GET /accounting/capital-calculations/{}
   - GET /accounting/cash-disbursements-journal
-  - GET /accounting/cash-disbursements-journal/
   - GET /accounting/cash-receipts-journal
-  - GET /accounting/cash-receipts-journal/
   - GET /accounting/control-accounts
-  - GET /accounting/control-accounts/
   - GET /accounting/income-statement
-  - GET /accounting/income-statement/
   - GET /accounting/journal-entries
-  - GET /accounting/journal-entries/
-  - GET /accounting/journal-entries/{entry_id}
   - GET /accounting/journal-entries/{}
   - GET /accounting/ledger/integrity
-  - GET /accounting/ledgers/{account_number}
   - GET /accounting/ledgers/{}
   - GET /accounting/petty-cash-entries
-  - GET /accounting/petty-cash-entries/
   - GET /accounting/petty-cash-funds
-  - GET /accounting/petty-cash-funds/
   - GET /accounting/profit-estimations
-  - GET /accounting/profit-estimations/
   - GET /accounting/purchases-journal
-  - GET /accounting/purchases-journal/
   - GET /accounting/receipts-payments
-  - GET /accounting/receipts-payments/
   - GET /accounting/sales-journal
-  - GET /accounting/sales-journal/
-  - GET /accounting/sales-journal/{entry_id}
   - GET /accounting/sales-journal/{}
   - GET /accounting/single-entry-conversions
-  - GET /accounting/single-entry-conversions/
   - GET /accounting/statements-of-affairs
-  - GET /accounting/statements-of-affairs/
-  - GET /accounting/statements-of-affairs/{as_of_date}
   - GET /accounting/statements-of-affairs/{}
   - GET /accounting/subsidiary-ledgers/accounts-payable
-  - GET /accounting/subsidiary-ledgers/accounts-payable/
   - GET /accounting/subsidiary-ledgers/accounts-receivable
-  - GET /accounting/subsidiary-ledgers/accounts-receivable/
   - GET /accounting/subsidiary-ledgers/fixed-assets
-  - GET /accounting/subsidiary-ledgers/fixed-assets/
   - GET /accounting/subsidiary-ledgers/inventory
-  - GET /accounting/subsidiary-ledgers/inventory/
   - GET /accounting/trial-balance
-  - GET /accounting/trial-balance/
   - POST /accounting/accounts
-  - POST /accounting/accounts/
   - POST /accounting/bank-reconciliation
-  - POST /accounting/bank-reconciliation/
   - POST /accounting/capital-calculations
-  - POST /accounting/capital-calculations/
   - POST /accounting/cash-disbursements-journal
-  - POST /accounting/cash-disbursements-journal/
   - POST /accounting/cash-receipts-journal
-  - POST /accounting/cash-receipts-journal/
   - POST /accounting/control-accounts
-  - POST /accounting/control-accounts/
   - POST /accounting/journal-entries
-  - POST /accounting/journal-entries/
   - POST /accounting/petty-cash-entries
-  - POST /accounting/petty-cash-entries/
   - POST /accounting/petty-cash-funds
-  - POST /accounting/petty-cash-funds/
   - POST /accounting/profit-estimations
-  - POST /accounting/profit-estimations/
   - POST /accounting/purchases-journal
-  - POST /accounting/purchases-journal/
   - POST /accounting/purchases-returns-journal
-  - POST /accounting/purchases-returns-journal/
   - POST /accounting/receipts-payments
-  - POST /accounting/receipts-payments/
   - POST /accounting/sales-journal
-  - POST /accounting/sales-journal/
   - POST /accounting/sales-returns-journal
-  - POST /accounting/sales-returns-journal/
   - POST /accounting/single-entry-conversions
-  - POST /accounting/single-entry-conversions/
   - POST /accounting/statements-of-affairs
-  - POST /accounting/statements-of-affairs/
   - POST /accounting/vendor-bills
-  - POST /accounting/vendor-bills/
-  - PUT /accounting/accounts/{account_number}
   - PUT /accounting/accounts/{}
-  - PUT /accounting/journal-entries/{entry_id}
   - PUT /accounting/journal-entries/{}
 - name: accounting-standards-service
   domain: accounting
@@ -130,11 +77,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /accounting-standards/
-  - GET /accounting-standards/organizations/{organization_id}/compliance/history
-  - GET /accounting-standards/organizations/{organization_id}/configuration
-  - GET /accounting-standards/organizations/{organization_id}/policies
-  - GET /accounting-standards/organizations/{organization_id}/policies/{policy_area}
   - GET /accounting-standards/organizations/{}/compliance/history
   - GET /accounting-standards/organizations/{}/configuration
   - GET /accounting-standards/organizations/{}/policies
@@ -142,29 +84,17 @@ services:
   - GET /accounting-standards/standards
   - GET /accounting-standards/standards/categories
   - GET /accounting-standards/standards/comparison
-  - GET /accounting-standards/standards/{standard_type}
-  - GET /accounting-standards/standards/{standard_type}/account-mapping
-  - GET /accounting-standards/standards/{standard_type}/disclosure-requirements
-  - GET /accounting-standards/standards/{standard_type}/measurement-guide
-  - GET /accounting-standards/standards/{standard_type}/requirements
   - GET /accounting-standards/standards/{}
   - GET /accounting-standards/standards/{}/account-mapping
   - GET /accounting-standards/standards/{}/disclosure-requirements
   - GET /accounting-standards/standards/{}/measurement-guide
   - GET /accounting-standards/standards/{}/requirements
-  - POST /accounting-standards/organizations/{organization_id}/compliance/check
-  - POST /accounting-standards/organizations/{organization_id}/configuration
-  - POST /accounting-standards/organizations/{organization_id}/policies
-  - POST /accounting-standards/organizations/{organization_id}/standards/{standard_type}/activate
-  - POST /accounting-standards/organizations/{organization_id}/standards/{standard_type}/deactivate
   - POST /accounting-standards/organizations/{}/compliance/check
   - POST /accounting-standards/organizations/{}/configuration
   - POST /accounting-standards/organizations/{}/policies
   - POST /accounting-standards/organizations/{}/standards/{}/activate
   - POST /accounting-standards/organizations/{}/standards/{}/deactivate
-  - POST /accounting-standards/standards/{standard_type}/account-mapping
   - POST /accounting-standards/standards/{}/account-mapping
-  - PUT /accounting-standards/organizations/{organization_id}/configuration
   - PUT /accounting-standards/organizations/{}/configuration
 - name: balance-sheet-service
   domain: accounting
@@ -175,12 +105,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /balance-sheet/
-  - GET /balance-sheet/history/{company_id}
   - GET /balance-sheet/history/{}
-  - GET /balance-sheet/latest/{company_id}
   - GET /balance-sheet/latest/{}
-  - GET /balance-sheet/ratios/{company_id}
   - GET /balance-sheet/ratios/{}
   - POST /balance-sheet/generate
 - name: cash-flow-service
@@ -192,10 +118,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /cash-flow/
-  - GET /cash-flow/get/{cash_flow_id}
   - GET /cash-flow/get/{}
-  - GET /cash-flow/health
   - GET /cash-flow/list
   - POST /cash-flow/create
   - POST /cash-flow/cumulative-flows
@@ -211,10 +134,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /cash-flow-statement/
-  - GET /cash-flow-statement/history/{company_id}
   - GET /cash-flow-statement/history/{}
-  - GET /cash-flow-statement/latest/{company_id}
   - GET /cash-flow-statement/latest/{}
   - POST /cash-flow-statement/generate
 - name: cashbook-service
@@ -226,35 +146,25 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /cashbook/
   - GET /cashbook/accounts
-  - GET /cashbook/accounts/{account_id}
   - GET /cashbook/accounts/{}
   - GET /cashbook/cash-flow
   - GET /cashbook/cash-flow/summary
   - GET /cashbook/cash-position
   - GET /cashbook/cash-position/history
   - GET /cashbook/entries
-  - GET /cashbook/entries/{entry_id}
   - GET /cashbook/entries/{}
   - GET /cashbook/reconciliations
-  - GET /cashbook/reconciliations/{reconciliation_id}
-  - GET /cashbook/reconciliations/{reconciliation_id}/outstanding
   - GET /cashbook/reconciliations/{}
   - GET /cashbook/reconciliations/{}/outstanding
-  - GET /cashbook/summary/{account_code}
   - GET /cashbook/summary/{}
   - POST /cashbook/accounts
   - POST /cashbook/cash-flow
   - POST /cashbook/entries
   - POST /cashbook/reconciliations
-  - PUT /cashbook/accounts/{account_id}
   - PUT /cashbook/accounts/{}
-  - PUT /cashbook/entries/{entry_id}/post
-  - PUT /cashbook/entries/{entry_id}/void
   - PUT /cashbook/entries/{}/post
   - PUT /cashbook/entries/{}/void
-  - PUT /cashbook/reconciliations/{reconciliation_id}/complete
   - PUT /cashbook/reconciliations/{}/complete
 - name: company-accounting-service
   domain: accounting
@@ -265,20 +175,13 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /company-accounting/
   - GET /company-accounting/capital-transactions
   - GET /company-accounting/companies
-  - GET /company-accounting/companies/{company_id}
   - GET /company-accounting/companies/{}
   - GET /company-accounting/dividends
-  - GET /company-accounting/dividends/{dividend_id}/payments
   - GET /company-accounting/dividends/{}/payments
-  - GET /company-accounting/health
-  - GET /company-accounting/reports/dividend-history/{company_id}
   - GET /company-accounting/reports/dividend-history/{}
-  - GET /company-accounting/reports/equity-statement/{company_id}
   - GET /company-accounting/reports/equity-statement/{}
-  - GET /company-accounting/reports/shareholder-register/{company_id}
   - GET /company-accounting/reports/shareholder-register/{}
   - GET /company-accounting/reserves
   - GET /company-accounting/retained-earnings
@@ -287,13 +190,11 @@ services:
   - POST /company-accounting/capital-transactions
   - POST /company-accounting/companies
   - POST /company-accounting/dividends
-  - POST /company-accounting/dividends/{dividend_id}/pay
   - POST /company-accounting/dividends/{}/pay
   - POST /company-accounting/reserves
   - POST /company-accounting/retained-earnings
   - POST /company-accounting/share-capital
   - POST /company-accounting/shareholders
-  - PUT /company-accounting/companies/{company_id}
   - PUT /company-accounting/companies/{}
   - PUT /company-accounting/dividends/{}/pay
 - name: departmental-accounting-service
@@ -305,20 +206,12 @@ services:
   engine: rust
   records: false
   endpoints:
-  - DELETE /departmental-accounting/allocation-rules/{rule_id}
   - DELETE /departmental-accounting/allocation-rules/{}
-  - GET /departmental-accounting/
   - GET /departmental-accounting/allocation-rules
-  - GET /departmental-accounting/allocations/{pool_id}
   - GET /departmental-accounting/allocations/{}
   - GET /departmental-accounting/cost-pools
-  - GET /departmental-accounting/cost-pools/{pool_id}
   - GET /departmental-accounting/cost-pools/{}
   - GET /departmental-accounting/departments
-  - GET /departmental-accounting/departments/{department_id}
-  - GET /departmental-accounting/departments/{department_id}/financials
-  - GET /departmental-accounting/departments/{department_id}/hierarchy
-  - GET /departmental-accounting/departments/{department_id}/performance-report
   - GET /departmental-accounting/departments/{}
   - GET /departmental-accounting/departments/{}/financials
   - GET /departmental-accounting/departments/{}/hierarchy
@@ -331,10 +224,8 @@ services:
   - POST /departmental-accounting/cost-pools
   - POST /departmental-accounting/departments
   - POST /departmental-accounting/inter-department-bills
-  - POST /departmental-accounting/inter-department-bills/{bill_id}/approve
   - POST /departmental-accounting/inter-department-bills/{}/approve
   - POST /departmental-accounting/reports/department-comparison
-  - PUT /departmental-accounting/departments/{department_id}
   - PUT /departmental-accounting/departments/{}
 - name: fund-accounting-service
   domain: accounting
@@ -345,10 +236,7 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /fund-accounting/
-  - GET /fund-accounting/funds/{company_id}
   - GET /fund-accounting/funds/{}
-  - GET /fund-accounting/transactions/{fund_id}
   - GET /fund-accounting/transactions/{}
   - POST /fund-accounting/funds
   - POST /fund-accounting/transactions
@@ -361,17 +249,11 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /ifrs-reporting/
-  - GET /ifrs-reporting/health
   - GET /ifrs-reporting/reports
-  - GET /ifrs-reporting/reports/{report_id}
-  - GET /ifrs-reporting/reports/{report_id}/notes
   - GET /ifrs-reporting/reports/{}
   - GET /ifrs-reporting/reports/{}/notes
   - POST /ifrs-reporting/reports
-  - POST /ifrs-reporting/reports/{report_id}/notes
   - POST /ifrs-reporting/reports/{}/notes
-  - PUT /ifrs-reporting/reports/{report_id}/approve
   - PUT /ifrs-reporting/reports/{}/approve
 - name: intercompany-service
   domain: accounting
@@ -382,10 +264,8 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /intercompany/
   - GET /intercompany/eliminations
   - GET /intercompany/entities
-  - GET /intercompany/health
   - GET /intercompany/transactions
   - POST /intercompany/entities
   - POST /intercompany/transactions
@@ -399,13 +279,9 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /revenue-recognition/
-  - GET /revenue-recognition/contracts/{company_id}
   - GET /revenue-recognition/contracts/{}
-  - GET /revenue-recognition/summary/{company_id}
   - GET /revenue-recognition/summary/{}
   - POST /revenue-recognition/contracts
-  - POST /revenue-recognition/contracts/{contract_id}/recognize
   - POST /revenue-recognition/contracts/{}/recognize
 - name: trading-account-service
   domain: accounting
@@ -416,9 +292,6 @@ services:
   engine: rust
   records: false
   endpoints:
-  - GET /trading-account/
   - GET /trading-account/accounts
-  - GET /trading-account/accounts/{account_id}
   - GET /trading-account/accounts/{}
-  - GET /trading-account/health
   - POST /trading-account/generate
