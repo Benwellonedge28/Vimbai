@@ -600,6 +600,7 @@ services:
   - POST /bank-feed/transactions/import-mt940
   - POST /bank-feed/transactions/{transaction_id}/link
   - POST /bank-feed/transactions/{}/link
+  - POST /bank-feed/transactions/{}/reconcile
   - POST /bank-feed/webhooks/{provider}
   - POST /bank-feed/webhooks/{}
   - PUT /bank-feed/rules/{rule_id}

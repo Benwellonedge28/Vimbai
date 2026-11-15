@@ -7,6 +7,8 @@
 //!
 //! Reading the source rather than a list kept beside it is the point: the list would be one more thing to forget.
 
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use walk::dart_files;
@@ -83,6 +85,305 @@ mod walk {
     }
 }
 
+/// One address the app builds, with the file and line it is written on.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Call {
+    pub file: String,
+    pub line: usize,
+    pub path: String,
+}
+
+/// Every address the app builds, resolved through the constants it builds them from.
+///
+/// The prefix scan above answers "does a door exist for this prefix". It cannot answer "does anything answer *this*
+/// address", and the difference is not academic: `/accounting/accounts/` is under a door that exists, and the engine answers
+/// `/accounting/accounts`, so the chart of accounts page failed on a fresh Book while every check passed.
+///
+/// One shape this scan cannot follow: a literal that begins `/` and is handed to a helper which prepends a base
+/// (`_u('/books/$id/entries')`). Those addresses live under the `/book-sync` door, which the gateway forwards into the
+/// engine's own `/books`, and the offline runtime tests are what prove that surface.
+///
+/// The app does not write an address in one place, so the scan follows what it reads: `AppConfig.apiUrl` is the empty base,
+/// `AppConfig.accountingRoute` is `apiUrl/accounting`, and a file's own `_baseUrl` is whichever of those it was set to. An
+/// interpolated segment (`$bookId`, `${id}`) is a wildcard, because the scan cannot know which Book a person opens.
+pub fn calls(root: &Path) -> Vec<Call> {
+    let lib = root.join("apps/flutter/lib");
+    let config = std::fs::read_to_string(lib.join("app/config.dart")).unwrap_or_default();
+    let mut routes = constants(&config);
+    // the gateway base itself: everything the app calls is built from it, so it resolves to the empty path
+    routes.insert("apiUrl".to_string(), String::new());
+    let mut found: Vec<Call> = Vec::new();
+    for file in dart_files(&lib) {
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let mut bases = routes.clone();
+        bases.extend(constants(&text));
+        for (line, literal) in literals(&text) {
+            if declares_a_constant(&text, line) {
+                continue;
+            }
+            if let Some(path) = resolve(&literal, &bases) {
+                found.push(Call {
+                    file: file
+                        .strip_prefix(&lib)
+                        .unwrap_or(&file)
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                    line,
+                    path,
+                });
+            }
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// Whether this line declares a constant rather than calls something. A base is not an address: `AppConfig.accountingRoute`
+/// is what the addresses are built from, and asking whether the engine answers `/accounting` is asking the wrong question.
+fn declares_a_constant(text: &str, line: usize) -> bool {
+    let Some(source) = text.lines().nth(line.saturating_sub(1)) else {
+        return false;
+    };
+    let trimmed = source.trim();
+    let declaration = trimmed
+        .strip_prefix("static ")
+        .or_else(|| trimmed.strip_prefix("final "))
+        .or_else(|| trimmed.strip_prefix("const "));
+    declaration.is_some_and(|rest| rest.contains(" = "))
+}
+
+/// The `name = 'value'` constants a Dart file declares, so a literal can be followed back to what it is a part of.
+///
+/// A constant written against `AppConfig.<something>` keeps that reference, so the walk upwards happens in [resolve] where a
+/// missing name means "not an address" rather than a wrong one.
+fn constants(text: &str) -> BTreeMap<String, String> {
+    let mut found = BTreeMap::new();
+    for (name, value) in environment_defaults(text) {
+        found.insert(name, value);
+    }
+    for line in text.lines() {
+        let trimmed = line.trim();
+        let Some(eq) = trimmed.find(" = ") else {
+            continue;
+        };
+        let declaration = &trimmed[..eq];
+        let Some(name) = declaration.split_whitespace().last() else {
+            continue;
+        };
+        if !declaration.starts_with("final ") && !declaration.contains(" const ") {
+            continue;
+        }
+        let name = name.trim_end_matches(';');
+        if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            continue;
+        }
+        let value = trimmed[eq + 3..].trim().trim_end_matches(';').trim();
+        if let Some(inner) = quoted(value) {
+            found.insert(name.to_string(), inner);
+        } else if let Some(reference) = value.strip_prefix("AppConfig.") {
+            found.insert(name.to_string(), format!("${{AppConfig.{reference}}}"));
+        }
+    }
+    found
+}
+
+/// Constants whose value is a `String.fromEnvironment` default, which is written across several lines.
+fn environment_defaults(text: &str) -> Vec<(String, String)> {
+    let mut found = Vec::new();
+    let mut rest = text;
+    while let Some(at) = rest.find("String.fromEnvironment(") {
+        let before = &rest[..at];
+        let name = before
+            .rsplit(" = ")
+            .next()
+            .unwrap_or("")
+            .trim()
+            .trim_end_matches(';')
+            .split_whitespace()
+            .last()
+            .unwrap_or("")
+            .to_string();
+        let after = &rest[at..];
+        if let Some(default) = after.find("defaultValue:") {
+            let value = &after[default + "defaultValue:".len()..];
+            if let Some(inner) = quoted(value.trim_start()) {
+                found.push((name, inner));
+            }
+        }
+        rest = &after["String.fromEnvironment(".len()..];
+    }
+    found
+}
+
+/// The text inside a literal that is nothing but a literal.
+fn quoted(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    for quote in ['\'', '"'] {
+        if trimmed.len() >= 2 && trimmed.starts_with(quote) && trimmed.ends_with(quote) {
+            return Some(trimmed[1..trimmed.len() - 1].to_string());
+        }
+    }
+    None
+}
+
+/// Every string literal in a file, with the line it starts on.
+fn literals(text: &str) -> Vec<(usize, String)> {
+    let mut found = Vec::new();
+    for (index, line) in text.lines().enumerate() {
+        let mut characters = line.chars().peekable();
+        while let Some(character) = characters.next() {
+            if character != '\'' && character != '"' {
+                continue;
+            }
+            let quote = character;
+            let mut literal = String::new();
+            while let Some(next) = characters.next() {
+                if next == '\\' {
+                    if let Some(escaped) = characters.next() {
+                        literal.push(escaped);
+                    }
+                    continue;
+                }
+                if next == quote {
+                    break;
+                }
+                literal.push(next);
+            }
+            if !literal.is_empty() {
+                found.push((index + 1, literal));
+            }
+        }
+    }
+    found
+}
+
+/// The path a literal names, when it starts from a base this scan knows.
+fn resolve(literal: &str, bases: &BTreeMap<String, String>) -> Option<String> {
+    let mut rest = expand_once(literal, bases)?;
+    // a base may itself be built from another base (`_baseUrl` from `AppConfig.accountingRoute` from `$apiUrl`)
+    for _ in 0..6 {
+        match expand_once(&rest, bases) {
+            Some(next) if next != rest => rest = next,
+            _ => break,
+        }
+    }
+    if !rest.starts_with('/') {
+        return None;
+    }
+    let path = rest.split('?').next().unwrap_or("").to_string();
+    let path = wildcards(&path);
+    if !is_path_shape(&path) {
+        return None;
+    }
+    Some(path)
+}
+
+/// Substitute a leading `$name` or `${name}` with what this scan knows it to be.
+fn expand_once(literal: &str, bases: &BTreeMap<String, String>) -> Option<String> {
+    let rest = literal;
+    if !rest.starts_with('$') {
+        return None;
+    }
+    if let Some(inner) = rest.strip_prefix("${") {
+        let end = inner.find('}')?;
+        let name = inner[..end]
+            .trim()
+            .trim_start_matches("AppConfig.")
+            .to_string();
+        let value = bases.get(&name)?;
+        return Some(format!("{value}{}", &inner[end + 1..]).replace("AppConfig.", ""));
+    }
+    let name: String = rest
+        .trim_start_matches('$')
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '.')
+        .collect();
+    let name = name.trim_start_matches("AppConfig.").to_string();
+    if name.is_empty() {
+        return None;
+    }
+    let value = bases.get(&name)?;
+    Some(format!("{value}{}", &rest[1 + name.len()..]).replace("AppConfig.", ""))
+}
+
+/// Every `$name` and `${...}` left in a path as the wildcard the engine records a parameter as.
+fn wildcards(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut characters = path.chars().peekable();
+    while let Some(character) = characters.next() {
+        if character != '$' {
+            out.push(character);
+            continue;
+        }
+        if characters.peek() == Some(&'{') {
+            for next in characters.by_ref() {
+                if next == '}' {
+                    break;
+                }
+            }
+        } else {
+            while characters
+                .peek()
+                .is_some_and(|next| next.is_alphanumeric() || *next == '_')
+            {
+                characters.next();
+            }
+        }
+        out.push_str("{}");
+    }
+    out
+}
+
+/// A path with a leading slash whose literal segments are plain and whose variables stand alone as `{}`.
+fn is_path_shape(path: &str) -> bool {
+    path.starts_with('/')
+        && path.len() > 1
+        && !path.contains(' ')
+        && !path.contains('\'')
+        && !path.contains('"')
+}
+
+/// The addresses the app calls that nothing answers: the prefix exists, the address does not.
+pub fn unanswered(root: &Path) -> Vec<Call> {
+    let answered: Vec<String> = crate::gateway::engine_routes(root).into_iter().collect();
+    let routed: BTreeSet<String> = crate::catalog::rows(root)
+        .into_iter()
+        .map(|row| row.gateway_path.trim_end_matches('/').to_string())
+        .collect();
+    calls(root)
+        .into_iter()
+        .filter(|call| {
+            // the path as written: `gateway::shape` trims a trailing slash, and the trailing slash is the defect being looked
+            // for, so shaping here keeps it
+            let path = call.path.clone();
+            // a door: the gateway answers it and forwards what is behind it. `/identity` signs people in, `/book-sync`
+            // forwards into the engine's `/books`, and a routed prefix is itself a door.
+            if DOORS.iter().any(|door| path == *door) || routed.contains(&path) {
+                return false;
+            }
+            !answered.iter().any(|engine| matches(engine, &path))
+        })
+        .collect()
+}
+
+/// Doors the gateway answers itself, before any service is asked.
+const DOORS: [&str; 4] = ["/identity", "/book-sync", "/records", "/health"];
+
+/// Whether an engine route answers a path, where the engine's `{}` stands for any one segment.
+fn matches(engine: &str, path: &str) -> bool {
+    let engine: Vec<&str> = engine.split('/').collect();
+    let path: Vec<&str> = path.split('/').collect();
+    engine.len() == path.len()
+        && engine
+            .iter()
+            .zip(path.iter())
+            // an empty segment is a trailing slash, which is a different address from the one a parameter route answers
+            .all(|(route, asked)| route == asked || (*route == "{}" && !asked.is_empty()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::scan;
@@ -97,5 +398,31 @@ mod tests {
     fn a_dart_expression_after_the_slash_is_not_a_prefix() {
         let text = "final url = '${AppConfig.apiUrl}/${service.path}';";
         assert!(scan(text).is_empty(), "a variable is not a prefix");
+    }
+}
+
+#[cfg(test)]
+mod address_tests {
+    use super::{matches, wildcards};
+
+    #[test]
+    fn a_parameter_answers_any_one_segment() {
+        assert!(matches(
+            "/accounting/accounts/{}",
+            "/accounting/accounts/1000"
+        ));
+        assert!(matches("/calc/{}", "/calc/ratio-analysis-ratios"));
+    }
+
+    #[test]
+    fn a_trailing_slash_is_not_a_parameter() {
+        assert!(!matches("/accounting/accounts/{}", "/accounting/accounts/"));
+        assert!(!matches("/accounting/accounts", "/accounting/accounts/"));
+    }
+
+    #[test]
+    fn an_interpolation_becomes_one_wildcard_segment() {
+        assert_eq!(wildcards("/books/$bookId/entries"), "/books/{}/entries");
+        assert_eq!(wildcards("/books/${book.id}/entries"), "/books/{}/entries");
     }
 }

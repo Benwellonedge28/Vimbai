@@ -4,6 +4,21 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Fixed
+
+- The accounting screens were calling addresses the engine does not answer. `/accounting/accounts/`, `/accounting/journal-entries/`,
+  `/accounting/income-statement/` and `/accounting/balance-sheet/` all carry a trailing slash the engine never matched, so the
+  chart of accounts, the journal, the income statement and the balance sheet each came back 404 on a fresh Book - the bookkeeping
+  loop was unreachable while the seeded chart of accounts sat there waiting. Every one now asks the address the engine answers, and
+  trial balance sends `as_of_date` as a query instead of splicing it into the path.
+- The banking screens had no working address at all: they called `/banking-integration/connect`, `/connections`, `/sync/{id}` and
+  `/transactions/{id}`, which were the retired service's paths. They now call `/bank-feed`, and the two steps that surface was
+  missing are answered: the feed listed for one connection, and a line reconciled against an entry.
+- A new gate reads every address the app builds and fails the build when the engine does not answer it. The prefix check could not
+  see this class of defect - the prefix existed, the address did not - so the scan follows the app's own constants (`AppConfig.accountingRoute`,
+  a file's `_baseUrl`, `_kBaseUrl`), treats an interpolated segment as one wildcard, and refuses to let a trailing slash pass as one.
+  It named all fifteen broken addresses, with file and line, on its first run.
+
 ### Added
 
 - The app can set up an organisation, which is what makes a Book shareable. The engine has answered `/identity/organizations`

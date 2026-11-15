@@ -17,7 +17,7 @@ class ProfileBanner extends StatelessWidget {
   /// What the machine says it serves.
   final MachineProfile profile;
 
-  /// The features worth naming, in the words the screens use: `banking-integration`, `cash-flow-statement`.
+  /// The features worth naming, in the words the screens use: `bank-feed`, `cash-flow-statement`.
   final Map<String, String> features;
 
   @override

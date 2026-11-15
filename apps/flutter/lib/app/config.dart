@@ -20,7 +20,7 @@ class AppConfig {
   // Gateway route prefixes for each backend service.
   static const String identityRoute = '$apiUrl/identity';
   static const String accountingRoute = '$apiUrl/accounting';
-  static const String bankingRoute = '$apiUrl/banking-integration';
+  static const String bankingRoute = '$apiUrl/bank-feed';
   static const String budgetsRoute = '$apiUrl/budget';
   static const String multimodalRoute = '$apiUrl/multimodal';
 

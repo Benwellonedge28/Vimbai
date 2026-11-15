@@ -190,6 +190,43 @@ async fn get_transaction(
     })
 }
 
+/// Reconcile a transaction against the entry it turned out to be: the status and the link are one act, so one address.
+async fn reconcile_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    body: Option<Json<Value>>,
+) -> Response {
+    let asked = overlay(
+        query_object(query.as_deref()),
+        body.map(|Json(value)| value),
+    );
+    through(graph, headers, |graph, scope| {
+        let mut marked = asked.clone();
+        marked["status"] = json!("reconciled");
+        let updated = service::update_transaction_status(graph, scope, &id, &marked)?;
+        let matched = text_of(&asked, "matched_entry_id");
+        if matched.is_empty() {
+            return Ok(updated);
+        }
+        service::link_transaction(
+            graph,
+            scope,
+            &id,
+            &json!({ "journal_entry_id": matched, "today": asked.get("today").cloned().unwrap_or(json!("")) }),
+        )
+    })
+}
+
+fn text_of(asked: &Value, key: &str) -> String {
+    asked
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
 async fn start_sync(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -277,6 +314,10 @@ pub fn router(graph: GraphHandle) -> Router {
         .route(
             "/bank-feed/transactions/:transaction_id",
             get(get_transaction),
+        )
+        .route(
+            "/bank-feed/transactions/:transaction_id/reconcile",
+            post(reconcile_transaction),
         )
         .route("/bank-feed/sync/start", post(start_sync))
         .route("/bank-feed/sync/history", get(sync_history))

@@ -5,17 +5,19 @@ import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/banking/models/banking_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 
-/// Client for the banking-integration-service via the API gateway.
+/// Client for the bank feed via the API gateway.
 ///
-/// Real contract (all Book-scoped by the gateway's X-Book-ID injection):
-///   POST   /connect                        query: bank_name, account_number,
-///                                         api_key, account_type
-///   GET    /connections
-///   POST   /sync/{connection_id}
-///   GET    /transactions/{connection_id}   query: limit, offset
-///   POST   /transactions/{connection_id}/reconcile
-///          body: {transaction_id, matched_entry_id?, notes?}
-///   DELETE /connections/{connection_id}
+/// Every address is the engine's own (all Book-scoped by the gateway's X-Book-ID injection), because the retired
+/// banking-integration service's addresses - `/connect`, `/sync/{id}`, `/transactions/{id}` - are not answered by
+/// anything: they were the one surface where the app's screens had no working address under them at all.
+///   POST   /bank-feed/connections               query: bank_name, account_number,
+///                                               api_key, account_type
+///   GET    /bank-feed/connections
+///   POST   /bank-feed/sync/start                body: {bank_connection_id}
+///   GET    /bank-feed/transactions              query: connection_id, limit, offset
+///   POST   /bank-feed/transactions/{id}/reconcile
+///          body: {matched_entry_id?, notes?}
+///   DELETE /bank-feed/connections/{connection_id}
 class BankingApiService {
   final ApiClient _client = ApiClient();
   final String _bankingServiceUrl = AppConfig.bankingRoute;
@@ -38,7 +40,7 @@ class BankingApiService {
   }) async {
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_bankingServiceUrl/connect').replace(
+      Uri.parse('$_bankingServiceUrl/connections').replace(
         queryParameters: {
           'bank_name': bankName,
           'account_number': accountNumber,
@@ -81,8 +83,9 @@ class BankingApiService {
   Future<void> syncTransactions(String connectionId) async {
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_bankingServiceUrl/sync/$connectionId'),
+      Uri.parse('$_bankingServiceUrl/sync/start'),
       headers: headers,
+      body: json.encode({'bank_connection_id': connectionId}),
     );
 
     if (response.statusCode != 200) {
@@ -98,9 +101,13 @@ class BankingApiService {
   }) async {
     final headers = await _getHeaders();
     final response = await _client.get(
-      Uri.parse(
-        '$_bankingServiceUrl/transactions/$connectionId',
-      ).replace(queryParameters: {'limit': '$limit', 'offset': '$offset'}),
+      Uri.parse('$_bankingServiceUrl/transactions').replace(
+        queryParameters: {
+          'connection_id': connectionId,
+          'limit': '$limit',
+          'offset': '$offset',
+        },
+      ),
       headers: headers,
     );
 
@@ -124,11 +131,10 @@ class BankingApiService {
   }) async {
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_bankingServiceUrl/transactions/$connectionId/reconcile'),
+      Uri.parse('$_bankingServiceUrl/transactions/$transactionId/reconcile'),
       headers: headers,
       body: json.encode({
-        'transaction_id': transactionId,
-        'matched_entry_id': matchedEntryId,
+        if (matchedEntryId != null) 'matched_entry_id': matchedEntryId,
         'notes': notes,
       }),
     );

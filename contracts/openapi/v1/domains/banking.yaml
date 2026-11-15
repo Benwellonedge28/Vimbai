@@ -238,6 +238,12 @@ paths:
     post:
       operationId: postBankFeedTransactionsLink
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /bank-feed/transactions/{}/reconcile:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBankFeedTransactionsReconcile
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /bank-feed/transactions/{}/status:
     parameters:
       - $ref: "#/components/parameters/BookId"

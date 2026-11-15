@@ -25,7 +25,7 @@ import 'package:vimbai_mobile_client/core/api/machine_profile_service.dart';
 /// A key is the prefix the app calls; the value is what a person calls it. Only features the app offers through a prefix a
 /// profile can leave out are listed: accounting and book-sync are in every profile, so naming them would be noise.
 const Map<String, String> _profileFeatures = {
-  'banking-integration': 'bank accounts',
+  'bank-feed': 'bank accounts',
   'budget': 'budgets',
   'cash-flow-statement': 'the cash flow statement',
   'multimodal': 'document and photo input',

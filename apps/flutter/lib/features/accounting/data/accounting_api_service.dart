@@ -64,7 +64,7 @@ class AccountingApiService {
     }
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/journal-entries/'),
+        Uri.parse('$_baseUrl/journal-entries'),
         headers: await _getHeaders(),
         body: json.encode(entry.toJson()),
       );
@@ -93,7 +93,7 @@ class AccountingApiService {
     final headers = await _getHeaders();
     if (bookId != null) headers['X-Book-ID'] = bookId;
     final response = await _client.post(
-      Uri.parse('$_baseUrl/journal-entries/'),
+      Uri.parse('$_baseUrl/journal-entries'),
       headers: headers,
       body: json.encode(entry.toJson()),
     );
@@ -113,7 +113,7 @@ class AccountingApiService {
   Future<List<JournalEntry>> getJournalEntries() async {
     try {
       final response = await _client.get(
-        Uri.parse('$_baseUrl/journal-entries/'),
+        Uri.parse('$_baseUrl/journal-entries'),
         headers: await _getHeaders(),
       );
       if (response.statusCode == 200) {
@@ -278,7 +278,7 @@ class AccountingApiService {
   Future<Account> createAccount(AccountCreate account) async {
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/accounts/'),
+        Uri.parse('$_baseUrl/accounts'),
         headers: await _getHeaders(),
         body: json.encode(account.toJson()),
       );
@@ -314,7 +314,7 @@ class AccountingApiService {
     final headers = await _getHeaders();
     if (bookId != null) headers['X-Book-ID'] = bookId;
     final response = await _client.post(
-      Uri.parse('$_baseUrl/accounts/'),
+      Uri.parse('$_baseUrl/accounts'),
       headers: headers,
       body: json.encode(
         AccountCreate(
@@ -341,7 +341,7 @@ class AccountingApiService {
   Future<List<Account>> getAllAccounts() async {
     try {
       final response = await _client.get(
-        Uri.parse('$_baseUrl/accounts/'),
+        Uri.parse('$_baseUrl/accounts'),
         headers: await _getHeaders(),
       );
       if (response.statusCode == 200) {
@@ -379,11 +379,12 @@ class AccountingApiService {
   // ------------------------------------------------------------------
 
   Future<TrialBalance> getTrialBalance({DateTime? asOfDate}) async {
-    final query = asOfDate != null
-        ? '?as_of_date=${asOfDate.toIso8601String()}'
-        : '';
     final response = await _client.get(
-      Uri.parse('$_baseUrl/trial-balance/$query'),
+      Uri.parse('$_baseUrl/trial-balance').replace(
+        queryParameters: asOfDate == null
+            ? null
+            : {'as_of_date': asOfDate.toIso8601String()},
+      ),
       headers: await _getHeaders(),
     );
     if (response.statusCode == 200) {
@@ -400,7 +401,7 @@ class AccountingApiService {
   ) async {
     final response = await _client.get(
       Uri.parse(
-        '$_baseUrl/income-statement/'
+        '$_baseUrl/income-statement'
         '?start_date=${startDate.toIso8601String()}'
         '&end_date=${endDate.toIso8601String()}',
       ),
@@ -417,7 +418,7 @@ class AccountingApiService {
   Future<BalanceSheet> getBalanceSheet(DateTime asOfDate) async {
     final response = await _client.get(
       Uri.parse(
-        '$_baseUrl/balance-sheet/?as_of_date=${asOfDate.toIso8601String()}',
+        '$_baseUrl/balance-sheet?as_of_date=${asOfDate.toIso8601String()}',
       ),
       headers: await _getHeaders(),
     );

@@ -38,3 +38,42 @@ fn every_prefix_the_app_calls_is_routed_or_open() {
         "the app calls prefixes nothing serves: {unaccounted:?}"
     );
 }
+
+#[test]
+fn every_address_the_app_calls_is_answered() {
+    let unanswered = app_calls::unanswered(&root());
+    let listing: Vec<String> = unanswered
+        .iter()
+        .map(|call| format!("{}:{} {}", call.file, call.line, call.path))
+        .take(20)
+        .collect();
+    assert!(
+        unanswered.is_empty(),
+        "{} addresses the app calls reach nothing:\n{}",
+        unanswered.len(),
+        listing.join("\n")
+    );
+}
+
+#[test]
+fn the_scan_finds_the_addresses_the_app_builds() {
+    let calls = app_calls::calls(&root());
+    let paths: Vec<&str> = calls.iter().map(|call| call.path.as_str()).collect();
+    assert!(
+        calls.len() >= 20,
+        "the scan found {} addresses: {paths:?}",
+        calls.len()
+    );
+    // the accounting service, the bank feed and the organisation service each build their addresses from a base, which is
+    // the shape this scan follows
+    for expected in [
+        "/accounting/accounts",
+        "/bank-feed/transactions/{}/reconcile",
+        "/identity/organizations/{}/books/{}",
+    ] {
+        assert!(
+            paths.iter().any(|path| path.contains(expected)),
+            "the scan missed {expected}: {paths:?}"
+        );
+    }
+}

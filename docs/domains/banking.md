@@ -28,4 +28,11 @@ Moving money. Vimbai records what a bank did and what a Book decided; it does no
 
 ## Tests
 
-Five HTTP tests cover the feed: an exact amount kept with a duplicate refused, a batch reporting both lines, an MT940 statement parsed into a credit and a debit read back with signs, a fuel rule meeting the line it names, and the feed listing with status. The per-connection feed and sweep are covered by the address suite that closed the last method gaps, and currency conversion is unit-tested against exact amounts.
+The `/bank-feed` surface answers the two steps the app's banking screens take: the feed listed for one connection
+(`GET /bank-feed/transactions` filtered by `connection_id`), and a line reconciled against the entry it turned out to be
+(`POST /bank-feed/transactions/{id}/reconcile`, which sets the status and records the link in one act rather than leaving a
+caller to make the same statement twice - it is the app's one call, built out of the two steps the crate already had).
+
+Five HTTP tests cover the feed: an exact amount kept with a duplicate refused, a batch reporting both lines, an MT940 statement parsed into a credit and a debit read back with signs, a fuel rule meeting the line it names, and the feed listing with status. One more covers the app's path through it: a connection, a transaction
+imported against it, the feed listed for that connection only, and the transaction reconciled against an entry in one call,
+read back as reconciled with the entry recorded. The per-connection feed and sweep are covered by the address suite that closed the last method gaps, and currency conversion is unit-tested against exact amounts.

@@ -136,3 +136,85 @@ async fn the_root_and_the_statistics_answer_at_the_prefix() {
     .await;
     assert_eq!(status, StatusCode::OK, "statistics: {figures}");
 }
+
+#[tokio::test]
+async fn a_transaction_is_listed_for_its_connection_and_reconciled_against_an_entry_in_one_call() {
+    let graph = Arc::new(MemoryGraph::new());
+    let (status, created) = call(
+        graph.clone(),
+        Method::POST,
+        "/bank-feed/connections?organization_id=org-1",
+        Some(json!({
+            "provider": "plaid",
+            "account_name": "Operating",
+            "account_number_last4": "4242",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "creating a connection: {created}");
+    let connection = created["id"]
+        .as_str()
+        .or_else(|| created["connection"]["id"].as_str())
+        .unwrap_or_else(|| panic!("no connection id in {created}"))
+        .to_string();
+
+    let (status, imported) = call(
+        graph.clone(),
+        Method::POST,
+        "/bank-feed/transactions/import",
+        Some(json!({
+            "bank_connection_id": connection,
+            "external_id": "bank-line-1",
+            "date": "2026-11-15",
+            "amount": "250.00",
+            "description": "CLIENT PAYMENT",
+            "transaction_type": "credit",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "importing: {imported}");
+    let transaction = imported["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no transaction id in {imported}"))
+        .to_string();
+
+    // the screen lists the feed for the connection it is looking at, not the whole Book
+    let (status, listed) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/bank-feed/transactions?connection_id={connection}&limit=10&offset=0"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "listing the feed: {listed}");
+    assert!(
+        listed.to_string().contains(&transaction),
+        "the transaction just imported is not in the feed for its connection: {listed}"
+    );
+
+    // and reconciling is one act: the status and the entry it matched, not two calls that can disagree
+    let (status, reconciled) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/bank-feed/transactions/{transaction}/reconcile"),
+        Some(json!({ "matched_entry_id": "entry-7", "notes": "spoke to the client" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reconciling: {reconciled}");
+    assert_eq!(reconciled["status"], "reconciled", "in {reconciled}");
+    assert_eq!(
+        reconciled["journal_entry_id"], "entry-7",
+        "the entry it was reconciled against: {reconciled}"
+    );
+
+    let (status, read_back) = call(
+        graph,
+        Method::GET,
+        &format!("/bank-feed/transactions/{transaction}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reading it back: {read_back}");
+    assert_eq!(read_back["status"], "reconciled");
+    assert_eq!(read_back["journal_entry_id"], "entry-7");
+}
