@@ -286,6 +286,110 @@ async fn moving_a_book_needs_both_halves_so_a_member_cannot_take_one() {
 }
 
 #[tokio::test]
+async fn a_book_can_be_taken_back_out_of_an_organisation_and_made_private_again() {
+    let owner = signed_in(
+        Arc::new(MemoryGraph::new()),
+        "tariro",
+        "correct horse battery",
+    )
+    .await;
+    let (_, opened) = owner
+        .post_identity("/organizations", json!({"name": "One"}))
+        .await;
+    let organisation_id = opened["id"].as_str().expect("an id").to_string();
+    let book_id = open_book(&owner).await;
+
+    let (status, _) = owner
+        .identity(
+            Method::PUT,
+            &format!("/organizations/{organisation_id}/books/{book_id}"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // a second organisation, so the test can prove the Book comes out of the one it is in rather than any organisation named
+    let (_, other) = owner
+        .post_identity("/organizations", json!({"name": "Two"}))
+        .await;
+    let other_id = other["id"].as_str().expect("an id").to_string();
+    let (status, _) = owner
+        .identity(
+            Method::DELETE,
+            &format!("/organizations/{other_id}/books/{book_id}"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a Book is not in the organisation that was named"
+    );
+
+    let (status, detached) = owner
+        .identity(
+            Method::DELETE,
+            &format!("/organizations/{organisation_id}/books/{book_id}"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{detached}");
+    assert_eq!(detached["organisation_id"].as_str().unwrap_or_default(), "");
+
+    // and it is no longer one of the organisation's Books
+    let (status, listed) = owner
+        .identity(
+            Method::GET,
+            &format!("/organizations/{organisation_id}/books"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed["books"], json!([]));
+}
+
+#[tokio::test]
+async fn taking_a_book_out_of_an_organisation_needs_both_halves() {
+    let owner = signed_in(
+        Arc::new(MemoryGraph::new()),
+        "tariro",
+        "correct horse battery",
+    )
+    .await;
+    let (_, opened) = owner
+        .post_identity("/organizations", json!({"name": "One"}))
+        .await;
+    let organisation_id = opened["id"].as_str().expect("an id").to_string();
+    let book_id = open_book(&owner).await;
+    let (status, _) = owner
+        .identity(
+            Method::PUT,
+            &format!("/organizations/{organisation_id}/books/{book_id}"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let member = signed_in(owner.graph.clone(), "sam", "another horse battery").await;
+    let (status, _) = owner
+        .post_identity(
+            &format!("/organizations/{organisation_id}/members"),
+            json!({"user_id": member.person.id, "role": "member"}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let (status, refusal) = member
+        .identity(
+            Method::DELETE,
+            &format!("/organizations/{organisation_id}/books/{book_id}"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{refusal}");
+}
+
+#[tokio::test]
 async fn an_organisation_keeps_at_least_one_owner() {
     let owner = signed_in(
         Arc::new(MemoryGraph::new()),

@@ -100,6 +100,25 @@ class OrganisationService {
     }
   }
 
+  /// Take a Book back out of an organisation, leaving it with only the person who holds it.
+  ///
+  /// The counterpart of [moveBook]: an offer a person can only accept is not an offer. It keeps the engine's own refusal
+  /// wording, so a member who is not allowed to do this is told that rather than shown a status number.
+  Future<void> makePrivate(String organisationId, String bookId) async {
+    final response = await _client.delete(
+      Uri.parse(
+        '${AppConfig.apiUrl}/identity/organizations/$organisationId/books/$bookId',
+      ),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw OrganisationException(
+        _reason(response.body, 'Could not make the Book private again'),
+        status: response.statusCode,
+      );
+    }
+  }
+
   /// The Books inside an organisation, as the engine lists them.
   Future<List<String>> books(String organisationId) async {
     final response = await _client.get(

@@ -14,11 +14,16 @@ class PutBookInOrganisationSheet extends StatefulWidget {
     super.key,
     required this.bookId,
     required this.bookName,
+    this.organisationId,
     this.service,
   });
 
   final String bookId;
   final String bookName;
+
+  /// The organisation the Book is in now, when it is in one. Only then is leaving offered: "make private" for a Book that is
+  /// already private is a button that does nothing dressed as a choice.
+  final String? organisationId;
 
   /// Handed in by a test; the app never passes one.
   final OrganisationService? service;
@@ -28,6 +33,7 @@ class PutBookInOrganisationSheet extends StatefulWidget {
     BuildContext context, {
     required String bookId,
     required String bookName,
+    String? organisationId,
     OrganisationService? service,
   }) async {
     final put = await showModalBottomSheet<bool>(
@@ -36,6 +42,7 @@ class PutBookInOrganisationSheet extends StatefulWidget {
       builder: (_) => PutBookInOrganisationSheet(
         bookId: bookId,
         bookName: bookName,
+        organisationId: organisationId,
         service: service,
       ),
     );
@@ -92,6 +99,33 @@ class _PutBookInOrganisationSheetState
     }
   }
 
+  Future<void> _makePrivate() async {
+    final organisationId = widget.organisationId;
+    if (organisationId == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await _service.makePrivate(organisationId, widget.bookId);
+      if (mounted) Navigator.of(context).pop(true);
+    } on OrganisationException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.message;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = 'Could not reach the server. $e';
+        });
+      }
+    }
+  }
+
   Future<void> _choose(VOrganisation organisation) async {
     setState(() {
       _busy = true;
@@ -137,6 +171,17 @@ class _PutBookInOrganisationSheetState
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
+            if (widget.organisationId != null) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.lock_outline),
+                title: const Text('Keep this Book private'),
+                subtitle: const Text('Take it out of the organisation'),
+                enabled: !_busy,
+                onTap: _busy ? null : _makePrivate,
+              ),
+              const Divider(),
+            ],
             if (_loading)
               const Center(
                 child: Padding(

@@ -578,6 +578,9 @@ paths:
     put:
       operationId: putIdentityOrganizationsBooks
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    delete:
+      operationId: deleteIdentityOrganizationsBooks
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /identity/organizations/{}/members:
     parameters:
       - $ref: "#/components/parameters/BookId"

@@ -256,4 +256,55 @@ void main() {
       throwsA(isA<OrganisationException>()),
     );
   });
+
+  test(
+    'making a Book private deletes the link at the address the engine serves',
+    () async {
+      late http.Request sent;
+      ApiClient.transport = MockClient((request) async {
+        sent = request;
+        return http.Response(
+          jsonEncode({'id': 'book-7'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      await OrganisationService(
+        token: 'a-token',
+      ).makePrivate('org-1', 'book-7');
+
+      expect(sent.method, 'DELETE');
+      expect(
+        sent.url.path,
+        endsWith('/identity/organizations/org-1/books/book-7'),
+      );
+    },
+  );
+
+  test('a refusal to make a Book private keeps the engine words', () async {
+    ApiClient.transport = MockClient(
+      (request) async => http.Response(
+        jsonEncode({
+          'error': 'only an administrator may change this organisation',
+        }),
+        403,
+        headers: {'content-type': 'application/json'},
+      ),
+    );
+
+    expect(
+      () =>
+          OrganisationService(token: 'a-token').makePrivate('org-1', 'book-7'),
+      throwsA(
+        isA<OrganisationException>()
+            .having((e) => e.status, 'status', 403)
+            .having(
+              (e) => e.message,
+              'message',
+              'only an administrator may change this organisation',
+            ),
+      ),
+    );
+  });
 }

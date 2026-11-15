@@ -13,11 +13,18 @@ class _FakeService extends OrganisationService {
   final String? loadFailure;
   final String? moveFailure;
   final List<String> moved = [];
+  final List<String> madePrivate = [];
 
   @override
   Future<List<VOrganisation>> mine() async {
     if (loadFailure != null) throw OrganisationException(loadFailure!);
     return mineAnswer;
+  }
+
+  @override
+  Future<void> makePrivate(String organisationId, String bookId) async {
+    if (moveFailure != null) throw OrganisationException(moveFailure!);
+    madePrivate.add('$organisationId/$bookId');
   }
 
   @override
@@ -27,7 +34,11 @@ class _FakeService extends OrganisationService {
   }
 }
 
-Future<bool?> _open(WidgetTester tester, OrganisationService service) async {
+Future<bool?> _open(
+  WidgetTester tester,
+  OrganisationService service, {
+  String? organisationId,
+}) async {
   bool? result;
   await tester.pumpWidget(
     MaterialApp(
@@ -39,6 +50,7 @@ Future<bool?> _open(WidgetTester tester, OrganisationService service) async {
                 context,
                 bookId: 'book-7',
                 bookName: 'Household',
+                organisationId: organisationId,
                 service: service,
               );
             },
@@ -137,5 +149,37 @@ void main() {
 
     expect(service.moved, isEmpty);
     expect(find.text('Holdings'), findsNothing);
+  });
+
+  testWidgets('a Book already shared can be made private again', (
+    tester,
+  ) async {
+    final service = _FakeService(
+      mineAnswer: const [
+        VOrganisation(id: 'org-1', name: 'Holdings', role: 'owner'),
+      ],
+    );
+    await _open(tester, service, organisationId: 'org-1');
+
+    expect(find.text('Keep this Book private'), findsOneWidget);
+    await tester.tap(find.text('Keep this Book private'));
+    await tester.pumpAndSettle();
+
+    expect(service.madePrivate, ['org-1/book-7']);
+    expect(service.moved, isEmpty);
+  });
+
+  testWidgets('a private Book is not offered the choice to become private', (
+    tester,
+  ) async {
+    final service = _FakeService(
+      mineAnswer: const [
+        VOrganisation(id: 'org-1', name: 'Holdings', role: 'owner'),
+      ],
+    );
+    await _open(tester, service);
+
+    expect(find.text('Keep this Book private'), findsNothing);
+    expect(find.text('Holdings'), findsOneWidget);
   });
 }

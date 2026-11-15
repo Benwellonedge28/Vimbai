@@ -11,6 +11,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   belonged to nobody and no way to hand it to an accountant or a partner. There is now a service (list what you belong to,
   open one, put a Book inside it, list its Books), a setup page reachable from the home screen, and the engine's own
   refusal wording kept so a member who cannot move a Book is told why rather than shown a status number.
+- A Book can be taken back out of an organisation and made private again. Moving one in existed with no way back, which
+  made sharing a one-way door: an offer that can only be accepted is not an offer. The engine gains
+  `DELETE /identity/organizations/{id}/books/{book_id}`, needing the same two halves as moving one in and refusing a Book
+  that is in a different organisation, and the offer sheet shows "Keep this Book private" only for a Book that is actually
+  in one.
 - A Book's own settings now say whether it is shared. The Sharing row names the organisation it is inside, says plainly when
   it is in none ("only you can see this Book"), and opens the same offer sheet to change it - so a decision made in the wizard
   can be revisited. When the server cannot be asked the row says nothing at all, because "private" and "unknown" are not the
@@ -24,7 +29,7 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   the tap (a Book may be newer than the page), and the engine's refusal is shown rather than retried.
 - The organisation page tells "you have none yet" apart from "the call failed". A failed read leaves the list as empty as a
   real one, and a page that says you own nothing because the server did not answer sends people off to open a second
-  organisation they already have. Twenty-four app tests cover the service, the three states of the page, putting a Book in, and the share offer shown when a Book is made.
+  organisation they already have. Twenty-eight app tests cover the service, the three states of the page, putting a Book in, and the share offer shown when a Book is made.
 - Passwords follow NIST SP 800-63B instead of a length limit and nothing else. Eight characters minimum counted as
   characters rather than bytes, so a password written in Amharic or Devanagari is not refused for being shorter than it
   looks; no composition rules and no expiry, because those push people towards `Password1!` and `Autumn2024!`; the

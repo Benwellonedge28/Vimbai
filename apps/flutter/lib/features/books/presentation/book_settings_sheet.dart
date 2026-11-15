@@ -101,6 +101,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       context,
       bookId: _book.id,
       bookName: _book.name,
+      organisationId: _organisation?.id,
     );
     if (moved && mounted) await _loadSharing();
   }

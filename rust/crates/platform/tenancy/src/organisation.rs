@@ -362,6 +362,36 @@ pub fn attach_book(
     Ok(moved)
 }
 
+/// Take a Book back out of an organisation, leaving it with only the person who holds it.
+///
+/// Both halves are needed, for the same reason attaching a Book needs them: administering the organisation, and holding the
+/// Book. The Book also has to be in this organisation already - otherwise naming somebody else's organisation would be
+/// enough to pull their Book out of it, which is the same hole as attaching one.
+///
+/// The link is emptied rather than removed from the record, so a Book carries the same fields before and after, and every
+/// reader that asks "which organisation is this Book in?" gets one answer shape instead of two.
+pub fn detach_book(
+    graph: &(impl Graph + ?Sized),
+    user_id: &str,
+    organisation_id: &str,
+    book_id: &str,
+) -> Result<Value, StoreError> {
+    require_administrator(graph, organisation_id, user_id)?;
+    vimbai_service_offline_sync::sync::member_of(graph, book_id, user_id, Some(&[OWNER]))?
+        .get("role")
+        .cloned()
+        .ok_or(StoreError::NotFound)?;
+    let current = books(graph).get(book_id, book_id)?;
+    if text(&current, "organisation_id") != organisation_id {
+        return Err(StoreError::NotFound);
+    }
+    books(graph).update(
+        book_id,
+        book_id,
+        &json!({ "organisation_id": "", "updated_at": stamp() }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

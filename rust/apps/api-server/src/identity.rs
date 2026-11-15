@@ -667,7 +667,8 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             .route(
                 &format!("{prefix}/organizations/:org_id/books/:book_id"),
-                axum::routing::put(move_book_into_organization),
+                axum::routing::put(move_book_into_organization)
+                    .delete(take_book_out_of_organization),
             )
             .route(&format!("{prefix}/token/refresh"), post(refresh_token))
             .route(&format!("{prefix}/token/revoke"), post(revoke_token))
@@ -1523,6 +1524,37 @@ async fn list_organization_books(
     match organisation::books_of(graph.as_ref(), &caller.id, &org_id) {
         Ok(found) => Json(json!({ "books": found, "count": found.len() })).into_response(),
         Err(store::StoreError::NotFound) => error(404, "Organization not found"),
+        Err(error) => stored(error),
+    }
+}
+
+/// Take a Book back out of an organisation, leaving it with only the person who holds it.
+///
+/// The counterpart of moving one in: an offer that can only be accepted is not an offer.
+async fn take_book_out_of_organization(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path((org_id, book_id)): Path<(String, String)>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    match organisation::detach_book(graph.as_ref(), &caller.id, &org_id, &book_id) {
+        Ok(book) => {
+            audit(
+                &graph,
+                &caller.id,
+                "organization.book_detached",
+                "Organization",
+                &org_id,
+                json!({ "book_id": book_id }),
+            );
+            Json(book).into_response()
+        }
+        // the same wording as attaching a Book: from the caller's side both are "that pairing does not exist"
+        Err(store::StoreError::NotFound) => error(404, "Organization or book not found"),
+        Err(store::StoreError::Forbidden(message)) => error(403, &message),
         Err(error) => stored(error),
     }
 }

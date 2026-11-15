@@ -65,6 +65,7 @@ before a Book is known, so they pass through.
 | `POST /identity/organizations/{id}/members` | Add somebody, or change their role (owner or admin only) |
 | `GET /identity/organizations/{id}/books` | The Books the organisation owns |
 | `PUT /identity/organizations/{id}/books/{book_id}` | Move a Book in; needs administering the organisation *and* holding the Book |
+| `DELETE /identity/organizations/{id}/books/{book_id}` | Take a Book back out, leaving it private; the same two halves, and the Book must be in the organisation named |
 | `GET /books/{id}/membership` | The gateway's question, answered by the same rule |
 
 ## Roles
@@ -91,5 +92,7 @@ A role outside that list is refused by name when it arrives, rather than stored 
 slugs, one person in two organisations with different roles, a member refused the administrator's actions, the last owner
 protected, an unknown role refused) and `.../access.rs` (four: a Book no organisation owns, a Book one does, a missing
 Book, and the gateway's answer naming the route). Over HTTP,
-`rust/apps/api-server/tests/organisations_http.rs` (five: opening and listing, a member reading the organisation's Book
-while a stranger is refused, moving a Book needing both halves, the last owner, and the member listing).
+`rust/apps/api-server/tests/organisations_http.rs` (seven: opening and listing, a member reading the organisation's Book
+while a stranger is refused, moving a Book needing both halves, taking a Book back out and finding it gone from the
+listing while a *different* organisation's name reaches nothing, taking one out needing both halves, the last owner, and
+the member listing).
