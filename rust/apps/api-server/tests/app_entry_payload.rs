@@ -279,3 +279,59 @@ async fn the_report_screens_frames_are_answered_under_the_keys_they_read() {
         ],
     );
 }
+
+/// The cash flow page reads a statement the service maps out of the engine's reply, key by key.
+#[tokio::test]
+async fn the_cash_flow_page_reads_keys_the_engine_answers() {
+    let walk = stranger_with_a_posted_entry().await;
+    let (code, made) = walk
+        .call(
+            Method::POST,
+            "/cash-flow-statement/generate",
+            Some(json!({
+                "company_id": walk.book,
+                "method": "indirect",
+                "period_start": "2026-01-01T00:00:00.000",
+                "period_end": "2026-12-31T00:00:00.000",
+                "beginning_cash": 100.0,
+                "operating_activities": [
+                    {"description": "a sale", "amount": 250.0, "is_inflow": true}
+                ],
+                "investing_activities": [],
+                "financing_activities": []
+            })),
+        )
+        .await;
+    assert!(code.is_success(), "{made}");
+    holds(
+        &made,
+        &[
+            "period_start",
+            "period_end",
+            "operating_activities",
+            "net_operating",
+            "net_change",
+            "beginning_cash",
+            "ending_cash",
+        ],
+    );
+    // the page turns each line into a description and an amount, so both must survive the trip
+    let line = &made["operating_activities"][0];
+    assert!(line["description"].is_string(), "{made}");
+    assert!(line["amount"].is_string(), "{made}");
+}
+
+/// The chart of accounts screen reads a fixed set of names off each account.
+#[tokio::test]
+async fn the_chart_of_accounts_reads_keys_the_engine_answers() {
+    let walk = stranger_with_a_posted_entry().await;
+    let (code, reply) = walk.call(Method::GET, "/accounting/accounts", None).await;
+    assert_eq!(code, StatusCode::OK, "{reply}");
+    let rows = reply["accounts"].as_array().or_else(|| reply.as_array());
+    let rows = rows.unwrap_or_else(|| panic!("the screen reads a list: {reply}"));
+    assert!(!rows.is_empty(), "{reply}");
+    holds(
+        &rows[0],
+        &["account_number", "name", "account_type", "normal_balance"],
+    );
+}

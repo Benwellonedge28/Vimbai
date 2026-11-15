@@ -4,6 +4,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Changed
+
+- The tests that hold an app screen's address against the engine now hold its shape too: the chart of accounts, the cash
+  flow page and the three report screens each assert the exact keys their models read, after posting a real entry.
+
 ### Fixed
 
 - The trial balance screen read its rows from `entries`, but the engine answers them under `accounts`, so the report would
