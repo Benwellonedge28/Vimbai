@@ -6,6 +6,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The proofs a page names have to exist. `docs/compliance/financial-integrity.md` opens by promising that "every claim names the
+  test that fails if the claim stops being true", and until now nothing checked the names: renaming one of those tests would have
+  left the promise standing with nothing behind it. `documentation::named_tests_exist` reads every `tests/<file>.rs::<test>`
+  reference under `docs/` and requires the file and the function, which is decidable because Rust defines a test by `fn`. Writing
+  it found `tests/parity.rs` is not one file - the engine and the integrity suite each have one - so a name is satisfied if a file
+  of that name defines it. The test pins both directions and refuses to pass over an empty set: it counts the named tests in the
+  integrity record and fails if it finds fewer than it should be reading.
 - The scripts are held to the same reference rule as the pages, and `scripts/preflight.sh` was the reason. It told every reader
   that where flutter is not on `PATH` the app's tests "run in the mobile workflow" - a workflow deleted when `mobile-analyze.yml`
   was folded into `test-flutter`, so the line named a job that no longer runs. It now names the `test-flutter` job and

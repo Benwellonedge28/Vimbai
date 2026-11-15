@@ -32,7 +32,7 @@ COMMANDS:
     domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
     readme             check the front page's figure and citations against the catalogue and the decisions
-    docs               check the index against the documents, the commands, the counts and the references
+    docs               check the index, the counts, the references and the tests a page names
     makefile           check every target is .PHONY, described by `make help`, and runs a command xtask has
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies

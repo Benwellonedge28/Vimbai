@@ -180,6 +180,7 @@ pub fn documentation_index(root: &Path) -> Vec<String> {
 
     problems.extend(domain_page_count(root, &index, &documents));
     problems.extend(stale_references(root));
+    problems.extend(named_tests_exist(root));
     problems
 }
 
@@ -337,6 +338,70 @@ fn every_file(directory: &Path, found: &mut Vec<String>) {
             found.push(name.to_string());
         }
     }
+}
+
+/// A page that names the test proving its claim, where the test is not there to be run.
+///
+/// `docs/compliance/financial-integrity.md` opens by promising that "every claim names the test that fails if the claim stops
+/// being true". Renaming one of those tests would leave the promise in place and the proof gone, and nobody would find out by
+/// reading. A reference is written `tests/parity.rs::the_name`, so it is decidable: the file has to exist, and the function has
+/// to be defined in it.
+pub fn named_tests_exist(root: &Path) -> Vec<String> {
+    let mut files: Vec<String> = Vec::new();
+    every_file(root, &mut files);
+    if files.is_empty() {
+        return vec!["the repository has no files to resolve a test reference against".to_string()];
+    }
+
+    let mut problems = Vec::new();
+    for document in documents(root)
+        .into_iter()
+        .chain(std::iter::once("README.md".to_string()))
+    {
+        let Ok(text) = std::fs::read_to_string(root.join("docs").join(&document)) else {
+            continue;
+        };
+        for line in text.lines() {
+            if names_a_removal(line) || line.trim_start().starts_with('#') {
+                continue;
+            }
+            for token in inline_code(line) {
+                let Some((file, test)) = token.split_once("::") else {
+                    continue;
+                };
+                if !file.ends_with(".rs") {
+                    continue;
+                }
+                // `tests/parity.rs` is not one file: the engine and the integrity suite both have one, and a page naming the
+                // file the way its own paragraph introduced it is not wrong for that. The claim being checked is that the test
+                // exists, so a file of that name will do - but one of them has to define it.
+                let candidates: Vec<&String> = files
+                    .iter()
+                    .filter(|candidate| candidate.ends_with(&format!("/{file}")))
+                    .collect();
+                if candidates.is_empty() {
+                    problems.push(format!(
+                        "docs/{document} names `{token}`, and there is no `{file}` in the repository"
+                    ));
+                    continue;
+                }
+                let defined = candidates.iter().any(|found| {
+                    std::fs::read_to_string(found).is_ok_and(|source| {
+                        source.lines().any(|line| {
+                            line.contains(&format!("fn {test}("))
+                                || line.contains(&format!("fn {test}<"))
+                        })
+                    })
+                });
+                if !defined {
+                    problems.push(format!(
+                        "docs/{document} names `{token}`, and `{file}` does not define `{test}`"
+                    ));
+                }
+            }
+        }
+    }
+    problems
 }
 
 /// A file name written without backticks, the way a shell script writes one.
