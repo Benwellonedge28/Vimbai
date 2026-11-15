@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A `needs:` that names a job that no longer exists is answered by GitHub rejecting the whole workflow file: no run at all, no
+  error anyone reads, the pipeline simply stops existing. That is how `ci.yml` died - three jobs still needing `lint-python` and
+  `test-python-services` after the Python jobs were deleted - and nothing local caught it, because nothing local reads
+  `.github/workflows`. `cargo run -p xtask -- workflows` (`make workflows`) now resolves every `needs:` against the jobs declared in
+  its own file, keeps every local `uses:` path existing, and fails a file that declares no jobs at all, which is the second way a
+  workflow goes silent.
 - A crate the workspace does not list is invisible, and nothing was watching for one. `cargo test --workspace` would never build
   it, clippy would never read it, and `make safety` would hold it to nothing; it compiles only if someone remembers to cd into it.
   `cargo run -p xtask -- workspace` (`make workspace`) compares the manifest against the crates on disk in both directions: every

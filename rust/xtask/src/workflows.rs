@@ -486,6 +486,131 @@ const GATING_PIPELINE: &str = "ci-main.yml";
 /// The workflow that runs the Rust workspace suite.
 const GATING_RUST_PIPELINE: &str = "library-ci.yml";
 
+/// A `needs:` that names no job in its own file, and a `uses:` that names a local action that is not there.
+///
+/// `ci.yml` was rejected outright by GitHub for exactly this: three jobs still listed `needs: lint-python` and
+/// `needs: test-python-services` after the Python jobs were deleted, and a rejected file means no run at all - the whole pipeline
+/// stops existing, silently, until somebody opens the Actions tab. The same mistake is invisible locally, because nothing the
+/// developer runs reads `.github/workflows`. Read here, it fails the build instead.
+pub fn unresolved_references(root: &Path) -> Vec<String> {
+    let files = workflow_files(root);
+    if files.is_empty() {
+        return vec!["there are no workflow files to check".to_string()];
+    }
+    let mut problems = Vec::new();
+    for (name, text) in &files {
+        let jobs = job_names(text);
+        if jobs.is_empty() {
+            // a workflow with no jobs is the `test-core.yml` failure: GitHub starts it and it does nothing
+            problems.push(format!("{name} declares no jobs"));
+            continue;
+        }
+        for need in needs(text) {
+            if !jobs.contains(&need) {
+                problems.push(format!(
+                    "{name} has a job that needs `{need}`, which is not a job in that file, so GitHub rejects the workflow"
+                ));
+            }
+        }
+        for action in local_actions(text) {
+            if !root.join(&action).exists() {
+                problems.push(format!("{name} uses `{action}`, which is not there"));
+            }
+        }
+    }
+    problems
+}
+
+/// The job ids declared under `jobs:`, by their two-space indentation.
+fn job_names(text: &str) -> BTreeSet<String> {
+    let mut jobs = BTreeSet::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if line.trim_end() == "jobs:" {
+            inside = true;
+            continue;
+        }
+        if !inside {
+            continue;
+        }
+        if !line.starts_with(' ') {
+            inside = false;
+            continue;
+        }
+        if let Some(name) = line
+            .strip_prefix("  ")
+            .and_then(|rest| rest.strip_suffix(':'))
+            .filter(|rest| !rest.starts_with(' '))
+        {
+            jobs.insert(name.to_string());
+        }
+    }
+    jobs
+}
+
+/// Every job id named by a `needs:` - inline as `[a, b]`, one value, or a block list underneath.
+fn needs(text: &str) -> BTreeSet<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut found = BTreeSet::new();
+    for (index, line) in lines.iter().enumerate() {
+        let Some(rest) = line.trim_start().strip_prefix("needs:") else {
+            continue;
+        };
+        let inline = rest.trim();
+        if let Some(list) = inline.strip_prefix('[') {
+            for entry in list.trim_end_matches(']').split(',') {
+                let entry = entry
+                    .trim()
+                    .trim_matches(|character| character == '"' || character == '\'');
+                if !entry.is_empty() {
+                    found.insert(entry.to_string());
+                }
+            }
+        } else if !inline.is_empty() {
+            found.insert(
+                inline
+                    .trim_matches(|character| character == '"' || character == '\'')
+                    .to_string(),
+            );
+        } else {
+            for following in lines.iter().skip(index + 1) {
+                let entry = following.trim_start();
+                let Some(entry) = entry.strip_prefix("- ") else {
+                    break;
+                };
+                let entry = entry
+                    .trim()
+                    .trim_matches(|character| character == '"' || character == '\'');
+                if entry.is_empty() || entry.contains(':') {
+                    break;
+                }
+                found.insert(entry.to_string());
+            }
+        }
+    }
+    found
+}
+
+/// `./.github/actions/...` and `./.github/workflows/...`: anything the runner resolves from this repository.
+fn local_actions(text: &str) -> BTreeSet<String> {
+    text.lines()
+        .filter_map(|line| {
+            // a step is a list item, so the key arrives behind `- `
+            let rest = line
+                .trim_start()
+                .strip_prefix("- ")
+                .unwrap_or_else(|| line.trim_start())
+                .strip_prefix("uses:")?;
+            let value = rest.trim();
+            let path = value.strip_prefix("./")?;
+            Some(format!(
+                "./{}",
+                path.split_whitespace().next().unwrap_or(path)
+            ))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod trigger_rule_tests {
     use super::{covers_the_app, trigger_paths};
