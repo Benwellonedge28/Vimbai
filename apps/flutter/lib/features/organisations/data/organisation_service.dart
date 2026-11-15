@@ -123,6 +123,19 @@ class OrganisationService {
         .toList();
   }
 
+  /// The organisation this person has put [bookId] into, if any.
+  ///
+  /// Answered by asking the organisations the person can manage which Books they hold, because the engine has no route from a
+  /// Book to its organisation; adding one would be a second place that knows the answer. Null means "not in any organisation I
+  /// can manage", and an exception means the question could not be asked, which a caller must not report as "not shared".
+  Future<VOrganisation?> ofBook(String bookId) async {
+    final mine = await this.mine();
+    for (final organisation in mine.where((o) => o.canManageBooks)) {
+      if ((await books(organisation.id)).contains(bookId)) return organisation;
+    }
+    return null;
+  }
+
   /// The engine's own words when it gave a reason, so the person is told what happened rather than a status number.
   static String _reason(String body, String fallback) {
     try {

@@ -10,6 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
+import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
+import 'package:vimbai_mobile_client/features/organisations/models/organisation_models.dart';
+import 'package:vimbai_mobile_client/features/organisations/presentation/put_book_in_organisation_sheet.dart';
 
 const Map<String, IconData> _tierIcons = {
   'personal': Icons.person,
@@ -60,11 +63,17 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
   bool _membersLoading = false;
   String? _error;
 
+  /// The organisation this Book is inside, once the server has said. [_sharingKnown] separates "not in one" from "not asked":
+  /// claiming a Book is private because the server did not answer is the same lie as claiming it is shared.
+  VOrganisation? _organisation;
+  bool _sharingKnown = false;
+
   @override
   void initState() {
     super.initState();
     _book = widget.book;
     _loadActive();
+    _loadSharing();
     if (_canManage) _loadMembers();
   }
 
@@ -72,6 +81,28 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     final prefs = await SharedPreferences.getInstance();
     if (mounted)
       setState(() => _isActive = prefs.getString('active_book_id') == _book.id);
+  }
+
+  Future<void> _loadSharing() async {
+    try {
+      final organisation = await OrganisationService().ofBook(_book.id);
+      if (mounted)
+        setState(() {
+          _organisation = organisation;
+          _sharingKnown = true;
+        });
+    } catch (_) {
+      // Quietly: the row then says nothing about sharing rather than guessing.
+    }
+  }
+
+  Future<void> _changeSharing() async {
+    final moved = await PutBookInOrganisationSheet.show(
+      context,
+      bookId: _book.id,
+      bookName: _book.name,
+    );
+    if (moved && mounted) await _loadSharing();
   }
 
   Future<void> _loadMembers() async {
@@ -405,6 +436,22 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
                   : 'Folder: ${_book.folder}',
             ),
             onTap: _moveToFolder,
+          ),
+          ListTile(
+            leading: Icon(
+              _organisation == null
+                  ? Icons.lock_outline
+                  : Icons.business_outlined,
+            ),
+            title: const Text('Sharing'),
+            subtitle: !_sharingKnown
+                ? null
+                : Text(
+                    _organisation == null
+                        ? 'Only you can see this Book. Put it in an organisation to share it.'
+                        : 'In ${_organisation!.name}',
+                  ),
+            onTap: _changeSharing,
           ),
           ListTile(
             leading: const Icon(Icons.sync),

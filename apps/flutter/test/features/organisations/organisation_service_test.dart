@@ -180,4 +180,80 @@ void main() {
       );
     },
   );
+
+  test('a Book is found in the organisation that holds it', () async {
+    ApiClient.transport = MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/identity/organizations')) {
+        return http.Response(
+          jsonEncode({
+            'organizations': [
+              {'id': 'org-1', 'name': 'Holdings', 'role': 'owner'},
+              {'id': 'org-2', 'name': 'Stokvel', 'role': 'owner'},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      final inOrg1 = path.endsWith('/org-1/books');
+      return http.Response(
+        jsonEncode({
+          'books': inOrg1
+              ? [
+                  {'id': 'book-7'},
+                ]
+              : [
+                  {'id': 'book-9'},
+                ],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final organisation = await OrganisationService(
+      token: 'a-token',
+    ).ofBook('book-7');
+
+    expect(organisation?.name, 'Holdings');
+  });
+
+  test('a Book in nobody\'s organisation is null, not a guess', () async {
+    ApiClient.transport = MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/identity/organizations')) {
+        return http.Response(
+          jsonEncode({
+            'organizations': [
+              {'id': 'org-1', 'name': 'Holdings', 'role': 'owner'},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response(
+        jsonEncode({'books': <dynamic>[]}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    expect(
+      await OrganisationService(token: 'a-token').ofBook('book-7'),
+      isNull,
+    );
+  });
+
+  test('a failed read is a failure, never "not shared"', () async {
+    ApiClient.transport = MockClient(
+      (request) async => http.Response('nope', 503),
+    );
+
+    expect(
+      () => OrganisationService(token: 'a-token').ofBook('book-7'),
+      throwsA(isA<OrganisationException>()),
+    );
+  });
 }
