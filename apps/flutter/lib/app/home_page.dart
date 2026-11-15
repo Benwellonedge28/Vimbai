@@ -8,6 +8,7 @@ import 'package:vimbai_mobile_client/features/authentication/presentation/login_
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart'; // NEW
 import 'package:vimbai_mobile_client/features/multimodal/presentation/multimodal_input_page.dart';
+import 'package:vimbai_mobile_client/features/organisations/presentation/organisation_page.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/book_inbox_page.dart';
 import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/books_page.dart';
@@ -293,6 +294,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Vimbai Home (Offline Ready)'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.apartment),
+            tooltip: 'Your organisations',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const OrganisationPage())),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {

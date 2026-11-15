@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The app can set up an organisation, which is what makes a Book shareable. The engine has answered `/identity/organizations`
+  all along, but nothing in the app could reach it, so a person who registered on a phone had an account and a Book that
+  belonged to nobody and no way to hand it to an accountant or a partner. There is now a service (list what you belong to,
+  open one, put a Book inside it, list its Books), a setup page reachable from the home screen, and the engine's own
+  refusal wording kept so a member who cannot move a Book is told why rather than shown a status number.
+- The organisation page tells "you have none yet" apart from "the call failed". A failed read leaves the list as empty as a
+  real one, and a page that says you own nothing because the server did not answer sends people off to open a second
+  organisation they already have. Thirteen app tests cover the service and the three states of the page.
 - Passwords follow NIST SP 800-63B instead of a length limit and nothing else. Eight characters minimum counted as
   characters rather than bytes, so a password written in Amharic or Devanagari is not refused for being shorter than it
   looks; no composition rules and no expiry, because those push people towards `Password1!` and `Autumn2024!`; the

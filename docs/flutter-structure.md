@@ -25,7 +25,11 @@ Shared by every feature:
 | `lib/app/` | the shell: entry point, home scaffold, configuration, the catalogue that maps a Book's services to screens |
 
 The features are `accounting`, `authentication`, `banking`, `books`, `budgeting`, `group_savings`, `household_finance`,
-`multimodal`, `npo`, `personal_finance` and `reporting`.
+`multimodal`, `npo`, `organisations`, `personal_finance` and `reporting`.
+
+`organisations` is the newest and the smallest: it exists because an organisation is what owns a Book, and a Book that
+belongs to nobody but its creator cannot be shared. The engine answered `/identity/organizations` long before the app could
+reach it, so the feature is a service, three models' worth of one shape, and one page.
 
 ## Why a feature folder and not a layer folder
 
