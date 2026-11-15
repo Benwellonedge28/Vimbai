@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A clean preflight now means a green pipeline, and it did not. `ci-main.yml`'s app job has run `dart format
+  --set-exit-if-changed` and `flutter analyze --no-fatal-infos` since it was written; `scripts/preflight.sh` ran `flutter test`
+  alone, so an unformatted or unanalysed change passed preflight and failed the pipeline at the first step. Preflight now runs all
+  four of that job's steps, and `cargo run -p xtask -- preflight` (`make preflight-check`) fails when a pipeline runs a
+  verdict-reaching command - `cargo`/`go`/`dart`/`flutter` with `test`, `clippy`, `vet`, `analyze`, `fmt` or `format` - that the
+  script does not. Preparing a toolchain (`flutter pub get`, `go mod download`) is not a verdict and is not demanded of it.
 - The two standing rules nothing was checking are now a command and a test. Safe Rust only, and no Python, were enforced by the
   deleted pytest suite; both are true today, which is the state a rule stops being true in - a new integration test crate without
   `#![forbid(unsafe_code)]` builds, passes its own tests and quietly brings back the ability to write `unsafe` in that file.

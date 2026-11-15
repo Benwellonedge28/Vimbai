@@ -88,14 +88,18 @@ if [ "$want_rust" = 1 ]; then
     printf '    skipped: no go on PATH (the core pipeline runs them)\n'
   fi
 
-  # The Flutter app has its own toolchain, and this script does not install one: where flutter is on PATH the app's tests run
+  # The Flutter app has its own toolchain, and this script does not install one: where flutter is on PATH the app's checks run
   # here, and where it is not they run in the `test-flutter` job of `ci-main.yml`. Saying which happened is the point - a silent
-  # skip reads like a pass.
+  # skip reads like a pass. All four of that job's steps are here, not just the test: an unformatted or unanalysed change used to
+  # pass preflight and fail the pipeline.
   if command -v flutter >/dev/null 2>&1; then
-    step "flutter app tests"
-    (cd apps/flutter && flutter pub get >/dev/null && flutter test) || fail "flutter test in apps/flutter"
+    step "flutter app checks"
+    (cd apps/flutter && flutter pub get >/dev/null) || fail "flutter pub get in apps/flutter"
+    (cd apps/flutter && dart format --output=none --set-exit-if-changed lib test) || fail "dart format in apps/flutter"
+    (cd apps/flutter && flutter analyze --no-fatal-infos) || fail "flutter analyze in apps/flutter"
+    (cd apps/flutter && flutter test) || fail "flutter test in apps/flutter"
   else
-    step "flutter app tests"
+    step "flutter app checks"
     printf '    skipped: no flutter on PATH (the test-flutter job in ci-main.yml runs them)\n'
   fi
 

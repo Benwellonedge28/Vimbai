@@ -16,6 +16,7 @@ pub mod makefile;
 pub mod manifests;
 pub mod openapi;
 pub mod owners;
+pub mod preflight;
 pub mod published;
 pub mod reachability;
 pub mod readme;
