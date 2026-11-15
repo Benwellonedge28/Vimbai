@@ -8,8 +8,8 @@
 use std::path::PathBuf;
 
 use xtask::{
-    boundaries, catalog, crates, manifests, published, reachability, runbook, servers, wiring,
-    workflows,
+    boundaries, catalog, crates, manifests, published, reachability, readme, runbook, servers,
+    wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -501,6 +501,76 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
         "a gating pipeline that never runs the app's tests went unnoticed: {untested:?}"
     );
 
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
+fn the_front_page_states_the_catalogue_count_and_cites_decisions_that_exist() {
+    // This repository: the routed-surface figure is the catalogue's, and every ADR the front page names is a file.
+    let root = root();
+    assert_eq!(
+        readme::readme_claims(&root),
+        Vec::<String>::new(),
+        "README.md states something the repository no longer says"
+    );
+    assert!(
+        readme::routed_services(&root).is_some(),
+        "the catalogue has to state its own service count for the front page to be checked against it"
+    );
+
+    // and the gate can fail both ways: a wrong count beside the words, and a citation with no decision behind it.
+    assert_eq!(
+        readme::cited_adrs("see docs/decisions/ADR-007-data-storage.md and ADR-007 again"),
+        vec!["ADR-007".to_string()],
+        "a citation is named once, however often it appears"
+    );
+
+    let scratch = std::env::temp_dir().join(format!("vimbai_readme_gate_{}", std::process::id()));
+    std::fs::create_dir_all(scratch.join("docs/decisions")).expect("a scratch directory");
+    std::fs::create_dir_all(scratch.join("catalog/services")).expect("a catalogue directory");
+    std::fs::write(
+        scratch.join("catalog/services/catalog.yaml"),
+        "catalog:\n  services: 139\n",
+    )
+    .expect("a catalogue");
+    std::fs::write(
+        scratch.join("docs/decisions/ADR-007-data-storage.md"),
+        "# a decision\n",
+    )
+    .expect("a decision");
+
+    std::fs::write(
+        scratch.join("README.md"),
+        "The engine serves 139 routed surfaces (ADR-007).\n",
+    )
+    .expect("an honest front page");
+    assert_eq!(
+        readme::readme_claims(&scratch),
+        Vec::<String>::new(),
+        "a front page that agrees with the catalogue and cites a real decision has to pass"
+    );
+
+    std::fs::write(
+        scratch.join("README.md"),
+        "The engine serves 139 routed surfaces (ADR-005).\n",
+    )
+    .expect("a front page citing a decision that is not there");
+    let missing = readme::readme_claims(&scratch);
+    assert!(
+        missing.iter().any(|problem| problem.contains("ADR-005")),
+        "a citation with no decision behind it went unnoticed: {missing:?}"
+    );
+
+    std::fs::write(
+        scratch.join("README.md"),
+        "The engine serves 300 routed surfaces.\n",
+    )
+    .expect("a front page with the old number");
+    let wrong = readme::readme_claims(&scratch);
+    assert!(
+        wrong.iter().any(|problem| problem.contains("300")),
+        "a routed-surface figure that disagrees with the catalogue went unnoticed: {wrong:?}"
+    );
     std::fs::remove_dir_all(&scratch).ok();
 }
 

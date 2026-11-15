@@ -14,11 +14,17 @@ Vimbai is engineered for resilience. Core data entry, processing, and automation
 🎙️ **Multimodal Input Integration:**
 Revolutionize data entry with intuitive multimodal inputs. Capture documents via **camera (images & continuous video streams)**, dictate transactions and commands using **voice**, or upload **image files**. Intelligent on-device processing extracts data, which users review in a dedicated "Entry Window" before final posting.
 
-🏗️ **Modern Microservices Architecture:**
-Built on a decoupled microservices architecture with a central API Gateway, Vimbai ensures extreme scalability, maintainability, and "plug-and-play" extensibility. New services can be added, and existing ones updated, without impacting the entire system.
+🏗️ **One engine behind one gateway:**
+The platform is a single Rust workspace serving 139 routed surfaces, with a Go gateway in front that holds the rules and
+no arithmetic. Every address the gateway answers is answered by the engine: the catalogue at `catalog/services/catalog.yaml`
+is generated from the gateway's own route table, says who owns each surface and where its arithmetic runs, and fails the
+build when it drifts. Adding a surface means adding it once, to that table and to the crate that owns it.
 
-🗄️ **Graph Database (Neo4j Community Edition):**
-Leveraging a powerful graph database, Vimbai models complex financial relationships natively. This allows for unparalleled flexibility in data modeling, high-performance queries for interconnected data, and intuitive representation of audit trails and diverse accounting dimensions.
+🗄️ **A store chosen for a ledger, not for a demo:**
+Postgres holds a deployment's records and SQLite holds a device's, both behind one semantic store trait
+(`docs/decisions/ADR-007-data-storage.md`). Amounts are exact decimals carried as text, and every sum happens in Rust, so a
+Book totals identically on a laptop, a phone and a server. Neo4j still works behind the same trait and is deliberately not
+extended: the record shape is always one short hop, which is what a relational store is for.
 
 🛡️ **Robust Authentication & Role-Based Access Control (RBAC):**
 Ensures secure access with OAuth2/OIDC, JWTs, and Multi-Factor Authentication. A granular RBAC system, coupled with Capability-Based Security, enforces the Principle of Least Privilege, defining precise access based on user roles and financial thresholds.
@@ -37,8 +43,11 @@ Gain deep insights with an interactive reporting engine. Create custom reports u
 ✅ **Workflow & Approval Management:**
 Implement configurable, multi-step approval processes for critical financial transactions, expenses, and capital projects. Ensure governance and maintain a transparent, auditable history of all financial decisions.
 
-🌐 **Expanded Third-Party Integrations:**
-Beyond POS systems, Vimbai integrates seamlessly with CRM, E-commerce platforms, payment gateways, and cloud storage solutions, positioning itself as the central financial hub in your business ecosystem.
+🌐 **Integrations, and one that is not there:**
+POS integration ships (`/pos-integration`, a till that records sales into the ledger). CRM, e-commerce and payment processing
+are not built: Vimbai Pay was decided out of scope before it was written (`docs/decisions/ADR-005-vimbai-pay-not-built.md`),
+and the developer platform that would have fronted it is deferred with its trigger recorded (ADR-006). Document input reads
+what you already have, rather than pretending to a card gateway.
 
 🔒 **Immutable Audit Trail & Financial Data Versioning:**
 Every financial transaction, system action, and user modification is recorded in a tamper-proof, time-stamped immutable log. Data lineage can be traced effortlessly, providing unparalleled transparency and compliance assurance.

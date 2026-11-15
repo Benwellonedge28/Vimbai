@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The front page stopped claiming things the repository decided against. `README.md` described "a decoupled microservices
+  architecture", "a Graph Database (Neo4j Community Edition)" used for native traversal, and integration with "payment
+  gateways". The platform is one Rust engine behind one Go gateway with 139 routed surfaces and a catalogue that proves it;
+  the store is Postgres for a deployment and SQLite for a device, with Neo4j still working behind the same trait and
+  deliberately not extended (ADR-007); and Vimbai Pay was decided out of scope before it was written (ADR-005), so POS
+  integration ships and a card gateway does not. New gate, `readme::readme_claims` (`cargo run -p xtask -- readme`): a figure
+  printed beside "routed surfaces" has to be the catalogue's own count, and every `ADR-0NN` the front page cites has to be a
+  decision that exists.
 - `ci.yml` is deleted, and it had not been running anything. Three of its jobs still listed `lint-python` and
   `test-python-services` under `needs` after those jobs were deleted with the Python services, so GitHub rejected the whole
   file and its CodeQL, Trivy, Grype, ZAP, SBOM and failure-notifier jobs had not executed since. Every job it had also carried

@@ -10,7 +10,7 @@ use std::process::ExitCode;
 
 use xtask::{
     boundaries, catalog, domains, flutter, gateway, manifests, openapi, owners, published,
-    reachability,
+    reachability, readme,
 };
 
 const USAGE: &str = "\
@@ -169,6 +169,17 @@ fn main() -> ExitCode {
                 println!("manifests: {} outstanding", found.len());
                 ExitCode::FAILURE
             }
+        }
+        "readme" => {
+            let problems = readme::readme_claims(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!("readme: the front page agrees with the catalogue and cites decisions that exist");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
         }
         "reachability" => {
             let dead = reachability::unreachable_modules(&root);
