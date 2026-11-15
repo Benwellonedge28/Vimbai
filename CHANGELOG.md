@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- A prefix group answered by more than one crate - `/records` is answered by seven - was filed under the crate that answered
+  most of its addresses, with a tie going to whichever the scan reached first, so the same repository could file the same prefix
+  differently on another machine. The choice is a function of its own now, ties are settled by name, and a test pins all three
+  answers: most addresses wins, a tie goes to the smaller name, and a group nothing answers is filed nowhere instead of being
+  guessed at. About 180 prefix groups that had no owner at all are already attributed, so this is the last gap in the filing.
+
 - Four surfaces were published on addresses no client asks for. `/invoices`, `/customers`, `/reports` and `/tasks` are what the
   app and its callers are written against, but the catalogue carried no row for any of them: the retired services are published
   through wildcard doors (`/invoicing`, `/reporting`, `/multimodal`) that only reach them by repeating a prefix the caller did not

@@ -122,6 +122,29 @@ fn a_crate_is_reached_through_the_modules_and_imports_it_is_written_with() {
 }
 
 #[test]
+fn the_crate_answering_most_of_a_group_owns_it_and_a_tie_is_settled_by_name() {
+    // `/records` is answered by seven crates, so a prefix group is not always one crate's. The answer has to be a rule rather
+    // than whichever crate the scan reached first, or the same repository would file the same prefix differently on another
+    // machine.
+    let mut by_crate = std::collections::BTreeMap::new();
+    by_crate.insert("vimbai_quiet".to_string(), 2);
+    by_crate.insert("vimbai_loud".to_string(), 9);
+    let (krate, addresses) =
+        owners::filed(&by_crate).expect("a group two crates answer has an owner");
+    assert_eq!((krate.as_str(), addresses), ("vimbai_loud", 9));
+
+    // A tie at the top is broken by name, smallest first, and inserting the same figures in the other order changes nothing.
+    let mut tie = std::collections::BTreeMap::new();
+    tie.insert("vimbai_zulu".to_string(), 4);
+    tie.insert("vimbai_alpha".to_string(), 4);
+    let (krate, _) = owners::filed(&tie).expect("a tied group still has an owner");
+    assert_eq!(krate, "vimbai_alpha");
+
+    // Nothing answers it: filed nowhere, so the address audit keeps reporting it instead of a prefix acquiring a made-up owner.
+    assert!(owners::filed(&std::collections::BTreeMap::new()).is_none());
+}
+
+#[test]
 fn a_handler_is_attributed_from_its_own_body_and_not_the_file_around_it() {
     let attributed = owners::attributed(&root());
     // The cache's own statistics name the cache crate in the handler. Scanning to the end of `records.rs` found workflow

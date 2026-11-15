@@ -101,14 +101,10 @@ pub fn attributed(root: &Path) -> BTreeMap<String, Owner> {
 
     let mut owners = BTreeMap::new();
     for (prefix, by_crate) in counted {
-        // the crate most of the group's addresses name; a tie keeps the first, and a split group is reported by `split`
-        let Some((krate, addresses)) = by_crate
-            .iter()
-            .max_by(|left, right| left.1.cmp(right.1).then(right.0.cmp(left.0)))
-        else {
+        let Some((krate, addresses)) = filed(&by_crate) else {
             continue;
         };
-        let path = crates.get(krate).cloned().unwrap_or_default();
+        let path = crates.get(&krate).cloned().unwrap_or_default();
         let documented = domains.get(&path).cloned();
         let domain = match documented {
             Some(domain) => domain,
@@ -121,7 +117,7 @@ pub fn attributed(root: &Path) -> BTreeMap<String, Owner> {
                 .cloned()
                 .unwrap_or_else(|| prefix.trim_start_matches('/').replace('/', "_")),
         };
-        owners.insert(prefix, Owner::new(krate.clone(), domain, *addresses));
+        owners.insert(prefix, Owner::new(krate, domain, addresses));
     }
 
     // Doors the engine answers itself, with no domain crate behind them - the calculator catalogue is the engine's own
@@ -153,6 +149,18 @@ pub fn attributed(root: &Path) -> BTreeMap<String, Owner> {
 }
 
 /// Prefix groups whose addresses do not agree on which crate answers them, with the crate each one names.
+/// Which crate a prefix group is filed under, given how many of its addresses each one answers.
+///
+/// The crate answering the most of the group wins, and a tie is broken by name so the answer never depends on the order the
+/// scan happened to reach the crates in. A group no crate answers is filed nowhere rather than guessed at; `split` reports the
+/// groups more than one crate answers, so a reader can see which prefixes overlap without the answer being decided by chance.
+pub fn filed(by_crate: &BTreeMap<String, usize>) -> Option<(String, usize)> {
+    by_crate
+        .iter()
+        .max_by(|left, right| left.1.cmp(right.1).then(right.0.cmp(left.0)))
+        .map(|(krate, addresses)| (krate.clone(), *addresses))
+}
+
 pub fn split(root: &Path) -> BTreeMap<String, BTreeSet<String>> {
     let sources = engine_sources(root);
     let aliases = aliases(&sources, &crate_paths(root));
