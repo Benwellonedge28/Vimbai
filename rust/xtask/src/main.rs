@@ -9,8 +9,8 @@
 use std::process::ExitCode;
 
 use xtask::{
-    boundaries, catalog, documentation, domains, flutter, gateway, manifests, openapi, owners,
-    published, reachability, readme,
+    boundaries, catalog, documentation, domains, flutter, gateway, makefile, manifests, openapi,
+    owners, published, reachability, readme,
 };
 
 const USAGE: &str = "\
@@ -33,6 +33,7 @@ COMMANDS:
     reachability       report the modules no door can reach, one per line
     readme             check the front page's figure and citations against the catalogue and the decisions
     docs               check the documentation index against the documents, the commands and the counts
+    makefile           check every target is .PHONY, described by `make help`, and runs a command xtask has
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
     boundaries --rules print the rule table as the documentation states it
@@ -179,6 +180,17 @@ fn main() -> ExitCode {
             }
             if problems.is_empty() {
                 println!("readme: the front page agrees with the catalogue and cites decisions that exist");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
+        }
+        "makefile" => {
+            let problems = makefile::makefile_claims(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!("makefile: every target is .PHONY, described by `make help`, and runs a real command");
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE

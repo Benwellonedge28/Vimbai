@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The Makefile is checked like the documentation is. `flutter-test` was never declared `.PHONY`, so a path of that name would
+  have made the target silently do nothing, and `make help` - the file's only index - described eight targets while the
+  repository's gates had grown to eleven commands, so the gates a reader could not see looked like ones that did not exist.
+  Both are fixed, `make help` now lists every target, and the gates gained `make docs`, `make readme`, `make makefile`,
+  `make routes`, `make openapi`, `make owners`, `make domains` and `make manifests`. `makefile::makefile_claims`
+  (`cargo run -p xtask -- makefile`) fails on a target that is not `.PHONY`, a target `make help` omits, a help line for a
+  target that does not exist, or an `xtask` command the binary does not implement - and it knows `xtask --manifest-path` is a
+  cargo flag rather than a command.
 - The documentation index is checked instead of trusted. `docs/README.md` said it existed so nobody had to guess "which of
   ten documents is current" while there were eight, called the domain pages twenty-two while `docs/domains/` held 24, left
   `SYNC.md`, `flutter-structure.md`, `architecture/DUPLICATION.md` and `compliance/financial-integrity.md` out entirely, and

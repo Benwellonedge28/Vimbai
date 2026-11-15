@@ -8,8 +8,8 @@
 use std::path::PathBuf;
 
 use xtask::{
-    boundaries, catalog, crates, documentation, manifests, published, reachability, readme,
-    runbook, servers, wiring, workflows,
+    boundaries, catalog, crates, documentation, makefile, manifests, published, reachability,
+    readme, runbook, servers, wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -501,6 +501,59 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
         "a gating pipeline that never runs the app's tests went unnoticed: {untested:?}"
     );
 
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
+fn every_make_target_is_phony_described_by_help_and_runs_a_command_that_exists() {
+    let root = root();
+    assert_eq!(
+        makefile::makefile_claims(&root),
+        Vec::<String>::new(),
+        "the Makefile disagrees with its own targets, its help or the commands it runs"
+    );
+    let targets =
+        makefile::targets(&std::fs::read_to_string(root.join("Makefile")).expect("a Makefile"));
+    assert!(
+        targets.contains(&"preflight".to_string()) && targets.len() > 8,
+        "the scan found too few targets to be reading the Makefile: {targets:?}"
+    );
+
+    let scratch = std::env::temp_dir().join(format!("vimbai_make_gate_{}", std::process::id()));
+    std::fs::create_dir_all(scratch.join("rust/xtask/src")).expect("a tool directory");
+    std::fs::write(
+        scratch.join("rust/xtask/src/main.rs"),
+        "fn main() {\n    match command {\n        \"gateway\" => {}\n        _ => {}\n    }\n}\n",
+    )
+    .expect("a dispatch");
+    std::fs::write(
+        scratch.join("Makefile"),
+        ".PHONY: help test\n\nhelp:\n\t@echo \"make help   this list\"\n\t@echo \"make test   the tests\"\n\ntest:\n\tcargo run -q -p xtask -- gateway\n",
+    )
+    .expect("an honest Makefile");
+    assert_eq!(
+        makefile::makefile_claims(&scratch),
+        Vec::<String>::new(),
+        "a Makefile whose targets are phony, described and real has to pass"
+    );
+
+    std::fs::write(
+        scratch.join("Makefile"),
+        ".PHONY: help\n\nhelp:\n\t@echo \"make help   this list\"\n\t@echo \"make gone   a target that was removed\"\n\ntest:\n\tcargo run -q -p xtask -- imaginary\n",
+    )
+    .expect("a Makefile that has drifted");
+    let drifted = makefile::makefile_claims(&scratch);
+    for expected in [
+        "`test` is not declared .PHONY",
+        "does not describe the target `test`",
+        "`gone`",
+        "imaginary",
+    ] {
+        assert!(
+            drifted.iter().any(|problem| problem.contains(expected)),
+            "expected a finding mentioning {expected}: {drifted:?}"
+        );
+    }
     std::fs::remove_dir_all(&scratch).ok();
 }
 
