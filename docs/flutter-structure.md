@@ -54,15 +54,18 @@ Seven tests hold the gate over the real app, in `rust/xtask/tests/flutter_migrat
 ## The toolchain, and where it runs
 
 Dart is one of the platform's three languages (ADR-001), so its toolchain is part of the pipeline that gates a merge and
-not an extra that runs when somebody remembers. Two workflows install it, both pinned to the same Flutter version
-(3.50.0): `ci-main.yml` on every push, and `mobile-analyze.yml` when the app itself changes. Each runs four things -
-`flutter pub get`, `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-fatal-infos` and
-`flutter test`.
+not an extra that runs when somebody remembers. One workflow installs it, pinned to Flutter 3.50.0: `test-flutter` in
+`ci-main.yml`, which runs on every push. It runs four things - `flutter pub get`, `dart format --output=none
+--set-exit-if-changed lib test`, `flutter analyze --no-fatal-infos` and `flutter test`. There used to be a second one,
+`mobile-analyze.yml`, path-filtered to the app and running those same four steps on the same version; two copies of one
+gate only means two places for it to drift, so it is gone and the core pipeline is the one place.
 
 The pin matters more than the version: a `latest` that drifts is a green build that means something different tomorrow
-with no commit behind the change. The gate is `workflows::dart_toolchain_problems`, held by two tests in `rust/xtask/tests/repository_rules.rs`: one asserts this
-repository passes it, and one builds a scratch estate on disk and proves the gate fails on a second workflow pinning a
-different version, on a floating `latest`, and on a gating pipeline that installs the toolchain and never runs the tests.
+with no commit behind the change. The gate is `workflows::dart_toolchain_problems`, held by two tests in
+`rust/xtask/tests/repository_rules.rs`: one asserts this repository passes it, and one builds a scratch estate on disk and
+proves the gate fails on a floating `latest`, on two workflows pinning different versions, on a gating pipeline that
+installs the toolchain and never runs the tests, and on a second workflow installing the toolchain at all - one gate in
+two files is two places for it to drift.
 
 `apps/flutter/test/` holds the app's own tests - nine of them, answering through a replaced transport, so no server and no
 emulator. `make flutter-test` runs them locally, and preflight runs them wherever flutter is on PATH, saying so where it is

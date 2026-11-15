@@ -415,15 +415,25 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
     };
 
     write("ci-main.yml", &gating("3.50.0", true));
-    write(
-        "mobile-analyze.yml",
-        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("3.50.0")),
-    );
     assert_eq!(
         workflows::dart_toolchain_problems(&scratch),
         Vec::<String>::new(),
         "a pinned, agreeing, gating estate has to pass"
     );
+
+    // the same gate in two files: the pin and the four steps now have two places to drift
+    write(
+        "mobile-analyze.yml",
+        &format!("name: Mobile\non:\n  push:\njobs:\n  analyze:\n    runs-on: ubuntu-latest\n    steps:\n{}", step("3.50.0")),
+    );
+    let doubled = workflows::dart_toolchain_problems(&scratch);
+    assert!(
+        doubled
+            .iter()
+            .any(|problem| problem.contains("mobile-analyze.yml")),
+        "a second workflow installing the toolchain went unnoticed: {doubled:?}"
+    );
+    std::fs::remove_file(workflows.join("mobile-analyze.yml")).ok();
 
     // a second workflow on another version
     write(

@@ -181,6 +181,16 @@ pub fn dart_toolchain_problems(root: &Path) -> Vec<String> {
             "the Dart toolchain is installed only outside {GATING_PIPELINE}, so a broken app does not fail a merge"
         ));
     }
+    // One place. A second workflow that installs the toolchain runs the same four steps on the same version - which is
+    // what `mobile-analyze.yml` was - and gives the pin and the steps a second place to drift out of step with each other.
+    if set_up_in.len() > 1 {
+        problems.push(format!(
+            "{} workflows install a Dart toolchain ({}), so the app is gated in more than one place and the copies can \
+             drift",
+            set_up_in.len(),
+            set_up_in.join(", ")
+        ));
+    }
     if let Some((first_workflow, first_version)) = versions.first() {
         for (name, version) in &versions {
             if version != first_version {

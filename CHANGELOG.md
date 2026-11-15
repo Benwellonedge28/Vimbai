@@ -6,6 +6,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- One Flutter gate instead of two. `mobile-analyze.yml` ran the same four steps (`pub get`, format, analyze, `flutter test`) on
+  the same pinned version as `test-flutter` in `ci-main.yml`, path-filtered so it fired on the pushes that already ran the
+  other: two copies of one gate is two places for it to drift, so the core pipeline is the one place. The toolchain gate
+  still holds the remaining workflow to a pinned version and to running the app's tests, and now reports a second workflow that
+  installs the toolchain at all - one gate in two files is two places for it to drift.
 - The app's addresses are checked against the platform's. Every screen builds its URL from one constant, and nothing checked
   that the prefix after it was one the gateway routes, so `/budget` sat in the app after the budget surfaces moved to
   `/budgeting` - reachable on a device only because the local runtime forwards what it does not recognise. `xtask
