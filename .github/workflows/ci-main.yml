@@ -73,7 +73,7 @@ jobs:
         run: go mod download
       - name: Run Tests
         working-directory: ${{ matrix.service }}
-        run: go test -v -coverprofile=coverage.txt ./... || echo "No tests found"
+        run: go test -v -coverprofile=coverage.txt ./...
       - name: Run vet
         working-directory: ${{ matrix.service }}
         run: go vet ./...

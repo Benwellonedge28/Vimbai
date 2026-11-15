@@ -505,6 +505,43 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
 }
 
 #[test]
+fn no_workflow_swallows_a_test_result() {
+    // This repository first: a suite whose failure cannot fail the job is not a gate. The gateway's own tests were run behind
+    // `|| echo "No tests found"`, so they had never decided anything.
+    let root = root();
+    assert_eq!(
+        workflows::swallowed_test_failures(&root),
+        Vec::<String>::new(),
+        "a workflow can pass while its tests fail"
+    );
+
+    // and the scan has to be able to fail, on each way of swallowing a verdict and not on a step that merely contains text
+    let scratch = std::env::temp_dir().join(format!("vimbai_swallow_gate_{}", std::process::id()));
+    let workflows = scratch.join(".github").join("workflows");
+    std::fs::create_dir_all(&workflows).expect("a scratch directory");
+    let write = |text: &str| {
+        std::fs::write(workflows.join("ci-main.yml"), text).expect("a workflow");
+    };
+    write("jobs:\n  t:\n    steps:\n      - run: go test ./... || echo \"No tests found\"\n");
+    assert!(
+        !workflows::swallowed_test_failures(&scratch).is_empty(),
+        "`|| echo` after go test went unnoticed"
+    );
+    write("jobs:\n  t:\n    steps:\n      - run: cargo test --workspace || true\n");
+    assert!(
+        !workflows::swallowed_test_failures(&scratch).is_empty(),
+        "`|| true` after cargo test went unnoticed"
+    );
+    write("jobs:\n  t:\n    steps:\n      - run: go test -v ./...\n      # a comment saying go test || true is fine\n");
+    assert_eq!(
+        workflows::swallowed_test_failures(&scratch),
+        Vec::<String>::new(),
+        "a test that reports its own verdict has to pass"
+    );
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
 fn the_pipeline_gives_the_deployment_store_tests_a_postgres() {
     // This repository: the tests that read VIMBAI_TEST_POSTGRES must find a server in the pipeline, or they skip and the job
     // is green for the wrong reason.

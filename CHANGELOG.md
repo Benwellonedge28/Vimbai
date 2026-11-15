@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The gateway's tests can fail the build now. Both places that ran them wrote `go test ./... || echo "No tests found"`, so a
+  failing test printed a line and the job went green: the Go half of the platform had a suite that had never decided anything.
+  The `|| echo` is gone from `ci.yml` and `ci-main.yml`, the gateway's two test files pass as they stand, and preflight runs
+  `go vet` and `go test` where a Go toolchain is installed (saying so where it is not). A gate,
+  `workflows::swallowed_test_failures`, reads every workflow for a step that runs `go test`, `cargo test`, `flutter test`,
+  `dart test` or `npm test` and then swallows the verdict with `|| true`, `|| echo` or `|| :`.
 - The deployment-store tests now run in CI instead of skipping there. They answer against Postgres or they skip, and a skip
   reads exactly like a pass: `library-ci.yml` had the variable's tests and no server. It starts a `postgres:16` service with a
   readiness check and names it in `VIMBAI_TEST_POSTGRES`, the same shape preflight gives them on a laptop. A gate,

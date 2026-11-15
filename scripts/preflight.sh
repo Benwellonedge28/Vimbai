@@ -78,6 +78,16 @@ if [ "$want_rust" = 1 ]; then
     echo "  using VIMBAI_TEST_POSTGRES"
   fi
 
+  # The gateway is Go, and its tests are the gateway's own gate. This script runs them where a toolchain is installed and
+  # says so where it is not, because "CI runs them" is only true if CI can fail on them.
+  if command -v go >/dev/null 2>&1; then
+    step "gateway tests"
+    (cd gateway/go && go vet ./... && go test ./...) || fail "go test in gateway/go"
+  else
+    step "gateway tests"
+    printf '    skipped: no go on PATH (the core pipeline runs them)\n'
+  fi
+
   # The Flutter app has its own toolchain, and this script does not install one: where flutter is on PATH the app's tests run
   # here, and where it is not they run in the mobile workflow. Saying which happened is the point - a silent skip reads like
   # a pass.

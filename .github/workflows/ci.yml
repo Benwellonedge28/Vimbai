@@ -116,7 +116,7 @@ jobs:
 
       - name: Run Go tests
         working-directory: gateway/go
-        run: go test -v -race ./... || echo "No Go tests found"
+        run: go test -v -race ./...
 
       - name: Run Go vet
         working-directory: gateway/go

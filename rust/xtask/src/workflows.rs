@@ -371,6 +371,47 @@ fn test_files_reading(root: &Path, needle: &str) -> Vec<String> {
     found
 }
 
+/// Steps that run a test suite and then swallow its verdict.
+///
+/// `go test ./... || echo "No tests found"` is the shape to look for: the command fails, the step succeeds, and the job is
+/// green. A test suite nobody can fail is a comment. Only test commands count - a `|| true` after a scanner with no tests to
+/// find is a different thing, and named as such when it matters.
+pub fn swallowed_test_failures(root: &Path) -> Vec<String> {
+    let mut problems = Vec::new();
+    for (name, text) in workflow_files(root) {
+        for (number, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') || !runs_a_test_suite(trimmed) {
+                continue;
+            }
+            let swallows = trimmed.contains("|| true")
+                || trimmed.contains("|| echo")
+                || trimmed.contains("|| :")
+                || trimmed.ends_with("|| exit 0");
+            if swallows {
+                problems.push(format!(
+                    "{name}:{} runs a test suite and swallows its verdict, so a failing test passes",
+                    number + 1
+                ));
+            }
+        }
+    }
+    problems
+}
+
+/// Whether a line of a workflow actually runs a test suite.
+fn runs_a_test_suite(line: &str) -> bool {
+    [
+        "go test",
+        "cargo test",
+        "flutter test",
+        "dart test",
+        "npm test",
+    ]
+    .iter()
+    .any(|command| line.contains(command))
+}
+
 /// The workflow that gates a merge.
 const GATING_PIPELINE: &str = "ci-main.yml";
 
