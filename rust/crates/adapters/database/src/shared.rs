@@ -48,6 +48,7 @@ impl<'a, G: Graph + ?Sized> SharedRecords<'a, G> {
             .map(str::to_owned)
             .unwrap_or_else(vimbai_common::ids::service_id);
         props.insert("id".into(), json!(id));
+        crate::stamped(&mut props);
         self.graph
             .store_shared_create(self.kind, book_id, Value::Object(props))
     }

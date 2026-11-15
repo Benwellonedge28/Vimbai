@@ -944,7 +944,7 @@ pub trait Graph {
         let rows = self.run(&cypher, params)?;
         Ok(rows
             .into_iter()
-            .map(|row| with_children(row, "lines"))
+            .map(|row| with_children_under(row, "x", "lines"))
             .collect())
     }
 
@@ -1427,6 +1427,7 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
             .map(str::to_owned)
             .unwrap_or_else(|| uuid_like(&scope.book_id, props.len()));
         props.insert("id".into(), json!(id));
+        stamped(&mut props);
         Ok(props)
     }
 
@@ -1529,6 +1530,39 @@ pub fn shareholder_record(payload: &Value) -> Value {
 ///
 /// `collect()` answers `[null]` for a parent with no children, so an empty list is what that means - never a list
 /// holding a null, which a reader would take for a child with no fields.
+/// A row whose parent record was returned under a variable name and its children under a key of their own.
+///
+/// `RETURN x, collect(l) AS lines` answers `{"x": {...}, "lines": [...]}`, so the record's own fields are one level down. Every
+/// statement built on a listing that forgot this read an empty record: `/accounting/trial-balance` reported zeroes for a Book
+/// full of posted entries, because the entry's `status` was never where the reader looked for it. The Postgres backend returns
+/// its records directly and never had the fault, so the two backends disagreed about arithmetic.
+fn with_children_under(row: Value, parent: &str, child: &str) -> Value {
+    match row.get(parent).cloned() {
+        Some(node) => with_children(with_children(node, child), child),
+        None => with_children(row, child),
+    }
+}
+
+/// The moment a record was written, for the records whose caller names none.
+///
+/// A Book, an account and a journal entry all carry `created_at`, and every one of them arrived empty when the caller
+/// said nothing: a listing ordered by `created_at` had nothing to order by, and a person opening their first Book saw it
+/// as undated. The rule is one rule, so it lives in one place: whatever moment a caller states is kept, and a blank one
+/// is the instant the record was written.
+pub(crate) fn stamped(props: &mut Map<String, Value>) {
+    let written = vimbai_common::dates::written_at(vimbai_common::clock::moment());
+    for key in ["created_at", "updated_at"] {
+        let blank = match props.get(key) {
+            None | Some(Value::Null) => true,
+            Some(Value::String(text)) => text.trim().is_empty(),
+            Some(_) => false,
+        };
+        if blank {
+            props.insert(key.to_string(), json!(written));
+        }
+    }
+}
+
 fn with_children(mut row: Value, key: &str) -> Value {
     let held = match row.get(key).cloned() {
         Some(Value::Array(items)) => {

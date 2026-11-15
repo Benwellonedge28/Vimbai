@@ -29,6 +29,7 @@ pub mod bookkeeping;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod cashbook;
+pub mod chart;
 pub mod company_accounting;
 pub mod departments;
 pub mod fund_accounting;

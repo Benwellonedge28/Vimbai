@@ -6,6 +6,24 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- A Book full of posted entries reported nothing. The on-device file store and the in-memory store each returned a listed
+  entry one level down, so trial balance, income statement and balance sheet read a record's outer wrapper and counted
+  zero: a posted sale of 250 read as 0 debit and 0 credit. Both now read the entry itself, and the sale reads 250 and 250,
+  balanced. Postgres was already correct, which is why this only appeared on a device.
+- A new Book could not be written in. A journal entry may only name accounts its Book owns, so the first person to post
+  after opening a Book was told the account they named did not exist and had to build a chart before recording a sale.
+  Opening a Book now seeds a standard chart from the accounting domain, chosen by the Book's tier (business, personal,
+  household, group, nonprofit, and the core chart for a tier the engine does not know). Seeding never renames an account
+  somebody has already edited and never adds a number the Book already holds, so running it twice adds nothing.
+- Books and accounts came back undated. `created_at` and `updated_at` were whatever the caller sent, which was usually
+  nothing, so a listing ordered by `created_at` had nothing to order by. Both are now stamped in one place, in the store's
+  record funnel, and only when the caller states no moment: a caller that names a time still keeps it.
+
+### Added
+
+- `rust/apps/api-server/tests/first_run_http.rs` walks the path a stranger walks - register, sign in, open a Book, post an
+  entry, read the balance - against the real engine, and pins that a draft entry is kept but moves nothing.
+
 - The roadmap's Evidence column was unchecked: it cited `tests/parity.rs` and `request-conventions.md` without the folders they
   sit in, claimed 11 tests in the worker's `src/lib.rs` where there are 12, and named a deleted file as evidence. The roadmap
   check now reads the evidence column too - a cited path has to resolve, from the repository root, from one of the trees the

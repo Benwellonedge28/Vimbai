@@ -14390,11 +14390,48 @@ async fn post_book(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(book_sync::sync::create_book(
+    let opened = book_sync::sync::create_book(
         graph.as_ref(),
         &scope,
         &merged_request(payload, query.as_deref()),
-    ))
+    );
+    answer(opened_book(&graph, scope, opened))
+}
+
+/// A Book opens with the accounts it takes to write in it.
+///
+/// A journal entry may only name accounts its Book owns, so an opened Book with no chart is a Book nothing can be
+/// recorded in: the first person to try was told the account they named did not exist and had to build a chart before
+/// they could post a sale. The chart comes from the accounting domain, keyed by the tier the caller chose; this is the
+/// composition point between book-sync and accounting, which is why it lives here rather than in either of them.
+///
+/// Seeding is silent on the answer: the Book's own shape is what clients were written against, and the accounts are
+/// readable at `GET /accounting/accounts` the moment the Book exists. A failure to seed is reported rather than
+/// swallowed - a Book that exists but cannot be written in is the state this exists to prevent.
+fn opened_book(
+    graph: &GraphHandle,
+    scope: BookScope,
+    opened: Result<Value, StoreError>,
+) -> Result<Value, StoreError> {
+    let opened = opened?;
+    let book_id = opened
+        .get("book")
+        .and_then(|book| book.get("id"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    if book_id.is_empty() {
+        return Ok(opened);
+    }
+    let tier = opened
+        .get("book")
+        .and_then(|book| book.get("tier"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let book = BookScope::new(scope.user_id.clone(), book_id);
+    accounting::chart::seed_opening_chart(graph.as_ref(), &book, &tier)?;
+    Ok(opened)
 }
 
 async fn get_books(State(graph): GraphState, headers: HeaderMap) -> Response {
