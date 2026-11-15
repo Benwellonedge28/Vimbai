@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
+import '../../../core/api/amount.dart';
 
 class NpoOrg {
   final String id;
@@ -36,7 +37,7 @@ class NpoOrg {
       name: j['name'] as String? ?? '',
       orgType: j['org_type'] as String? ?? 'nonprofit',
       sizeBand: j['size_band'] as String? ?? 'small',
-      annualRevenue: (j['annual_revenue'] as num?)?.toDouble() ?? 0,
+      annualRevenue: amountFromJson(j['annual_revenue']),
       headcount: (j['headcount'] as num?)?.toInt() ?? 0,
     );
   }

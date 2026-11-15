@@ -134,3 +134,33 @@ async fn the_journal_form_posts_a_payload_the_engine_answers_and_can_read_back()
         .sum();
     assert_eq!(posted, 250.0, "{reply}");
 }
+
+/// The budget screen's own variance payload, answered at the address it posts to.
+#[tokio::test]
+async fn the_variance_analysis_the_budget_screen_asks_for_is_answered_in_the_shape_it_reads() {
+    let walk = Walk::stranger();
+    let (code, reply) = walk
+        .call(
+            Method::POST,
+            "/budgeting/variance-analysis",
+            Some(json!({
+                "company_id": "book-1",
+                "budget_id": "budget-1",
+                "actual_results": [
+                    {"account_id": "5000", "description": "Rent", "budget": 1000.0, "actual": 1200.0},
+                    {"account_id": "5100", "description": "Wages", "budget": 2000.0, "actual": 1900.0}
+                ],
+                "tolerance_percentage": 10.0
+            })),
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{reply}");
+    // the frame the screen reads before it reads any figure
+    assert!(
+        reply["items_outside_tolerance"].is_array() || reply["items_outside_tolerance"].is_null(),
+        "{reply}"
+    );
+    assert!(reply.get("total_variance").is_some(), "{reply}");
+    assert!(reply.get("favorable_variance").is_some(), "{reply}");
+    assert!(reply.get("unfavorable_variance").is_some(), "{reply}");
+}

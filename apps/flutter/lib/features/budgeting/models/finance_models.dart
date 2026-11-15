@@ -1,3 +1,4 @@
+import '../../../core/api/amount.dart';
 // mobile-client/lib/models/finance_models.dart
 
 // --- Budget Models ---
@@ -29,7 +30,7 @@ class BudgetItem {
       budgetId: json['budget_id'],
       category: json['category'] ?? '',
       accountNumber: json['account_number'] ?? '',
-      budgetedAmount: (json['budgeted_amount'] as num?)?.toDouble() ?? 0.0,
+      budgetedAmount: amountFromJson(json['budgeted_amount']),
       budgetType: json['budget_type'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -197,11 +198,11 @@ class BudgetVarianceItem {
     return BudgetVarianceItem(
       category: json['category'] ?? '',
       accountNumber: json['account_number'] ?? '',
-      budgetedAmount: (json['budgeted_amount'] as num?)?.toDouble() ?? 0.0,
-      actualAmount: (json['actual_amount'] as num?)?.toDouble() ?? 0.0,
-      variance: (json['variance'] as num?)?.toDouble() ?? 0.0,
+      budgetedAmount: amountFromJson(json['budgeted_amount']),
+      actualAmount: amountFromJson(json['actual_amount']),
+      variance: amountFromJson(json['variance']),
       variancePercentage:
-          (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+          amountFromJson(json['variance_percentage']),
     );
   }
 }
@@ -249,9 +250,9 @@ class BudgetVarianceReport {
       endDate: json['end_date'] != null
           ? DateTime.parse(json['end_date'])
           : DateTime.now(),
-      totalBudgeted: (json['total_budgeted'] as num?)?.toDouble() ?? 0.0,
-      totalActual: (json['total_actual'] as num?)?.toDouble() ?? 0.0,
-      totalVariance: (json['total_variance'] as num?)?.toDouble() ?? 0.0,
+      totalBudgeted: amountFromJson(json['total_budgeted']),
+      totalActual: amountFromJson(json['total_actual']),
+      totalVariance: amountFromJson(json['total_variance']),
       varianceItems: itemsList,
       generatedAt: json['generated_at'] != null
           ? DateTime.parse(json['generated_at'])
@@ -277,10 +278,10 @@ class LiquidityRatios {
 
   factory LiquidityRatios.fromJson(Map<String, dynamic> json) {
     return LiquidityRatios(
-      currentRatio: (json['current_ratio'] as num?)?.toDouble(),
-      quickRatio: (json['quick_ratio'] as num?)?.toDouble(),
-      cashRatio: (json['cash_ratio'] as num?)?.toDouble(),
-      workingCapital: (json['working_capital'] as num?)?.toDouble(),
+      currentRatio: amountFromJson(json['current_ratio']),
+      quickRatio: amountFromJson(json['quick_ratio']),
+      cashRatio: amountFromJson(json['cash_ratio']),
+      workingCapital: amountFromJson(json['working_capital']),
     );
   }
 }
@@ -300,10 +301,10 @@ class SolvencyRatios {
 
   factory SolvencyRatios.fromJson(Map<String, dynamic> json) {
     return SolvencyRatios(
-      debtToEquityRatio: (json['debt_to_equity_ratio'] as num?)?.toDouble(),
-      debtToAssetRatio: (json['debt_to_asset_ratio'] as num?)?.toDouble(),
-      equityMultiplier: (json['equity_multiplier'] as num?)?.toDouble(),
-      timesInterestEarned: (json['times_interest_earned'] as num?)?.toDouble(),
+      debtToEquityRatio: amountFromJson(json['debt_to_equity_ratio']),
+      debtToAssetRatio: amountFromJson(json['debt_to_asset_ratio']),
+      equityMultiplier: amountFromJson(json['equity_multiplier']),
+      timesInterestEarned: amountFromJson(json['times_interest_earned']),
     );
   }
 }
@@ -325,12 +326,12 @@ class ProfitabilityRatios {
 
   factory ProfitabilityRatios.fromJson(Map<String, dynamic> json) {
     return ProfitabilityRatios(
-      grossProfitMargin: (json['gross_profit_margin'] as num?)?.toDouble(),
+      grossProfitMargin: amountFromJson(json['gross_profit_margin']),
       operatingProfitMargin: (json['operating_profit_margin'] as num?)
           ?.toDouble(),
-      netProfitMargin: (json['net_profit_margin'] as num?)?.toDouble(),
-      returnOnAssets: (json['return_on_assets'] as num?)?.toDouble(),
-      returnOnEquity: (json['return_on_equity'] as num?)?.toDouble(),
+      netProfitMargin: amountFromJson(json['net_profit_margin']),
+      returnOnAssets: amountFromJson(json['return_on_assets']),
+      returnOnEquity: amountFromJson(json['return_on_equity']),
     );
   }
 }
@@ -352,13 +353,13 @@ class EfficiencyRatios {
 
   factory EfficiencyRatios.fromJson(Map<String, dynamic> json) {
     return EfficiencyRatios(
-      inventoryTurnover: (json['inventory_turnover'] as num?)?.toDouble(),
+      inventoryTurnover: amountFromJson(json['inventory_turnover']),
       accountsReceivableTurnover: (json['accounts_receivable_turnover'] as num?)
           ?.toDouble(),
       accountsPayableTurnover: (json['accounts_payable_turnover'] as num?)
           ?.toDouble(),
-      assetTurnover: (json['asset_turnover'] as num?)?.toDouble(),
-      daySalesOutstanding: (json['day_sales_outstanding'] as num?)?.toDouble(),
+      assetTurnover: amountFromJson(json['asset_turnover']),
+      daySalesOutstanding: amountFromJson(json['day_sales_outstanding']),
     );
   }
 }
@@ -376,10 +377,10 @@ class MarketValueRatios {
 
   factory MarketValueRatios.fromJson(Map<String, dynamic> json) {
     return MarketValueRatios(
-      earningsPerShare: (json['earnings_per_share'] as num?)?.toDouble(),
+      earningsPerShare: amountFromJson(json['earnings_per_share']),
       priceToEarningsRatio: (json['price_to_earnings_ratio'] as num?)
           ?.toDouble(),
-      bookValuePerShare: (json['book_value_per_share'] as num?)?.toDouble(),
+      bookValuePerShare: amountFromJson(json['book_value_per_share']),
     );
   }
 }
@@ -460,10 +461,10 @@ class VarianceOutsideToleranceItem {
     return VarianceOutsideToleranceItem(
       accountId: (json['account_id'] as String?) ?? '',
       description: (json['description'] as String?) ?? '',
-      budget: ((json['budget'] as num?) ?? 0).toDouble(),
-      actual: ((json['actual'] as num?) ?? 0).toDouble(),
-      variance: ((json['variance'] as num?) ?? 0).toDouble(),
-      variancePct: ((json['variance_pct'] as num?) ?? 0).toDouble(),
+      budget: amountFromJson(json['budget']),
+      actual: amountFromJson(json['actual']),
+      variance: amountFromJson(json['variance']),
+      variancePct: amountFromJson(json['variance_pct']),
     );
   }
 }
@@ -508,10 +509,9 @@ class VarianceAnalysisResult {
     return VarianceAnalysisResult(
       budgetId: (json['budget_id'] as String?) ?? budgetId,
       budgetName: budgetName,
-      totalVariance: ((json['total_variance'] as num?) ?? 0).toDouble(),
-      favorableVariance: ((json['favorable_variance'] as num?) ?? 0).toDouble(),
-      unfavorableVariance: ((json['unfavorable_variance'] as num?) ?? 0)
-          .toDouble(),
+      totalVariance: amountFromJson(json['total_variance']),
+      favorableVariance: amountFromJson(json['favorable_variance']),
+      unfavorableVariance: amountFromJson(json['unfavorable_variance']),
       itemsOutsideTolerance: outside,
       rootCauses: causes,
       correctiveActions:

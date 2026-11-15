@@ -1,3 +1,4 @@
+import '../../../core/api/amount.dart';
 // Banking models mapped to the real banking-integration-service contract:
 //
 //   BankConnection: POST /connect, GET /connections, DELETE /connections/{id}
@@ -77,11 +78,11 @@ class BankTransaction {
     return BankTransaction(
       id: json['id'] as String,
       connectionId: json['connection_id'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: amountFromJson(json['amount']),
       transactionType: json['transaction_type'] as String,
       description: (json['description'] as String?) ?? '',
       transactionDate: DateTime.parse(json['transaction_date'] as String),
-      balanceAfter: ((json['balance_after'] as num?) ?? 0).toDouble(),
+      balanceAfter: amountFromJson(json['balance_after']),
       reconciled: (json['reconciled'] as bool?) ?? false,
       reference: (json['reference'] as String?) ?? '',
     );

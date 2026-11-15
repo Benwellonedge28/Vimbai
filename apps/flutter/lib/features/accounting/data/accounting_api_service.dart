@@ -15,6 +15,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
+import '../../../core/api/amount.dart';
 
 class AccountingApiService {
   final String _baseUrl = AppConfig.accountingRoute;
@@ -235,7 +236,7 @@ class AccountingApiService {
             .map(
               (l) => CashFlowActivity(
                 description: l['description'] ?? '',
-                amount: (l['amount'] as num?)?.toDouble() ?? 0.0,
+                amount: amountFromJson(l['amount']),
               ),
             )
             .toList(),
@@ -251,10 +252,10 @@ class AccountingApiService {
       investingActivities: toSection('Investing', json['investing_activities']),
       financingActivities: toSection('Financing', json['financing_activities']),
       netIncreaseDecreaseInCash:
-          (json['net_change'] as num?)?.toDouble() ?? 0.0,
-      beginningCashBalance: (json['beginning_cash'] as num?)?.toDouble() ?? 0.0,
-      endingCashBalance: (json['ending_cash'] as num?)?.toDouble() ?? 0.0,
-      netIncome: (json['net_operating'] as num?)?.toDouble() ?? 0.0,
+          amountFromJson(json['net_change']),
+      beginningCashBalance: amountFromJson(json['beginning_cash']),
+      endingCashBalance: amountFromJson(json['ending_cash']),
+      netIncome: amountFromJson(json['net_operating']),
     );
   }
 

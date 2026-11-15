@@ -6,6 +6,9 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- Money read in the app now takes the engine's form everywhere it arrives, not only in accounting: the cash flow section,
+  a bank-feed transaction's amount and balance, the budget variance report and the NPO revenue band all declared `double`
+  and cast the string the engine sends, which throws instead of parsing. All of them use `amountFromJson`.
 - The journal form could post an entry and then throw while reading its own success. The engine answers money as a decimal
   string (`"250.000000"`) because an exact decimal does not survive a JSON number, and the app's models declared those
   fields `double`, so `JournalEntry.fromJson`, the trial balance, the income statement, the balance sheet and the cash flow
