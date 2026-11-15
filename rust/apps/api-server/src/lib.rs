@@ -22,12 +22,14 @@ use std::sync::Arc;
 
 pub mod accounting_book;
 pub mod accounting_standards;
+
 pub mod idempotency;
 pub mod identity;
 pub mod limits;
 pub mod outbound;
 pub mod pagination;
 pub mod records;
+pub mod service_bank_feed;
 pub mod sockets;
 pub mod tenancy_gate;
 

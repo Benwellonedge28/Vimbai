@@ -8921,6 +8921,8 @@ pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
         .merge(crate::accounting_standards::router(graph.clone()))
+        // the one surface whose published paths the engine did not answer, because the bare paths it used were taken
+        .merge(crate::service_bank_feed::router(graph.clone()))
         .merge(crate::identity::router(graph.clone()))
         .merge(crate::accounting_book::router(graph))
 }

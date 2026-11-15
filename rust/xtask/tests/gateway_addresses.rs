@@ -72,32 +72,15 @@ fn the_scan_reads_the_engine_it_claims_to_read() {
 #[test]
 fn no_prefix_that_the_engine_answers_forwards_somewhere_else() {
     // Fifteen entries kept the container port their retired service used to listen on, so the engine answered the prefix and
-    // the gateway sent the call to a dead socket: a 502 from a door the manifest says is open. Thirteen were repointed at the
-    // engine outright. Two are listed here because the engine answers part of what they published and not all of it, so
-    // repointing them now would turn a 502 into a 404 on the addresses still missing. The list is a to-do, not a tolerance:
-    // a third name fails this test, and fixing one of these two fails it as well, so the list cannot quietly rot.
-    const PARTLY_SERVED: [(&str, &str); 2] = [
-        (
-            "admin-service",
-            "25 addresses the engine does not answer: the feature-flag surface - features, their dependencies, rollout \
-             schedules and feature requests",
-        ),
-        (
-            "bank-feed-service",
-            "15 addresses the engine does not answer: provider webhooks, feed rules and bank connections",
-        ),
-    ];
+    // the gateway sent the call to a dead socket: a 502 from a door the manifest says is open. All fifteen are repointed now.
+    // Two of them needed more than a repoint. admin-service published bare paths - `/features`, `/audit-logs` - that the
+    // engine already answers, so its entry strips the prefix; bank-feed-service published `/rules`, `/transactions` and
+    // `/connections`, which alerts, sales-ledger-control and banking-integration already claim as bare paths, so its entry
+    // keeps the prefix and the engine mounts those routes under `/bank-feed` instead of handing a caller another service's
+    // answer. There is no tolerated exception left here: any prefix the engine answers that forwards elsewhere fails.
     let findings = misrouted(&root());
-    let names: Vec<String> = findings
-        .iter()
-        .map(|finding| finding.split(':').next().unwrap_or_default().to_string())
-        .collect();
-    let expected: Vec<String> = PARTLY_SERVED
-        .iter()
-        .map(|(name, _)| name.to_string())
-        .collect();
-    assert_eq!(
-        names, expected,
-        "these prefixes need repointing, or the list above needs updating: {findings:#?}"
+    assert!(
+        findings.is_empty(),
+        "these prefixes are answered by the engine and forwarded elsewhere: {findings:#?}"
     );
 }

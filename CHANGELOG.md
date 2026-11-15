@@ -19,15 +19,20 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   generated now, by `cargo run -p xtask -- routes`, from the engine's own routes plus each service's last published list read
   out of git - the only place a prefix-stripping entry's client-facing addresses survive. 138 services, 1,786 addresses, and
   a test that the committed snapshot is what the engine answers.
-- Three real routing defects the address work surfaced, all of the same kind: a door in the manifest that answers nothing.
-  `/calcs` was an entry for a service that never had a `main.py`, forwarded to the engine at a path the engine never
-  mounted. The calculator surface it was meant to front - `POST /calc/name` and the catalogue at `GET /calculators` - was
-  routed by nothing at all. Both are published properly now, and `gateway::misrouted` reports any prefix the engine answers
-  whose entry still forwards elsewhere: thirteen entries were pointed at retired service containers (a 502 on a door the
-  manifest calls open) and are now repointed at the engine. Two are held back by a test that names them - `admin-service`
-  (25 addresses) and `bank-feed-service` (15) - because the engine answers part of what they published and not all of it, and
-  repointing them today would turn a 502 into a 404. That list is a to-do: a third name fails the test, and fixing either of
-  the two fails it as well.
+- Three real routing defects the address work surfaced, all of the same kind: a door in the manifest that answered
+  nothing. `/calcs` was an entry for a service that never had a `main.py`, forwarded to the engine at a path the engine never
+  mounted, and the calculator surface it was meant to front - `POST /calc/name` and the catalogue at `GET /calculators` - was
+  routed by nothing at all. Both are published properly now.
+- Fifteen more entries still forwarded their prefix to the container port their retired service used to listen on, so the
+  engine answered the address and the gateway sent the call to a dead socket: a 502 from a door the manifest says is open.
+  All fifteen are repointed. Two of them needed the routing fixed as well, and the two needed opposite fixes. `admin-service`
+  published bare paths - `/features`, `/audit-logs`, `/dashboard/stats` - that the engine already answers under its own
+  registry, so its entry strips the prefix and nothing new is registered. `bank-feed-service` published `/rules`,
+  `/transactions` and `/connections`, which alerts, sales-ledger-control and banking-integration already claim as bare paths:
+  stripping it would have handed a caller of one service the other's answer, which the stripped-collision gate caught the
+  moment it was tried. So its entry keeps the prefix and the engine mounts those routes under `/bank-feed`, once, with three
+  HTTP tests over the addresses a client calls. There is no tolerated exception left in the gateway audit: any prefix the
+  engine answers that forwards elsewhere fails the build.
 - A gate fails if any routed service answers no address, which is the check that would have caught all of the above the day
   the Python service behind each one went away.
 - An operator's runbook (`docs/operations/RUNBOOK.md`): the startup line to look for, a bind failure, a worker that exits

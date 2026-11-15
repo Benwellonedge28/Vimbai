@@ -43,10 +43,10 @@
     {
       "name": "admin-service",
       "path": "/admin",
-      "url": "http://localhost:9008",
+      "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "alerts-service",
@@ -115,7 +115,7 @@
     {
       "name": "bank-feed-service",
       "path": "/bank-feed",
-      "url": "http://localhost:9003",
+      "url": "http://calculation-api:8099",
       "port": 8097,
       "auth_required": true,
       "strip_prefix": false

@@ -551,17 +551,24 @@ services:
   records: false
   endpoints:
   - DELETE /bank-feed/connections/{connection_id}
+  - DELETE /bank-feed/connections/{}
   - DELETE /bank-feed/rules/{rule_id}
+  - DELETE /bank-feed/rules/{}
+  - GET /bank-feed
   - GET /bank-feed/
   - GET /bank-feed/connections
   - GET /bank-feed/connections/{connection_id}
   - GET /bank-feed/connections/{connection_id}/balance
+  - GET /bank-feed/connections/{}
+  - GET /bank-feed/connections/{}/balance
   - GET /bank-feed/rules
   - GET /bank-feed/statistics
   - GET /bank-feed/sync/history
   - GET /bank-feed/sync/{sync_id}
+  - GET /bank-feed/sync/{}
   - GET /bank-feed/transactions
   - GET /bank-feed/transactions/{transaction_id}
+  - GET /bank-feed/transactions/{}
   - POST /bank-feed/connections
   - POST /bank-feed/rules
   - POST /bank-feed/rules/apply
@@ -572,7 +579,9 @@ services:
   - POST /bank-feed/transactions/{transaction_id}/link
   - POST /bank-feed/transactions/{}/link
   - POST /bank-feed/webhooks/{provider}
+  - POST /bank-feed/webhooks/{}
   - PUT /bank-feed/rules/{rule_id}
+  - PUT /bank-feed/rules/{}
   - PUT /bank-feed/transactions/{transaction_id}/status
   - PUT /bank-feed/transactions/{}/status
 - name: bank-reconciliation-service
