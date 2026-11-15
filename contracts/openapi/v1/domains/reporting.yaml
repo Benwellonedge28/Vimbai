@@ -20,6 +20,7 @@ info:
     * `/load`
     * `/logs`
     * `/report-automation`
+    * `/reports`
     * `/schedule`
     * `/schedules`
     * `/subscriptions`
@@ -173,6 +174,36 @@ paths:
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
     post:
       operationId: postReportAutomationTemplates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getReports
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/generate:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsGenerate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/sales-summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsSalesSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/tax-summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsTaxSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/vat-by-jurisdiction:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getReportsVatByJurisdiction
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /schedule:
     parameters:

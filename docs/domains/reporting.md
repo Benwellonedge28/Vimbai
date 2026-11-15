@@ -17,7 +17,8 @@ Crate: `rust/crates/domains/reporting`
 | `dashboard-service` | `/dashboard` |
 | `report-automation-service` | `/report-automation` |
 | `report-distribution-service` | `/report-distribution` |
-| `reporting-service` | `/reporting` |
+| `reporting-service` | `/reports` |
+| `reports-service` | `/reports` |
 
 ## What it does not own
 

@@ -16,7 +16,9 @@ Crates: `rust/crates/domains/invoicing`, `rust/crates/domains/payables`
 | Service | Prefix |
 | --- | --- |
 | `expense-tracking-service` | `/expense-tracking` |
-| `invoicing-service` | `/invoicing` |
+| `invoice-customers-service` | `/customers` |
+| `invoices-service` | `/invoices` |
+| `invoicing-service` | `/invoices` |
 | `purchases-ledger-control-service` | `/purchases-ledger-control` |
 | `subscription-plans-service` | `/subscription-plans` |
 

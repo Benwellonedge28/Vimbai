@@ -109,13 +109,16 @@ fn a_crate_is_reached_through_the_modules_and_imports_it_is_written_with() {
         budgeting.domain, "budgeting",
         "/forecasts is filed under the wrong domain"
     );
-    let invoicing = attributed.get("/invoices").unwrap_or_else(|| {
-        panic!("/invoices names a module after its crate and was not attributed")
-    });
-    assert_eq!(
-        invoicing.domain, "invoicing",
-        "/invoices is filed under the wrong domain"
-    );
+    // `/invoices` and `/customers` are routed prefixes now, so their catalogue rows own them and this reading no longer sees
+    // either. That is the point rather than a loss: a routed prefix has one owner, named once, and the reading here is only for
+    // the addresses the gateway does not route. What was a written-down example of a module named after its crate is now a
+    // statement that the catalogue took the address over.
+    for routed in ["/invoices", "/customers"] {
+        assert!(
+            !attributed.contains_key(routed),
+            "{routed} is a routed prefix, so it cannot also be attributed to a crate by this reading"
+        );
+    }
 }
 
 #[test]

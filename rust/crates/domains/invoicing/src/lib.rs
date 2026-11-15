@@ -4,6 +4,10 @@
 #![forbid(unsafe_code)]
 //! Invoicing services.
 //!
+//! The invoices and the customers a Book bills are also published on their own addresses - *invoices-service* and
+//! *invoice-customers-service* - because a client reaches the wildcard door `/invoicing` by repeating a prefix it did not ask
+//! for, while `/invoices` and `/customers` are what its calls are actually written against.
+//!
 //! * *subscription-plans-service* ([`billing`]): the plans a Book sells on and the subscriptions taken against them.
 //!
 //! The service keeps its records on the store, scoped to the caller and the Book, and is safe Rust by construction.

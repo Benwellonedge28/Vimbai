@@ -313,6 +313,14 @@
       "strip_prefix": false
     },
     {
+      "name": "invoice-customers-service",
+      "path": "/customers",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "cvp-analysis-service",
       "path": "/cvp-analysis",
       "url": "http://calculation-api:8099",
@@ -389,7 +397,8 @@
       "path": "/document",
       "url": "http://calculation-api:8099",
       "port": 8099,
-      "auth_required": true
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "double-entry-principles-service",
@@ -576,6 +585,14 @@
       "strip_prefix": false
     },
     {
+      "name": "invoices-service",
+      "path": "/invoices",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "invoicing-service",
       "path": "/invoicing",
       "url": "http://calculation-api:8099",
@@ -648,19 +665,20 @@
       "strip_prefix": false
     },
     {
-      "name": "npo-scale-service",
-      "path": "/npo-scale",
+      "name": "npo-service",
+      "path": "/npo",
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
-      "name": "npo-service",
-      "path": "/npo",
+      "name": "npo-scale-service",
+      "path": "/npo-scale",
       "url": "http://calculation-api:8099",
       "port": 8099,
-      "auth_required": true
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "ordinary-shares-service",
@@ -747,7 +765,8 @@
       "path": "/pos-integration",
       "url": "http://calculation-api:8099",
       "port": 8099,
-      "auth_required": true
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "preference-shares-service",
@@ -846,6 +865,14 @@
       "strip_prefix": true
     },
     {
+      "name": "reports-service",
+      "path": "/reports",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "retained-profits-service",
       "path": "/retained-profits",
       "url": "http://calculation-api:8099",
@@ -922,7 +949,8 @@
       "path": "/scenario-modeling",
       "url": "http://calculation-api:8099",
       "port": 8099,
-      "auth_required": true
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "selling-price-reduction-service",
@@ -979,6 +1007,14 @@
       "port": 8099,
       "auth_required": true,
       "strip_prefix": true
+    },
+    {
+      "name": "tasks-service",
+      "path": "/tasks",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "tax-accounting-service",

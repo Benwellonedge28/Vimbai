@@ -33,8 +33,9 @@ Crates: `rust/crates/domains/data`, `rust/crates/domains/identity`, `rust/crates
 | `graphql-service` | `/graphql` |
 | `message-bus-service` | `/message-bus` |
 | `mfa-auth-service` | `/mfa-auth` |
-| `multimodal-pipeline-service` | `/multimodal` |
+| `multimodal-pipeline-service` | `/tasks` |
 | `notifications-service` | `/notifications` |
+| `tasks-service` | `/tasks` |
 | `webhook-service` | `/webhook` |
 | `websocket-service` | `/websocket` |
 

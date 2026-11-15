@@ -23,7 +23,7 @@ Verified at commit `8d41ae85` (2026-11-14). Everything below is measured, not as
 | Fact | Value |
 | --- | --- |
 | Python in the repository | 0 tracked files |
-| Routed services | 139, all answered by the Rust engine |
+| Routed services | 143, all answered by the Rust engine |
 | Rust workspace | ~421k lines, `rust/Cargo.toml` |
 | Domain crates | 26 under `rust/crates/domains` |
 | Calculation crates | 16 under `rust/crates/calculations` |

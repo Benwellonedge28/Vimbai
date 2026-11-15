@@ -15,7 +15,7 @@ Vimbai is engineered for resilience. Core data entry, processing, and automation
 Revolutionize data entry with intuitive multimodal inputs. Capture documents via **camera (images & continuous video streams)**, dictate transactions and commands using **voice**, or upload **image files**. Intelligent on-device processing extracts data, which users review in a dedicated "Entry Window" before final posting.
 
 🏗️ **One engine behind one gateway:**
-The platform is a single Rust workspace serving 139 routed surfaces, with a Go gateway in front that holds the rules and
+The platform is a single Rust workspace serving 143 routed surfaces, with a Go gateway in front that holds the rules and
 no arithmetic. Every address the gateway answers is answered by the engine: the catalogue at `catalog/services/catalog.yaml`
 is generated from the gateway's own route table, says who owns each surface and where its arithmetic runs, and fails the
 build when it drifts. Adding a surface means adding it once, to that table and to the crate that owns it.

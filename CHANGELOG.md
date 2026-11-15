@@ -6,6 +6,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- Four surfaces were published on addresses no client asks for. `/invoices`, `/customers`, `/reports` and `/tasks` are what the
+  app and its callers are written against, but the catalogue carried no row for any of them: the retired services are published
+  through wildcard doors (`/invoicing`, `/reporting`, `/multimodal`) that only reach them by repeating a prefix the caller did not
+  ask for. Each is a catalogue entry now, named on its domain page, with contracts and owners generated from the code that answers
+  it; the routed surface goes from 139 to 143 and the wildcard doors stay, because they publish a retired service's whole surface
+  and the address audit reads them against it. Two gates were leaning on figures that could go stale: the routes snapshot asserted
+  a hand-written 139 while the catalogue had already grown past it, and it now reads the catalogue's own count, so the check fails
+  on staleness instead of on growth.
+
 - The gateway had two routing tables. One was `config/services.json`, which the engine, the on-device runtime and the audit all
   read; the other was twenty-two routes written in Go beside it, each with its own `*_SERVICE_URL` in the manifest, each pointing
   at a service retired into the engine. Clients calling `/accounts`, `/budgets`, `/customers` or `/banks` reached hosts that do not

@@ -3,7 +3,7 @@ domain:
   name: multimodal
   responsibility: document, image and audio understanding
   target: rust/crates/domains/multimodal
-  services: 1
+  services: 2
 services:
 - name: multimodal-pipeline-service
   domain: multimodal
@@ -25,3 +25,19 @@ services:
   - POST /multimodal/tasks/
   - POST /multimodal/tasks/{task_id}/corrections
   - PUT /multimodal/tasks/{task_id}
+- name: tasks-service
+  domain: multimodal
+  target: rust/crates/domains/multimodal
+  port: 8099
+  gateway_path: /tasks
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /tasks/{}
+  - GET /tasks
+  - GET /tasks/{}
+  - GET /tasks/{}/corrections
+  - POST /tasks
+  - POST /tasks/{}/corrections
+  - PUT /tasks/{}

@@ -3,7 +3,7 @@ domain:
   name: reporting
   responsibility: report assembly and distribution
   target: rust/crates/domains/reporting
-  services: 4
+  services: 5
 services:
 - name: dashboard-service
   domain: reporting
@@ -71,3 +71,17 @@ services:
   - GET /reporting/
   - POST /reporting/generate
   - POST /reporting/schedule
+- name: reports-service
+  domain: reporting
+  target: rust/crates/domains/reporting
+  port: 8099
+  gateway_path: /reports
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /reports
+  - GET /reports/vat-by-jurisdiction
+  - POST /reports/generate
+  - POST /reports/sales-summary
+  - POST /reports/tax-summary

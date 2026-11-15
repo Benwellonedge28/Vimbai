@@ -987,9 +987,12 @@ fn the_published_snapshot_is_what_the_engine_answers() {
     let problems = published::write(&root(), true);
     assert!(problems.is_ok(), "{problems:?}");
     let snapshot = published::snapshot(&root());
+    // The figure is the catalogue's, not a number written here: it said 139 while the catalogue grew past it, which is the
+    // staleness this check exists to catch.
+    let routed = xtask::catalog::rows(&root()).len();
     assert!(
-        snapshot.contains("\"count\": 139"),
-        "the snapshot should describe the 139 routed services"
+        snapshot.contains(&format!("\"count\": {routed}")),
+        "the snapshot should describe the {routed} routed services the catalogue lists"
     );
 }
 

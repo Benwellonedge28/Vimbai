@@ -3,7 +3,7 @@ catalog:
   version: 1
   generated_by: rust/xtask
   authority: gateway/go/config/services.json for routes, catalog/ownership.json for ownership
-  services: 139
+  services: 143
 domains:
 - name: kernel
   responsibility: 'ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services'' HTTP and record surface'
@@ -1077,6 +1077,20 @@ services:
   - PUT /currency/currencies/{}
   - PUT /currency/rates/{from_currency}/{to_currency}
   - PUT /currency/rates/{}/{}
+- name: invoice-customers-service
+  domain: invoicing
+  target: rust/crates/domains/invoicing
+  port: 8099
+  gateway_path: /customers
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /customers/{}
+  - GET /customers
+  - GET /customers/{}
+  - POST /customers
+  - PUT /customers/{}
 - name: cvp-analysis-service
   domain: costing
   target: rust/crates/domains/costing
@@ -1703,6 +1717,22 @@ services:
   - POST /investment-property/fair-value-model
   - POST /investment-property/transfer
   - POST /investment-property/yields
+- name: invoices-service
+  domain: invoicing
+  target: rust/crates/domains/invoicing
+  port: 8099
+  gateway_path: /invoices
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /invoices/{}
+  - GET /invoices
+  - GET /invoices/{}
+  - GET /invoices/{}/payments
+  - POST /invoices
+  - POST /invoices/{}/record-payment
+  - PUT /invoices/{}
 - name: invoicing-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -1906,6 +1936,93 @@ services:
   - PUT /notifications/preferences/{}
   - PUT /notifications/{}/read
   - PUT /notifications/{}/read-all
+- name: npo-service
+  domain: npo
+  target: rust/crates/domains/npo
+  port: 8099
+  gateway_path: /npo
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /npo/
+  - GET /npo/audit-reports
+  - GET /npo/audit-reports/
+  - GET /npo/budgets
+  - GET /npo/budgets/
+  - GET /npo/donations
+  - GET /npo/donations/
+  - GET /npo/donors
+  - GET /npo/donors/
+  - GET /npo/donors/{donor_id}
+  - GET /npo/donors/{}
+  - GET /npo/funds
+  - GET /npo/funds/
+  - GET /npo/funds/{fund_id}
+  - GET /npo/funds/{fund_id}/transactions/
+  - GET /npo/funds/{}
+  - GET /npo/funds/{}/transactions
+  - GET /npo/grants
+  - GET /npo/grants/
+  - GET /npo/grants/{grant_id}
+  - GET /npo/grants/{}
+  - GET /npo/health
+  - GET /npo/internal-controls
+  - GET /npo/internal-controls/
+  - GET /npo/net-assets/{as_of_date}
+  - GET /npo/net-assets/{}
+  - GET /npo/programs
+  - GET /npo/programs/
+  - GET /npo/projects
+  - GET /npo/projects/
+  - GET /npo/projects/{project_id}
+  - GET /npo/projects/{}
+  - GET /npo/statements/activities
+  - GET /npo/statements/activities/
+  - GET /npo/volunteer-records
+  - GET /npo/volunteer-records/
+  - POST /npo/assets
+  - POST /npo/assets/
+  - POST /npo/audit-reports
+  - POST /npo/audit-reports/
+  - POST /npo/budgets
+  - POST /npo/budgets/
+  - POST /npo/budgets/{budget_id}/lines/
+  - POST /npo/budgets/{}/lines
+  - POST /npo/donations
+  - POST /npo/donations/
+  - POST /npo/donors
+  - POST /npo/donors/
+  - POST /npo/funds
+  - POST /npo/funds/
+  - POST /npo/funds/{fund_id}/restrictions/
+  - POST /npo/funds/{fund_id}/transactions/
+  - POST /npo/funds/{}/restrictions
+  - POST /npo/funds/{}/transactions
+  - POST /npo/grants
+  - POST /npo/grants/
+  - POST /npo/grants/{grant_id}/drawdowns/
+  - POST /npo/grants/{}/drawdowns
+  - POST /npo/impact-measurements
+  - POST /npo/impact-measurements/
+  - POST /npo/internal-controls
+  - POST /npo/internal-controls/
+  - POST /npo/net-assets
+  - POST /npo/net-assets/
+  - POST /npo/program-metrics
+  - POST /npo/program-metrics/
+  - POST /npo/programs
+  - POST /npo/programs/
+  - POST /npo/projects
+  - POST /npo/projects/
+  - POST /npo/sroi-analyses
+  - POST /npo/sroi-analyses/
+  - POST /npo/statements/activities
+  - POST /npo/statements/activities/
+  - POST /npo/statements/financial-position
+  - POST /npo/statements/financial-position/
+  - POST /npo/volunteer-records
+  - POST /npo/volunteer-records/
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo
@@ -2013,93 +2130,6 @@ services:
   - POST /npo-scale/orgs/{}/vendors
   - PUT /npo-scale/orgs/{org_id}/budgets
   - PUT /npo-scale/orgs/{}/budgets
-- name: npo-service
-  domain: npo
-  target: rust/crates/domains/npo
-  port: 8099
-  gateway_path: /npo
-  auth_required: true
-  engine: rust
-  records: false
-  endpoints:
-  - GET /npo/
-  - GET /npo/audit-reports
-  - GET /npo/audit-reports/
-  - GET /npo/budgets
-  - GET /npo/budgets/
-  - GET /npo/donations
-  - GET /npo/donations/
-  - GET /npo/donors
-  - GET /npo/donors/
-  - GET /npo/donors/{donor_id}
-  - GET /npo/donors/{}
-  - GET /npo/funds
-  - GET /npo/funds/
-  - GET /npo/funds/{fund_id}
-  - GET /npo/funds/{fund_id}/transactions/
-  - GET /npo/funds/{}
-  - GET /npo/funds/{}/transactions
-  - GET /npo/grants
-  - GET /npo/grants/
-  - GET /npo/grants/{grant_id}
-  - GET /npo/grants/{}
-  - GET /npo/health
-  - GET /npo/internal-controls
-  - GET /npo/internal-controls/
-  - GET /npo/net-assets/{as_of_date}
-  - GET /npo/net-assets/{}
-  - GET /npo/programs
-  - GET /npo/programs/
-  - GET /npo/projects
-  - GET /npo/projects/
-  - GET /npo/projects/{project_id}
-  - GET /npo/projects/{}
-  - GET /npo/statements/activities
-  - GET /npo/statements/activities/
-  - GET /npo/volunteer-records
-  - GET /npo/volunteer-records/
-  - POST /npo/assets
-  - POST /npo/assets/
-  - POST /npo/audit-reports
-  - POST /npo/audit-reports/
-  - POST /npo/budgets
-  - POST /npo/budgets/
-  - POST /npo/budgets/{budget_id}/lines/
-  - POST /npo/budgets/{}/lines
-  - POST /npo/donations
-  - POST /npo/donations/
-  - POST /npo/donors
-  - POST /npo/donors/
-  - POST /npo/funds
-  - POST /npo/funds/
-  - POST /npo/funds/{fund_id}/restrictions/
-  - POST /npo/funds/{fund_id}/transactions/
-  - POST /npo/funds/{}/restrictions
-  - POST /npo/funds/{}/transactions
-  - POST /npo/grants
-  - POST /npo/grants/
-  - POST /npo/grants/{grant_id}/drawdowns/
-  - POST /npo/grants/{}/drawdowns
-  - POST /npo/impact-measurements
-  - POST /npo/impact-measurements/
-  - POST /npo/internal-controls
-  - POST /npo/internal-controls/
-  - POST /npo/net-assets
-  - POST /npo/net-assets/
-  - POST /npo/program-metrics
-  - POST /npo/program-metrics/
-  - POST /npo/programs
-  - POST /npo/programs/
-  - POST /npo/projects
-  - POST /npo/projects/
-  - POST /npo/sroi-analyses
-  - POST /npo/sroi-analyses/
-  - POST /npo/statements/activities
-  - POST /npo/statements/activities/
-  - POST /npo/statements/financial-position
-  - POST /npo/statements/financial-position/
-  - POST /npo/volunteer-records
-  - POST /npo/volunteer-records/
 - name: ordinary-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -2558,6 +2588,20 @@ services:
   - GET /reporting/
   - POST /reporting/generate
   - POST /reporting/schedule
+- name: reports-service
+  domain: reporting
+  target: rust/crates/domains/reporting
+  port: 8099
+  gateway_path: /reports
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /reports
+  - GET /reports/vat-by-jurisdiction
+  - POST /reports/generate
+  - POST /reports/sales-summary
+  - POST /reports/tax-summary
 - name: retained-profits-service
   domain: equity
   target: rust/crates/domains/equity
@@ -2885,6 +2929,22 @@ services:
   - POST /subscription-plans/plans
   - POST /subscription-plans/subscribe
   - POST /subscription-plans/upgrade
+- name: tasks-service
+  domain: multimodal
+  target: rust/crates/domains/multimodal
+  port: 8099
+  gateway_path: /tasks
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /tasks/{}
+  - GET /tasks
+  - GET /tasks/{}
+  - GET /tasks/{}/corrections
+  - POST /tasks
+  - POST /tasks/{}/corrections
+  - PUT /tasks/{}
 - name: tax-accounting-service
   domain: taxation
   target: rust/crates/domains/taxation

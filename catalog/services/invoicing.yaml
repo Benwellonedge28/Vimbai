@@ -3,8 +3,38 @@ domain:
   name: invoicing
   responsibility: issuing and tracking invoices, and the plans a Book bills on
   target: rust/crates/domains/invoicing
-  services: 2
+  services: 4
 services:
+- name: invoice-customers-service
+  domain: invoicing
+  target: rust/crates/domains/invoicing
+  port: 8099
+  gateway_path: /customers
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /customers/{}
+  - GET /customers
+  - GET /customers/{}
+  - POST /customers
+  - PUT /customers/{}
+- name: invoices-service
+  domain: invoicing
+  target: rust/crates/domains/invoicing
+  port: 8099
+  gateway_path: /invoices
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - DELETE /invoices/{}
+  - GET /invoices
+  - GET /invoices/{}
+  - GET /invoices/{}/payments
+  - POST /invoices
+  - POST /invoices/{}/record-payment
+  - PUT /invoices/{}
 - name: invoicing-service
   domain: invoicing
   target: rust/crates/domains/invoicing

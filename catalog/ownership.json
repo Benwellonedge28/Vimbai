@@ -336,6 +336,10 @@
     "zero-based-budgeting-service": "budgeting",
     "zero-trust-data-service": "security",
     "calculator-catalogue": "calculations",
-    "budgeting-service": "budgeting"
+    "budgeting-service": "budgeting",
+    "invoice-customers-service": "invoicing",
+    "invoices-service": "invoicing",
+    "reports-service": "reporting",
+    "tasks-service": "multimodal"
   }
 }

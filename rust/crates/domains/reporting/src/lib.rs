@@ -5,7 +5,9 @@
 //! asked for, the schedule that repeats it, the delivery of it, and the board it is read on:
 //!
 //! * *reporting-service* ([`reports`]): a report asked for and a schedule recorded. It generates no document and
-//!   stores no report, which is how it shipped; the answer says so rather than leaving a reader to find out.
+//!   stores no report, which is how it shipped; the answer says so rather than leaving a reader to find out. The same reports
+//!   are also published on `/reports` as *reports-service*, the address a client calls, beside the wildcard door `/reporting`
+//!   that publishes the retired service's whole surface.
 //! * *report-automation-service* ([`automation`]): the templates a Book keeps, the schedules they run on, and the
 //!   reports those schedules have produced.
 //! * *report-distribution-service* ([`distribution`]): the lists a report is addressed to, the subscriptions that
