@@ -1,6 +1,7 @@
 // mobile-client/lib/models/accounting_models.dart
 
 import 'package:json_annotation/json_annotation.dart';
+import '../../../core/api/amount.dart';
 
 part 'accounting_models.g.dart'; // Generated file for json_serializable
 

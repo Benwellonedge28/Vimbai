@@ -6,6 +6,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The journal form could post an entry and then throw while reading its own success. The engine answers money as a decimal
+  string (`"250.000000"`) because an exact decimal does not survive a JSON number, and the app's models declared those
+  fields `double`, so `JournalEntry.fromJson`, the trial balance, the income statement, the balance sheet and the cash flow
+  statement all failed to parse the reply. One reader, `amountFromJson`, now takes either form, and the accounting models use
+  it for every money field.
+- A test posts the journal form's own payload at the address the form posts to and reads the answer back the way the form
+  does, so the two halves are held together rather than each looking right on its own.
 - `docs/routes-snapshot.json` published 903 addresses that answer 404, and the trailing slash the app itself called was one of
   them: `/accounting/accounts/` was listed as live while the engine only matched `/accounting/accounts`. The snapshot repeated
   each retired service's own paths, and the matcher that was supposed to hold it to the engine let an empty trailing segment
