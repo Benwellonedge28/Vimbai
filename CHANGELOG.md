@@ -6,6 +6,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A dead reference in the documentation fails a build. `docs/ROADMAP.md`, the working plan, cited
+  `docs/decisions/ADR-005-vimbai-pay-deferred.md` for as long as it took anyone to notice the decision had been recorded as
+  `ADR-005-vimbai-pay-not-built.md`; the reader following it got nothing, in the one document that says what to build next.
+  `documentation::stale_references` now checks every page under `docs/`, plus the front page: a decision cited by its file name
+  has to be a file under `docs/decisions/`, and a workflow named by file has to exist somewhere in the repository. A line that
+  records a removal is exempt, because naming what was deleted is how a reader learns it is gone - `flutter-structure.md` keeps
+  saying `mobile-analyze.yml` is not there any more.
 - The Makefile is checked like the documentation is. `flutter-test` was never declared `.PHONY`, so a path of that name would
   have made the target silently do nothing, and `make help` - the file's only index - described eight targets while the
   repository's gates had grown to eleven commands, so the gates a reader could not see looked like ones that did not exist.

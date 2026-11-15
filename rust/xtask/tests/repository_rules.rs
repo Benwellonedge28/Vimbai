@@ -586,6 +586,15 @@ fn the_documentation_index_names_every_document_and_runs_only_commands_that_exis
 
     let scratch = std::env::temp_dir().join(format!("vimbai_docs_gate_{}", std::process::id()));
     std::fs::create_dir_all(scratch.join("docs/domains")).expect("a docs directory");
+    // the reference scan reads the decisions and the workflows, so the scratch estate has one of each from the start
+    std::fs::create_dir_all(scratch.join("docs/decisions")).expect("a decisions directory");
+    std::fs::create_dir_all(scratch.join(".github/workflows")).expect("a workflow directory");
+    std::fs::write(
+        scratch.join("docs/decisions/ADR-001-a-decision.md"),
+        "# a decision\n",
+    )
+    .expect("a decision");
+    std::fs::write(scratch.join(".github/workflows/ci.yml"), "name: ci\n").expect("a workflow");
     std::fs::create_dir_all(scratch.join("rust/xtask/src")).expect("a tool directory");
     std::fs::write(
         scratch.join("rust/xtask/src/main.rs"),
@@ -595,7 +604,7 @@ fn the_documentation_index_names_every_document_and_runs_only_commands_that_exis
     std::fs::write(scratch.join("docs/domains/ledger.md"), "# a page\n").expect("a page");
     std::fs::write(
         scratch.join("docs/README.md"),
-        "One page per domain, 1 pages, in `domains/`. Run `cargo run -p xtask -- gateway`.\n",
+        "One page per domain, 1 pages, in `domains/`, and the decisions in `decisions/`. Run `cargo run -p xtask -- gateway`.\n",
     )
     .expect("an honest index");
     assert_eq!(
@@ -619,6 +628,52 @@ fn the_documentation_index_names_every_document_and_runs_only_commands_that_exis
             .iter()
             .any(|problem| problem.contains("3 domain pages")),
         "a domain-page count that disagrees with `domains/` went unnoticed: {drifted:?}"
+    );
+
+    // a reference to a decision or a workflow has to resolve, anywhere under docs/
+    assert_eq!(
+        documentation::stale_references(&root),
+        Vec::<String>::new(),
+        "a document in docs/ points at a decision or a workflow that is not there"
+    );
+    std::fs::create_dir_all(scratch.join("docs/decisions")).expect("a decisions directory");
+    std::fs::create_dir_all(scratch.join(".github/workflows")).expect("a workflow directory");
+    std::fs::write(
+        scratch.join("docs/decisions/ADR-001-a-decision.md"),
+        "# a decision\n",
+    )
+    .expect("a decision");
+    std::fs::write(scratch.join(".github/workflows/ci.yml"), "name: ci\n").expect("a workflow");
+    std::fs::write(
+        scratch.join("docs/pointer.md"),
+        "See `ADR-001-a-decision.md` and `ci.yml`.\n",
+    )
+    .expect("a document that points at real things");
+    assert_eq!(
+        documentation::stale_references(&scratch),
+        Vec::<String>::new(),
+        "a document pointing at a decision and a workflow that exist has to pass"
+    );
+    std::fs::write(
+        scratch.join("docs/pointer.md"),
+        "See `ADR-009-a-decision-that-was-never-written.md` and `mobile-analyze.yml`.\n",
+    )
+    .expect("a document that points at nothing");
+    let stale = documentation::stale_references(&scratch);
+    for expected in ["ADR-009", "mobile-analyze.yml"] {
+        assert!(
+            stale.iter().any(|problem| problem.contains(expected)),
+            "a dead reference to {expected} went unnoticed: {stale:?}"
+        );
+    }
+    std::fs::write(
+        scratch.join("docs/pointer.md"),
+        "There used to be a second one, `mobile-analyze.yml`, which is gone.\n",
+    )
+    .expect("a document recording a removal");
+    assert!(
+        documentation::stale_references(&scratch).is_empty(),
+        "naming what was deleted is how a reader learns it is gone"
     );
 
     std::fs::write(scratch.join("docs/forgotten.md"), "# never indexed\n")

@@ -56,8 +56,8 @@ Seven tests hold the gate over the real app, in `rust/xtask/tests/flutter_migrat
 Dart is one of the platform's three languages (ADR-001), so its toolchain is part of the pipeline that gates a merge and
 not an extra that runs when somebody remembers. One workflow installs it, pinned to Flutter 3.50.0: `test-flutter` in
 `ci-main.yml`, which starts on every push that changes the app, the gateway or the platform. It has to start for the app: its trigger lists `apps/flutter/**`, and the gate checks that, because a job whose paths never match the app is a gate that only looks closed. It runs four things - `flutter pub get`, `dart format --output=none
---set-exit-if-changed lib test`, `flutter analyze --no-fatal-infos` and `flutter test`. There used to be a second one,
-`mobile-analyze.yml`, path-filtered to the app and running those same four steps on the same version; two copies of one
+--set-exit-if-changed lib test`, `flutter analyze --no-fatal-infos` and `flutter test`. There used to be a second one, `mobile-analyze.yml`,
+path-filtered to the app and running those same four steps on the same version; two copies of one
 gate only means two places for it to drift, so it is gone and the core pipeline is the one place.
 
 The pin matters more than the version: a `latest` that drifts is a green build that means something different tomorrow

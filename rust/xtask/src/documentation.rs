@@ -179,6 +179,7 @@ pub fn documentation_index(root: &Path) -> Vec<String> {
     }
 
     problems.extend(domain_page_count(root, &index, &documents));
+    problems.extend(stale_references(root));
     problems
 }
 
@@ -206,6 +207,132 @@ fn domain_page_count(root: &Path, index: &str, documents: &[String]) -> Vec<Stri
     problems
 }
 
+/// A reference a document makes to a file that is not there.
+///
+/// Prose rots by pointing at things that moved: `docs/ROADMAP.md`, the working plan, cited
+/// `docs/decisions/ADR-005-vimbai-pay-deferred.md` for months after the decision was recorded as
+/// `ADR-005-vimbai-pay-not-built.md`. A reader following it got nothing, in the one document that says what to build next.
+///
+/// Two kinds of reference are decidable and checked: a decision cited by its full file name has to be a file under
+/// `docs/decisions/`, and a workflow named with a `.yml` suffix has to exist somewhere in the repository. A line that records a
+/// removal is exempt, because naming what was deleted is how a reader learns it is gone.
+pub fn stale_references(root: &Path) -> Vec<String> {
+    let decisions = root.join("docs/decisions");
+    let mut decision_files: Vec<String> = std::fs::read_dir(&decisions)
+        .map(|entries| {
+            entries
+                .filter_map(|entry| entry.ok())
+                .filter_map(|entry| entry.file_name().into_string().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    decision_files.sort();
+
+    let mut files: Vec<String> = Vec::new();
+    every_file(root, &mut files);
+    let mut workflows: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(root.join(".github/workflows")) {
+        for entry in entries.filter_map(|entry| entry.ok()) {
+            if let Some(name) = entry.file_name().to_str().map(|name| name.to_string()) {
+                workflows.push(name);
+            }
+        }
+    }
+    if decision_files.is_empty() || workflows.is_empty() {
+        return vec![
+            "there are no decisions or no workflows to check a reference against".to_string(),
+        ];
+    }
+
+    let mut problems = Vec::new();
+    for document in documents(root)
+        .into_iter()
+        .chain(std::iter::once("README.md".to_string()))
+    {
+        let Ok(text) = std::fs::read_to_string(root.join("docs").join(&document)) else {
+            continue;
+        };
+        for line in text.lines() {
+            if names_a_removal(line) || line.trim_start().starts_with('#') {
+                continue;
+            }
+            for token in inline_code(line) {
+                if let Some(reference) = token
+                    .strip_suffix(".md")
+                    .filter(|rest| rest.starts_with("ADR-"))
+                {
+                    let with_suffix = format!("{reference}.md");
+                    if !decision_files.iter().any(|file| file == &with_suffix) {
+                        problems.push(format!(
+                            "docs/{document} cites `{with_suffix}`, which is not in docs/decisions"
+                        ));
+                    }
+                } else if token.ends_with(".yml") || token.ends_with(".yaml") {
+                    let known = workflows.contains(&token)
+                        || files
+                            .iter()
+                            .any(|file| file.ends_with(&format!("/{token}")))
+                        || files.contains(&token);
+                    if !known {
+                        problems.push(format!(
+                            "docs/{document} names `{token}`, which is not a file in the repository"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    problems
+}
+
+fn every_file(directory: &Path, found: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.filter_map(|entry| entry.ok()) {
+        let path = entry.path();
+        let skipped = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| {
+                matches!(
+                    name,
+                    "target" | ".git" | "node_modules" | ".dart_tool" | "build"
+                )
+            })
+            .unwrap_or(false);
+        if skipped {
+            continue;
+        }
+        if path.is_dir() {
+            every_file(&path, found);
+        } else if let Some(name) = path.to_str() {
+            found.push(name.to_string());
+        }
+    }
+}
+
+/// The inline-code spans on a line, without their backticks.
+fn inline_code(line: &str) -> Vec<String> {
+    let mut spans = Vec::new();
+    let mut inside = false;
+    let mut current = std::string::String::new();
+    for character in line.chars() {
+        if character == '`' {
+            if inside && !current.trim().is_empty() {
+                spans.push(current.trim().to_string());
+            }
+            current.clear();
+            inside = !inside;
+            continue;
+        }
+        if inside {
+            current.push(character);
+        }
+    }
+    spans
+}
+
 fn names_a_removal(line: &str) -> bool {
     let lowered = line.to_lowercase();
     [
@@ -214,6 +341,7 @@ fn names_a_removal(line: &str) -> bool {
         "no longer",
         "stopped running",
         " is gone",
+        "used to be",
         " was ",
         " were ",
     ]

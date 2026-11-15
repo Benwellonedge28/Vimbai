@@ -3,7 +3,8 @@
 Where to read what. The repository is the source of truth; this index exists so nobody has to guess which
 document is current. It is checked rather than trusted: `cargo run -p xtask -- docs` fails if a document under `docs/` is
 missing from here, if a path named here does not exist, if a command named here is not a command `xtask` has, or if the
-domain-page count beside it disagrees with `domains/`.
+domain-page count beside it disagrees with `domains/`. Across the whole of `docs/`, a decision cited by its file name and a
+workflow it names by file also have to exist, because a dead reference is a reader's next click.
 
 ## Start here
 

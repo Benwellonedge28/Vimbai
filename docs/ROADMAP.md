@@ -117,7 +117,7 @@ Tasks
 - P0.2 `ADR-002-ledger-authority.md` — ledger-core sole posting authority; domains orchestrate, never post.
 - P0.3 `ADR-003-modular-platform.md` — one crate per business domain; the deliberate divergences table from section 1.
 - P0.4 `ADR-004-api-versioning.md` — versioning, error envelope, pagination, idempotency keys, Book scope header.
-- P0.5 `ADR-005-vimbai-pay-deferred.md` — not built; what would have to be true to build it.
+- P0.5 `ADR-005-vimbai-pay-not-built.md` — not built; what would have to be true to build it.
 - P0.6 `ADR-006-developer-platform-deferred.md` — deferral with trigger conditions.
 - P0.7 `ADR-007-data-storage.md` — recorded only after the decision in section 5, not before.
 - P0.8 `ADR-008-directory-naming.md` — refuses cosmetic crate renames; records the reason.
