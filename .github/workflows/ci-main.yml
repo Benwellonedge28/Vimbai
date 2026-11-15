@@ -12,6 +12,7 @@ on:
       - '**/Dockerfile'
       - 'gateway/go/**'
       - 'shared/**'
+      - 'apps/flutter/**'
   pull_request:
     branches: ["main", "develop"]
     paths:
@@ -23,6 +24,7 @@ on:
       - '**/Dockerfile'
       - 'gateway/go/**'
       - 'shared/**'
+      - 'apps/flutter/**'
 
 jobs:
   detect-changes:

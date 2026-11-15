@@ -421,6 +421,35 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
         "a pinned, agreeing, gating estate has to pass"
     );
 
+    // a gating pipeline that never starts for the app: the job is there and no app change reaches it
+    write(
+        "ci-main.yml",
+        &gating("3.50.0", true).replace(
+            "on:\n  push:\n",
+            "on:\n  push:\n    paths:\n      - 'rust/**'\n      - '**/*.go'\n",
+        ),
+    );
+    let unreachable = workflows::dart_toolchain_problems(&scratch);
+    assert!(
+        unreachable
+            .iter()
+            .any(|problem| problem.contains("never reaches")),
+        "a gating pipeline filtered away from the app went unnoticed: {unreachable:?}"
+    );
+    // and it passes once the filter watches the app
+    write(
+        "ci-main.yml",
+        &gating("3.50.0", true).replace(
+            "on:\n  push:\n",
+            "on:\n  push:\n    paths:\n      - 'apps/flutter/**'\n      - '**/*.go'\n",
+        ),
+    );
+    assert_eq!(
+        workflows::dart_toolchain_problems(&scratch),
+        Vec::<String>::new(),
+        "a pinned, gating pipeline that starts for the app has to pass"
+    );
+
     // the same gate in two files: the pin and the four steps now have two places to drift
     write(
         "mobile-analyze.yml",

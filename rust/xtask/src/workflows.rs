@@ -212,10 +212,131 @@ pub fn dart_toolchain_problems(root: &Path) -> Vec<String> {
                     "{GATING_PIPELINE} never checks Dart formatting, so a formatted codebase is a matter of taste"
                 ));
             }
+            // And it has to start. A gating pipeline that installs the toolchain but declares `paths:` that never match the
+            // app is worse than none: the job exists, is green in the history, and no app change ever reaches it.
+            if let Some(filter) = trigger_paths(gating) {
+                if !filter.iter().any(|path| covers_the_app(path)) {
+                    problems.push(format!(
+                        "{GATING_PIPELINE} installs a Dart toolchain but only starts for {}, so an app change never reaches \
+                         it",
+                        filter.join(", ")
+                    ));
+                }
+            }
         }
     }
     problems
 }
 
+/// The `paths:` entries a workflow declares, in the order they appear, with the quotes stripped.
+///
+/// Only the trigger block is read: a `paths:` inside a step is something else entirely. An empty result means the workflow
+/// declares no path filter at all, which is the strong case - it starts for everything.
+fn trigger_paths(text: &str) -> Option<Vec<String>> {
+    let mut paths = Vec::new();
+    let mut in_trigger = false;
+    let mut reading = false;
+    for line in text.lines() {
+        let trimmed = line.trim_end();
+        match trimmed {
+            "on:" => {
+                in_trigger = true;
+                continue;
+            }
+            "jobs:" => break,
+            _ => {}
+        }
+        if !in_trigger {
+            continue;
+        }
+        let indent = trimmed.len() - trimmed.trim_start().len();
+        if trimmed.trim_start().starts_with("paths:") {
+            reading = true;
+            // `paths: ['a']` on one line, which is legal but unusual; take the bracket contents
+            let rest = trimmed.trim_start().trim_start_matches("paths:").trim();
+            if rest.starts_with('[') {
+                for entry in rest.trim_matches(|c| c == '[' || c == ']').split(',') {
+                    paths.push(
+                        entry
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_string(),
+                    );
+                }
+                reading = false;
+            }
+            continue;
+        }
+        if reading {
+            // the list ends at the first line that is not an item of it
+            let item = trimmed.trim_start();
+            if indent > 0 && (item.starts_with("- ") || item == "-") {
+                paths.push(
+                    item.trim_start_matches("- ")
+                        .trim()
+                        .trim_matches('"')
+                        .trim_matches('\'')
+                        .to_string(),
+                );
+            } else {
+                reading = false;
+            }
+        }
+    }
+    if paths.is_empty() {
+        None
+    } else {
+        Some(paths)
+    }
+}
+
+/// Whether a workflow path filter watches the app: `apps/flutter/**`, the wider `**`, or a prefix above it such as `apps/**`.
+fn covers_the_app(pattern: &str) -> bool {
+    let pattern = pattern.trim();
+    if pattern == "**" || pattern == "**/*" {
+        return true;
+    }
+    let directory = pattern.trim_end_matches("/**").trim_end_matches('*');
+    let directory = directory.trim_end_matches('/');
+    "apps/flutter".starts_with(directory) && !directory.is_empty()
+}
+
 /// The workflow that gates a merge.
 const GATING_PIPELINE: &str = "ci-main.yml";
+
+#[cfg(test)]
+mod trigger_rule_tests {
+    use super::{covers_the_app, trigger_paths};
+
+    #[test]
+    fn path_filters_are_read_from_the_trigger_block_only() {
+        let text = "on:\n  push:\n    paths:\n      - 'rust/**'\n      - \"apps/flutter/**\"\njobs:\n  x:\n    steps:\n      - run: echo\n        paths: nothing here\n";
+        assert_eq!(
+            trigger_paths(text),
+            Some(vec!["rust/**".to_string(), "apps/flutter/**".to_string()])
+        );
+        // no filter at all is the strong case, not an empty one
+        assert_eq!(trigger_paths("on:\n  push:\n\njobs:\n"), None);
+        // and the single-line form
+        assert_eq!(
+            trigger_paths(
+                "on:\n  pull_request:\n    paths: ['apps/flutter/**', 'rust/**']\njobs:\n"
+            ),
+            Some(vec!["apps/flutter/**".to_string(), "rust/**".to_string()])
+        );
+    }
+
+    #[test]
+    fn a_filter_covers_the_app_only_from_above_it() {
+        assert!(covers_the_app("apps/flutter/**"));
+        assert!(covers_the_app("apps/**"));
+        assert!(covers_the_app("**"));
+        assert!(covers_the_app("apps/flutter"));
+        // a sibling, a child, and a string that merely starts the same
+        assert!(!covers_the_app("rust/**"));
+        assert!(!covers_the_app("apps/flutter/lib/**"));
+        assert!(!covers_the_app("apps/other/**"));
+        assert!(!covers_the_app("**/*.go"));
+    }
+}

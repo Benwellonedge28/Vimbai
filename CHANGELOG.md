@@ -11,6 +11,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   other: two copies of one gate is two places for it to drift, so the core pipeline is the one place. The toolchain gate
   still holds the remaining workflow to a pinned version and to running the app's tests, and now reports a second workflow that
   installs the toolchain at all - one gate in two files is two places for it to drift.
+- The gap that deleting the duplicate exposed: `ci-main.yml` declared `paths:` covering Python, Go, Dockerfiles, the gateway and
+  `shared/`, and not the app, so `test-flutter` could never start for an app change - a job that is green in the history and
+  unreachable from the code it tests. `apps/flutter/**` is in both triggers now, and the gate reads the trigger block itself and
+  fails when the workflow that installs the toolchain is filtered away from the app.
 - The app's addresses are checked against the platform's. Every screen builds its URL from one constant, and nothing checked
   that the prefix after it was one the gateway routes, so `/budget` sat in the app after the budget surfaces moved to
   `/budgeting` - reachable on a device only because the local runtime forwards what it does not recognise. `xtask
