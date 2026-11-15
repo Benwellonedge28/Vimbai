@@ -100,12 +100,14 @@ fn a_crate_is_reached_through_the_modules_and_imports_it_is_written_with() {
     // `use budgeting_services::{` wraps over four lines and its items are called as `master_budget::analyze`, and
     // `use invoicing_services::invoices;` names a module after the crate. Reading one line at a time saw neither, so
     // thirty-four addresses documented themselves as unattributed - every budgeting calculation among them.
-    let budgeting = attributed.get("/budgeting").unwrap_or_else(|| {
-        panic!("/budgeting is called through modules of its crate and was not attributed")
+    // `/budgeting` is a routed prefix now, so its catalogue row owns it and this reading no longer sees it; `/forecasts` is
+    // the budgeting surface the gateway does not route, and it reaches its crate the same way.
+    let budgeting = attributed.get("/forecasts").unwrap_or_else(|| {
+        panic!("/forecasts is called through modules of its crate and was not attributed")
     });
     assert_eq!(
         budgeting.domain, "budgeting",
-        "/budgeting is filed under the wrong domain"
+        "/forecasts is filed under the wrong domain"
     );
     let invoicing = attributed.get("/invoices").unwrap_or_else(|| {
         panic!("/invoices names a module after its crate and was not attributed")

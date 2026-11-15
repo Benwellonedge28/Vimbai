@@ -20,7 +20,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 ///   POST /ratio-analysis/ratios      (financial ratios from live statements)
 class FinanceApiService {
   final ApiClient _client = ApiClient();
-  final String _varianceUrl = '${AppConfig.apiUrl}/budget';
+  final String _varianceUrl = '${AppConfig.apiUrl}/budgeting';
   final String _ratiosUrl = '${AppConfig.apiUrl}/ratio-analysis';
 
   final DatabaseHelper _dbHelper = DatabaseHelper();

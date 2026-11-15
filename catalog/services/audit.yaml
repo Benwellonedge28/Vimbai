@@ -33,17 +33,6 @@ services:
   - POST /audit-compliance/reports/generate
   - POST /audit-compliance/trails/analyze
   - POST /audit-compliance/versions/{resource_type}/{resource_id}
-- name: audit-sampling-service
-  domain: audit
-  target: rust/crates/domains/audit
-  port: 8099
-  gateway_path: /audit-sampling
-  auth_required: true
-  engine: rust
-  records: false
-  endpoints:
-  - GET /audit-sampling/
-  - POST /audit-sampling/sample
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit
@@ -66,3 +55,14 @@ services:
   - PUT /audit-engagement/engagements/{}/status
   - PUT /audit-engagement/findings/{finding_id}/remediate
   - PUT /audit-engagement/findings/{}/remediate
+- name: audit-sampling-service
+  domain: audit
+  target: rust/crates/domains/audit
+  port: 8099
+  gateway_path: /audit-sampling
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /audit-sampling/
+  - POST /audit-sampling/sample

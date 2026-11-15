@@ -335,6 +335,7 @@
     "workflow-service": "workflow",
     "zero-based-budgeting-service": "budgeting",
     "zero-trust-data-service": "security",
-    "calculator-catalogue": "calculations"
+    "calculator-catalogue": "calculations",
+    "budgeting-service": "budgeting"
   }
 }

@@ -73,6 +73,14 @@
       "strip_prefix": true
     },
     {
+      "name": "audit-engagement-service",
+      "path": "/audit-engagement",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "audit-sampling-service",
       "path": "/audit-sampling",
       "url": "http://calculation-api:8099",
@@ -177,8 +185,40 @@
       "strip_prefix": false
     },
     {
+      "name": "book-sync-service",
+      "path": "/book-sync",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": true
+    },
+    {
+      "name": "budgeting-service",
+      "path": "/budgeting",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "cache-service",
       "path": "/cache",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "calculation-api",
+      "path": "/calc",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "calculator-catalogue",
+      "path": "/calculators",
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
@@ -608,6 +648,14 @@
       "strip_prefix": false
     },
     {
+      "name": "npo-scale-service",
+      "path": "/npo-scale",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "npo-service",
       "path": "/npo",
       "url": "http://calculation-api:8099",
@@ -752,22 +800,6 @@
     {
       "name": "purchases-ledger-control-service",
       "path": "/purchases-ledger-control",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "calculation-api",
-      "path": "/calc",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "calculator-catalogue",
-      "path": "/calculators",
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
@@ -1071,30 +1103,6 @@
     {
       "name": "zero-trust-data-service",
       "path": "/zero-trust-data",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "book-sync-service",
-      "path": "/book-sync",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": true
-    },
-    {
-      "name": "npo-scale-service",
-      "path": "/npo-scale",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "audit-engagement-service",
-      "path": "/audit-engagement",
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,

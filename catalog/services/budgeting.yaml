@@ -3,7 +3,7 @@ domain:
   name: budgeting
   responsibility: budgets, forecasts and scenario planning
   target: rust/crates/domains/budgeting
-  services: 7
+  services: 8
 services:
 - name: activity-based-budget-service
   domain: budgeting
@@ -40,6 +40,23 @@ services:
   - GET /appropriation-control/check/{}
   - POST /appropriation-control/appropriations
   - POST /appropriation-control/transactions
+- name: budgeting-service
+  domain: budgeting
+  target: rust/crates/domains/budgeting
+  port: 8099
+  gateway_path: /budgeting
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /budgeting/
+  - POST /budgeting/analyze
+  - POST /budgeting/budget
+  - POST /budgeting/forecast
+  - POST /budgeting/monitor
+  - POST /budgeting/prepare
+  - POST /budgeting/rolling-forecast
+  - POST /budgeting/variance-analysis
 - name: rolling-forecast-service
   domain: budgeting
   target: rust/crates/domains/budgeting

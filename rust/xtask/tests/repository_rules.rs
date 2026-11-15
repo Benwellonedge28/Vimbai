@@ -525,8 +525,8 @@ fn the_published_snapshot_is_what_the_engine_answers() {
     assert!(problems.is_ok(), "{problems:?}");
     let snapshot = published::snapshot(&root());
     assert!(
-        snapshot.contains("\"count\": 138"),
-        "the snapshot should describe the 138 routed services"
+        snapshot.contains("\"count\": 139"),
+        "the snapshot should describe the 139 routed services"
     );
 }
 
