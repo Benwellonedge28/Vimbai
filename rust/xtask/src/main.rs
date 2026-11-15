@@ -9,8 +9,8 @@
 use std::process::ExitCode;
 
 use xtask::{
-    boundaries, catalog, domains, flutter, gateway, manifests, openapi, owners, published,
-    reachability, readme,
+    boundaries, catalog, documentation, domains, flutter, gateway, manifests, openapi, owners,
+    published, reachability, readme,
 };
 
 const USAGE: &str = "\
@@ -31,6 +31,8 @@ COMMANDS:
     owners             print which crate answers each prefix the catalogue no longer routes
     domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
+    readme             check the front page's figure and citations against the catalogue and the decisions
+    docs               check the documentation index against the documents, the commands and the counts
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
     boundaries --rules print the rule table as the documentation states it
@@ -177,6 +179,17 @@ fn main() -> ExitCode {
             }
             if problems.is_empty() {
                 println!("readme: the front page agrees with the catalogue and cites decisions that exist");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
+        }
+        "docs" => {
+            let problems = documentation::documentation_index(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!("docs: the index names every document, every path exists, and every count is the count");
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE

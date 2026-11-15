@@ -8,8 +8,8 @@
 use std::path::PathBuf;
 
 use xtask::{
-    boundaries, catalog, crates, manifests, published, reachability, readme, runbook, servers,
-    wiring, workflows,
+    boundaries, catalog, crates, documentation, manifests, published, reachability, readme,
+    runbook, servers, wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -501,6 +501,82 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
         "a gating pipeline that never runs the app's tests went unnoticed: {untested:?}"
     );
 
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
+fn the_documentation_index_names_every_document_and_runs_only_commands_that_exist() {
+    let root = root();
+    assert_eq!(
+        documentation::documentation_index(&root),
+        Vec::<String>::new(),
+        "docs/README.md disagrees with the documents it indexes"
+    );
+    assert!(
+        documentation::documents(&root).len() > 10,
+        "the scan has to find the documentation, not an empty directory"
+    );
+
+    // a documented command has to be a command, read from the dispatch rather than a list beside it
+    let implemented = documentation::implemented_commands(&root);
+    assert!(
+        implemented.contains(&"gateway".to_string()),
+        "the dispatch scan found no commands: {implemented:?}"
+    );
+    assert_eq!(
+        documentation::xtask_commands(
+            "run `cargo run -p xtask -- gateway --addresses` then xtask -- docs.\n"
+        ),
+        vec!["gateway".to_string(), "docs".to_string()],
+        "the commands in a line are read in order, once each"
+    );
+
+    let scratch = std::env::temp_dir().join(format!("vimbai_docs_gate_{}", std::process::id()));
+    std::fs::create_dir_all(scratch.join("docs/domains")).expect("a docs directory");
+    std::fs::create_dir_all(scratch.join("rust/xtask/src")).expect("a tool directory");
+    std::fs::write(
+        scratch.join("rust/xtask/src/main.rs"),
+        "fn main() {\n    match command {\n        \"gateway\" => {}\n        \"docs\" if x => {}\n        _ => {}\n    }\n}\n",
+    )
+    .expect("a dispatch");
+    std::fs::write(scratch.join("docs/domains/ledger.md"), "# a page\n").expect("a page");
+    std::fs::write(
+        scratch.join("docs/README.md"),
+        "One page per domain, 1 pages, in `domains/`. Run `cargo run -p xtask -- gateway`.\n",
+    )
+    .expect("an honest index");
+    assert_eq!(
+        documentation::documentation_index(&scratch),
+        Vec::<String>::new(),
+        "an index that matches the documents and names a real command has to pass"
+    );
+
+    std::fs::write(
+        scratch.join("docs/README.md"),
+        "One page per domain, 3 pages, in `domains/`. Run `cargo run -p xtask -- imaginary`.\n",
+    )
+    .expect("an index that has drifted");
+    let drifted = documentation::documentation_index(&scratch);
+    assert!(
+        drifted.iter().any(|problem| problem.contains("imaginary")),
+        "a documented command that does not exist went unnoticed: {drifted:?}"
+    );
+    assert!(
+        drifted
+            .iter()
+            .any(|problem| problem.contains("3 domain pages")),
+        "a domain-page count that disagrees with `domains/` went unnoticed: {drifted:?}"
+    );
+
+    std::fs::write(scratch.join("docs/forgotten.md"), "# never indexed\n")
+        .expect("an unlisted page");
+    let unlisted = documentation::documentation_index(&scratch);
+    assert!(
+        unlisted
+            .iter()
+            .any(|problem| problem.contains("forgotten.md")),
+        "a document nothing indexes went unnoticed: {unlisted:?}"
+    );
     std::fs::remove_dir_all(&scratch).ok();
 }
 

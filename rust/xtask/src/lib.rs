@@ -8,6 +8,7 @@ pub mod app_calls;
 pub mod boundaries;
 pub mod catalog;
 pub mod crates;
+pub mod documentation;
 pub mod domains;
 pub mod flutter;
 pub mod gateway;

@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The documentation index is checked instead of trusted. `docs/README.md` said it existed so nobody had to guess "which of
+  ten documents is current" while there were eight, called the domain pages twenty-two while `docs/domains/` held 24, left
+  `SYNC.md`, `flutter-structure.md`, `architecture/DUPLICATION.md` and `compliance/financial-integrity.md` out entirely, and
+  pointed at `MIGRATION-MANIFEST.md` and `RUST-MIGRATION-BACKLOG.md` in the wrong directory. `documentation::documentation_index`
+  (`cargo run -p xtask -- docs`) now holds it to four things: every document under `docs/` is named (a page inside a folder the
+  index documents is accounted for by the folder), every path it names exists, every `cargo run -p xtask -- <command>` it tells
+  a reader to run is an arm of the binary's own dispatch, and a figure printed beside the domain pages is the number of pages
+  there are.
 - The front page stopped claiming things the repository decided against. `README.md` described "a decoupled microservices
   architecture", "a Graph Database (Neo4j Community Edition)" used for native traversal, and integration with "payment
   gateways". The platform is one Rust engine behind one Go gateway with 139 routed surfaces and a catalogue that proves it;
