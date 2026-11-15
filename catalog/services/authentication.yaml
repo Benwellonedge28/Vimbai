@@ -8,7 +8,7 @@ services:
 - name: mfa-auth-service
   domain: authentication
   target: rust/crates/platform/identity
-  port: 9003
+  port: 8099
   gateway_path: /mfa-auth
   auth_required: true
   engine: rust

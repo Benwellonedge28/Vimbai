@@ -3,7 +3,7 @@
   "services": [
     {
       "name": "absorption-costing-service",
-      "port": 9003,
+      "port": 8099,
       "path": "/absorption-costing",
       "endpoints": [
         "GET /absorption-costing/",
@@ -150,7 +150,7 @@
     },
     {
       "name": "accounting-standards-service",
-      "port": 8095,
+      "port": 8099,
       "path": "/accounting-standards",
       "endpoints": [
         "GET /accounting-standards/",
@@ -341,7 +341,7 @@
     },
     {
       "name": "automation-engine-service",
-      "port": 8000,
+      "port": 8099,
       "path": "/automation",
       "endpoints": [
         "DELETE /automation/rules/{rule_id}",
@@ -393,7 +393,7 @@
     },
     {
       "name": "bank-feed-service",
-      "port": 8097,
+      "port": 8099,
       "path": "/bank-feed",
       "endpoints": [
         "DELETE /bank-feed/connections/{connection_id}",
@@ -487,7 +487,7 @@
     },
     {
       "name": "basis-apportionment-service",
-      "port": 8022,
+      "port": 8099,
       "path": "/basis-apportionment",
       "endpoints": [
         "GET /basis-apportionment/",
@@ -741,7 +741,7 @@
     },
     {
       "name": "continue-shutdown-decision-service",
-      "port": 8032,
+      "port": 8099,
       "path": "/continue-shutdown-decision",
       "endpoints": [
         "GET /continue-shutdown-decision/",
@@ -970,7 +970,7 @@
     },
     {
       "name": "document-service",
-      "port": 8096,
+      "port": 8099,
       "path": "/document",
       "endpoints": [
         "DELETE /document/documents/{document_id}",
@@ -1207,7 +1207,7 @@
     },
     {
       "name": "general-reserve-service",
-      "port": 8061,
+      "port": 8099,
       "path": "/general-reserve",
       "endpoints": [
         "GET /general-reserve/",
@@ -1461,7 +1461,7 @@
     },
     {
       "name": "mfa-auth-service",
-      "port": 9003,
+      "port": 8099,
       "path": "/mfa-auth",
       "endpoints": [
         "GET /mfa-auth/",
@@ -1633,7 +1633,7 @@
     },
     {
       "name": "ordinary-shares-service",
-      "port": 8090,
+      "port": 8099,
       "path": "/ordinary-shares",
       "endpoints": [
         "GET /ordinary-shares/",
@@ -1647,7 +1647,7 @@
     },
     {
       "name": "overhead-absorption-rate-service",
-      "port": 8092,
+      "port": 8099,
       "path": "/overhead-absorption-rate",
       "endpoints": [
         "GET /overhead-absorption-rate/",
@@ -1836,7 +1836,7 @@
     },
     {
       "name": "pos-integration-service",
-      "port": 8095,
+      "port": 8099,
       "path": "/pos-integration",
       "endpoints": [
         "GET /pos-integration/",
@@ -1862,7 +1862,7 @@
     },
     {
       "name": "preference-shares-service",
-      "port": 8102,
+      "port": 8099,
       "path": "/preference-shares",
       "endpoints": [
         "GET /preference-shares/",
@@ -2061,7 +2061,7 @@
     },
     {
       "name": "retained-profits-service",
-      "port": 8113,
+      "port": 8099,
       "path": "/retained-profits",
       "endpoints": [
         "GET /retained-profits/",

@@ -44,6 +44,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   is an open door in the gateway rather than a routed prefix - a profile that refused to authenticate a caller could not
   serve anything - so it answers on both profiles and was never a member either could withhold. Two tests start the real binary on both profiles: the core one
   answers accounting and refuses the bank feed; the full one answers both.
+- The app can tell which machine it is talking to. `/health` now names the prefixes a profile serves rather than only counting
+  them, and the app reads that door when it opens: a core install shows one line saying the bank feed, budgets, the cash flow
+  statement, document input and live updates are not on this machine, instead of letting a caller tap into a screen that comes
+  back 404. A machine that cannot be asked is treated as serving everything - hiding a working feature behind an unanswered
+  health check would be worse than offering one that is refused in words.
+- The manifest no longer says two things about one address. Fourteen entries stated the container port their retired service
+  used while their url forwarded to the engine; `gateway::port_drift` reports any entry whose stated port is not the port its
+  address names, and the fourteen are corrected.
 - An operator's runbook (`docs/operations/RUNBOOK.md`): the startup line to look for, a bind failure, a worker that exits
   for want of a store, which setting chooses which store, how to test reachability and schema without starting the engine,
   the migration refusal with what to do about it (upgrade - ADR-011 says why), which layer each status code came from, the

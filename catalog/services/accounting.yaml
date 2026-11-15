@@ -124,7 +124,7 @@ services:
 - name: accounting-standards-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8095
+  port: 8099
   gateway_path: /accounting-standards
   auth_required: true
   engine: rust

@@ -123,7 +123,7 @@ services:
 - name: general-reserve-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8061
+  port: 8099
   gateway_path: /general-reserve
   auth_required: true
   engine: rust
@@ -181,7 +181,7 @@ services:
 - name: ordinary-shares-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8090
+  port: 8099
   gateway_path: /ordinary-shares
   auth_required: true
   engine: rust
@@ -197,7 +197,7 @@ services:
 - name: preference-shares-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8102
+  port: 8099
   gateway_path: /preference-shares
   auth_required: true
   engine: rust
@@ -220,7 +220,7 @@ services:
 - name: retained-profits-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8113
+  port: 8099
   gateway_path: /retained-profits
   auth_required: true
   engine: rust

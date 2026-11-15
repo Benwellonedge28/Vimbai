@@ -1060,8 +1060,11 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
     // the profile names is answered by this engine rather than by a Python directory that may or may not be present.
     if let Ok(profile) = std::env::var("VIMBAI_LOCAL_PROFILE") {
         let members = std::env::var("VIMBAI_LOCAL_MEMBERS").unwrap_or_default();
-        let loaded = members.split(',').filter(|name| !name.is_empty()).count();
+        let served: Vec<&str> = members.split(',').filter(|name| !name.is_empty()).collect();
+        let loaded = served.len();
         body["profile"] = json!(profile);
+        // the prefixes by name, not only how many: a client that has to decide what to offer asks which, not how many
+        body["services"] = json!(served);
         body["services_loaded"] = json!(loaded);
         body["services_skipped"] = json!(0);
         body["skipped"] = json!([]);

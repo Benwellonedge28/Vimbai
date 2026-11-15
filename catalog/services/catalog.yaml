@@ -126,7 +126,7 @@ services:
 - name: absorption-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 9003
+  port: 8099
   gateway_path: /absorption-costing
   auth_required: true
   engine: rust
@@ -279,7 +279,7 @@ services:
 - name: accounting-standards-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8095
+  port: 8099
   gateway_path: /accounting-standards
   auth_required: true
   engine: rust
@@ -486,7 +486,7 @@ services:
 - name: automation-engine-service
   domain: automation
   target: rust/crates/domains/automation
-  port: 8000
+  port: 8099
   gateway_path: /automation
   auth_required: true
   engine: rust
@@ -544,7 +544,7 @@ services:
 - name: bank-feed-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8097
+  port: 8099
   gateway_path: /bank-feed
   auth_required: true
   engine: rust
@@ -646,7 +646,7 @@ services:
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8022
+  port: 8099
   gateway_path: /basis-apportionment
   auth_required: true
   engine: rust
@@ -926,7 +926,7 @@ services:
 - name: continue-shutdown-decision-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8032
+  port: 8099
   gateway_path: /continue-shutdown-decision
   auth_required: true
   engine: rust
@@ -1179,7 +1179,7 @@ services:
 - name: document-service
   domain: documents
   target: rust/crates/platform/documents
-  port: 8096
+  port: 8099
   gateway_path: /document
   auth_required: true
   engine: rust
@@ -1444,7 +1444,7 @@ services:
 - name: general-reserve-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8061
+  port: 8099
   gateway_path: /general-reserve
   auth_required: true
   engine: rust
@@ -1728,7 +1728,7 @@ services:
 - name: mfa-auth-service
   domain: authentication
   target: rust/crates/platform/identity
-  port: 9003
+  port: 8099
   gateway_path: /mfa-auth
   auth_required: true
   engine: rust
@@ -1910,7 +1910,7 @@ services:
 - name: ordinary-shares-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8090
+  port: 8099
   gateway_path: /ordinary-shares
   auth_required: true
   engine: rust
@@ -1926,7 +1926,7 @@ services:
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8092
+  port: 8099
   gateway_path: /overhead-absorption-rate
   auth_required: true
   engine: rust
@@ -2133,7 +2133,7 @@ services:
 - name: pos-integration-service
   domain: payments
   target: rust/crates/domains/payments
-  port: 8095
+  port: 8099
   gateway_path: /pos-integration
   auth_required: true
   engine: rust
@@ -2161,7 +2161,7 @@ services:
 - name: preference-shares-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8102
+  port: 8099
   gateway_path: /preference-shares
   auth_required: true
   engine: rust
@@ -2388,7 +2388,7 @@ services:
 - name: retained-profits-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8113
+  port: 8099
   gateway_path: /retained-profits
   auth_required: true
   engine: rust

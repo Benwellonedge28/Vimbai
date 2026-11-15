@@ -8,7 +8,7 @@ services:
 - name: continue-shutdown-decision-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8032
+  port: 8099
   gateway_path: /continue-shutdown-decision
   auth_required: true
   engine: rust

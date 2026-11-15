@@ -27,6 +27,9 @@ directory with a note saying what it is, for a machine that has no Rust toolchai
    other prefix the manifest routes is refused with a 404 that names it, so the profile is what the machine does rather than
    a label on the health door. `/health` reports `services_loaded: 4` and nothing skipped. Signing in is not on the list:
    `/identity` is an open door in the gateway rather than a routed prefix, so it answers on both profiles.
+
+`/health` names the prefixes it serves, not only how many, and the app reads that door when it opens: on a core install it says
+which screens this machine will refuse rather than letting a caller find a 404 that reads like a bug.
 2. *full* - the same process answers every address the gateway routes, all 138 prefixes, because nothing is left out.
    `/health` reports the count it is actually serving rather than a constant, so the two profiles are told apart by what
    they answer and not by a flag nobody checks.

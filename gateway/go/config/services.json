@@ -4,7 +4,7 @@
       "name": "absorption-costing-service",
       "path": "/absorption-costing",
       "url": "http://calculation-api:8099",
-      "port": 9003,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -28,7 +28,7 @@
       "name": "accounting-standards-service",
       "path": "/accounting-standards",
       "url": "http://calculation-api:8099",
-      "port": 8095,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -92,7 +92,7 @@
       "name": "automation-engine-service",
       "path": "/automation",
       "url": "http://calculation-api:8099",
-      "port": 8000,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -116,7 +116,7 @@
       "name": "bank-feed-service",
       "path": "/bank-feed",
       "url": "http://calculation-api:8099",
-      "port": 8097,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -148,7 +148,7 @@
       "name": "basis-apportionment-service",
       "path": "/basis-apportionment",
       "url": "http://calculation-api:8099",
-      "port": 8022,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -252,7 +252,7 @@
       "name": "continue-shutdown-decision-service",
       "path": "/continue-shutdown-decision",
       "url": "http://calculation-api:8099",
-      "port": 8032,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -348,7 +348,7 @@
       "name": "document-service",
       "path": "/document",
       "url": "http://calculation-api:8099",
-      "port": 8096,
+      "port": 8099,
       "auth_required": true
     },
     {
@@ -459,7 +459,7 @@
       "name": "general-reserve-service",
       "path": "/general-reserve",
       "url": "http://calculation-api:8099",
-      "port": 8061,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -579,7 +579,7 @@
       "name": "mfa-auth-service",
       "path": "/mfa-auth",
       "url": "http://calculation-api:8099",
-      "port": 9003,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -618,7 +618,7 @@
       "name": "ordinary-shares-service",
       "path": "/ordinary-shares",
       "url": "http://calculation-api:8099",
-      "port": 8090,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -626,7 +626,7 @@
       "name": "overhead-absorption-rate-service",
       "path": "/overhead-absorption-rate",
       "url": "http://calculation-api:8099",
-      "port": 8092,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -698,14 +698,14 @@
       "name": "pos-integration-service",
       "path": "/pos-integration",
       "url": "http://calculation-api:8099",
-      "port": 8095,
+      "port": 8099,
       "auth_required": true
     },
     {
       "name": "preference-shares-service",
       "path": "/preference-shares",
       "url": "http://calculation-api:8099",
-      "port": 8102,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -817,7 +817,7 @@
       "name": "retained-profits-service",
       "path": "/retained-profits",
       "url": "http://calculation-api:8099",
-      "port": 8113,
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

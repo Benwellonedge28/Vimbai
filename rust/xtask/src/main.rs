@@ -25,6 +25,7 @@ COMMANDS:
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
     gateway --misrouted  print every routed prefix the engine answers while its entry forwards elsewhere
+    gateway --ports  print every entry whose stated port is not the port its address names
     openapi            rewrite contracts/openapi/v1/domains/ from the engine's routes
     openapi --check    report an address with no contract, a contract with no address, or a stale file
     owners             print which crate answers each prefix the catalogue no longer routes
@@ -192,6 +193,18 @@ fn main() -> ExitCode {
             }
             if findings.is_empty() {
                 println!("every prefix the engine answers forwards to the engine");
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        "gateway" if args.iter().any(|argument| argument == "--ports") => {
+            let findings = gateway::port_drift(&root);
+            for finding in &findings {
+                println!("{finding}");
+            }
+            if findings.is_empty() {
+                println!("every entry's stated port is the port it forwards to");
                 ExitCode::SUCCESS
             } else {
                 ExitCode::FAILURE

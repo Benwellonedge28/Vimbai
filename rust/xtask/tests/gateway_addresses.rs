@@ -11,7 +11,7 @@
 //! These read the retired services' last `main.py` out of git, so the check is against what the gateway promised rather
 //! than against what the router happens to say today.
 
-use xtask::gateway::{audit, method_gaps, misrouted, stripped_collisions};
+use xtask::gateway::{audit, method_gaps, misrouted, port_drift, stripped_collisions};
 
 fn root() -> std::path::PathBuf {
     xtask::catalog::repo_root()
@@ -82,5 +82,17 @@ fn no_prefix_that_the_engine_answers_forwards_somewhere_else() {
     assert!(
         findings.is_empty(),
         "these prefixes are answered by the engine and forwarded elsewhere: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_stated_port_is_the_port_the_address_names() {
+    // The manifest carries a port and a url, and only the url is dialled, so the port was free to drift while still reading as
+    // fact. Fourteen entries had: they forwarded to the engine and still said they listened on the container port their
+    // retired service used. The check exists so the file cannot say two things about one address again.
+    let findings = port_drift(&root());
+    assert!(
+        findings.is_empty(),
+        "these entries state a port their address contradicts: {findings:#?}"
     );
 }

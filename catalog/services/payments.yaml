@@ -8,7 +8,7 @@ services:
 - name: pos-integration-service
   domain: payments
   target: rust/crates/domains/payments
-  port: 8095
+  port: 8099
   gateway_path: /pos-integration
   auth_required: true
   engine: rust

@@ -15,6 +15,21 @@ import 'package:vimbai_mobile_client/core/offline/sync_service.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/app/book_services_catalog.dart';
+import 'package:vimbai_mobile_client/app/profile_banner.dart';
+import 'package:vimbai_mobile_client/core/api/machine_profile.dart';
+import 'package:vimbai_mobile_client/core/api/machine_profile_service.dart';
+
+/// The features worth naming when a machine does not serve them, in the words their screens use.
+///
+/// A key is the prefix the app calls; the value is what a person calls it. Only features the app offers through a prefix a
+/// profile can leave out are listed: accounting and book-sync are in every profile, so naming them would be noise.
+const Map<String, String> _profileFeatures = {
+  'banking-integration': 'bank accounts',
+  'budget': 'budgets',
+  'cash-flow-statement': 'the cash flow statement',
+  'multimodal': 'document and photo input',
+  'websocket': 'live updates',
+};
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -51,9 +66,13 @@ class _HomePageState extends State<HomePage> {
     'nonprofit': Icons.volunteer_activism,
   };
 
+  /// What the machine says it serves, so a screen it will refuse is named before it is tapped.
+  MachineProfile _profile = MachineProfile.everything;
+
   @override
   void initState() {
     super.initState();
+    _readProfile();
     SyncService.instance.start(); // offline outbox + cache refresh cycle
     _hydrateBookContext();
     _loadSortMode();
@@ -261,6 +280,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _readProfile() async {
+    final profile = await const MachineProfileService().read();
+    if (mounted) {
+      setState(() => _profile = profile);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -301,6 +327,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              ProfileBanner(profile: _profile, features: _profileFeatures),
               // ------------------------------------------------------
               // Active Book context - every service call below runs
               // inside the selected Book (X-Book-ID via gateway).

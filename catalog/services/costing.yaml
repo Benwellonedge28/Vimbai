@@ -8,7 +8,7 @@ services:
 - name: absorption-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 9003
+  port: 8099
   gateway_path: /absorption-costing
   auth_required: true
   engine: rust
@@ -45,7 +45,7 @@ services:
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8022
+  port: 8099
   gateway_path: /basis-apportionment
   auth_required: true
   engine: rust
@@ -102,7 +102,7 @@ services:
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8092
+  port: 8099
   gateway_path: /overhead-absorption-rate
   auth_required: true
   engine: rust

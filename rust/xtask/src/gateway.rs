@@ -38,6 +38,8 @@ pub struct Entry {
     pub path: String,
     pub url: String,
     pub strip_prefix: bool,
+    /// The port the entry states, kept only so the manifest can be checked against its own addresses.
+    pub port: Option<i64>,
 }
 
 /// A path with its parameters blanked, so `{id}` and `:id` compare equal.
@@ -103,6 +105,7 @@ pub fn entries(root: &Path) -> Vec<Entry> {
             name: string_of(entry, "name"),
             path: string_of(entry, "path"),
             url: string_of(entry, "url"),
+            port: entry.get("port").and_then(Value::as_i64),
             strip_prefix: entry
                 .get("strip_prefix")
                 .and_then(Value::as_bool)
@@ -439,4 +442,34 @@ pub fn misrouted(root: &Path) -> Vec<String> {
 /// Does this entry forward to the engine rather than to a container of its own?
 pub(crate) fn forward_to_engine(entry: &Entry) -> bool {
     forwards_to_engine(entry)
+}
+
+/// Entries whose stated port is not the port their address names.
+///
+/// The manifest carries both, and only the url is ever dialled, so the port was free to drift from it while still being read
+/// as fact by anyone opening the file. Fourteen entries had drifted: they forwarded to the engine on 8099 and still said they
+/// listened on the container port their retired service used. This keeps the two agreeing, which is the least a manifest owes
+/// the person reading it.
+pub fn port_drift(root: &Path) -> Vec<String> {
+    let mut findings = Vec::new();
+    for entry in entries(root) {
+        let Some(stated) = entry.port else {
+            continue;
+        };
+        let Some(named) = entry
+            .url
+            .rsplit(':')
+            .next()
+            .and_then(|end| end.parse::<i64>().ok())
+        else {
+            continue;
+        };
+        if stated != named {
+            findings.push(format!(
+                "{}: says port {stated} and forwards to {}",
+                entry.name, entry.url
+            ));
+        }
+    }
+    findings
 }
