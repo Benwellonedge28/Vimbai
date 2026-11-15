@@ -13,7 +13,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /privacy-admin-dashboard/consent/{consent_id}
+  - DELETE /privacy-admin-dashboard/requests/{request_id}
+  - GET /privacy-admin-dashboard/
+  - GET /privacy-admin-dashboard/consent/{email}
+  - GET /privacy-admin-dashboard/dashboard
+  - GET /privacy-admin-dashboard/health
+  - GET /privacy-admin-dashboard/requests
+  - POST /privacy-admin-dashboard/consent
+  - POST /privacy-admin-dashboard/requests
+  - PUT /privacy-admin-dashboard/requests/{request_id}
 - name: regulatory-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -22,7 +32,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /regulatory-compliance/
+  - GET /regulatory-compliance/dashboard
+  - GET /regulatory-compliance/health
+  - GET /regulatory-compliance/regulations
+  - POST /regulatory-compliance/regulations
+  - POST /regulatory-compliance/regulations/{reg_id}/update
+  - POST /regulatory-compliance/regulations/{}/update
 - name: risk-assessment-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -31,7 +48,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /risk-assessment/risks/{risk_id}
+  - DELETE /risk-assessment/risks/{}
+  - GET /risk-assessment/
+  - GET /risk-assessment/dashboard/{company_id}
+  - GET /risk-assessment/dashboard/{}
+  - GET /risk-assessment/risks/{company_id}
+  - GET /risk-assessment/risks/{}
+  - POST /risk-assessment/risks
+  - PUT /risk-assessment/risks/{risk_id}
+  - PUT /risk-assessment/risks/{}
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -40,4 +67,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sox-compliance/
+  - GET /sox-compliance/controls
+  - GET /sox-compliance/controls/{control_id}/tests
+  - GET /sox-compliance/controls/{}/tests
+  - GET /sox-compliance/dashboard
+  - GET /sox-compliance/deficiencies
+  - GET /sox-compliance/health
+  - POST /sox-compliance/controls
+  - POST /sox-compliance/controls/{control_id}/test
+  - POST /sox-compliance/controls/{}/test
+  - POST /sox-compliance/deficiencies
+  - PUT /sox-compliance/deficiencies/{deficiency_id}
+  - PUT /sox-compliance/deficiencies/{}

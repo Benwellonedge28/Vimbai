@@ -13,4 +13,25 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /document/documents/{document_id}
+  - DELETE /document/documents/{}
+  - GET /document/
+  - GET /document/documents
+  - GET /document/documents/{document_id}
+  - GET /document/documents/{document_id}/download
+  - GET /document/documents/{document_id}/preview
+  - GET /document/documents/{}
+  - GET /document/documents/{}/download
+  - GET /document/documents/{}/preview
+  - GET /document/statistics
+  - POST /document/documents
+  - POST /document/documents/batch
+  - POST /document/documents/batch/link
+  - POST /document/documents/search
+  - POST /document/documents/{document_id}/link
+  - POST /document/documents/{document_id}/ocr
+  - POST /document/documents/{}/link
+  - POST /document/documents/{}/ocr
+  - PUT /document/documents/{document_id}
+  - PUT /document/documents/{}

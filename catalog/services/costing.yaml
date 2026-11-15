@@ -13,7 +13,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /absorption-costing/
+  - GET /absorption-costing/health
+  - GET /absorption-costing/product-costs
+  - GET /absorption-costing/product-costs/{product_id}/latest
+  - GET /absorption-costing/product-costs/{}/latest
+  - GET /absorption-costing/stock-valuation
+  - POST /absorption-costing/cost-plus
+  - POST /absorption-costing/overhead/absorption
+  - POST /absorption-costing/product-costs
+  - POST /absorption-costing/product-costs/calculate
 - name: absorption-costing-statement-service
   domain: costing
   target: rust/crates/domains/costing
@@ -22,7 +32,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /absorption-costing-statement/
+  - GET /absorption-costing-statement/production-cost
+  - GET /absorption-costing-statement/trading-account
+  - GET /absorption-costing-statement/trading-account/{statement_id}
+  - GET /absorption-costing-statement/trading-account/{}
+  - POST /absorption-costing-statement/production-cost/generate
+  - POST /absorption-costing-statement/trading-account/generate
+  - POST /absorption-costing-statement/trading-account/{statement_id}/add-expenses
+  - POST /absorption-costing-statement/trading-account/{}/add-expenses
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
@@ -31,7 +50,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /basis-apportionment/
+  - GET /basis-apportionment/health
+  - GET /basis-apportionment/results
+  - GET /basis-apportionment/rules
+  - POST /basis-apportionment/apportion/cost
+  - POST /basis-apportionment/apportion/floor-area
+  - POST /basis-apportionment/apportion/net-book-value
+  - POST /basis-apportionment/apportion/personnel
+  - POST /basis-apportionment/apportion/replacement-value
+  - POST /basis-apportionment/apportion/requisitions
+  - POST /basis-apportionment/apportion/volume
+  - POST /basis-apportionment/rules/create
 - name: cvp-analysis-service
   domain: costing
   target: rust/crates/domains/costing
@@ -40,7 +71,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cvp-analysis/
+  - GET /cvp-analysis/analyses
+  - GET /cvp-analysis/analyses/{analysis_id}
+  - GET /cvp-analysis/analyses/{}
+  - GET /cvp-analysis/health
+  - POST /cvp-analysis/analyze
+  - POST /cvp-analysis/contribution
+  - POST /cvp-analysis/multi-product
+  - POST /cvp-analysis/quick-analysis
+  - POST /cvp-analysis/target-profit
 - name: job-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -49,7 +90,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /job-costing/
+  - GET /job-costing/jobs/{company_id}
+  - GET /job-costing/jobs/{company_id}/profitability
+  - GET /job-costing/jobs/{}
+  - GET /job-costing/jobs/{}/profitability
+  - POST /job-costing/jobs
+  - POST /job-costing/jobs/{job_id}/costs
+  - POST /job-costing/jobs/{}/costs
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
@@ -58,7 +107,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /overhead-absorption-rate/
+  - GET /overhead-absorption-rate/analyses
+  - GET /overhead-absorption-rate/health
+  - GET /overhead-absorption-rate/rates
+  - POST /overhead-absorption-rate/absorbed-overhead
+  - POST /overhead-absorption-rate/blanket-rate
+  - POST /overhead-absorption-rate/calculate
+  - POST /overhead-absorption-rate/labour-cost-rate
+  - POST /overhead-absorption-rate/labour-hours-rate
+  - POST /overhead-absorption-rate/machine-hours-rate
+  - POST /overhead-absorption-rate/material-cost-rate
+  - POST /overhead-absorption-rate/prime-cost-rate
+  - POST /overhead-absorption-rate/unit-rate
 - name: process-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -67,7 +129,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /process-costing/
+  - GET /process-costing/breakdown/{company_id}/{calc_id}
+  - GET /process-costing/breakdown/{}/{}
+  - GET /process-costing/calculations/{company_id}
+  - GET /process-costing/calculations/{}
+  - GET /process-costing/summary/{company_id}
+  - GET /process-costing/summary/{}
+  - POST /process-costing/calculate
 - name: product-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -76,7 +146,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /product-costing/
+  - GET /product-costing/breakdown/{company_id}/{calc_id}
+  - GET /product-costing/breakdown/{}/{}
+  - GET /product-costing/calculations/{company_id}
+  - GET /product-costing/calculations/{}
+  - GET /product-costing/summary/{company_id}
+  - GET /product-costing/summary/{}
+  - POST /product-costing/calculate
 - name: selling-price-reduction-service
   domain: costing
   target: rust/crates/domains/costing
@@ -85,4 +163,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /selling-price-reduction/
+  - GET /selling-price-reduction/analyses
+  - GET /selling-price-reduction/health
+  - POST /selling-price-reduction/analyze
+  - POST /selling-price-reduction/discount-analysis

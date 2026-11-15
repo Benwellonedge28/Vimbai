@@ -13,7 +13,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-management/
+  - GET /cash-management/accounts
+  - GET /cash-management/health
+  - GET /cash-management/liquidity
+  - GET /cash-management/transfers
+  - POST /cash-management/accounts
+  - POST /cash-management/liquidity
+  - POST /cash-management/transfers
 - name: cash-optimization-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -22,7 +30,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-optimization/
+  - GET /cash-optimization/accounts/{company_id}
+  - GET /cash-optimization/accounts/{}
+  - GET /cash-optimization/suggestions/{company_id}
+  - GET /cash-optimization/suggestions/{}
+  - POST /cash-optimization/accounts
+  - POST /cash-optimization/optimize/{company_id}
+  - POST /cash-optimization/optimize/{}
 - name: debt-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -31,7 +47,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /debt-management/
+  - GET /debt-management/health
+  - GET /debt-management/loans
+  - GET /debt-management/summary
+  - POST /debt-management/loans
+  - POST /debt-management/loans/{loan_id}/schedule
+  - POST /debt-management/loans/{}/schedule
 - name: foreign-exchange-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -40,7 +63,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /foreign-exchange/
+  - GET /foreign-exchange/health
+  - GET /foreign-exchange/rates
+  - GET /foreign-exchange/rates/{currency}
+  - GET /foreign-exchange/rates/{}
+  - POST /foreign-exchange/convert
+  - POST /foreign-exchange/hedge
 - name: petty-cash-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -49,7 +79,36 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /petty-cash/
+  - GET /petty-cash/funds
+  - GET /petty-cash/funds/{fund_id}
+  - GET /petty-cash/funds/{fund_id}/balance
+  - GET /petty-cash/funds/{fund_id}/summary
+  - GET /petty-cash/funds/{}
+  - GET /petty-cash/funds/{}/balance
+  - GET /petty-cash/funds/{}/summary
+  - GET /petty-cash/replenishments
+  - GET /petty-cash/reports/cash-position
+  - GET /petty-cash/reports/category-summary
+  - GET /petty-cash/reports/fund-report/{fund_id}
+  - GET /petty-cash/reports/fund-report/{}
+  - GET /petty-cash/transactions
+  - GET /petty-cash/transactions/{transaction_id}
+  - GET /petty-cash/transactions/{}
+  - GET /petty-cash/vouchers
+  - POST /petty-cash/funds
+  - POST /petty-cash/funds/{fund_id}/close
+  - POST /petty-cash/funds/{}/close
+  - POST /petty-cash/replenishments
+  - POST /petty-cash/transactions
+  - POST /petty-cash/vouchers
+  - PUT /petty-cash/funds/{fund_id}
+  - PUT /petty-cash/funds/{}
+  - PUT /petty-cash/replenishments/{replenishment_id}/approve
+  - PUT /petty-cash/replenishments/{}/approve
+  - PUT /petty-cash/vouchers/{voucher_id}/approve
+  - PUT /petty-cash/vouchers/{}/approve
 - name: sovereign-treasury-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -58,7 +117,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sovereign-treasury/
+  - GET /sovereign-treasury/accounts/{country}
+  - GET /sovereign-treasury/accounts/{}
+  - GET /sovereign-treasury/debt/{country}
+  - GET /sovereign-treasury/debt/{}
+  - GET /sovereign-treasury/fiscal-position/{country}
+  - GET /sovereign-treasury/fiscal-position/{}
+  - POST /sovereign-treasury/accounts
+  - POST /sovereign-treasury/debt
+  - POST /sovereign-treasury/fiscal-position
 - name: treasury-analytics-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -67,7 +136,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-analytics/
+  - GET /treasury-analytics/health
+  - GET /treasury-analytics/kpi/{company_id}
+  - GET /treasury-analytics/kpi/{}
+  - POST /treasury-analytics/analyze
 - name: treasury-compliance-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -76,7 +150,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-compliance/
+  - GET /treasury-compliance/checks/{company_id}
+  - GET /treasury-compliance/checks/{}
+  - GET /treasury-compliance/health
+  - GET /treasury-compliance/report/{company_id}
+  - GET /treasury-compliance/report/{}
+  - PUT /treasury-compliance/checks/{check_id}/status
+  - PUT /treasury-compliance/checks/{}/status
 - name: treasury-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -85,7 +167,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-management/
+  - GET /treasury-management/cashflows/{company_id}
+  - GET /treasury-management/cashflows/{}
+  - GET /treasury-management/investment-options
+  - GET /treasury-management/position/{company_id}
+  - GET /treasury-management/position/{}
+  - POST /treasury-management/cashflows
+  - POST /treasury-management/forecast/{company_id}
+  - POST /treasury-management/forecast/{}
+  - PUT /treasury-management/position/{company_id}
+  - PUT /treasury-management/position/{}
 - name: treasury-policy-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -94,7 +187,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-policy/
+  - GET /treasury-policy/compliance
+  - GET /treasury-policy/health
+  - GET /treasury-policy/policies
+  - GET /treasury-policy/policies/{policy_id}/limits
+  - GET /treasury-policy/policies/{}/limits
+  - POST /treasury-policy/limits/{limit_id}/check
+  - POST /treasury-policy/limits/{}/check
+  - POST /treasury-policy/policies
+  - POST /treasury-policy/policies/{policy_id}/limits
+  - POST /treasury-policy/policies/{}/limits
 - name: treasury-reporting-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -103,7 +207,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-reporting/
+  - GET /treasury-reporting/health
+  - GET /treasury-reporting/reports
+  - GET /treasury-reporting/reports/{report_id}
+  - GET /treasury-reporting/reports/{}
+  - POST /treasury-reporting/reports/cash-position
+  - POST /treasury-reporting/reports/debt-portfolio
+  - POST /treasury-reporting/reports/fx-exposure
 - name: treasury-risk-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -112,4 +224,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-risk/
+  - GET /treasury-risk/dashboard
+  - GET /treasury-risk/exposures
+  - GET /treasury-risk/health
+  - GET /treasury-risk/scenarios
+  - GET /treasury-risk/stress-results
+  - GET /treasury-risk/var
+  - POST /treasury-risk/exposures
+  - POST /treasury-risk/scenarios
+  - POST /treasury-risk/scenarios/{scenario_id}/run
+  - POST /treasury-risk/scenarios/{}/run
+  - POST /treasury-risk/var

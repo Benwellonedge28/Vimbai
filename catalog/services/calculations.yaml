@@ -3,8 +3,28 @@ domain:
   name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
-  services: 2
+  services: 3
 services:
+- name: calculation-api
+  domain: calculations
+  target: rust/crates/application
+  port: 8099
+  gateway_path: /calc
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - POST /calc/{}
+- name: calculator-catalogue
+  domain: calculations
+  target: rust/crates/application
+  port: 8099
+  gateway_path: /calculators
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /calculators
 - name: realtime-calculation-engine
   domain: calculations
   target: rust/crates/application
@@ -13,13 +33,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
-- name: calculation-api
-  domain: calculations
-  target: rust/crates/application
-  port: 8099
-  gateway_path: /calcs
-  auth_required: true
-  engine: rust
-  records: false
-  endpoints: []
+  endpoints:
+  - GET /realtime-calculation/
+  - POST /realtime-calculation/amortize
+  - POST /realtime-calculation/depreciation
+  - POST /realtime-calculation/irr
+  - POST /realtime-calculation/npv

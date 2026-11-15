@@ -3,7 +3,7 @@
     {
       "name": "absorption-costing-service",
       "path": "/absorption-costing",
-      "url": "http://localhost:9003",
+      "url": "http://calculation-api:8099",
       "port": 9003,
       "auth_required": true,
       "strip_prefix": false
@@ -27,7 +27,7 @@
     {
       "name": "accounting-standards-service",
       "path": "/accounting-standards",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8095,
       "auth_required": true,
       "strip_prefix": false
@@ -91,7 +91,7 @@
     {
       "name": "automation-engine-service",
       "path": "/automation",
-      "url": "http://localhost:9008",
+      "url": "http://calculation-api:8099",
       "port": 8000,
       "auth_required": true,
       "strip_prefix": false
@@ -147,7 +147,7 @@
     {
       "name": "basis-apportionment-service",
       "path": "/basis-apportionment",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8022,
       "auth_required": true,
       "strip_prefix": false
@@ -251,7 +251,7 @@
     {
       "name": "continue-shutdown-decision-service",
       "path": "/continue-shutdown-decision",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8032,
       "auth_required": true,
       "strip_prefix": false
@@ -347,7 +347,7 @@
     {
       "name": "document-service",
       "path": "/document",
-      "url": "http://localhost:8096",
+      "url": "http://calculation-api:8099",
       "port": 8096,
       "auth_required": true
     },
@@ -458,7 +458,7 @@
     {
       "name": "general-reserve-service",
       "path": "/general-reserve",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8061,
       "auth_required": true,
       "strip_prefix": false
@@ -578,7 +578,7 @@
     {
       "name": "mfa-auth-service",
       "path": "/mfa-auth",
-      "url": "http://localhost:9003",
+      "url": "http://calculation-api:8099",
       "port": 9003,
       "auth_required": true,
       "strip_prefix": false
@@ -617,7 +617,7 @@
     {
       "name": "ordinary-shares-service",
       "path": "/ordinary-shares",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8090,
       "auth_required": true,
       "strip_prefix": false
@@ -625,7 +625,7 @@
     {
       "name": "overhead-absorption-rate-service",
       "path": "/overhead-absorption-rate",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8092,
       "auth_required": true,
       "strip_prefix": false
@@ -697,14 +697,14 @@
     {
       "name": "pos-integration-service",
       "path": "/pos-integration",
-      "url": "http://localhost:8095",
+      "url": "http://calculation-api:8099",
       "port": 8095,
       "auth_required": true
     },
     {
       "name": "preference-shares-service",
       "path": "/preference-shares",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8102,
       "auth_required": true,
       "strip_prefix": false
@@ -758,6 +758,22 @@
       "strip_prefix": false
     },
     {
+      "name": "calculation-api",
+      "path": "/calc",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "calculator-catalogue",
+      "path": "/calculators",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
       "name": "realtime-calculation-engine",
       "path": "/realtime-calculation",
       "url": "http://calculation-api:8099",
@@ -800,7 +816,7 @@
     {
       "name": "retained-profits-service",
       "path": "/retained-profits",
-      "url": "http://localhost:9011",
+      "url": "http://calculation-api:8099",
       "port": 8113,
       "auth_required": true,
       "strip_prefix": false
@@ -1079,14 +1095,6 @@
     {
       "name": "audit-engagement-service",
       "path": "/audit-engagement",
-      "url": "http://calculation-api:8099",
-      "port": 8099,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "calculation-api",
-      "path": "/calcs",
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,

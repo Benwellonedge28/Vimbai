@@ -13,6 +13,7 @@ pub mod gateway;
 pub mod manifests;
 pub mod openapi;
 pub mod owners;
+pub mod published;
 pub mod reachability;
 pub mod runbook;
 pub mod servers;

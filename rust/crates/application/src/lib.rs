@@ -7,7 +7,11 @@
 //!
 //! *calculation-api* lived here too, and it published no endpoints of its own: it was the doorway onto this library, and
 //! the figures it fronted are the ones above. It is named here because a service the catalogue calls served must be
-//! named by the crate that houses it - and so that its purpose is recorded rather than counted as forgotten.
+//! named by the crate that houses it - and so that its purpose is recorded rather than counted as forgotten. It is routed
+//! again, on `/calc`, which runs a calculator by name.
+//!
+//! *calculator-catalogue* is the same library's registry, published on `/calculators`: the list of names a caller may run,
+//! built from the same table the runner reads, so the list and the runner cannot disagree about what exists.
 
 #![forbid(unsafe_code)]
 

@@ -13,7 +13,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /data-warehouse/
+  - GET /data-warehouse/dimensions
+  - GET /data-warehouse/etl
+  - GET /data-warehouse/facts
+  - GET /data-warehouse/health
+  - POST /data-warehouse/dimensions
+  - POST /data-warehouse/etl
+  - POST /data-warehouse/facts
+  - POST /data-warehouse/query
 - name: encrypted-backup-service
   domain: data
   target: rust/crates/domains/data
@@ -22,7 +31,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /encrypted-backup/backups/{backup_id}
+  - GET /encrypted-backup/
+  - GET /encrypted-backup/backups
+  - GET /encrypted-backup/backups/{backup_id}
+  - GET /encrypted-backup/health
+  - GET /encrypted-backup/restores
+  - POST /encrypted-backup/backup
+  - POST /encrypted-backup/backup/{backup_id}/restore
+  - POST /encrypted-backup/backup/{}/restore
 - name: etl-service
   domain: data
   target: rust/crates/domains/data
@@ -31,4 +49,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /etl/pipelines/{pipeline_id}
+  - GET /etl
+  - GET /etl/
+  - GET /etl/health
+  - GET /etl/pipelines
+  - GET /etl/pipelines/{pipeline_id}
+  - POST /etl
+  - POST /etl/pipelines
+  - POST /etl/pipelines/{pipeline_id}/run

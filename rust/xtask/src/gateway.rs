@@ -411,3 +411,32 @@ pub fn stripped_collisions(root: &Path) -> BTreeMap<String, Vec<String>> {
 pub fn root() -> std::path::PathBuf {
     repo_root()
 }
+
+/// Entries the engine answers, whose manifest still forwards them to a port nothing listens on.
+///
+/// The gateway's own manifest names the destination, and after the retirement the only destination left is the engine. When
+/// a service was retired its entry kept the address a client calls - which is the point, no client changed - but fifteen of
+/// them kept their old container port as well, so the prefix was answered by the engine and forwarded to a dead socket. A
+/// caller saw a 502 from a door the manifest says is open.
+pub fn misrouted(root: &Path) -> Vec<String> {
+    let answered = engine_routes(root);
+    let mut findings = Vec::new();
+    for entry in entries(root) {
+        let prefix = entry.path.trim_end_matches('/');
+        let reaches_engine = answered
+            .iter()
+            .any(|path| path == prefix || path.starts_with(&format!("{prefix}/")));
+        if reaches_engine && !forward_to_engine(&entry) {
+            findings.push(format!(
+                "{}: {} is answered by the engine but the manifest forwards it to {}",
+                entry.name, entry.path, entry.url
+            ));
+        }
+    }
+    findings
+}
+
+/// Does this entry forward to the engine rather than to a container of its own?
+pub(crate) fn forward_to_engine(entry: &Entry) -> bool {
+    forwards_to_engine(entry)
+}

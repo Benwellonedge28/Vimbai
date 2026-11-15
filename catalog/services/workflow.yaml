@@ -13,7 +13,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /distributed-workflow-orchestration/workflows/{workflow_id}
+  - GET /distributed-workflow-orchestration/
+  - GET /distributed-workflow-orchestration/health
+  - GET /distributed-workflow-orchestration/workflows
+  - GET /distributed-workflow-orchestration/workflows/{workflow_id}
+  - POST /distributed-workflow-orchestration/workflows
+  - POST /distributed-workflow-orchestration/workflows/{workflow_id}/compensate
+  - POST /distributed-workflow-orchestration/workflows/{workflow_id}/execute
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow
@@ -22,4 +30,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /workflow/workflow-definitions/{definition_id}
+  - DELETE /workflow/workflow-instances/{instance_id}
+  - GET /workflow/
+  - GET /workflow/workflow-definitions/
+  - GET /workflow/workflow-definitions/{definition_id}
+  - GET /workflow/workflow-instances/{instance_id}
+  - POST /workflow/workflow-definitions/
+  - POST /workflow/workflow-instances/
+  - POST /workflow/{}/notify
+  - PUT /workflow/workflow-definitions/{definition_id}
+  - PUT /workflow/workflow-instances/{instance_id}

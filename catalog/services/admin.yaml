@@ -13,4 +13,31 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /admin/feature-requests/{request_id}
+  - DELETE /admin/rollout-schedules/{schedule_id}
+  - GET /admin/
+  - GET /admin/audit-logs
+  - GET /admin/config
+  - GET /admin/config/{key}
+  - GET /admin/dashboard/stats
+  - GET /admin/feature-requests
+  - GET /admin/feature-requests/{request_id}
+  - GET /admin/features
+  - GET /admin/features/categories
+  - GET /admin/features/{feature_id}
+  - GET /admin/features/{feature_id}/dependencies
+  - GET /admin/organizations/{organization_id}/features
+  - GET /admin/rollout-schedules
+  - GET /admin/services/health
+  - POST /admin/audit-logs
+  - POST /admin/feature-requests
+  - POST /admin/features/{feature_id}/disable
+  - POST /admin/features/{feature_id}/enable
+  - POST /admin/organizations/{organization_id}/features/{feature_id}/disable
+  - POST /admin/organizations/{organization_id}/features/{feature_id}/enable
+  - POST /admin/rollout-schedules
+  - PUT /admin/config/{key}
+  - PUT /admin/feature-requests/{request_id}/review
+  - PUT /admin/features/{feature_id}
+  - PUT /admin/organizations/{organization_id}/features/{feature_id}

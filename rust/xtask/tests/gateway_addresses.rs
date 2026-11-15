@@ -11,7 +11,7 @@
 //! These read the retired services' last `main.py` out of git, so the check is against what the gateway promised rather
 //! than against what the router happens to say today.
 
-use xtask::gateway::{audit, method_gaps, stripped_collisions};
+use xtask::gateway::{audit, method_gaps, misrouted, stripped_collisions};
 
 fn root() -> std::path::PathBuf {
     xtask::catalog::repo_root()
@@ -67,4 +67,37 @@ fn the_scan_reads_the_engine_it_claims_to_read() {
     );
     assert!(routes.contains("/accounting/accounts"));
     assert!(routes.contains("/records/accounting/journal-entries"));
+}
+
+#[test]
+fn no_prefix_that_the_engine_answers_forwards_somewhere_else() {
+    // Fifteen entries kept the container port their retired service used to listen on, so the engine answered the prefix and
+    // the gateway sent the call to a dead socket: a 502 from a door the manifest says is open. Thirteen were repointed at the
+    // engine outright. Two are listed here because the engine answers part of what they published and not all of it, so
+    // repointing them now would turn a 502 into a 404 on the addresses still missing. The list is a to-do, not a tolerance:
+    // a third name fails this test, and fixing one of these two fails it as well, so the list cannot quietly rot.
+    const PARTLY_SERVED: [(&str, &str); 2] = [
+        (
+            "admin-service",
+            "25 addresses the engine does not answer: the feature-flag surface - features, their dependencies, rollout \
+             schedules and feature requests",
+        ),
+        (
+            "bank-feed-service",
+            "15 addresses the engine does not answer: provider webhooks, feed rules and bank connections",
+        ),
+    ];
+    let findings = misrouted(&root());
+    let names: Vec<String> = findings
+        .iter()
+        .map(|finding| finding.split(':').next().unwrap_or_default().to_string())
+        .collect();
+    let expected: Vec<String> = PARTLY_SERVED
+        .iter()
+        .map(|(name, _)| name.to_string())
+        .collect();
+    assert_eq!(
+        names, expected,
+        "these prefixes need repointing, or the list above needs updating: {findings:#?}"
+    );
 }

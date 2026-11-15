@@ -13,4 +13,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /performance-benchmarking/
+  - GET /performance-benchmarking/health
+  - GET /performance-benchmarking/metrics
+  - GET /performance-benchmarking/peer-comparisons/{metric_id}
+  - GET /performance-benchmarking/results
+  - POST /performance-benchmarking/benchmark
+  - POST /performance-benchmarking/metrics
+  - POST /performance-benchmarking/peer-comparisons

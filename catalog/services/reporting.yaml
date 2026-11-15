@@ -13,7 +13,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /dashboard
+  - GET /dashboard/
+  - GET /dashboard/health
+  - GET /dashboard/stats
+  - POST /dashboard/custom
+  - POST /dashboard/load
 - name: report-automation-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -22,7 +28,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /report-automation/
+  - GET /report-automation/health
+  - GET /report-automation/reports
+  - GET /report-automation/schedules
+  - GET /report-automation/templates
+  - POST /report-automation/schedules
+  - POST /report-automation/schedules/{schedule_id}/run
+  - POST /report-automation/schedules/{}/run
+  - POST /report-automation/templates
+  - PUT /report-automation/schedules/{schedule_id}/pause
+  - PUT /report-automation/schedules/{schedule_id}/resume
+  - PUT /report-automation/schedules/{}/pause
+  - PUT /report-automation/schedules/{}/resume
 - name: report-distribution-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -31,7 +50,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /report-distribution/
+  - GET /report-distribution/health
+  - GET /report-distribution/lists
+  - GET /report-distribution/logs
+  - GET /report-distribution/subscriptions
+  - POST /report-distribution/lists
+  - POST /report-distribution/subscriptions
+  - POST /report-distribution/subscriptions/{sub_id}/distribute
 - name: reporting-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -40,4 +67,7 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /reporting/
+  - POST /reporting/generate
+  - POST /reporting/schedule

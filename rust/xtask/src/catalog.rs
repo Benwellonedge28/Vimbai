@@ -116,34 +116,48 @@ pub fn ported_names(root: &Path) -> Vec<String> {
         .collect()
 }
 
-/// The endpoints a service still declares itself. Every service is Rust now, so this is empty; it stays because a
-/// catalogue row should say how a service is reached, and the day a service keeps its own app this reads it.
-fn endpoints_of(root: &Path, name: &str) -> Vec<String> {
-    let path = root.join(name).join("main.py");
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    // In the order the service declares them, which is how a reader expects to find them: grouping by method put every
-    // GET above every POST and made the list look like a different service.
-    let mut found: Vec<String> = Vec::new();
-    let mut at = 0;
-    while let Some(offset) = text[at..].find("@app.") {
-        let start = at + offset + "@app.".len();
-        let rest = &text[start..];
-        let Some(open) = rest.find('(') else { break };
-        let method = rest[..open].to_ascii_uppercase();
-        let tail = &rest[open + 1..];
-        let Some(quote) = tail.find('"') else { break };
-        if let Some(close) = tail[quote + 1..].find('"') {
-            found.push(format!("{method} {}", &tail[quote + 1..quote + 1 + close]));
-        }
-        at = start;
-    }
-    found
-}
-
 /// One row per routed service, in the order the gateway lists them.
 pub fn rows(root: &Path) -> Vec<Row> {
+    let mut rows = rows_without_endpoints(root);
+    let published = crate::published::per_service(root);
+    for row in rows.iter_mut() {
+        row.endpoints = published
+            .get(&row.name)
+            .map(|addresses| addresses.iter().map(|address| address.written()).collect())
+            .unwrap_or_default();
+    }
+    rows
+}
+
+/// The same rows before any address is attached: what the gateway routes and who owns it.
+pub fn rows_without_endpoints(root: &Path) -> Vec<Row> {
+    // where each prefix's arithmetic runs, asked of the engine's own route table: a prefix the engine answers is Rust,
+    // whether the engine answers it under the prefix or - for a prefix-stripping entry - at the bare path the entry
+    // forwards
+    let answered = crate::gateway::engine_method_routes(root);
+    let engine_serves = |service: &Value| -> bool {
+        let prefix = service["path"]
+            .as_str()
+            .unwrap_or_default()
+            .trim_end_matches('/')
+            .to_string();
+        let under_prefix = answered
+            .iter()
+            .any(|(_, path)| path == &prefix || path.starts_with(&format!("{prefix}/")));
+        let strips = service["strip_prefix"].as_bool().unwrap_or(false);
+        if under_prefix {
+            return true;
+        }
+        strips
+            && crate::gateway::published(root, service["name"].as_str().unwrap_or_default())
+                .iter()
+                .any(|(_, path)| {
+                    answered
+                        .iter()
+                        .any(|(_, answered_path)| answered_path == &crate::gateway::shape(path))
+                })
+    };
+
     let owners = ownership(root);
     let domain_of = owners["services"].as_object().cloned().unwrap_or_default();
     let targets: Vec<(String, String)> = owners["domains"]
@@ -160,7 +174,6 @@ pub fn rows(root: &Path) -> Vec<Row> {
                 .collect()
         })
         .unwrap_or_default();
-    let ported = ported_names(root);
 
     routed(root)
         .iter()
@@ -180,8 +193,11 @@ pub fn rows(root: &Path) -> Vec<Row> {
                 // not a per-service fact any more: the engine records for every service, and the flag is kept only so the
                 // catalogue file keeps its shape for readers that already parse it
                 records: false,
-                endpoints: endpoints_of(root, &name),
-                engine: if ported.contains(&name) {
+                endpoints: Vec::new(),
+                // where the arithmetic runs is a fact about the code, not about the container port an entry happens to
+                // name: the engine answers this prefix, so its arithmetic is Rust even where the entry has not been
+                // repointed yet
+                engine: if engine_serves(service) {
                     "rust".to_string()
                 } else {
                     "python".to_string()

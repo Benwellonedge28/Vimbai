@@ -8,7 +8,7 @@
 
 use std::collections::BTreeSet;
 
-use xtask::{openapi, owners};
+use xtask::{catalog, openapi, owners};
 
 fn root() -> std::path::PathBuf {
     xtask::catalog::repo_root()
@@ -135,15 +135,40 @@ fn a_handler_is_attributed_from_its_own_body_and_not_the_file_around_it() {
 }
 
 #[test]
-fn a_door_the_engine_answers_itself_is_owned_by_the_page_that_claims_it() {
-    let attributed = owners::attributed(&root());
-    // The calculator catalogue is the engine's own registry: no domain crate answers it, and it used to sit in the
-    // unattributed bucket. It belongs to the page whose address table claims it.
-    let calculators = attributed
-        .get("/calculators")
-        .unwrap_or_else(|| panic!("/calculators was not attributed at all"));
-    assert_eq!(
-        calculators.domain, "calculators",
-        "/calculators is the calculator catalogue and belongs to the calculators page"
+fn the_calculator_doors_are_routed_and_filed_under_their_page() {
+    // The calculator catalogue is the engine's own registry: no domain crate answers it. It used to be attributed by the
+    // page whose address table claimed the prefix, because nothing routed it. It is routed now - `/calc` runs a calculator
+    // and `/calculators` lists them - so it is owned by a catalogue row like every other prefix, and the page that owns the
+    // domain has to name both doors or the gate cannot find them.
+    let rows = catalog::rows(&root());
+    let run = rows
+        .iter()
+        .find(|row| row.name == "calculation-api")
+        .unwrap_or_else(|| panic!("calculation-api is not routed"));
+    assert_eq!(run.gateway_path, "/calc");
+    assert!(
+        run.endpoints
+            .iter()
+            .any(|address| address.starts_with("POST /calc/")),
+        "the runner publishes no address: {:?}",
+        run.endpoints
     );
+    let catalogue = rows
+        .iter()
+        .find(|row| row.name == "calculator-catalogue")
+        .unwrap_or_else(|| panic!("the catalogue door is not routed"));
+    assert_eq!(catalogue.gateway_path, "/calculators");
+    assert_eq!(
+        catalogue.endpoints,
+        vec!["GET /calculators".to_string()],
+        "the catalogue door should answer the listing and nothing else"
+    );
+    let page =
+        std::fs::read_to_string(root().join("docs/domains/ledger.md")).expect("the ledger page");
+    for door in ["/calc", "/calculators"] {
+        assert!(
+            page.contains(door),
+            "the page that owns the calculations domain does not name {door}"
+        );
+    }
 }

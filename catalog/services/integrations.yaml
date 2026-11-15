@@ -13,4 +13,7 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /graphql/
+  - GET /graphql/health
+  - POST /graphql

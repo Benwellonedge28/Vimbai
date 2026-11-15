@@ -13,7 +13,25 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /family-community-group/
+  - GET /family-community-group/groups
+  - GET /family-community-group/groups/{group_id}
+  - GET /family-community-group/groups/{group_id}/contributions
+  - GET /family-community-group/groups/{group_id}/members
+  - GET /family-community-group/groups/{group_id}/payouts
+  - GET /family-community-group/groups/{}
+  - GET /family-community-group/groups/{}/contributions
+  - GET /family-community-group/groups/{}/members
+  - GET /family-community-group/groups/{}/payouts
+  - GET /family-community-group/health
+  - POST /family-community-group/groups
+  - POST /family-community-group/groups/{group_id}/advance-cycle
+  - POST /family-community-group/groups/{group_id}/contribute
+  - POST /family-community-group/groups/{group_id}/members
+  - POST /family-community-group/groups/{}/advance-cycle
+  - POST /family-community-group/groups/{}/contribute
+  - POST /family-community-group/groups/{}/members
 - name: partnership-agreement-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -22,7 +40,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-agreement/
+  - GET /partnership-agreement/agreements
+  - GET /partnership-agreement/agreements/{agreement_id}
+  - GET /partnership-agreement/agreements/{agreement_id}/summary
+  - GET /partnership-agreement/agreements/{}
+  - GET /partnership-agreement/agreements/{}/summary
+  - GET /partnership-agreement/health
+  - POST /partnership-agreement/agreements
+  - POST /partnership-agreement/agreements/{agreement_id}/partners/add
+  - POST /partnership-agreement/agreements/{}/partners/add
+  - PUT /partnership-agreement/agreements/{agreement_id}
+  - PUT /partnership-agreement/agreements/{}
 - name: partnership-changes-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -31,7 +61,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-changes/
+  - GET /partnership-changes/changes
+  - GET /partnership-changes/health
+  - POST /partnership-changes/changes/admission
+  - POST /partnership-changes/changes/death
+  - POST /partnership-changes/changes/retirement
+  - POST /partnership-changes/changes/{change_id}/settle
+  - POST /partnership-changes/changes/{}/settle
 - name: partnership-dissolution-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -40,7 +78,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-dissolution/
+  - GET /partnership-dissolution/dissolutions
+  - GET /partnership-dissolution/dissolutions/{dissolution_id}
+  - GET /partnership-dissolution/dissolutions/{}
+  - GET /partnership-dissolution/health
+  - POST /partnership-dissolution/dissolve
 - name: partnership-revaluation-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -49,4 +93,10 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-revaluation/
+  - GET /partnership-revaluation/health
+  - GET /partnership-revaluation/revaluations
+  - GET /partnership-revaluation/revaluations/{revaluation_id}
+  - GET /partnership-revaluation/revaluations/{}
+  - POST /partnership-revaluation/revalue

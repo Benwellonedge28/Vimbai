@@ -13,7 +13,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /continue-shutdown-decision/
+  - GET /continue-shutdown-decision/decisions
+  - GET /continue-shutdown-decision/decisions/{decision_id}
+  - GET /continue-shutdown-decision/decisions/{}
+  - GET /continue-shutdown-decision/health
+  - POST /continue-shutdown-decision/analyze
+  - POST /continue-shutdown-decision/quick-analysis
 - name: insurance-claims-service
   domain: finance
   target: rust/crates/domains/finance
@@ -22,7 +29,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /insurance-claims/
+  - GET /insurance-claims/claims
+  - GET /insurance-claims/health
+  - POST /insurance-claims/claims/{claim_id}/process
+  - POST /insurance-claims/claims/{}/process
+  - POST /insurance-claims/file
 - name: internal-rate-return-service
   domain: finance
   target: rust/crates/domains/finance
@@ -31,7 +44,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /internal-rate-return/
+  - GET /internal-rate-return/health
+  - POST /internal-rate-return/calculate
+  - POST /internal-rate-return/calculate-bisection
+  - POST /internal-rate-return/compare
+  - POST /internal-rate-return/decision
 - name: investment-monitoring-service
   domain: finance
   target: rust/crates/domains/finance
@@ -40,7 +59,21 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /investment-monitoring/
+  - GET /investment-monitoring/health
+  - GET /investment-monitoring/portfolios
+  - GET /investment-monitoring/portfolios/{portfolio_id}/holdings
+  - GET /investment-monitoring/portfolios/{portfolio_id}/performance
+  - GET /investment-monitoring/portfolios/{}/holdings
+  - GET /investment-monitoring/portfolios/{}/performance
+  - POST /investment-monitoring/holdings/{holding_id}/update-price
+  - POST /investment-monitoring/holdings/{}/update-price
+  - POST /investment-monitoring/portfolios
+  - POST /investment-monitoring/portfolios/{portfolio_id}/holdings
+  - POST /investment-monitoring/portfolios/{portfolio_id}/performance
+  - POST /investment-monitoring/portfolios/{}/holdings
+  - POST /investment-monitoring/portfolios/{}/performance
 - name: net-present-value-service
   domain: finance
   target: rust/crates/domains/finance
@@ -49,7 +82,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /net-present-value/
+  - GET /net-present-value/health
+  - POST /net-present-value/calculate
+  - POST /net-present-value/calculate-percent
+  - POST /net-present-value/compare
+  - POST /net-present-value/profitability-index
 - name: payback-period-service
   domain: finance
   target: rust/crates/domains/finance
@@ -58,7 +97,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /payback-period/
+  - GET /payback-period/health
+  - POST /payback-period/average-cash-flow
+  - POST /payback-period/calculate
+  - POST /payback-period/compare
 - name: personal-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -67,7 +111,46 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /personal-finance/recurring/{rec_id}
+  - DELETE /personal-finance/recurring/{}
+  - GET /personal-finance/
+  - GET /personal-finance/debts
+  - GET /personal-finance/debts/{debt_id}/schedule
+  - GET /personal-finance/debts/{key}
+  - GET /personal-finance/debts/{}
+  - GET /personal-finance/debts/{}/schedule
+  - GET /personal-finance/goals
+  - GET /personal-finance/goals/{user_id}
+  - GET /personal-finance/goals/{}
+  - GET /personal-finance/health
+  - GET /personal-finance/income
+  - GET /personal-finance/income/{user_id}
+  - GET /personal-finance/income/{}
+  - GET /personal-finance/investments
+  - GET /personal-finance/overview
+  - GET /personal-finance/overview/{user_id}
+  - GET /personal-finance/overview/{}
+  - GET /personal-finance/recurring
+  - GET /personal-finance/tax/brackets
+  - PATCH /personal-finance/recurring/{rec_id}
+  - PATCH /personal-finance/recurring/{}
+  - POST /personal-finance/debts
+  - POST /personal-finance/debts/{debt_id}/payments
+  - POST /personal-finance/debts/{}/payments
+  - POST /personal-finance/goals
+  - POST /personal-finance/income
+  - POST /personal-finance/investments
+  - POST /personal-finance/investments/{inv_id}/price
+  - POST /personal-finance/investments/{inv_id}/trades
+  - POST /personal-finance/investments/{}/price
+  - POST /personal-finance/investments/{}/trades
+  - POST /personal-finance/legacy-debts
+  - POST /personal-finance/recurring
+  - POST /personal-finance/recurring/{rec_id}/run
+  - POST /personal-finance/recurring/{}/run
+  - POST /personal-finance/tax/estimate
+  - PUT /personal-finance/tax/brackets
 - name: trade-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -76,4 +159,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /trade-finance/
+  - GET /trade-finance/health
+  - GET /trade-finance/instruments
+  - POST /trade-finance/instruments
+  - POST /trade-finance/instruments/{instrument_id}/present
+  - POST /trade-finance/instruments/{instrument_id}/settle
+  - POST /trade-finance/instruments/{}/present
+  - POST /trade-finance/instruments/{}/settle

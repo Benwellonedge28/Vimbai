@@ -10,13 +10,15 @@ Crates: `rust/crates/application`, `rust/crates/kernel/ledger-services`
 
 The precision door matters more than it sounds. `validate_money_lines` compares exact `Money`; `validate_lines` is the float door and rounds to ten decimal places so that 0.1 + 0.2 reads as 0.3. The old 1e-9 tolerance is gone: a one-unit difference in the thirtieth decimal place is refused, where a float would have posted it.
 
-The calculation surface is the other half of this page. `calculation-api` answers the arithmetic questions any client asks - net present value, internal rate of return, payback period, depreciation, a loan amortisation schedule - by routing to the single implementation in the crate that owns it, and `realtime-calculation-engine` is that same surface under its published prefix. Neither keeps a copy of a calculator: `/npv` is `finance::discounting::net_present_value`, and a second copy would be a second answer waiting to disagree.
+The calculation surface is the other half of this page. `calculation-api` answers the arithmetic questions any client asks - net present value, internal rate of return, payback period, depreciation, a loan amortisation schedule - by routing to the single implementation in the crate that owns it, and `realtime-calculation-engine` is that same surface under its published prefix. `calculator-catalogue` publishes what the
+catalogue holds, so a client can read the names before calling one. Neither keeps a copy of a calculator: `/npv` is `finance::discounting::net_present_value`, and a second copy would be a second answer waiting to disagree.
 
 ## Services and addresses
 
 | Service | Prefix |
 | --- | --- |
-| `calculation-api` | `/calcs` |
+| `calculation-api` | `/calc` |
+| `calculator-catalogue` | `/calculators` |
 | `control-account-reconciliation-service` | `/control-account-reconciliation` |
 | `double-entry-principles-service` | `/double-entry-principles` |
 | `financial-integrity-service` | `/financial-integrity` |

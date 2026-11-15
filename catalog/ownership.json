@@ -334,6 +334,7 @@
     "websocket-service": "events",
     "workflow-service": "workflow",
     "zero-based-budgeting-service": "budgeting",
-    "zero-trust-data-service": "security"
+    "zero-trust-data-service": "security",
+    "calculator-catalogue": "calculations"
   }
 }

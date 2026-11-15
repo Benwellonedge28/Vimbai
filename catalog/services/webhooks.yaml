@@ -13,4 +13,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /webhook/
+  - GET /webhook/deliveries/{endpoint_id}
+  - GET /webhook/endpoints/{company_id}
+  - POST /webhook/dispatch/{company_id}
+  - POST /webhook/endpoints

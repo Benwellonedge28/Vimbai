@@ -17,7 +17,5 @@ The domain crates own the arithmetic. A calculator in this catalogue calls the d
 
 ## Services and addresses
 
-| Service | Prefix |
-| --- | --- |
-| `calculation-api` | `/calculators` |
-| `calculation-api` | `/calc` |
+The doors are routed under `ledger.md`'s domain, which is where their services are filed: `calculation-api` answers
+`/calc` and `calculator-catalogue` answers `/calculators`. This page describes what is behind them.

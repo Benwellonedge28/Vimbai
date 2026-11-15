@@ -8,7 +8,8 @@
 use std::path::PathBuf;
 
 use xtask::{
-    boundaries, catalog, crates, manifests, reachability, runbook, servers, wiring, workflows,
+    boundaries, catalog, crates, manifests, published, reachability, runbook, servers, wiring,
+    workflows,
 };
 
 fn root() -> PathBuf {
@@ -513,4 +514,39 @@ fn the_runbook_gate_would_notice_a_setting_nobody_reads() {
         vec!["VIMBAI_REAL_SETTING".to_string()]
     );
     std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
+fn the_published_snapshot_is_what_the_engine_answers() {
+    // `docs/routes-snapshot.json` is the address set a reader diffs after a change. It was written once by hand from a scan
+    // of the Python services, which is the kind of document that is right on the day it is written; it is now generated
+    // from the engine's own routes plus each service's last published list, and this holds it there.
+    let problems = published::write(&root(), true);
+    assert!(problems.is_ok(), "{problems:?}");
+    let snapshot = published::snapshot(&root());
+    assert!(
+        snapshot.contains("\"count\": 138"),
+        "the snapshot should describe the 138 routed services"
+    );
+}
+
+#[test]
+fn every_routed_service_answers_at_least_one_address() {
+    // A prefix the gateway routes and nothing answers is worse than an absent one: a caller reaches a 404 from a door the
+    // manifest says is open, and concludes the feature is broken. `/calcs` was exactly that - an entry for a service that
+    // never had a `main.py`, forwarded to the engine at a path the engine never mounted - so the check is a rule now.
+    let silent: Vec<String> = published::per_service(&root())
+        .into_iter()
+        .filter(|(_, addresses)| addresses.is_empty())
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        silent.is_empty(),
+        "these routed services answer nothing: {silent:?}"
+    );
+    let total: usize = published::per_service(&root()).values().map(Vec::len).sum();
+    assert!(
+        total > 1_700,
+        "the scan found only {total} addresses, so agreeing with the snapshot proves little"
+    );
 }

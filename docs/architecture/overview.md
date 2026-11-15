@@ -85,7 +85,9 @@ Shared ledger entries are immutable. A correction is a reversing entry, and the 
 3. **Vimbai Pay does not exist.** The platform records money; it does not move it (ADR-005).
 4. **The developer platform is deferred, not cancelled.** Its trigger is the first real request for API credentials
    (ADR-006).
-5. **180 prefix groups answer with no catalogue owner.** Retired services' addresses still answer so that no client
-   broke when the service went; they are documented path by path in `contracts/openapi/v1/domains/unattributed.yaml`
-   (826 addresses) and attaching them to owners is an open item, not a claim. The gateway routes 137 prefixes while the
-   engine answers addresses under 290, which is the same fact counted the other way.
+5. **The engine answers more than the gateway routes.** 1,536 addresses under 290 top segments, against 138 routed
+   prefixes. Retired services' addresses kept answering so that no client broke when the service went, and every one
+   is now filed under an owner in `contracts/openapi/v1/domains/` - the unattributed bucket is gone. The catalogue
+   carries, per service, the addresses a client actually calls, and `cargo run -p xtask -- routes` regenerates
+   `docs/routes-snapshot.json` from the engine's own routes plus each service's last published list, so the snapshot
+   is a diff rather than a fossil.

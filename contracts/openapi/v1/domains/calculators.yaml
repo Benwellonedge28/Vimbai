@@ -12,8 +12,6 @@ info:
     checked is a promise nobody keeps - the wire shapes are pinned by the per-domain HTTP tests instead.
 
     The addresses this file covers, by prefix group:
-    * `/calc`
-    * `/calculators`
     * `/irr`
 servers:
   - url: https://api.vimbai.example
@@ -72,18 +70,6 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
 paths:
-  /calc/{}:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    post:
-      operationId: postCalc
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /calculators:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    get:
-      operationId: getCalculators
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /irr:
     parameters:
       - $ref: "#/components/parameters/BookId"

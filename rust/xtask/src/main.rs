@@ -9,7 +9,8 @@
 use std::process::ExitCode;
 
 use xtask::{
-    boundaries, catalog, domains, flutter, gateway, manifests, openapi, owners, reachability,
+    boundaries, catalog, domains, flutter, gateway, manifests, openapi, owners, published,
+    reachability,
 };
 
 const USAGE: &str = "\
@@ -23,6 +24,7 @@ COMMANDS:
     catalog --check    report whether the committed catalogue is current, and exit 1 if it is not
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
+    gateway --misrouted  print every routed prefix the engine answers while its entry forwards elsewhere
     openapi            rewrite contracts/openapi/v1/domains/ from the engine's routes
     openapi --check    report an address with no contract, a contract with no address, or a stale file
     owners             print which crate answers each prefix the catalogue no longer routes
@@ -32,6 +34,8 @@ COMMANDS:
     boundaries --graph print every crate with its family and its internal dependencies
     boundaries --rules print the rule table as the documentation states it
     boundaries --exceptions print the tolerated dependencies and why
+    routes             rewrite docs/routes-snapshot.json from the addresses the engine answers
+    routes --check     report whether the committed snapshot is current, and exit 1 if it is not
     manifests          report a cluster, compose or image declaration that does not hold, and exit 1 if any
 ";
 
@@ -181,6 +185,18 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        "gateway" if args.iter().any(|argument| argument == "--misrouted") => {
+            let findings = gateway::misrouted(&root);
+            for finding in &findings {
+                println!("{finding}");
+            }
+            if findings.is_empty() {
+                println!("every prefix the engine answers forwards to the engine");
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
         "gateway" => {
             let mut problems = 0;
             let routes = gateway::engine_routes(&root).len();
@@ -252,6 +268,24 @@ fn main() -> ExitCode {
             }
             println!("{}", boundaries::summary(&crates));
             ExitCode::SUCCESS
+        }
+        "routes" => {
+            let check = args.iter().any(|argument| argument == "--check");
+            match published::write(&root, check) {
+                Ok(()) => {
+                    if check {
+                        println!("routes: current");
+                    } else {
+                        let found = published::addresses(&root).len();
+                        println!("wrote docs/routes-snapshot.json: {found} addresses");
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(problem) => {
+                    eprintln!("{problem}");
+                    ExitCode::FAILURE
+                }
+            }
         }
         "boundaries" => {
             let crates = boundaries::graph(&root);

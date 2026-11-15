@@ -3,7 +3,7 @@ catalog:
   version: 1
   generated_by: rust/xtask
   authority: gateway/go/config/services.json for routes, catalog/ownership.json for ownership
-  services: 137
+  services: 138
 domains:
 - name: kernel
   responsibility: 'ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services'' HTTP and record surface'
@@ -131,7 +131,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /absorption-costing/
+  - GET /absorption-costing/health
+  - GET /absorption-costing/product-costs
+  - GET /absorption-costing/product-costs/{product_id}/latest
+  - GET /absorption-costing/product-costs/{}/latest
+  - GET /absorption-costing/stock-valuation
+  - POST /absorption-costing/cost-plus
+  - POST /absorption-costing/overhead/absorption
+  - POST /absorption-costing/product-costs
+  - POST /absorption-costing/product-costs/calculate
 - name: absorption-costing-statement-service
   domain: costing
   target: rust/crates/domains/costing
@@ -140,7 +150,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /absorption-costing-statement/
+  - GET /absorption-costing-statement/production-cost
+  - GET /absorption-costing-statement/trading-account
+  - GET /absorption-costing-statement/trading-account/{statement_id}
+  - GET /absorption-costing-statement/trading-account/{}
+  - POST /absorption-costing-statement/production-cost/generate
+  - POST /absorption-costing-statement/trading-account/generate
+  - POST /absorption-costing-statement/trading-account/{statement_id}/add-expenses
+  - POST /absorption-costing-statement/trading-account/{}/add-expenses
 - name: accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -149,7 +168,114 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /accounting/accounts/{account_number}
+  - DELETE /accounting/accounts/{}
+  - DELETE /accounting/journal-entries/{entry_id}
+  - DELETE /accounting/journal-entries/{}
+  - GET /accounting/
+  - GET /accounting/accounts
+  - GET /accounting/accounts/
+  - GET /accounting/accounts/{account_number}
+  - GET /accounting/accounts/{account_number}/period-activity
+  - GET /accounting/accounts/{}
+  - GET /accounting/accounts/{}/period-activity
+  - GET /accounting/accounts/{}/postings
+  - GET /accounting/balance-sheet
+  - GET /accounting/balance-sheet/
+  - GET /accounting/bank-reconciliation
+  - GET /accounting/bank-reconciliation/
+  - GET /accounting/bank-reconciliation/latest/{bank_account}
+  - GET /accounting/bank-reconciliation/latest/{}
+  - GET /accounting/capital-calculations
+  - GET /accounting/capital-calculations/
+  - GET /accounting/capital-calculations/{calc_id}
+  - GET /accounting/capital-calculations/{}
+  - GET /accounting/cash-disbursements-journal
+  - GET /accounting/cash-disbursements-journal/
+  - GET /accounting/cash-receipts-journal
+  - GET /accounting/cash-receipts-journal/
+  - GET /accounting/control-accounts
+  - GET /accounting/control-accounts/
+  - GET /accounting/income-statement
+  - GET /accounting/income-statement/
+  - GET /accounting/journal-entries
+  - GET /accounting/journal-entries/
+  - GET /accounting/journal-entries/{entry_id}
+  - GET /accounting/journal-entries/{}
+  - GET /accounting/ledger/integrity
+  - GET /accounting/ledgers/{account_number}
+  - GET /accounting/ledgers/{}
+  - GET /accounting/petty-cash-entries
+  - GET /accounting/petty-cash-entries/
+  - GET /accounting/petty-cash-funds
+  - GET /accounting/petty-cash-funds/
+  - GET /accounting/profit-estimations
+  - GET /accounting/profit-estimations/
+  - GET /accounting/purchases-journal
+  - GET /accounting/purchases-journal/
+  - GET /accounting/receipts-payments
+  - GET /accounting/receipts-payments/
+  - GET /accounting/sales-journal
+  - GET /accounting/sales-journal/
+  - GET /accounting/sales-journal/{entry_id}
+  - GET /accounting/sales-journal/{}
+  - GET /accounting/single-entry-conversions
+  - GET /accounting/single-entry-conversions/
+  - GET /accounting/statements-of-affairs
+  - GET /accounting/statements-of-affairs/
+  - GET /accounting/statements-of-affairs/{as_of_date}
+  - GET /accounting/statements-of-affairs/{}
+  - GET /accounting/subsidiary-ledgers/accounts-payable
+  - GET /accounting/subsidiary-ledgers/accounts-payable/
+  - GET /accounting/subsidiary-ledgers/accounts-receivable
+  - GET /accounting/subsidiary-ledgers/accounts-receivable/
+  - GET /accounting/subsidiary-ledgers/fixed-assets
+  - GET /accounting/subsidiary-ledgers/fixed-assets/
+  - GET /accounting/subsidiary-ledgers/inventory
+  - GET /accounting/subsidiary-ledgers/inventory/
+  - GET /accounting/trial-balance
+  - GET /accounting/trial-balance/
+  - POST /accounting/accounts
+  - POST /accounting/accounts/
+  - POST /accounting/bank-reconciliation
+  - POST /accounting/bank-reconciliation/
+  - POST /accounting/capital-calculations
+  - POST /accounting/capital-calculations/
+  - POST /accounting/cash-disbursements-journal
+  - POST /accounting/cash-disbursements-journal/
+  - POST /accounting/cash-receipts-journal
+  - POST /accounting/cash-receipts-journal/
+  - POST /accounting/control-accounts
+  - POST /accounting/control-accounts/
+  - POST /accounting/journal-entries
+  - POST /accounting/journal-entries/
+  - POST /accounting/petty-cash-entries
+  - POST /accounting/petty-cash-entries/
+  - POST /accounting/petty-cash-funds
+  - POST /accounting/petty-cash-funds/
+  - POST /accounting/profit-estimations
+  - POST /accounting/profit-estimations/
+  - POST /accounting/purchases-journal
+  - POST /accounting/purchases-journal/
+  - POST /accounting/purchases-returns-journal
+  - POST /accounting/purchases-returns-journal/
+  - POST /accounting/receipts-payments
+  - POST /accounting/receipts-payments/
+  - POST /accounting/sales-journal
+  - POST /accounting/sales-journal/
+  - POST /accounting/sales-returns-journal
+  - POST /accounting/sales-returns-journal/
+  - POST /accounting/single-entry-conversions
+  - POST /accounting/single-entry-conversions/
+  - POST /accounting/statements-of-affairs
+  - POST /accounting/statements-of-affairs/
+  - POST /accounting/vendor-bills
+  - POST /accounting/vendor-bills/
+  - PUT /accounting/accounts/{account_number}
+  - PUT /accounting/accounts/{}
+  - PUT /accounting/journal-entries/{entry_id}
+  - PUT /accounting/journal-entries/{}
 - name: accounting-standards-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -158,7 +284,43 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /accounting-standards/
+  - GET /accounting-standards/organizations/{organization_id}/compliance/history
+  - GET /accounting-standards/organizations/{organization_id}/configuration
+  - GET /accounting-standards/organizations/{organization_id}/policies
+  - GET /accounting-standards/organizations/{organization_id}/policies/{policy_area}
+  - GET /accounting-standards/organizations/{}/compliance/history
+  - GET /accounting-standards/organizations/{}/configuration
+  - GET /accounting-standards/organizations/{}/policies
+  - GET /accounting-standards/organizations/{}/policies/{}
+  - GET /accounting-standards/standards
+  - GET /accounting-standards/standards/categories
+  - GET /accounting-standards/standards/comparison
+  - GET /accounting-standards/standards/{standard_type}
+  - GET /accounting-standards/standards/{standard_type}/account-mapping
+  - GET /accounting-standards/standards/{standard_type}/disclosure-requirements
+  - GET /accounting-standards/standards/{standard_type}/measurement-guide
+  - GET /accounting-standards/standards/{standard_type}/requirements
+  - GET /accounting-standards/standards/{}
+  - GET /accounting-standards/standards/{}/account-mapping
+  - GET /accounting-standards/standards/{}/disclosure-requirements
+  - GET /accounting-standards/standards/{}/measurement-guide
+  - GET /accounting-standards/standards/{}/requirements
+  - POST /accounting-standards/organizations/{organization_id}/compliance/check
+  - POST /accounting-standards/organizations/{organization_id}/configuration
+  - POST /accounting-standards/organizations/{organization_id}/policies
+  - POST /accounting-standards/organizations/{organization_id}/standards/{standard_type}/activate
+  - POST /accounting-standards/organizations/{organization_id}/standards/{standard_type}/deactivate
+  - POST /accounting-standards/organizations/{}/compliance/check
+  - POST /accounting-standards/organizations/{}/configuration
+  - POST /accounting-standards/organizations/{}/policies
+  - POST /accounting-standards/organizations/{}/standards/{}/activate
+  - POST /accounting-standards/organizations/{}/standards/{}/deactivate
+  - POST /accounting-standards/standards/{standard_type}/account-mapping
+  - POST /accounting-standards/standards/{}/account-mapping
+  - PUT /accounting-standards/organizations/{organization_id}/configuration
+  - PUT /accounting-standards/organizations/{}/configuration
 - name: activity-based-budget-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -167,7 +329,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /activity-based-budget/
+  - GET /activity-based-budget/activities
+  - GET /activity-based-budget/budgets
+  - GET /activity-based-budget/budgets/{budget_id}
+  - GET /activity-based-budget/budgets/{}
+  - GET /activity-based-budget/health
+  - POST /activity-based-budget/activities
+  - POST /activity-based-budget/budgets
+  - PUT /activity-based-budget/budgets/{budget_id}/approve
+  - PUT /activity-based-budget/budgets/{}/approve
 - name: admin-service
   domain: admin
   target: rust/crates/platform/admin
@@ -176,7 +348,34 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /admin/feature-requests/{request_id}
+  - DELETE /admin/rollout-schedules/{schedule_id}
+  - GET /admin/
+  - GET /admin/audit-logs
+  - GET /admin/config
+  - GET /admin/config/{key}
+  - GET /admin/dashboard/stats
+  - GET /admin/feature-requests
+  - GET /admin/feature-requests/{request_id}
+  - GET /admin/features
+  - GET /admin/features/categories
+  - GET /admin/features/{feature_id}
+  - GET /admin/features/{feature_id}/dependencies
+  - GET /admin/organizations/{organization_id}/features
+  - GET /admin/rollout-schedules
+  - GET /admin/services/health
+  - POST /admin/audit-logs
+  - POST /admin/feature-requests
+  - POST /admin/features/{feature_id}/disable
+  - POST /admin/features/{feature_id}/enable
+  - POST /admin/organizations/{organization_id}/features/{feature_id}/disable
+  - POST /admin/organizations/{organization_id}/features/{feature_id}/enable
+  - POST /admin/rollout-schedules
+  - PUT /admin/config/{key}
+  - PUT /admin/feature-requests/{request_id}/review
+  - PUT /admin/features/{feature_id}
+  - PUT /admin/organizations/{organization_id}/features/{feature_id}
 - name: alerts-service
   domain: alerts
   target: rust/crates/platform/alerts
@@ -185,7 +384,29 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /alerts/rules/{rule_id}
+  - GET /alerts
+  - GET /alerts/
+  - GET /alerts/alerts
+  - GET /alerts/alerts/{alert_id}
+  - GET /alerts/rules
+  - GET /alerts/rules/{rule_id}
+  - GET /alerts/stats
+  - GET /alerts/{}
+  - POST /alerts
+  - POST /alerts/alerts
+  - POST /alerts/evaluate
+  - POST /alerts/rate
+  - POST /alerts/rules
+  - POST /alerts/trigger/{rule_id}
+  - PUT /alerts/alerts/{alert_id}/acknowledge
+  - PUT /alerts/alerts/{alert_id}/dismiss
+  - PUT /alerts/alerts/{alert_id}/resolve
+  - PUT /alerts/rules/{rule_id}
+  - PUT /alerts/{}/acknowledge
+  - PUT /alerts/{}/dismiss
+  - PUT /alerts/{}/resolve
 - name: appropriation-control-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -194,7 +415,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /appropriation-control/
+  - GET /appropriation-control/appropriations/{company_id}
+  - GET /appropriation-control/appropriations/{}
+  - GET /appropriation-control/check/{appropriation_id}
+  - GET /appropriation-control/check/{}
+  - POST /appropriation-control/appropriations
+  - POST /appropriation-control/transactions
 - name: audit-compliance-service
   domain: audit
   target: rust/crates/domains/audit
@@ -203,7 +431,26 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /audit-compliance/
+  - GET /audit-compliance/analytics/summary
+  - GET /audit-compliance/events
+  - GET /audit-compliance/events/{event_id}
+  - GET /audit-compliance/health
+  - GET /audit-compliance/integrity/verify
+  - GET /audit-compliance/integrity/verify-event/{event_id}
+  - GET /audit-compliance/lineage/{resource_id}
+  - GET /audit-compliance/search
+  - GET /audit-compliance/versions/{resource_type}/{resource_id}
+  - POST /audit-compliance/compliance/gdpr
+  - POST /audit-compliance/compliance/monitor
+  - POST /audit-compliance/compliance/report
+  - POST /audit-compliance/compliance/sox
+  - POST /audit-compliance/events
+  - POST /audit-compliance/planning/plan
+  - POST /audit-compliance/reports/generate
+  - POST /audit-compliance/trails/analyze
+  - POST /audit-compliance/versions/{resource_type}/{resource_id}
 - name: audit-sampling-service
   domain: audit
   target: rust/crates/domains/audit
@@ -212,7 +459,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /audit-sampling/
+  - POST /audit-sampling/sample
 - name: authorized-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
@@ -221,7 +470,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /authorized-share-capital/
+  - GET /authorized-share-capital/health
+  - GET /authorized-share-capital/share-classes
+  - GET /authorized-share-capital/share-classes/{class_id}/issuances
+  - GET /authorized-share-capital/share-classes/{}
+  - GET /authorized-share-capital/share-classes/{}/issuances
+  - GET /authorized-share-capital/summary
+  - POST /authorized-share-capital/share-classes
+  - POST /authorized-share-capital/share-classes/{class_id}/buyback
+  - POST /authorized-share-capital/share-classes/{class_id}/issue
+  - POST /authorized-share-capital/share-classes/{}/buyback
+  - POST /authorized-share-capital/share-classes/{}/issue
 - name: automation-engine-service
   domain: automation
   target: rust/crates/domains/automation
@@ -230,7 +491,23 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /automation/rules/{rule_id}
+  - DELETE /automation/rules/{}
+  - GET /automation/
+  - GET /automation/executions
+  - GET /automation/executions/{execution_id}
+  - GET /automation/executions/{}
+  - GET /automation/health
+  - GET /automation/rules
+  - GET /automation/rules/{rule_id}
+  - GET /automation/rules/{}
+  - POST /automation/execute/{rule_id}
+  - POST /automation/execute/{}
+  - POST /automation/rules
+  - POST /automation/rules/{rule_id}/toggle
+  - POST /automation/rules/{}/execute
+  - POST /automation/rules/{}/toggle
 - name: bad-debts-recovery-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -239,7 +516,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /bad-debts-recovery/
+  - GET /bad-debts-recovery/bad-debts
+  - GET /bad-debts-recovery/bad-debts/{debt_id}
+  - GET /bad-debts-recovery/health
+  - GET /bad-debts-recovery/recovery-summary
+  - POST /bad-debts-recovery/bad-debts/register
+  - POST /bad-debts-recovery/bad-debts/{debt_id}/recover
 - name: balance-sheet-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -248,7 +532,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /balance-sheet/
+  - GET /balance-sheet/history/{company_id}
+  - GET /balance-sheet/history/{}
+  - GET /balance-sheet/latest/{company_id}
+  - GET /balance-sheet/latest/{}
+  - GET /balance-sheet/ratios/{company_id}
+  - GET /balance-sheet/ratios/{}
+  - POST /balance-sheet/generate
 - name: bank-feed-service
   domain: banking
   target: rust/crates/domains/banking
@@ -257,7 +549,32 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /bank-feed/connections/{connection_id}
+  - DELETE /bank-feed/rules/{rule_id}
+  - GET /bank-feed/
+  - GET /bank-feed/connections
+  - GET /bank-feed/connections/{connection_id}
+  - GET /bank-feed/connections/{connection_id}/balance
+  - GET /bank-feed/rules
+  - GET /bank-feed/statistics
+  - GET /bank-feed/sync/history
+  - GET /bank-feed/sync/{sync_id}
+  - GET /bank-feed/transactions
+  - GET /bank-feed/transactions/{transaction_id}
+  - POST /bank-feed/connections
+  - POST /bank-feed/rules
+  - POST /bank-feed/rules/apply
+  - POST /bank-feed/sync/start
+  - POST /bank-feed/transactions/import
+  - POST /bank-feed/transactions/import-batch
+  - POST /bank-feed/transactions/import-mt940
+  - POST /bank-feed/transactions/{transaction_id}/link
+  - POST /bank-feed/transactions/{}/link
+  - POST /bank-feed/webhooks/{provider}
+  - PUT /bank-feed/rules/{rule_id}
+  - PUT /bank-feed/transactions/{transaction_id}/status
+  - PUT /bank-feed/transactions/{}/status
 - name: bank-reconciliation-service
   domain: banking
   target: rust/crates/domains/banking
@@ -266,7 +583,24 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /bank-reconciliation/
+  - GET /bank-reconciliation/cash-book
+  - GET /bank-reconciliation/health
+  - GET /bank-reconciliation/outstanding-items
+  - GET /bank-reconciliation/reconciliations
+  - GET /bank-reconciliation/reconciliations/{reconciliation_id}
+  - GET /bank-reconciliation/reconciliations/{}
+  - GET /bank-reconciliation/statements
+  - GET /bank-reconciliation/statements/{statement_id}
+  - GET /bank-reconciliation/statements/{}
+  - POST /bank-reconciliation/cash-book
+  - POST /bank-reconciliation/reconcile
+  - POST /bank-reconciliation/reconcile/{reconciliation_id}/auto-match
+  - POST /bank-reconciliation/reconcile/{reconciliation_id}/post-adjustments
+  - POST /bank-reconciliation/reconcile/{}/auto-match
+  - POST /bank-reconciliation/reconcile/{}/post-adjustments
+  - POST /bank-reconciliation/statements
 - name: bank-relationship-service
   domain: banking
   target: rust/crates/domains/banking
@@ -275,7 +609,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /bank-relationship/
+  - GET /bank-relationship/quality-metrics/{relationship_id}
+  - GET /bank-relationship/relationships/{company_id}
+  - GET /bank-relationship/summary/{company_id}
+  - POST /bank-relationship/quality-metrics
+  - POST /bank-relationship/relationships
+  - PUT /bank-relationship/relationships/{rel_id}
 - name: banking-integration-service
   domain: banking
   target: rust/crates/domains/banking
@@ -284,7 +625,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /banking-integration/connections/{connection_id}
+  - GET /banking-integration/
+  - GET /banking-integration/connections
+  - GET /banking-integration/health
+  - GET /banking-integration/transactions/{connection_id}
+  - POST /banking-integration/connect
+  - POST /banking-integration/sync/{connection_id}
+  - POST /banking-integration/transactions/{connection_id}/reconcile
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
@@ -293,7 +642,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /basis-apportionment/
+  - GET /basis-apportionment/health
+  - GET /basis-apportionment/results
+  - GET /basis-apportionment/rules
+  - POST /basis-apportionment/apportion/cost
+  - POST /basis-apportionment/apportion/floor-area
+  - POST /basis-apportionment/apportion/net-book-value
+  - POST /basis-apportionment/apportion/personnel
+  - POST /basis-apportionment/apportion/replacement-value
+  - POST /basis-apportionment/apportion/requisitions
+  - POST /basis-apportionment/apportion/volume
+  - POST /basis-apportionment/rules/create
 - name: benefits-admin-service
   domain: payroll
   target: rust/crates/domains/payroll
@@ -302,7 +663,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /benefits-admin/
+  - GET /benefits-admin/employee/{employee_id}/enrollments
+  - GET /benefits-admin/employee/{employee_id}/leave
+  - GET /benefits-admin/employee/{}/enrollments
+  - GET /benefits-admin/employee/{}/leave
+  - GET /benefits-admin/health
+  - GET /benefits-admin/plans
+  - POST /benefits-admin/enroll
+  - POST /benefits-admin/leave/accrue
+  - POST /benefits-admin/plans
 - name: biological-assets-service
   domain: assets
   target: rust/crates/domains/assets
@@ -311,7 +682,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /biological-assets/
+  - POST /biological-assets/consumable-bearer-distinction
+  - POST /biological-assets/disclosure-template
+  - POST /biological-assets/fair-value-level1
+  - POST /biological-assets/fair-value-level2
+  - POST /biological-assets/fair-value-level3
+  - POST /biological-assets/measure
 - name: bonus-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -320,7 +698,11 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /bonus-shares/
+  - GET /bonus-shares/health
+  - GET /bonus-shares/issues
+  - POST /bonus-shares/issue
 - name: cache-service
   domain: cache
   target: rust/crates/platform/cache
@@ -329,7 +711,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /cache
+  - DELETE /cache/cache
+  - DELETE /cache/cache/{key}
+  - DELETE /cache/cache/{}
+  - DELETE /cache/{}
+  - GET /cache/
+  - GET /cache/cache/{key}
+  - GET /cache/cache/{}
+  - GET /cache/health
+  - GET /cache/stats
+  - GET /cache/{}
+  - POST /cache
+  - POST /cache/cache
 - name: capital-reconstruction-service
   domain: equity
   target: rust/crates/domains/equity
@@ -338,7 +733,21 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /capital-reconstruction/
+  - GET /capital-reconstruction/health
+  - GET /capital-reconstruction/reconstructions
+  - GET /capital-reconstruction/reconstructions/{reconstruction_id}
+  - GET /capital-reconstruction/reconstructions/{}
+  - GET /capital-reconstruction/summary/{company_id}
+  - GET /capital-reconstruction/summary/{}
+  - POST /capital-reconstruction/reconstructions/create
+  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/adjustments/add
+  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/approve
+  - POST /capital-reconstruction/reconstructions/{reconstruction_id}/reserve-conversions/add
+  - POST /capital-reconstruction/reconstructions/{}/adjustments/add
+  - POST /capital-reconstruction/reconstructions/{}/approve
+  - POST /capital-reconstruction/reconstructions/{}/reserve-conversions/add
 - name: capital-redemption-reserve-service
   domain: equity
   target: rust/crates/domains/equity
@@ -347,7 +756,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /capital-redemption-reserve/
+  - GET /capital-redemption-reserve/creations
+  - GET /capital-redemption-reserve/health
+  - GET /capital-redemption-reserve/redemptions
+  - GET /capital-redemption-reserve/summary/{company_id}
+  - GET /capital-redemption-reserve/summary/{}
+  - GET /capital-redemption-reserve/utilizations
+  - POST /capital-redemption-reserve/creations/create
+  - POST /capital-redemption-reserve/redemptions/record
+  - POST /capital-redemption-reserve/utilizations/record
 - name: cash-flow-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -356,7 +775,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-flow/
+  - GET /cash-flow/get/{cash_flow_id}
+  - GET /cash-flow/get/{}
+  - GET /cash-flow/health
+  - GET /cash-flow/list
+  - POST /cash-flow/create
+  - POST /cash-flow/cumulative-flows
+  - POST /cash-flow/inflows
+  - POST /cash-flow/net-flows
+  - POST /cash-flow/outflows
 - name: cash-flow-statement-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -365,7 +794,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-flow-statement/
+  - GET /cash-flow-statement/history/{company_id}
+  - GET /cash-flow-statement/history/{}
+  - GET /cash-flow-statement/latest/{company_id}
+  - GET /cash-flow-statement/latest/{}
+  - POST /cash-flow-statement/generate
 - name: cash-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -374,7 +809,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-management/
+  - GET /cash-management/accounts
+  - GET /cash-management/health
+  - GET /cash-management/liquidity
+  - GET /cash-management/transfers
+  - POST /cash-management/accounts
+  - POST /cash-management/liquidity
+  - POST /cash-management/transfers
 - name: cash-optimization-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -383,7 +826,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cash-optimization/
+  - GET /cash-optimization/accounts/{company_id}
+  - GET /cash-optimization/accounts/{}
+  - GET /cash-optimization/suggestions/{company_id}
+  - GET /cash-optimization/suggestions/{}
+  - POST /cash-optimization/accounts
+  - POST /cash-optimization/optimize/{company_id}
+  - POST /cash-optimization/optimize/{}
 - name: cashbook-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -392,7 +843,37 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cashbook/
+  - GET /cashbook/accounts
+  - GET /cashbook/accounts/{account_id}
+  - GET /cashbook/accounts/{}
+  - GET /cashbook/cash-flow
+  - GET /cashbook/cash-flow/summary
+  - GET /cashbook/cash-position
+  - GET /cashbook/cash-position/history
+  - GET /cashbook/entries
+  - GET /cashbook/entries/{entry_id}
+  - GET /cashbook/entries/{}
+  - GET /cashbook/reconciliations
+  - GET /cashbook/reconciliations/{reconciliation_id}
+  - GET /cashbook/reconciliations/{reconciliation_id}/outstanding
+  - GET /cashbook/reconciliations/{}
+  - GET /cashbook/reconciliations/{}/outstanding
+  - GET /cashbook/summary/{account_code}
+  - GET /cashbook/summary/{}
+  - POST /cashbook/accounts
+  - POST /cashbook/cash-flow
+  - POST /cashbook/entries
+  - POST /cashbook/reconciliations
+  - PUT /cashbook/accounts/{account_id}
+  - PUT /cashbook/accounts/{}
+  - PUT /cashbook/entries/{entry_id}/post
+  - PUT /cashbook/entries/{entry_id}/void
+  - PUT /cashbook/entries/{}/post
+  - PUT /cashbook/entries/{}/void
+  - PUT /cashbook/reconciliations/{reconciliation_id}/complete
+  - PUT /cashbook/reconciliations/{}/complete
 - name: company-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -401,7 +882,38 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /company-accounting/
+  - GET /company-accounting/capital-transactions
+  - GET /company-accounting/companies
+  - GET /company-accounting/companies/{company_id}
+  - GET /company-accounting/companies/{}
+  - GET /company-accounting/dividends
+  - GET /company-accounting/dividends/{dividend_id}/payments
+  - GET /company-accounting/dividends/{}/payments
+  - GET /company-accounting/health
+  - GET /company-accounting/reports/dividend-history/{company_id}
+  - GET /company-accounting/reports/dividend-history/{}
+  - GET /company-accounting/reports/equity-statement/{company_id}
+  - GET /company-accounting/reports/equity-statement/{}
+  - GET /company-accounting/reports/shareholder-register/{company_id}
+  - GET /company-accounting/reports/shareholder-register/{}
+  - GET /company-accounting/reserves
+  - GET /company-accounting/retained-earnings
+  - GET /company-accounting/share-capital
+  - GET /company-accounting/shareholders
+  - POST /company-accounting/capital-transactions
+  - POST /company-accounting/companies
+  - POST /company-accounting/dividends
+  - POST /company-accounting/dividends/{dividend_id}/pay
+  - POST /company-accounting/dividends/{}/pay
+  - POST /company-accounting/reserves
+  - POST /company-accounting/retained-earnings
+  - POST /company-accounting/share-capital
+  - POST /company-accounting/shareholders
+  - PUT /company-accounting/companies/{company_id}
+  - PUT /company-accounting/companies/{}
+  - PUT /company-accounting/dividends/{}/pay
 - name: continue-shutdown-decision-service
   domain: finance
   target: rust/crates/domains/finance
@@ -410,7 +922,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /continue-shutdown-decision/
+  - GET /continue-shutdown-decision/decisions
+  - GET /continue-shutdown-decision/decisions/{decision_id}
+  - GET /continue-shutdown-decision/decisions/{}
+  - GET /continue-shutdown-decision/health
+  - POST /continue-shutdown-decision/analyze
+  - POST /continue-shutdown-decision/quick-analysis
 - name: control-account-reconciliation-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -419,7 +938,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /control-account-reconciliation/
+  - GET /control-account-reconciliation/errors
+  - GET /control-account-reconciliation/health
+  - GET /control-account-reconciliation/reports
+  - GET /control-account-reconciliation/summary
+  - POST /control-account-reconciliation/errors/report
+  - POST /control-account-reconciliation/errors/{error_id}/resolve
+  - POST /control-account-reconciliation/reconcile/{account_type}
 - name: currency-service
   domain: banking
   target: rust/crates/domains/banking
@@ -428,7 +955,33 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /currency/currencies/{code}
+  - DELETE /currency/currencies/{}
+  - GET /currency/
+  - GET /currency/currencies
+  - GET /currency/currencies/{code}
+  - GET /currency/currencies/{}
+  - GET /currency/format/{currency_code}/{amount}
+  - GET /currency/format/{}/{}
+  - GET /currency/rates
+  - GET /currency/rates/history/{from_currency}/{to_currency}
+  - GET /currency/rates/history/{}/{}
+  - GET /currency/rates/latest
+  - GET /currency/rates/{from_currency}/{to_currency}
+  - GET /currency/rates/{}/{}
+  - GET /currency/stats
+  - POST /currency/alerts/rate
+  - POST /currency/convert
+  - POST /currency/convert/batch
+  - POST /currency/currencies
+  - POST /currency/rates
+  - POST /currency/triangulate
+  - POST /currency/validate-transaction
+  - PUT /currency/currencies/{code}
+  - PUT /currency/currencies/{}
+  - PUT /currency/rates/{from_currency}/{to_currency}
+  - PUT /currency/rates/{}/{}
 - name: cvp-analysis-service
   domain: costing
   target: rust/crates/domains/costing
@@ -437,7 +990,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /cvp-analysis/
+  - GET /cvp-analysis/analyses
+  - GET /cvp-analysis/analyses/{analysis_id}
+  - GET /cvp-analysis/analyses/{}
+  - GET /cvp-analysis/health
+  - POST /cvp-analysis/analyze
+  - POST /cvp-analysis/contribution
+  - POST /cvp-analysis/multi-product
+  - POST /cvp-analysis/quick-analysis
+  - POST /cvp-analysis/target-profit
 - name: dashboard-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -446,7 +1009,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /dashboard
+  - GET /dashboard/
+  - GET /dashboard/health
+  - GET /dashboard/stats
+  - POST /dashboard/custom
+  - POST /dashboard/load
 - name: data-warehouse-service
   domain: data
   target: rust/crates/domains/data
@@ -455,7 +1024,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /data-warehouse/
+  - GET /data-warehouse/dimensions
+  - GET /data-warehouse/etl
+  - GET /data-warehouse/facts
+  - GET /data-warehouse/health
+  - POST /data-warehouse/dimensions
+  - POST /data-warehouse/etl
+  - POST /data-warehouse/facts
+  - POST /data-warehouse/query
 - name: debentures-service
   domain: equity
   target: rust/crates/domains/equity
@@ -464,7 +1042,21 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /debentures/
+  - GET /debentures/classes
+  - GET /debentures/health
+  - GET /debentures/interest
+  - GET /debentures/issues
+  - POST /debentures/classes/create
+  - POST /debentures/classes/{debenture_class_id}/interest/accrue
+  - POST /debentures/classes/{debenture_class_id}/issue
+  - POST /debentures/classes/{debenture_class_id}/redeem
+  - POST /debentures/classes/{}/interest/accrue
+  - POST /debentures/classes/{}/issue
+  - POST /debentures/classes/{}/redeem
+  - POST /debentures/interest/{interest_id}/pay
+  - POST /debentures/interest/{}/pay
 - name: debt-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -473,7 +1065,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /debt-management/
+  - GET /debt-management/health
+  - GET /debt-management/loans
+  - GET /debt-management/summary
+  - POST /debt-management/loans
+  - POST /debt-management/loans/{loan_id}/schedule
+  - POST /debt-management/loans/{}/schedule
 - name: departmental-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -482,7 +1081,38 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /departmental-accounting/allocation-rules/{rule_id}
+  - DELETE /departmental-accounting/allocation-rules/{}
+  - GET /departmental-accounting/
+  - GET /departmental-accounting/allocation-rules
+  - GET /departmental-accounting/allocations/{pool_id}
+  - GET /departmental-accounting/allocations/{}
+  - GET /departmental-accounting/cost-pools
+  - GET /departmental-accounting/cost-pools/{pool_id}
+  - GET /departmental-accounting/cost-pools/{}
+  - GET /departmental-accounting/departments
+  - GET /departmental-accounting/departments/{department_id}
+  - GET /departmental-accounting/departments/{department_id}/financials
+  - GET /departmental-accounting/departments/{department_id}/hierarchy
+  - GET /departmental-accounting/departments/{department_id}/performance-report
+  - GET /departmental-accounting/departments/{}
+  - GET /departmental-accounting/departments/{}/financials
+  - GET /departmental-accounting/departments/{}/hierarchy
+  - GET /departmental-accounting/departments/{}/performance-report
+  - GET /departmental-accounting/inter-department-bills
+  - GET /departmental-accounting/reports/cost-distribution
+  - GET /departmental-accounting/reports/department-comparison
+  - POST /departmental-accounting/allocate
+  - POST /departmental-accounting/allocation-rules
+  - POST /departmental-accounting/cost-pools
+  - POST /departmental-accounting/departments
+  - POST /departmental-accounting/inter-department-bills
+  - POST /departmental-accounting/inter-department-bills/{bill_id}/approve
+  - POST /departmental-accounting/inter-department-bills/{}/approve
+  - POST /departmental-accounting/reports/department-comparison
+  - PUT /departmental-accounting/departments/{department_id}
+  - PUT /departmental-accounting/departments/{}
 - name: disposal-account-service
   domain: assets
   target: rust/crates/domains/assets
@@ -491,7 +1121,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /disposal-account/
+  - GET /disposal-account/disposals
+  - GET /disposal-account/health
+  - GET /disposal-account/summary
+  - POST /disposal-account/disposal/calculate
+  - POST /disposal-account/disposal/post
 - name: disposal-group-service
   domain: assets
   target: rust/crates/domains/assets
@@ -500,7 +1136,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /disposal-group/
+  - GET /disposal-group/groups
+  - GET /disposal-group/groups/{group_id}/assets
+  - GET /disposal-group/groups/{}
+  - GET /disposal-group/groups/{}/assets
+  - GET /disposal-group/health
+  - POST /disposal-group/groups
+  - POST /disposal-group/groups/{group_id}/assets
+  - POST /disposal-group/groups/{group_id}/impairment-test
+  - POST /disposal-group/groups/{}/assets
+  - POST /disposal-group/groups/{}/impairment-test
+  - PUT /disposal-group/groups/{group_id}/status
+  - PUT /disposal-group/groups/{}/status
 - name: distributed-workflow-orchestration-service
   domain: workflow
   target: rust/crates/domains/workflow
@@ -509,7 +1158,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /distributed-workflow-orchestration/workflows/{workflow_id}
+  - GET /distributed-workflow-orchestration/
+  - GET /distributed-workflow-orchestration/health
+  - GET /distributed-workflow-orchestration/workflows
+  - GET /distributed-workflow-orchestration/workflows/{workflow_id}
+  - POST /distributed-workflow-orchestration/workflows
+  - POST /distributed-workflow-orchestration/workflows/{workflow_id}/compensate
+  - POST /distributed-workflow-orchestration/workflows/{workflow_id}/execute
 - name: document-service
   domain: documents
   target: rust/crates/platform/documents
@@ -518,7 +1175,28 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /document/documents/{document_id}
+  - DELETE /document/documents/{}
+  - GET /document/
+  - GET /document/documents
+  - GET /document/documents/{document_id}
+  - GET /document/documents/{document_id}/download
+  - GET /document/documents/{document_id}/preview
+  - GET /document/documents/{}
+  - GET /document/documents/{}/download
+  - GET /document/documents/{}/preview
+  - GET /document/statistics
+  - POST /document/documents
+  - POST /document/documents/batch
+  - POST /document/documents/batch/link
+  - POST /document/documents/search
+  - POST /document/documents/{document_id}/link
+  - POST /document/documents/{document_id}/ocr
+  - POST /document/documents/{}/link
+  - POST /document/documents/{}/ocr
+  - PUT /document/documents/{document_id}
+  - PUT /document/documents/{}
 - name: double-entry-principles-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -527,7 +1205,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /double-entry-principles/
+  - GET /double-entry-principles/account-rules/{account_type}
+  - GET /double-entry-principles/account-types
+  - GET /double-entry-principles/accounting-equation
+  - GET /double-entry-principles/health
+  - POST /double-entry-principles/calculate-entry
+  - POST /double-entry-principles/journal-entries/{entry_type}
+  - POST /double-entry-principles/transaction-analyzer
+  - POST /double-entry-principles/validate-journal-entry
 - name: encrypted-backup-service
   domain: data
   target: rust/crates/domains/data
@@ -536,7 +1223,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /encrypted-backup/backups/{backup_id}
+  - GET /encrypted-backup/
+  - GET /encrypted-backup/backups
+  - GET /encrypted-backup/backups/{backup_id}
+  - GET /encrypted-backup/health
+  - GET /encrypted-backup/restores
+  - POST /encrypted-backup/backup
+  - POST /encrypted-backup/backup/{backup_id}/restore
+  - POST /encrypted-backup/backup/{}/restore
 - name: equity-changes-service
   domain: equity
   target: rust/crates/domains/equity
@@ -545,7 +1241,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /equity-changes/
+  - GET /equity-changes/statements/{company_id}
+  - GET /equity-changes/statements/{}
+  - GET /equity-changes/transactions/{company_id}
+  - GET /equity-changes/transactions/{}
+  - POST /equity-changes/statement
+  - POST /equity-changes/transactions
 - name: etl-service
   domain: data
   target: rust/crates/domains/data
@@ -554,7 +1257,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /etl/pipelines/{pipeline_id}
+  - GET /etl
+  - GET /etl/
+  - GET /etl/health
+  - GET /etl/pipelines
+  - GET /etl/pipelines/{pipeline_id}
+  - POST /etl
+  - POST /etl/pipelines
+  - POST /etl/pipelines/{pipeline_id}/run
 - name: expense-tracking-service
   domain: payables
   target: rust/crates/domains/payables
@@ -563,7 +1275,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /expense-tracking/
+  - GET /expense-tracking/expenses/{company_id}
+  - GET /expense-tracking/expenses/{}
+  - GET /expense-tracking/summary/{company_id}
+  - GET /expense-tracking/summary/{}
+  - POST /expense-tracking/expenses
+  - PUT /expense-tracking/expenses/{expense_id}/approve
+  - PUT /expense-tracking/expenses/{expense_id}/reject
+  - PUT /expense-tracking/expenses/{}/approve
+  - PUT /expense-tracking/expenses/{}/reject
 - name: family-community-group-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -572,7 +1294,25 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /family-community-group/
+  - GET /family-community-group/groups
+  - GET /family-community-group/groups/{group_id}
+  - GET /family-community-group/groups/{group_id}/contributions
+  - GET /family-community-group/groups/{group_id}/members
+  - GET /family-community-group/groups/{group_id}/payouts
+  - GET /family-community-group/groups/{}
+  - GET /family-community-group/groups/{}/contributions
+  - GET /family-community-group/groups/{}/members
+  - GET /family-community-group/groups/{}/payouts
+  - GET /family-community-group/health
+  - POST /family-community-group/groups
+  - POST /family-community-group/groups/{group_id}/advance-cycle
+  - POST /family-community-group/groups/{group_id}/contribute
+  - POST /family-community-group/groups/{group_id}/members
+  - POST /family-community-group/groups/{}/advance-cycle
+  - POST /family-community-group/groups/{}/contribute
+  - POST /family-community-group/groups/{}/members
 - name: financial-identity-service
   domain: identity
   target: rust/crates/domains/identity
@@ -581,7 +1321,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /financial-identity/
+  - GET /financial-identity/profiles/user/{user_id}
+  - GET /financial-identity/profiles/{profile_id}
+  - POST /financial-identity/profiles
+  - PUT /financial-identity/profiles/{profile_id}/verify
 - name: financial-integrity-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -590,7 +1335,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /financial-integrity/
+  - GET /financial-integrity/health
+  - GET /financial-integrity/report/{company_id}
+  - POST /financial-integrity/check/balance
+  - POST /financial-integrity/check/completeness
+  - POST /financial-integrity/check/hash
 - name: financial-state-machine-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -599,7 +1350,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /financial-state-machine/
+  - GET /financial-state-machine/documents/{doc_id}
+  - GET /financial-state-machine/documents/{doc_id}/history
+  - GET /financial-state-machine/health
+  - GET /financial-state-machine/states
+  - POST /financial-state-machine/documents
+  - POST /financial-state-machine/documents/{doc_id}/transition
 - name: fixed-assets-register-service
   domain: assets
   target: rust/crates/domains/assets
@@ -608,7 +1366,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /fixed-assets-register/
+  - GET /fixed-assets-register/assets
+  - GET /fixed-assets-register/assets/{asset_id}
+  - GET /fixed-assets-register/assets/{asset_id}/depreciation
+  - GET /fixed-assets-register/assets/{}
+  - GET /fixed-assets-register/assets/{}/depreciation
+  - GET /fixed-assets-register/health
+  - GET /fixed-assets-register/summary
+  - POST /fixed-assets-register/assets
+  - POST /fixed-assets-register/assets/{asset_id}/depreciate
+  - POST /fixed-assets-register/assets/{asset_id}/dispose
+  - POST /fixed-assets-register/assets/{}/depreciate
+  - POST /fixed-assets-register/assets/{}/dispose
 - name: fixed-assets-schedule-service
   domain: assets
   target: rust/crates/domains/assets
@@ -617,7 +1388,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /fixed-assets-schedule/
+  - GET /fixed-assets-schedule/assets
+  - GET /fixed-assets-schedule/assets/{asset_id}
+  - GET /fixed-assets-schedule/assets/{}
+  - GET /fixed-assets-schedule/health
+  - GET /fixed-assets-schedule/schedule/latest
+  - GET /fixed-assets-schedule/summary
+  - POST /fixed-assets-schedule/assets
+  - POST /fixed-assets-schedule/schedule/generate
+  - PUT /fixed-assets-schedule/assets/{asset_id}
+  - PUT /fixed-assets-schedule/assets/{}
 - name: foreign-exchange-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -626,7 +1408,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /foreign-exchange/
+  - GET /foreign-exchange/health
+  - GET /foreign-exchange/rates
+  - GET /foreign-exchange/rates/{currency}
+  - GET /foreign-exchange/rates/{}
+  - POST /foreign-exchange/convert
+  - POST /foreign-exchange/hedge
 - name: fund-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -635,7 +1424,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /fund-accounting/
+  - GET /fund-accounting/funds/{company_id}
+  - GET /fund-accounting/funds/{}
+  - GET /fund-accounting/transactions/{fund_id}
+  - GET /fund-accounting/transactions/{}
+  - POST /fund-accounting/funds
+  - POST /fund-accounting/transactions
 - name: general-reserve-service
   domain: equity
   target: rust/crates/domains/equity
@@ -644,7 +1440,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /general-reserve/
+  - GET /general-reserve/health
+  - GET /general-reserve/reserves
+  - GET /general-reserve/reserves/{reserve_id}
+  - GET /general-reserve/reserves/{reserve_id}/history
+  - GET /general-reserve/reserves/{}
+  - GET /general-reserve/reserves/{}/history
+  - POST /general-reserve/reserves
+  - POST /general-reserve/reserves/create
+  - POST /general-reserve/reserves/{reserve_id}/allocate
+  - POST /general-reserve/reserves/{reserve_id}/utilize
+  - POST /general-reserve/reserves/{}/allocate
+  - POST /general-reserve/reserves/{}/utilize
 - name: graphql-service
   domain: integrations
   target: rust/crates/platform/integrations
@@ -653,7 +1462,10 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /graphql/
+  - GET /graphql/health
+  - POST /graphql
 - name: ifrs-reporting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -662,7 +1474,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /ifrs-reporting/
+  - GET /ifrs-reporting/health
+  - GET /ifrs-reporting/reports
+  - GET /ifrs-reporting/reports/{report_id}
+  - GET /ifrs-reporting/reports/{report_id}/notes
+  - GET /ifrs-reporting/reports/{}
+  - GET /ifrs-reporting/reports/{}/notes
+  - POST /ifrs-reporting/reports
+  - POST /ifrs-reporting/reports/{report_id}/notes
+  - POST /ifrs-reporting/reports/{}/notes
+  - PUT /ifrs-reporting/reports/{report_id}/approve
+  - PUT /ifrs-reporting/reports/{}/approve
 - name: initial-investment-service
   domain: equity
   target: rust/crates/domains/equity
@@ -671,7 +1495,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /initial-investment/
+  - GET /initial-investment/get/{investment_id}
+  - GET /initial-investment/get/{}
+  - GET /initial-investment/health
+  - GET /initial-investment/list
+  - POST /initial-investment/create
+  - POST /initial-investment/simple
+  - POST /initial-investment/with-capital-allowance
 - name: insurance-claims-service
   domain: finance
   target: rust/crates/domains/finance
@@ -680,7 +1512,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /insurance-claims/
+  - GET /insurance-claims/claims
+  - GET /insurance-claims/health
+  - POST /insurance-claims/claims/{claim_id}/process
+  - POST /insurance-claims/claims/{}/process
+  - POST /insurance-claims/file
 - name: intangible-assets-service
   domain: assets
   target: rust/crates/domains/assets
@@ -689,7 +1527,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /intangible-assets/
+  - GET /intangible-assets/assets
+  - GET /intangible-assets/assets/{asset_id}
+  - GET /intangible-assets/assets/{asset_id}/amortization
+  - GET /intangible-assets/assets/{}
+  - GET /intangible-assets/assets/{}/amortization
+  - GET /intangible-assets/health
+  - POST /intangible-assets/assets
+  - POST /intangible-assets/assets/{asset_id}/amortize
+  - POST /intangible-assets/assets/{}/amortize
 - name: intercompany-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -698,7 +1546,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /intercompany/
+  - GET /intercompany/eliminations
+  - GET /intercompany/entities
+  - GET /intercompany/health
+  - GET /intercompany/transactions
+  - POST /intercompany/entities
+  - POST /intercompany/transactions
+  - POST /intercompany/transactions/match
 - name: internal-rate-return-service
   domain: finance
   target: rust/crates/domains/finance
@@ -707,7 +1563,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /internal-rate-return/
+  - GET /internal-rate-return/health
+  - POST /internal-rate-return/calculate
+  - POST /internal-rate-return/calculate-bisection
+  - POST /internal-rate-return/compare
+  - POST /internal-rate-return/decision
 - name: investment-monitoring-service
   domain: finance
   target: rust/crates/domains/finance
@@ -716,7 +1578,21 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /investment-monitoring/
+  - GET /investment-monitoring/health
+  - GET /investment-monitoring/portfolios
+  - GET /investment-monitoring/portfolios/{portfolio_id}/holdings
+  - GET /investment-monitoring/portfolios/{portfolio_id}/performance
+  - GET /investment-monitoring/portfolios/{}/holdings
+  - GET /investment-monitoring/portfolios/{}/performance
+  - POST /investment-monitoring/holdings/{holding_id}/update-price
+  - POST /investment-monitoring/holdings/{}/update-price
+  - POST /investment-monitoring/portfolios
+  - POST /investment-monitoring/portfolios/{portfolio_id}/holdings
+  - POST /investment-monitoring/portfolios/{portfolio_id}/performance
+  - POST /investment-monitoring/portfolios/{}/holdings
+  - POST /investment-monitoring/portfolios/{}/performance
 - name: investment-property-service
   domain: assets
   target: rust/crates/domains/assets
@@ -725,7 +1601,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /investment-property/
+  - POST /investment-property/cost-model
+  - POST /investment-property/fair-value-disclosure
+  - POST /investment-property/fair-value-model
+  - POST /investment-property/transfer
+  - POST /investment-property/yields
 - name: invoicing-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -734,7 +1616,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /invoicing/customers/{customer_id}
+  - DELETE /invoicing/invoices/{invoice_number}
+  - GET /invoicing/
+  - GET /invoicing/customers/
+  - GET /invoicing/customers/{customer_id}
+  - GET /invoicing/invoices/
+  - GET /invoicing/invoices/{invoice_number}
+  - POST /invoicing/customers/
+  - POST /invoicing/invoices/
+  - POST /invoicing/invoices/{invoice_number}/record-payment
+  - PUT /invoicing/customers/{customer_id}
+  - PUT /invoicing/invoices/{invoice_number}
 - name: issued-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
@@ -743,7 +1637,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /issued-share-capital/
+  - GET /issued-share-capital/health
+  - GET /issued-share-capital/issues/{company_id}
+  - GET /issued-share-capital/issues/{}
+  - GET /issued-share-capital/shareholders/{company_id}
+  - GET /issued-share-capital/shareholders/{}
+  - GET /issued-share-capital/summary/{company_id}
+  - GET /issued-share-capital/summary/{}
+  - POST /issued-share-capital/issue
+  - POST /issued-share-capital/shareholders/register
 - name: job-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -752,7 +1656,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /job-costing/
+  - GET /job-costing/jobs/{company_id}
+  - GET /job-costing/jobs/{company_id}/profitability
+  - GET /job-costing/jobs/{}
+  - GET /job-costing/jobs/{}/profitability
+  - POST /job-costing/jobs
+  - POST /job-costing/jobs/{job_id}/costs
+  - POST /job-costing/jobs/{}/costs
 - name: lease-termination-service
   domain: assets
   target: rust/crates/domains/assets
@@ -761,7 +1673,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /lease-termination/
+  - GET /lease-termination/health
+  - GET /lease-termination/terminations
+  - GET /lease-termination/terminations/{termination_id}
+  - GET /lease-termination/terminations/{}
+  - POST /lease-termination/terminations
+  - POST /lease-termination/terminations/{termination_id}/settlement
+  - POST /lease-termination/terminations/{}/settlement
+  - PUT /lease-termination/terminations/{termination_id}/approve
+  - PUT /lease-termination/terminations/{termination_id}/complete
+  - PUT /lease-termination/terminations/{}/approve
+  - PUT /lease-termination/terminations/{}/complete
 - name: message-bus-service
   domain: events
   target: rust/crates/platform/events
@@ -770,7 +1694,28 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /message-bus/subscriptions/{subscription_id}
+  - DELETE /message-bus/subscriptions/{}
+  - GET /message-bus/
+  - GET /message-bus/event-types
+  - GET /message-bus/events
+  - GET /message-bus/events/{event_id}
+  - GET /message-bus/events/{event_id}/deliveries
+  - GET /message-bus/events/{}
+  - GET /message-bus/events/{}/deliveries
+  - GET /message-bus/metrics
+  - GET /message-bus/subscriptions
+  - GET /message-bus/subscriptions/{subscription_id}
+  - GET /message-bus/subscriptions/{}
+  - POST /message-bus/events/publish
+  - POST /message-bus/events/{event_type}/publish
+  - POST /message-bus/events/{}/publish
+  - POST /message-bus/subscriptions
+  - POST /message-bus/trigger/approval-requested
+  - POST /message-bus/trigger/budget-variance-alert
+  - POST /message-bus/trigger/journal-entry-created
+  - POST /message-bus/trigger/transaction-flagged
 - name: mfa-auth-service
   domain: authentication
   target: rust/crates/platform/identity
@@ -779,7 +1724,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /mfa-auth/
+  - GET /mfa-auth/backup-codes
+  - GET /mfa-auth/health
+  - GET /mfa-auth/status
+  - POST /mfa-auth/challenge
+  - POST /mfa-auth/challenge/{challenge_id}/verify
+  - POST /mfa-auth/challenge/{}/verify
+  - POST /mfa-auth/setup
+  - POST /mfa-auth/verify
 - name: multimodal-pipeline-service
   domain: multimodal
   target: rust/crates/domains/multimodal
@@ -788,7 +1742,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /multimodal/tasks/{task_id}
+  - GET /multimodal/
+  - GET /multimodal/inbox
+  - GET /multimodal/inbox/summary
+  - GET /multimodal/tasks/
+  - GET /multimodal/tasks/{task_id}
+  - GET /multimodal/tasks/{task_id}/corrections
+  - POST /multimodal/inbox/{task_id}/organize
+  - POST /multimodal/tasks/
+  - POST /multimodal/tasks/{task_id}/corrections
+  - PUT /multimodal/tasks/{task_id}
 - name: net-present-value-service
   domain: finance
   target: rust/crates/domains/finance
@@ -797,7 +1762,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /net-present-value/
+  - GET /net-present-value/health
+  - POST /net-present-value/calculate
+  - POST /net-present-value/calculate-percent
+  - POST /net-present-value/compare
+  - POST /net-present-value/profitability-index
 - name: notifications-service
   domain: notifications
   target: rust/crates/platform/notifications
@@ -806,7 +1777,40 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /notifications/notifications/{notification_id}
+  - DELETE /notifications/notifications/{}
+  - DELETE /notifications/{}
+  - GET /notifications/
+  - GET /notifications/health
+  - GET /notifications/notifications
+  - GET /notifications/notifications/{user_id}
+  - GET /notifications/notifications/{}
+  - GET /notifications/preferences/{user_id}
+  - GET /notifications/preferences/{}
+  - GET /notifications/stats
+  - GET /notifications/templates
+  - GET /notifications/templates/{template_name}
+  - GET /notifications/templates/{}
+  - GET /notifications/{}
+  - POST /notifications
+  - POST /notifications/approval/{approval_id}/notify
+  - POST /notifications/approval/{}/notify
+  - POST /notifications/batch
+  - POST /notifications/notifications
+  - POST /notifications/notifications/batch
+  - POST /notifications/templates/{template_name}/send
+  - POST /notifications/templates/{}/send
+  - POST /notifications/workflow/{workflow_id}/notify
+  - POST /notifications/workflow/{}/notify
+  - PUT /notifications/notifications/{notification_id}/read
+  - PUT /notifications/notifications/{user_id}/read-all
+  - PUT /notifications/notifications/{}/read
+  - PUT /notifications/notifications/{}/read-all
+  - PUT /notifications/preferences/{user_id}
+  - PUT /notifications/preferences/{}
+  - PUT /notifications/{}/read
+  - PUT /notifications/{}/read-all
 - name: npo-service
   domain: npo
   target: rust/crates/domains/npo
@@ -815,7 +1819,85 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /npo/
+  - GET /npo/audit-reports
+  - GET /npo/audit-reports/
+  - GET /npo/budgets
+  - GET /npo/budgets/
+  - GET /npo/donations
+  - GET /npo/donations/
+  - GET /npo/donors
+  - GET /npo/donors/
+  - GET /npo/donors/{donor_id}
+  - GET /npo/donors/{}
+  - GET /npo/funds
+  - GET /npo/funds/
+  - GET /npo/funds/{fund_id}
+  - GET /npo/funds/{fund_id}/transactions/
+  - GET /npo/funds/{}
+  - GET /npo/funds/{}/transactions
+  - GET /npo/grants
+  - GET /npo/grants/
+  - GET /npo/grants/{grant_id}
+  - GET /npo/grants/{}
+  - GET /npo/health
+  - GET /npo/internal-controls
+  - GET /npo/internal-controls/
+  - GET /npo/net-assets/{as_of_date}
+  - GET /npo/net-assets/{}
+  - GET /npo/programs
+  - GET /npo/programs/
+  - GET /npo/projects
+  - GET /npo/projects/
+  - GET /npo/projects/{project_id}
+  - GET /npo/projects/{}
+  - GET /npo/statements/activities
+  - GET /npo/statements/activities/
+  - GET /npo/volunteer-records
+  - GET /npo/volunteer-records/
+  - POST /npo/assets
+  - POST /npo/assets/
+  - POST /npo/audit-reports
+  - POST /npo/audit-reports/
+  - POST /npo/budgets
+  - POST /npo/budgets/
+  - POST /npo/budgets/{budget_id}/lines/
+  - POST /npo/budgets/{}/lines
+  - POST /npo/donations
+  - POST /npo/donations/
+  - POST /npo/donors
+  - POST /npo/donors/
+  - POST /npo/funds
+  - POST /npo/funds/
+  - POST /npo/funds/{fund_id}/restrictions/
+  - POST /npo/funds/{fund_id}/transactions/
+  - POST /npo/funds/{}/restrictions
+  - POST /npo/funds/{}/transactions
+  - POST /npo/grants
+  - POST /npo/grants/
+  - POST /npo/grants/{grant_id}/drawdowns/
+  - POST /npo/grants/{}/drawdowns
+  - POST /npo/impact-measurements
+  - POST /npo/impact-measurements/
+  - POST /npo/internal-controls
+  - POST /npo/internal-controls/
+  - POST /npo/net-assets
+  - POST /npo/net-assets/
+  - POST /npo/program-metrics
+  - POST /npo/program-metrics/
+  - POST /npo/programs
+  - POST /npo/programs/
+  - POST /npo/projects
+  - POST /npo/projects/
+  - POST /npo/sroi-analyses
+  - POST /npo/sroi-analyses/
+  - POST /npo/statements/activities
+  - POST /npo/statements/activities/
+  - POST /npo/statements/financial-position
+  - POST /npo/statements/financial-position/
+  - POST /npo/volunteer-records
+  - POST /npo/volunteer-records/
 - name: ordinary-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -824,7 +1906,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /ordinary-shares/
+  - GET /ordinary-shares/dividends
+  - GET /ordinary-shares/health
+  - POST /ordinary-shares/dividends
+  - POST /ordinary-shares/dividends/declare
+  - POST /ordinary-shares/dividends/{dividend_id}/pay
+  - POST /ordinary-shares/dividends/{}/pay
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
@@ -833,7 +1922,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /overhead-absorption-rate/
+  - GET /overhead-absorption-rate/analyses
+  - GET /overhead-absorption-rate/health
+  - GET /overhead-absorption-rate/rates
+  - POST /overhead-absorption-rate/absorbed-overhead
+  - POST /overhead-absorption-rate/blanket-rate
+  - POST /overhead-absorption-rate/calculate
+  - POST /overhead-absorption-rate/labour-cost-rate
+  - POST /overhead-absorption-rate/labour-hours-rate
+  - POST /overhead-absorption-rate/machine-hours-rate
+  - POST /overhead-absorption-rate/material-cost-rate
+  - POST /overhead-absorption-rate/prime-cost-rate
+  - POST /overhead-absorption-rate/unit-rate
 - name: partnership-agreement-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -842,7 +1944,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-agreement/
+  - GET /partnership-agreement/agreements
+  - GET /partnership-agreement/agreements/{agreement_id}
+  - GET /partnership-agreement/agreements/{agreement_id}/summary
+  - GET /partnership-agreement/agreements/{}
+  - GET /partnership-agreement/agreements/{}/summary
+  - GET /partnership-agreement/health
+  - POST /partnership-agreement/agreements
+  - POST /partnership-agreement/agreements/{agreement_id}/partners/add
+  - POST /partnership-agreement/agreements/{}/partners/add
+  - PUT /partnership-agreement/agreements/{agreement_id}
+  - PUT /partnership-agreement/agreements/{}
 - name: partnership-changes-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -851,7 +1965,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-changes/
+  - GET /partnership-changes/changes
+  - GET /partnership-changes/health
+  - POST /partnership-changes/changes/admission
+  - POST /partnership-changes/changes/death
+  - POST /partnership-changes/changes/retirement
+  - POST /partnership-changes/changes/{change_id}/settle
+  - POST /partnership-changes/changes/{}/settle
 - name: partnership-dissolution-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -860,7 +1982,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-dissolution/
+  - GET /partnership-dissolution/dissolutions
+  - GET /partnership-dissolution/dissolutions/{dissolution_id}
+  - GET /partnership-dissolution/dissolutions/{}
+  - GET /partnership-dissolution/health
+  - POST /partnership-dissolution/dissolve
 - name: partnership-revaluation-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -869,7 +1997,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /partnership-revaluation/
+  - GET /partnership-revaluation/health
+  - GET /partnership-revaluation/revaluations
+  - GET /partnership-revaluation/revaluations/{revaluation_id}
+  - GET /partnership-revaluation/revaluations/{}
+  - POST /partnership-revaluation/revalue
 - name: payback-period-service
   domain: finance
   target: rust/crates/domains/finance
@@ -878,7 +2012,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /payback-period/
+  - GET /payback-period/health
+  - POST /payback-period/average-cash-flow
+  - POST /payback-period/calculate
+  - POST /payback-period/compare
 - name: performance-benchmarking-service
   domain: analytics
   target: rust/crates/domains/analytics
@@ -887,7 +2026,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /performance-benchmarking/
+  - GET /performance-benchmarking/health
+  - GET /performance-benchmarking/metrics
+  - GET /performance-benchmarking/peer-comparisons/{metric_id}
+  - GET /performance-benchmarking/results
+  - POST /performance-benchmarking/benchmark
+  - POST /performance-benchmarking/metrics
+  - POST /performance-benchmarking/peer-comparisons
 - name: personal-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -896,7 +2043,46 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /personal-finance/recurring/{rec_id}
+  - DELETE /personal-finance/recurring/{}
+  - GET /personal-finance/
+  - GET /personal-finance/debts
+  - GET /personal-finance/debts/{debt_id}/schedule
+  - GET /personal-finance/debts/{key}
+  - GET /personal-finance/debts/{}
+  - GET /personal-finance/debts/{}/schedule
+  - GET /personal-finance/goals
+  - GET /personal-finance/goals/{user_id}
+  - GET /personal-finance/goals/{}
+  - GET /personal-finance/health
+  - GET /personal-finance/income
+  - GET /personal-finance/income/{user_id}
+  - GET /personal-finance/income/{}
+  - GET /personal-finance/investments
+  - GET /personal-finance/overview
+  - GET /personal-finance/overview/{user_id}
+  - GET /personal-finance/overview/{}
+  - GET /personal-finance/recurring
+  - GET /personal-finance/tax/brackets
+  - PATCH /personal-finance/recurring/{rec_id}
+  - PATCH /personal-finance/recurring/{}
+  - POST /personal-finance/debts
+  - POST /personal-finance/debts/{debt_id}/payments
+  - POST /personal-finance/debts/{}/payments
+  - POST /personal-finance/goals
+  - POST /personal-finance/income
+  - POST /personal-finance/investments
+  - POST /personal-finance/investments/{inv_id}/price
+  - POST /personal-finance/investments/{inv_id}/trades
+  - POST /personal-finance/investments/{}/price
+  - POST /personal-finance/investments/{}/trades
+  - POST /personal-finance/legacy-debts
+  - POST /personal-finance/recurring
+  - POST /personal-finance/recurring/{rec_id}/run
+  - POST /personal-finance/recurring/{}/run
+  - POST /personal-finance/tax/estimate
+  - PUT /personal-finance/tax/brackets
 - name: petty-cash-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -905,7 +2091,36 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /petty-cash/
+  - GET /petty-cash/funds
+  - GET /petty-cash/funds/{fund_id}
+  - GET /petty-cash/funds/{fund_id}/balance
+  - GET /petty-cash/funds/{fund_id}/summary
+  - GET /petty-cash/funds/{}
+  - GET /petty-cash/funds/{}/balance
+  - GET /petty-cash/funds/{}/summary
+  - GET /petty-cash/replenishments
+  - GET /petty-cash/reports/cash-position
+  - GET /petty-cash/reports/category-summary
+  - GET /petty-cash/reports/fund-report/{fund_id}
+  - GET /petty-cash/reports/fund-report/{}
+  - GET /petty-cash/transactions
+  - GET /petty-cash/transactions/{transaction_id}
+  - GET /petty-cash/transactions/{}
+  - GET /petty-cash/vouchers
+  - POST /petty-cash/funds
+  - POST /petty-cash/funds/{fund_id}/close
+  - POST /petty-cash/funds/{}/close
+  - POST /petty-cash/replenishments
+  - POST /petty-cash/transactions
+  - POST /petty-cash/vouchers
+  - PUT /petty-cash/funds/{fund_id}
+  - PUT /petty-cash/funds/{}
+  - PUT /petty-cash/replenishments/{replenishment_id}/approve
+  - PUT /petty-cash/replenishments/{}/approve
+  - PUT /petty-cash/vouchers/{voucher_id}/approve
+  - PUT /petty-cash/vouchers/{}/approve
 - name: pos-integration-service
   domain: payments
   target: rust/crates/domains/payments
@@ -914,7 +2129,26 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /pos-integration/
+  - GET /pos-integration/devices
+  - GET /pos-integration/devices/{device_id}
+  - GET /pos-integration/devices/{}
+  - GET /pos-integration/metrics
+  - GET /pos-integration/transactions
+  - GET /pos-integration/transactions/{transaction_id}
+  - GET /pos-integration/transactions/{}
+  - POST /pos-integration/devices
+  - POST /pos-integration/integrations/{pos_type}/webhook
+  - POST /pos-integration/integrations/{}/webhook
+  - POST /pos-integration/inventory/reconcile
+  - POST /pos-integration/inventory/sync
+  - POST /pos-integration/reports/sales-summary
+  - POST /pos-integration/transactions
+  - POST /pos-integration/transactions/batch
+  - POST /pos-integration/transactions/{}/sync
+  - PUT /pos-integration/devices/{device_id}/status
+  - PUT /pos-integration/devices/{}/status
 - name: preference-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -923,7 +2157,21 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /preference-shares/
+  - GET /preference-shares/classes
+  - GET /preference-shares/dividends
+  - GET /preference-shares/health
+  - POST /preference-shares/classes
+  - POST /preference-shares/classes/create
+  - POST /preference-shares/classes/{share_class_id}/dividends/declare
+  - POST /preference-shares/classes/{share_class_id}/dividends/{dividend_id}/pay
+  - POST /preference-shares/classes/{share_class_id}/issue
+  - POST /preference-shares/classes/{share_class_id}/redeem
+  - POST /preference-shares/classes/{}/dividends/declare
+  - POST /preference-shares/classes/{}/dividends/{}/pay
+  - POST /preference-shares/classes/{}/issue
+  - POST /preference-shares/classes/{}/redeem
 - name: privacy-admin-dashboard-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -932,7 +2180,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /privacy-admin-dashboard/consent/{consent_id}
+  - DELETE /privacy-admin-dashboard/requests/{request_id}
+  - GET /privacy-admin-dashboard/
+  - GET /privacy-admin-dashboard/consent/{email}
+  - GET /privacy-admin-dashboard/dashboard
+  - GET /privacy-admin-dashboard/health
+  - GET /privacy-admin-dashboard/requests
+  - POST /privacy-admin-dashboard/consent
+  - POST /privacy-admin-dashboard/requests
+  - PUT /privacy-admin-dashboard/requests/{request_id}
 - name: process-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -941,7 +2199,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /process-costing/
+  - GET /process-costing/breakdown/{company_id}/{calc_id}
+  - GET /process-costing/breakdown/{}/{}
+  - GET /process-costing/calculations/{company_id}
+  - GET /process-costing/calculations/{}
+  - GET /process-costing/summary/{company_id}
+  - GET /process-costing/summary/{}
+  - POST /process-costing/calculate
 - name: product-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -950,7 +2216,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /product-costing/
+  - GET /product-costing/breakdown/{company_id}/{calc_id}
+  - GET /product-costing/breakdown/{}/{}
+  - GET /product-costing/calculations/{company_id}
+  - GET /product-costing/calculations/{}
+  - GET /product-costing/summary/{company_id}
+  - GET /product-costing/summary/{}
+  - POST /product-costing/calculate
 - name: provision-bad-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -959,7 +2233,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /provision-bad-debts/
+  - GET /provision-bad-debts/health
+  - GET /provision-bad-debts/policies
+  - GET /provision-bad-debts/provision-history
+  - POST /provision-bad-debts/calculate-provision
+  - POST /provision-bad-debts/debtors/add
+  - POST /provision-bad-debts/journal/create
+  - POST /provision-bad-debts/policies
 - name: provision-doubtful-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -968,7 +2250,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /provision-doubtful-debts/
+  - GET /provision-doubtful-debts/debtors
+  - GET /provision-doubtful-debts/health
+  - GET /provision-doubtful-debts/provisions
+  - POST /provision-doubtful-debts/calculate-provision
+  - POST /provision-doubtful-debts/debtors/add
+  - POST /provision-doubtful-debts/debtors/{debtor_id}/assess
+  - POST /provision-doubtful-debts/debtors/{}/assess
+  - POST /provision-doubtful-debts/provision/create
 - name: purchases-ledger-control-service
   domain: payables
   target: rust/crates/domains/payables
@@ -977,7 +2268,33 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /purchases-ledger-control/
+  - GET /purchases-ledger-control/control-account/summary
+  - GET /purchases-ledger-control/creditors
+  - GET /purchases-ledger-control/health
+  - POST /purchases-ledger-control/reconcile
+  - POST /purchases-ledger-control/transactions
+- name: calculation-api
+  domain: calculations
+  target: rust/crates/application
+  port: 8099
+  gateway_path: /calc
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - POST /calc/{}
+- name: calculator-catalogue
+  domain: calculations
+  target: rust/crates/application
+  port: 8099
+  gateway_path: /calculators
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /calculators
 - name: realtime-calculation-engine
   domain: calculations
   target: rust/crates/application
@@ -986,7 +2303,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /realtime-calculation/
+  - POST /realtime-calculation/amortize
+  - POST /realtime-calculation/depreciation
+  - POST /realtime-calculation/irr
+  - POST /realtime-calculation/npv
 - name: regulatory-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -995,7 +2317,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /regulatory-compliance/
+  - GET /regulatory-compliance/dashboard
+  - GET /regulatory-compliance/health
+  - GET /regulatory-compliance/regulations
+  - POST /regulatory-compliance/regulations
+  - POST /regulatory-compliance/regulations/{reg_id}/update
+  - POST /regulatory-compliance/regulations/{}/update
 - name: report-automation-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -1004,7 +2333,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /report-automation/
+  - GET /report-automation/health
+  - GET /report-automation/reports
+  - GET /report-automation/schedules
+  - GET /report-automation/templates
+  - POST /report-automation/schedules
+  - POST /report-automation/schedules/{schedule_id}/run
+  - POST /report-automation/schedules/{}/run
+  - POST /report-automation/templates
+  - PUT /report-automation/schedules/{schedule_id}/pause
+  - PUT /report-automation/schedules/{schedule_id}/resume
+  - PUT /report-automation/schedules/{}/pause
+  - PUT /report-automation/schedules/{}/resume
 - name: report-distribution-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -1013,7 +2355,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /report-distribution/
+  - GET /report-distribution/health
+  - GET /report-distribution/lists
+  - GET /report-distribution/logs
+  - GET /report-distribution/subscriptions
+  - POST /report-distribution/lists
+  - POST /report-distribution/subscriptions
+  - POST /report-distribution/subscriptions/{sub_id}/distribute
 - name: reporting-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -1022,7 +2372,10 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /reporting/
+  - POST /reporting/generate
+  - POST /reporting/schedule
 - name: retained-profits-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1031,7 +2384,22 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /retained-profits/
+  - GET /retained-profits/adjustments
+  - GET /retained-profits/appropriations
+  - GET /retained-profits/health
+  - GET /retained-profits/interim-dividends
+  - GET /retained-profits/summary/{company_id}
+  - GET /retained-profits/summary/{}
+  - POST /retained-profits/adjustments
+  - POST /retained-profits/adjustments/create
+  - POST /retained-profits/appropriations
+  - POST /retained-profits/appropriations/create
+  - POST /retained-profits/interim-dividends
+  - POST /retained-profits/interim-dividends/declare
+  - POST /retained-profits/interim-dividends/{dividend_id}/pay
+  - POST /retained-profits/interim-dividends/{}/pay
 - name: revaluation-model-service
   domain: assets
   target: rust/crates/domains/assets
@@ -1040,7 +2408,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /revaluation-model/
+  - POST /revaluation-model/depreciation-after-revaluation
+  - POST /revaluation-model/impairment-after-revaluation
+  - POST /revaluation-model/indexation-allowance
+  - POST /revaluation-model/revaluation-surplus
+  - POST /revaluation-model/revalue
 - name: revaluation-reserve-service
   domain: assets
   target: rust/crates/domains/assets
@@ -1049,7 +2423,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /revaluation-reserve/
+  - GET /revaluation-reserve/cumulative/{asset_id}
+  - GET /revaluation-reserve/cumulative/{}
+  - GET /revaluation-reserve/health
+  - GET /revaluation-reserve/revaluations
+  - GET /revaluation-reserve/summary/{company_id}
+  - GET /revaluation-reserve/summary/{}
+  - POST /revaluation-reserve/revaluations/record
+  - POST /revaluation-reserve/utilizations/record
 - name: revenue-recognition-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -1058,7 +2441,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /revenue-recognition/
+  - GET /revenue-recognition/contracts/{company_id}
+  - GET /revenue-recognition/contracts/{}
+  - GET /revenue-recognition/summary/{company_id}
+  - GET /revenue-recognition/summary/{}
+  - POST /revenue-recognition/contracts
+  - POST /revenue-recognition/contracts/{contract_id}/recognize
+  - POST /revenue-recognition/contracts/{}/recognize
 - name: right-issues-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1067,7 +2458,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /right-issues/
+  - GET /right-issues/health
+  - GET /right-issues/right-issues
+  - GET /right-issues/right-issues/{}
+  - GET /right-issues/{right_issue_id}
+  - GET /right-issues/{}
+  - POST /right-issues/offer
+  - POST /right-issues/right-issues/{}/accept
+  - POST /right-issues/right-issues/{}/renounce
+  - POST /right-issues/{right_issue_id}/accept
+  - POST /right-issues/{right_issue_id}/renounce
+  - POST /right-issues/{}/accept
+  - POST /right-issues/{}/renounce
 - name: risk-assessment-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -1076,7 +2480,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /risk-assessment/risks/{risk_id}
+  - DELETE /risk-assessment/risks/{}
+  - GET /risk-assessment/
+  - GET /risk-assessment/dashboard/{company_id}
+  - GET /risk-assessment/dashboard/{}
+  - GET /risk-assessment/risks/{company_id}
+  - GET /risk-assessment/risks/{}
+  - POST /risk-assessment/risks
+  - PUT /risk-assessment/risks/{risk_id}
+  - PUT /risk-assessment/risks/{}
 - name: rolling-forecast-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -1085,7 +2499,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /rolling-forecast/
+  - GET /rolling-forecast/forecasts
+  - GET /rolling-forecast/forecasts/{forecast_id}
+  - GET /rolling-forecast/health
+  - POST /rolling-forecast/forecasts
+  - POST /rolling-forecast/forecasts/{forecast_id}/roll
+  - POST /rolling-forecast/forecasts/{forecast_id}/update-actual
 - name: sales-ledger-control-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -1094,7 +2515,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sales-ledger-control/
+  - GET /sales-ledger-control/control-account/summary
+  - GET /sales-ledger-control/debtors
+  - GET /sales-ledger-control/debtors/{debtor_id}/balance
+  - GET /sales-ledger-control/health
+  - POST /sales-ledger-control/reconcile
+  - POST /sales-ledger-control/transactions
 - name: scenario-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -1103,7 +2531,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /scenario-analysis/
+  - GET /scenario-analysis/compare/{company_id}
+  - GET /scenario-analysis/compare/{}
+  - GET /scenario-analysis/health
+  - GET /scenario-analysis/scenarios/{company_id}
+  - GET /scenario-analysis/scenarios/{}
+  - POST /scenario-analysis/analyze
+  - POST /scenario-analysis/scenarios
 - name: scenario-modeling-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -1112,7 +2548,39 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /scenario-modeling/rules/{rule_id}
+  - DELETE /scenario-modeling/rules/{}
+  - DELETE /scenario-modeling/scenarios/{scenario_id}
+  - DELETE /scenario-modeling/scenarios/{}
+  - GET /scenario-modeling/
+  - GET /scenario-modeling/health
+  - GET /scenario-modeling/rules
+  - GET /scenario-modeling/rules/
+  - GET /scenario-modeling/rules/{rule_id}
+  - GET /scenario-modeling/rules/{}
+  - GET /scenario-modeling/scenarios
+  - GET /scenario-modeling/scenarios/
+  - GET /scenario-modeling/scenarios/{scenario_id}
+  - GET /scenario-modeling/scenarios/{}
+  - GET /scenario-modeling/what-if/scenario/{scenario_id}
+  - GET /scenario-modeling/what-if/scenario/{}
+  - GET /scenario-modeling/what-if/{analysis_id}
+  - GET /scenario-modeling/what-if/{}
+  - POST /scenario-modeling/compare
+  - POST /scenario-modeling/compare/
+  - POST /scenario-modeling/rules
+  - POST /scenario-modeling/rules/
+  - POST /scenario-modeling/scenarios
+  - POST /scenario-modeling/scenarios/
+  - POST /scenario-modeling/sensitivity
+  - POST /scenario-modeling/sensitivity/
+  - POST /scenario-modeling/what-if
+  - POST /scenario-modeling/what-if/
+  - PUT /scenario-modeling/rules/{rule_id}
+  - PUT /scenario-modeling/rules/{}
+  - PUT /scenario-modeling/scenarios/{scenario_id}
+  - PUT /scenario-modeling/scenarios/{}
 - name: selling-price-reduction-service
   domain: costing
   target: rust/crates/domains/costing
@@ -1121,7 +2589,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /selling-price-reduction/
+  - GET /selling-price-reduction/analyses
+  - GET /selling-price-reduction/health
+  - POST /selling-price-reduction/analyze
+  - POST /selling-price-reduction/discount-analysis
 - name: sensitivity-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -1130,7 +2603,11 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sensitivity-analysis/
+  - GET /sensitivity-analysis/analyses/{company_id}
+  - GET /sensitivity-analysis/analyses/{}
+  - POST /sensitivity-analysis/analyze
 - name: share-premium-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1139,7 +2616,16 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /share-premium/
+  - GET /share-premium/entries
+  - GET /share-premium/health
+  - GET /share-premium/summary/{company_id}
+  - GET /share-premium/summary/{}
+  - GET /share-premium/utilizations
+  - POST /share-premium/adjustments/create
+  - POST /share-premium/entries/record
+  - POST /share-premium/utilizations/record
 - name: share-redemption-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1148,7 +2634,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /share-redemption/
+  - GET /share-redemption/crr-requirements
+  - GET /share-redemption/health
+  - GET /share-redemption/redemptions
+  - GET /share-redemption/redemptions/{redemption_id}
+  - GET /share-redemption/redemptions/{}
+  - POST /share-redemption/redemptions/initiate
+  - POST /share-redemption/redemptions/{redemption_id}/complete
+  - POST /share-redemption/redemptions/{redemption_id}/fresh-issue
+  - POST /share-redemption/redemptions/{}/complete
+  - POST /share-redemption/redemptions/{}/fresh-issue
 - name: sovereign-treasury-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1157,7 +2654,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sovereign-treasury/
+  - GET /sovereign-treasury/accounts/{country}
+  - GET /sovereign-treasury/accounts/{}
+  - GET /sovereign-treasury/debt/{country}
+  - GET /sovereign-treasury/debt/{}
+  - GET /sovereign-treasury/fiscal-position/{country}
+  - GET /sovereign-treasury/fiscal-position/{}
+  - POST /sovereign-treasury/accounts
+  - POST /sovereign-treasury/debt
+  - POST /sovereign-treasury/fiscal-position
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -1166,7 +2673,20 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /sox-compliance/
+  - GET /sox-compliance/controls
+  - GET /sox-compliance/controls/{control_id}/tests
+  - GET /sox-compliance/controls/{}/tests
+  - GET /sox-compliance/dashboard
+  - GET /sox-compliance/deficiencies
+  - GET /sox-compliance/health
+  - POST /sox-compliance/controls
+  - POST /sox-compliance/controls/{control_id}/test
+  - POST /sox-compliance/controls/{}/test
+  - POST /sox-compliance/deficiencies
+  - PUT /sox-compliance/deficiencies/{deficiency_id}
+  - PUT /sox-compliance/deficiencies/{}
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -1175,7 +2695,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /subscription-plans/
+  - GET /subscription-plans/health
+  - GET /subscription-plans/plans
+  - GET /subscription-plans/subscriptions/{company_id}
+  - POST /subscription-plans/plans
+  - POST /subscription-plans/subscribe
+  - POST /subscription-plans/upgrade
 - name: tax-accounting-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -1184,7 +2711,27 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-accounting/
+  - GET /tax-accounting/health
+  - GET /tax-accounting/liability-schedule
+  - GET /tax-accounting/reports/vat-by-jurisdiction
+  - GET /tax-accounting/tax-rates
+  - GET /tax-accounting/tax-rates/{rate_id}
+  - GET /tax-accounting/tax-registrations
+  - GET /tax-accounting/tax-returns
+  - GET /tax-accounting/withholding-tax
+  - POST /tax-accounting/calculate
+  - POST /tax-accounting/calculate-batch
+  - POST /tax-accounting/deferred-tax
+  - POST /tax-accounting/reports/tax-summary
+  - POST /tax-accounting/tax-rates
+  - POST /tax-accounting/tax-registrations
+  - POST /tax-accounting/tax-returns
+  - POST /tax-accounting/tax-returns/{return_id}/file
+  - POST /tax-accounting/tax-returns/{return_id}/pay
+  - POST /tax-accounting/withholding-tax
+  - PUT /tax-accounting/tax-rates/{rate_id}
 - name: tax-compliance-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -1193,7 +2740,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-compliance/
+  - GET /tax-compliance/health
+  - GET /tax-compliance/obligations
+  - GET /tax-compliance/summary
+  - POST /tax-compliance/obligations
+  - POST /tax-compliance/obligations/{obligation_id}/file
+  - POST /tax-compliance/obligations/{}/file
 - name: tax-planning-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -1202,7 +2756,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-planning/
+  - GET /tax-planning/health
+  - GET /tax-planning/strategies
+  - POST /tax-planning/plan
+  - POST /tax-planning/strategies
 - name: trade-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -1211,7 +2770,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /trade-finance/
+  - GET /trade-finance/health
+  - GET /trade-finance/instruments
+  - POST /trade-finance/instruments
+  - POST /trade-finance/instruments/{instrument_id}/present
+  - POST /trade-finance/instruments/{instrument_id}/settle
+  - POST /trade-finance/instruments/{}/present
+  - POST /trade-finance/instruments/{}/settle
 - name: trading-account-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -1220,7 +2787,13 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /trading-account/
+  - GET /trading-account/accounts
+  - GET /trading-account/accounts/{account_id}
+  - GET /trading-account/accounts/{}
+  - GET /trading-account/health
+  - POST /trading-account/generate
 - name: treasury-analytics-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1229,7 +2802,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-analytics/
+  - GET /treasury-analytics/health
+  - GET /treasury-analytics/kpi/{company_id}
+  - GET /treasury-analytics/kpi/{}
+  - POST /treasury-analytics/analyze
 - name: treasury-compliance-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1238,7 +2816,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-compliance/
+  - GET /treasury-compliance/checks/{company_id}
+  - GET /treasury-compliance/checks/{}
+  - GET /treasury-compliance/health
+  - GET /treasury-compliance/report/{company_id}
+  - GET /treasury-compliance/report/{}
+  - PUT /treasury-compliance/checks/{check_id}/status
+  - PUT /treasury-compliance/checks/{}/status
 - name: treasury-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1247,7 +2833,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-management/
+  - GET /treasury-management/cashflows/{company_id}
+  - GET /treasury-management/cashflows/{}
+  - GET /treasury-management/investment-options
+  - GET /treasury-management/position/{company_id}
+  - GET /treasury-management/position/{}
+  - POST /treasury-management/cashflows
+  - POST /treasury-management/forecast/{company_id}
+  - POST /treasury-management/forecast/{}
+  - PUT /treasury-management/position/{company_id}
+  - PUT /treasury-management/position/{}
 - name: treasury-policy-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1256,7 +2853,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-policy/
+  - GET /treasury-policy/compliance
+  - GET /treasury-policy/health
+  - GET /treasury-policy/policies
+  - GET /treasury-policy/policies/{policy_id}/limits
+  - GET /treasury-policy/policies/{}/limits
+  - POST /treasury-policy/limits/{limit_id}/check
+  - POST /treasury-policy/limits/{}/check
+  - POST /treasury-policy/policies
+  - POST /treasury-policy/policies/{policy_id}/limits
+  - POST /treasury-policy/policies/{}/limits
 - name: treasury-reporting-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1265,7 +2873,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-reporting/
+  - GET /treasury-reporting/health
+  - GET /treasury-reporting/reports
+  - GET /treasury-reporting/reports/{report_id}
+  - GET /treasury-reporting/reports/{}
+  - POST /treasury-reporting/reports/cash-position
+  - POST /treasury-reporting/reports/debt-portfolio
+  - POST /treasury-reporting/reports/fx-exposure
 - name: treasury-risk-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1274,7 +2890,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /treasury-risk/
+  - GET /treasury-risk/dashboard
+  - GET /treasury-risk/exposures
+  - GET /treasury-risk/health
+  - GET /treasury-risk/scenarios
+  - GET /treasury-risk/stress-results
+  - GET /treasury-risk/var
+  - POST /treasury-risk/exposures
+  - POST /treasury-risk/scenarios
+  - POST /treasury-risk/scenarios/{scenario_id}/run
+  - POST /treasury-risk/scenarios/{}/run
+  - POST /treasury-risk/var
 - name: webhook-service
   domain: webhooks
   target: rust/crates/platform/webhooks
@@ -1283,7 +2911,12 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /webhook/
+  - GET /webhook/deliveries/{endpoint_id}
+  - GET /webhook/endpoints/{company_id}
+  - POST /webhook/dispatch/{company_id}
+  - POST /webhook/endpoints
 - name: websocket-service
   domain: events
   target: rust/crates/platform/events
@@ -1292,7 +2925,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /websocket
+  - GET /websocket/
+  - GET /websocket/stats
+  - GET /websocket/ws/{}
+  - POST /websocket/broadcast/{channel}
+  - POST /websocket/broadcast/{}
+  - POST /websocket/events/ingest
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow
@@ -1301,7 +2941,18 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /workflow/workflow-definitions/{definition_id}
+  - DELETE /workflow/workflow-instances/{instance_id}
+  - GET /workflow/
+  - GET /workflow/workflow-definitions/
+  - GET /workflow/workflow-definitions/{definition_id}
+  - GET /workflow/workflow-instances/{instance_id}
+  - POST /workflow/workflow-definitions/
+  - POST /workflow/workflow-instances/
+  - POST /workflow/{}/notify
+  - PUT /workflow/workflow-definitions/{definition_id}
+  - PUT /workflow/workflow-instances/{instance_id}
 - name: zero-based-budgeting-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -1310,7 +2961,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /zero-based-budgeting/
+  - GET /zero-based-budgeting/packages/{company_id}
+  - GET /zero-based-budgeting/packages/{}
+  - GET /zero-based-budgeting/summary/{company_id}
+  - GET /zero-based-budgeting/summary/{}
+  - POST /zero-based-budgeting/packages
+  - POST /zero-based-budgeting/packages/{package_id}/items
+  - POST /zero-based-budgeting/packages/{}/items
+  - PUT /zero-based-budgeting/items/{item_id}/priority
+  - PUT /zero-based-budgeting/items/{}/priority
+  - PUT /zero-based-budgeting/packages/{package_id}/status
+  - PUT /zero-based-budgeting/packages/{}/status
 - name: zero-trust-data-service
   domain: security
   target: rust/crates/domains/security
@@ -1319,7 +2982,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /zero-trust-data/policies/{policy_id}
+  - DELETE /zero-trust-data/policies/{}
+  - GET /zero-trust-data/
+  - GET /zero-trust-data/attempts
+  - GET /zero-trust-data/attempts/user/{user_id}
+  - GET /zero-trust-data/attempts/user/{}
+  - GET /zero-trust-data/health
+  - GET /zero-trust-data/policies
+  - POST /zero-trust-data/evaluate
+  - POST /zero-trust-data/policies
+  - PUT /zero-trust-data/policies/{policy_id}
+  - PUT /zero-trust-data/policies/{}
 - name: book-sync-service
   domain: sync
   target: rust/crates/platform/offline-sync
@@ -1328,7 +3003,25 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /book-sync/
+  - GET /book-sync/books
+  - GET /book-sync/books/{book_id}
+  - GET /book-sync/books/{book_id}/audit
+  - GET /book-sync/books/{book_id}/entries
+  - GET /book-sync/books/{book_id}/members
+  - GET /book-sync/books/{book_id}/membership
+  - GET /book-sync/books/{book_id}/metadata
+  - GET /book-sync/health
+  - POST /book-sync/books
+  - POST /book-sync/books/default
+  - POST /book-sync/books/{book_id}/devices
+  - POST /book-sync/books/{book_id}/entries/push
+  - POST /book-sync/books/{book_id}/members
+  - POST /book-sync/books/{book_id}/members/accept
+  - POST /book-sync/books/{book_id}/metadata
+  - PUT /book-sync/books/{book_id}
+  - PUT /book-sync/books/{book_id}/members/{member_user_id}
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo
@@ -1337,7 +3030,105 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /npo-scale/
+  - GET /npo-scale/health
+  - GET /npo-scale/orgs
+  - GET /npo-scale/orgs/{org_id}
+  - GET /npo-scale/orgs/{org_id}/book
+  - GET /npo-scale/orgs/{org_id}/branches
+  - GET /npo-scale/orgs/{org_id}/compliance
+  - GET /npo-scale/orgs/{org_id}/directors
+  - GET /npo-scale/orgs/{org_id}/donations
+  - GET /npo-scale/orgs/{org_id}/donors
+  - GET /npo-scale/orgs/{org_id}/expenses
+  - GET /npo-scale/orgs/{org_id}/features
+  - GET /npo-scale/orgs/{org_id}/members
+  - GET /npo-scale/orgs/{org_id}/partners
+  - GET /npo-scale/orgs/{org_id}/receipts
+  - GET /npo-scale/orgs/{org_id}/receipts/{receipt_id}/pdf
+  - GET /npo-scale/orgs/{org_id}/reports/activities
+  - GET /npo-scale/orgs/{org_id}/reports/budget-vs-actual
+  - GET /npo-scale/orgs/{org_id}/reports/capital-accounts
+  - GET /npo-scale/orgs/{org_id}/reports/consolidated
+  - GET /npo-scale/orgs/{org_id}/reports/creditors
+  - GET /npo-scale/orgs/{org_id}/reports/equity
+  - GET /npo-scale/orgs/{org_id}/reports/functional-expenses
+  - GET /npo-scale/orgs/{org_id}/reports/position
+  - GET /npo-scale/orgs/{org_id}/revenues
+  - GET /npo-scale/orgs/{org_id}/shareholders
+  - GET /npo-scale/orgs/{org_id}/vendors
+  - GET /npo-scale/orgs/{}
+  - GET /npo-scale/orgs/{}/book
+  - GET /npo-scale/orgs/{}/branches
+  - GET /npo-scale/orgs/{}/compliance
+  - GET /npo-scale/orgs/{}/directors
+  - GET /npo-scale/orgs/{}/donations
+  - GET /npo-scale/orgs/{}/donors
+  - GET /npo-scale/orgs/{}/expenses
+  - GET /npo-scale/orgs/{}/features
+  - GET /npo-scale/orgs/{}/members
+  - GET /npo-scale/orgs/{}/partners
+  - GET /npo-scale/orgs/{}/receipts
+  - GET /npo-scale/orgs/{}/receipts/{}/pdf
+  - GET /npo-scale/orgs/{}/reports/activities
+  - GET /npo-scale/orgs/{}/reports/budget-vs-actual
+  - GET /npo-scale/orgs/{}/reports/capital-accounts
+  - GET /npo-scale/orgs/{}/reports/consolidated
+  - GET /npo-scale/orgs/{}/reports/creditors
+  - GET /npo-scale/orgs/{}/reports/equity
+  - GET /npo-scale/orgs/{}/reports/functional-expenses
+  - GET /npo-scale/orgs/{}/reports/position
+  - GET /npo-scale/orgs/{}/revenues
+  - GET /npo-scale/orgs/{}/shareholders
+  - GET /npo-scale/orgs/{}/vendors
+  - GET /npo-scale/public/holdings/{verify_code}
+  - GET /npo-scale/public/holdings/{}
+  - GET /npo-scale/receipts/verify/{token}
+  - GET /npo-scale/receipts/verify/{}
+  - PATCH /npo-scale/orgs/{org_id}
+  - PATCH /npo-scale/orgs/{}
+  - POST /npo-scale/orgs
+  - POST /npo-scale/orgs/{org_id}/balance-items
+  - POST /npo-scale/orgs/{org_id}/book/link
+  - POST /npo-scale/orgs/{org_id}/branches
+  - POST /npo-scale/orgs/{org_id}/compliance
+  - POST /npo-scale/orgs/{org_id}/directors
+  - POST /npo-scale/orgs/{org_id}/dividends
+  - POST /npo-scale/orgs/{org_id}/donations
+  - POST /npo-scale/orgs/{org_id}/donors
+  - POST /npo-scale/orgs/{org_id}/expenses
+  - POST /npo-scale/orgs/{org_id}/members
+  - POST /npo-scale/orgs/{org_id}/partners
+  - POST /npo-scale/orgs/{org_id}/partners/{partner_id}/draws
+  - POST /npo-scale/orgs/{org_id}/pledges
+  - POST /npo-scale/orgs/{org_id}/pledges/run
+  - POST /npo-scale/orgs/{org_id}/purchases
+  - POST /npo-scale/orgs/{org_id}/purchases/{purchase_id}/pay
+  - POST /npo-scale/orgs/{org_id}/revenues
+  - POST /npo-scale/orgs/{org_id}/shareholders
+  - POST /npo-scale/orgs/{org_id}/vendors
+  - POST /npo-scale/orgs/{}/balance-items
+  - POST /npo-scale/orgs/{}/book/link
+  - POST /npo-scale/orgs/{}/branches
+  - POST /npo-scale/orgs/{}/compliance
+  - POST /npo-scale/orgs/{}/directors
+  - POST /npo-scale/orgs/{}/dividends
+  - POST /npo-scale/orgs/{}/donations
+  - POST /npo-scale/orgs/{}/donors
+  - POST /npo-scale/orgs/{}/expenses
+  - POST /npo-scale/orgs/{}/members
+  - POST /npo-scale/orgs/{}/partners
+  - POST /npo-scale/orgs/{}/partners/{}/draws
+  - POST /npo-scale/orgs/{}/pledges
+  - POST /npo-scale/orgs/{}/pledges/run
+  - POST /npo-scale/orgs/{}/purchases
+  - POST /npo-scale/orgs/{}/purchases/{}/pay
+  - POST /npo-scale/orgs/{}/revenues
+  - POST /npo-scale/orgs/{}/shareholders
+  - POST /npo-scale/orgs/{}/vendors
+  - PUT /npo-scale/orgs/{org_id}/budgets
+  - PUT /npo-scale/orgs/{}/budgets
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit
@@ -1346,13 +3137,17 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
-- name: calculation-api
-  domain: calculations
-  target: rust/crates/application
-  port: 8099
-  gateway_path: /calcs
-  auth_required: true
-  engine: rust
-  records: false
-  endpoints: []
+  endpoints:
+  - GET /audit-engagement/
+  - GET /audit-engagement/audit-types
+  - GET /audit-engagement/engagements/{company_id}
+  - GET /audit-engagement/engagements/{}
+  - GET /audit-engagement/report/{engagement_id}
+  - GET /audit-engagement/report/{}
+  - POST /audit-engagement/engagements
+  - POST /audit-engagement/engagements/{engagement_id}/findings
+  - POST /audit-engagement/engagements/{}/findings
+  - PUT /audit-engagement/engagements/{engagement_id}/status
+  - PUT /audit-engagement/engagements/{}/status
+  - PUT /audit-engagement/findings/{finding_id}/remediate
+  - PUT /audit-engagement/findings/{}/remediate

@@ -13,7 +13,19 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /invoicing/customers/{customer_id}
+  - DELETE /invoicing/invoices/{invoice_number}
+  - GET /invoicing/
+  - GET /invoicing/customers/
+  - GET /invoicing/customers/{customer_id}
+  - GET /invoicing/invoices/
+  - GET /invoicing/invoices/{invoice_number}
+  - POST /invoicing/customers/
+  - POST /invoicing/invoices/
+  - POST /invoicing/invoices/{invoice_number}/record-payment
+  - PUT /invoicing/customers/{customer_id}
+  - PUT /invoicing/invoices/{invoice_number}
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -22,4 +34,11 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /subscription-plans/
+  - GET /subscription-plans/health
+  - GET /subscription-plans/plans
+  - GET /subscription-plans/subscriptions/{company_id}
+  - POST /subscription-plans/plans
+  - POST /subscription-plans/subscribe
+  - POST /subscription-plans/upgrade

@@ -13,4 +13,15 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /multimodal/tasks/{task_id}
+  - GET /multimodal/
+  - GET /multimodal/inbox
+  - GET /multimodal/inbox/summary
+  - GET /multimodal/tasks/
+  - GET /multimodal/tasks/{task_id}
+  - GET /multimodal/tasks/{task_id}/corrections
+  - POST /multimodal/inbox/{task_id}/organize
+  - POST /multimodal/tasks/
+  - POST /multimodal/tasks/{task_id}/corrections
+  - PUT /multimodal/tasks/{task_id}

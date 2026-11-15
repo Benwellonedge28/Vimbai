@@ -13,4 +13,22 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /book-sync/
+  - GET /book-sync/books
+  - GET /book-sync/books/{book_id}
+  - GET /book-sync/books/{book_id}/audit
+  - GET /book-sync/books/{book_id}/entries
+  - GET /book-sync/books/{book_id}/members
+  - GET /book-sync/books/{book_id}/membership
+  - GET /book-sync/books/{book_id}/metadata
+  - GET /book-sync/health
+  - POST /book-sync/books
+  - POST /book-sync/books/default
+  - POST /book-sync/books/{book_id}/devices
+  - POST /book-sync/books/{book_id}/entries/push
+  - POST /book-sync/books/{book_id}/members
+  - POST /book-sync/books/{book_id}/members/accept
+  - POST /book-sync/books/{book_id}/metadata
+  - PUT /book-sync/books/{book_id}
+  - PUT /book-sync/books/{book_id}/members/{member_user_id}

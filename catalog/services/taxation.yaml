@@ -13,7 +13,27 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-accounting/
+  - GET /tax-accounting/health
+  - GET /tax-accounting/liability-schedule
+  - GET /tax-accounting/reports/vat-by-jurisdiction
+  - GET /tax-accounting/tax-rates
+  - GET /tax-accounting/tax-rates/{rate_id}
+  - GET /tax-accounting/tax-registrations
+  - GET /tax-accounting/tax-returns
+  - GET /tax-accounting/withholding-tax
+  - POST /tax-accounting/calculate
+  - POST /tax-accounting/calculate-batch
+  - POST /tax-accounting/deferred-tax
+  - POST /tax-accounting/reports/tax-summary
+  - POST /tax-accounting/tax-rates
+  - POST /tax-accounting/tax-registrations
+  - POST /tax-accounting/tax-returns
+  - POST /tax-accounting/tax-returns/{return_id}/file
+  - POST /tax-accounting/tax-returns/{return_id}/pay
+  - POST /tax-accounting/withholding-tax
+  - PUT /tax-accounting/tax-rates/{rate_id}
 - name: tax-compliance-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -22,7 +42,14 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-compliance/
+  - GET /tax-compliance/health
+  - GET /tax-compliance/obligations
+  - GET /tax-compliance/summary
+  - POST /tax-compliance/obligations
+  - POST /tax-compliance/obligations/{obligation_id}/file
+  - POST /tax-compliance/obligations/{}/file
 - name: tax-planning-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -31,4 +58,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /tax-planning/
+  - GET /tax-planning/health
+  - GET /tax-planning/strategies
+  - POST /tax-planning/plan
+  - POST /tax-planning/strategies

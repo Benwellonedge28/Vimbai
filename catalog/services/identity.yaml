@@ -13,4 +13,9 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - GET /financial-identity/
+  - GET /financial-identity/profiles/user/{user_id}
+  - GET /financial-identity/profiles/{profile_id}
+  - POST /financial-identity/profiles
+  - PUT /financial-identity/profiles/{profile_id}/verify

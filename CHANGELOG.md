@@ -14,6 +14,22 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The catalogue and the published snapshot now say what each service *answers*, not only what the gateway routes.
+  `docs/routes-snapshot.json` was written once from a scan of the Python services and had been drifting ever since; it is
+  generated now, by `cargo run -p xtask -- routes`, from the engine's own routes plus each service's last published list read
+  out of git - the only place a prefix-stripping entry's client-facing addresses survive. 138 services, 1,786 addresses, and
+  a test that the committed snapshot is what the engine answers.
+- Three real routing defects the address work surfaced, all of the same kind: a door in the manifest that answers nothing.
+  `/calcs` was an entry for a service that never had a `main.py`, forwarded to the engine at a path the engine never
+  mounted. The calculator surface it was meant to front - `POST /calc/name` and the catalogue at `GET /calculators` - was
+  routed by nothing at all. Both are published properly now, and `gateway::misrouted` reports any prefix the engine answers
+  whose entry still forwards elsewhere: thirteen entries were pointed at retired service containers (a 502 on a door the
+  manifest calls open) and are now repointed at the engine. Two are held back by a test that names them - `admin-service`
+  (25 addresses) and `bank-feed-service` (15) - because the engine answers part of what they published and not all of it, and
+  repointing them today would turn a 502 into a 404. That list is a to-do: a third name fails the test, and fixing either of
+  the two fails it as well.
+- A gate fails if any routed service answers no address, which is the check that would have caught all of the above the day
+  the Python service behind each one went away.
 - An operator's runbook (`docs/operations/RUNBOOK.md`): the startup line to look for, a bind failure, a worker that exits
   for want of a store, which setting chooses which store, how to test reachability and schema without starting the engine,
   the migration refusal with what to do about it (upgrade - ADR-011 says why), which layer each status code came from, the

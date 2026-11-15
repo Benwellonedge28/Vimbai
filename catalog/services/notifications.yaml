@@ -13,4 +13,37 @@ services:
   auth_required: true
   engine: rust
   records: false
-  endpoints: []
+  endpoints:
+  - DELETE /notifications/notifications/{notification_id}
+  - DELETE /notifications/notifications/{}
+  - DELETE /notifications/{}
+  - GET /notifications/
+  - GET /notifications/health
+  - GET /notifications/notifications
+  - GET /notifications/notifications/{user_id}
+  - GET /notifications/notifications/{}
+  - GET /notifications/preferences/{user_id}
+  - GET /notifications/preferences/{}
+  - GET /notifications/stats
+  - GET /notifications/templates
+  - GET /notifications/templates/{template_name}
+  - GET /notifications/templates/{}
+  - GET /notifications/{}
+  - POST /notifications
+  - POST /notifications/approval/{approval_id}/notify
+  - POST /notifications/approval/{}/notify
+  - POST /notifications/batch
+  - POST /notifications/notifications
+  - POST /notifications/notifications/batch
+  - POST /notifications/templates/{template_name}/send
+  - POST /notifications/templates/{}/send
+  - POST /notifications/workflow/{workflow_id}/notify
+  - POST /notifications/workflow/{}/notify
+  - PUT /notifications/notifications/{notification_id}/read
+  - PUT /notifications/notifications/{user_id}/read-all
+  - PUT /notifications/notifications/{}/read
+  - PUT /notifications/notifications/{}/read-all
+  - PUT /notifications/preferences/{user_id}
+  - PUT /notifications/preferences/{}
+  - PUT /notifications/{}/read
+  - PUT /notifications/{}/read-all
