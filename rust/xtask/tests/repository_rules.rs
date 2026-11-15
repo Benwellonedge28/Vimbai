@@ -997,6 +997,15 @@ fn the_published_snapshot_is_what_the_engine_answers() {
 }
 
 #[test]
+fn the_roadmap_status_table_states_figures_that_are_true() {
+    // The table said 139 routed services while the catalogue held 143, and 2,910 tests long after the suite had grown, because
+    // a hand-written figure does not fail a build. Every figure in it that the tree can answer for is compared here, and a
+    // figure only a run can produce was removed rather than stated from memory.
+    let problems = xtask::readme::roadmap_claims(&root());
+    assert!(problems.is_empty(), "{problems:#?}");
+}
+
+#[test]
 fn every_routed_service_answers_at_least_one_address() {
     // A prefix the gateway routes and nothing answers is worse than an absent one: a caller reaches a 404 from a door the
     // manifest says is open, and concludes the feature is broken. `/calcs` was exactly that - an entry for a service that

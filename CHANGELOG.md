@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The roadmap's status table carried figures nobody checked, and had drifted: it said 139 routed services while the catalogue
+  held 143, and 2,910 tests long after the suite had grown past it. `cargo run -p xtask -- roadmap` compares every figure the
+  tree can answer for - routed services, domain, calculation and platform crates, Python files, catalogue domain files, dart
+  files under `lib/` - and fails on a disagreement, and it fails if the table is rewritten so those seven facts are no longer
+  there to check. The two figures only a run can produce (the test count and the gate-test count) are gone from the table rather
+  than stated from memory. The Python count asks `safety`, which already answers that question for the safe-Rust rule, instead
+  of scanning the tree a second time.
+
 - A prefix group answered by more than one crate - `/records` is answered by seven - was filed under the crate that answered
   most of its addresses, with a tie going to whichever the scan reached first, so the same repository could file the same prefix
   differently on another machine. The choice is a function of its own now, ties are settled by name, and a test pins all three

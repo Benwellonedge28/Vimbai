@@ -34,6 +34,7 @@ COMMANDS:
     domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
     readme             check the front page's figure and citations against the catalogue and the decisions
+    roadmap            check the roadmap's status table figures against the tree
     docs               check the index, the counts, the references and the tests a page names
     safety             check the safe-Rust rule and that no Python is left
     preflight          check that scripts/preflight.sh runs everything the pipelines run
@@ -179,6 +180,19 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             } else {
                 println!("manifests: {} outstanding", found.len());
+                ExitCode::FAILURE
+            }
+        }
+        "roadmap" => {
+            let problems = readme::roadmap_claims(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!("roadmap: the status table's figures are the tree's figures");
+                ExitCode::SUCCESS
+            } else {
+                println!("roadmap: {} outstanding", problems.len());
                 ExitCode::FAILURE
             }
         }
