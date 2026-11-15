@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The pipeline index describes the pipelines that exist. `.github/workflows/README.md` still described a Python matrix over
+  300+ microservices, `ruff` and `bandit`, Codecov, Helm and Terraform - none of which is how this repository works - so the one
+  page that says what gates a change was telling readers about gates that do not exist. It now names each workflow, when it
+  starts, and what it decides, including the split between `library-ci.yml` (Rust), `ci-main.yml` (Go and the app) and the
+  legacy all-in-one `ci.yml`. New gate: `workflows::documented_workflows` fails when a workflow is not named in the index, or
+  when the index names one that has been deleted.
+- `iac-validate.yml` no longer carries a Terraform job. There is no Terraform in the repository, and the job ran
+  `terraform fmt -check ... || true` behind an `if [ -d infrastructure ]`, so it could not fail and did not check anything.
 - The gateway's tests can fail the build now. Both places that ran them wrote `go test ./... || echo "No tests found"`, so a
   failing test printed a line and the job went green: the Go half of the platform had a suite that had never decided anything.
   The `|| echo` is gone from `ci.yml` and `ci-main.yml`, the gateway's two test files pass as they stand, and preflight runs

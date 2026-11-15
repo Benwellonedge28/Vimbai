@@ -9,20 +9,6 @@ on:
       - 'infrastructure/**'
 
 jobs:
-  validate-terraform:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-      - name: Terraform Format Check
-        run: |
-          if [ -d "infrastructure" ]; then
-            terraform fmt -check -recursive infrastructure/ || true
-          else
-            echo "No infrastructure/ directory found, skipping Terraform validation"
-          fi
-
   validate-kubernetes:
     runs-on: ubuntu-latest
     steps:

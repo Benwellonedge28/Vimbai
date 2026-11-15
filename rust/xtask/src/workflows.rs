@@ -412,6 +412,48 @@ fn runs_a_test_suite(line: &str) -> bool {
     .any(|command| line.contains(command))
 }
 
+/// The pipeline index, kept honest.
+///
+/// `.github/workflows/README.md` is the one place a reader learns what gates a change, so it has to name every workflow that
+/// exists and no workflow that does not. Both halves matter: an undocumented gate is one nobody knows is protecting them, and
+/// a documented gate that was deleted is a promise that has stopped being kept.
+pub fn documented_workflows(root: &Path) -> Vec<String> {
+    let directory = root.join(".github/workflows");
+    let index_path = directory.join("README.md");
+    let Ok(index) = std::fs::read_to_string(&index_path) else {
+        return vec!["the workflow index is gone, so nothing says what gates a change".to_string()];
+    };
+    let existing: Vec<String> = workflow_files(root)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    if existing.is_empty() {
+        return vec![
+            "there are no workflows at all, so the index has nothing to describe".to_string(),
+        ];
+    }
+    let mut problems = Vec::new();
+    for name in &existing {
+        if !index.contains(name.as_str()) {
+            problems.push(format!(
+                "{name} is not named in .github/workflows/README.md"
+            ));
+        }
+    }
+    // the other direction: a `.yml` the index mentions has to exist, or the index describes a gate that was deleted
+    for word in index.split(|character: char| {
+        character.is_whitespace() || character == '`' || character == '|' || character == ','
+    }) {
+        let candidate = word.trim_matches(|character: char| character == ')' || character == '(');
+        if candidate.ends_with(".yml") && !existing.iter().any(|name| name == candidate) {
+            problems.push(format!(
+                "the workflow index names {candidate}, which does not exist"
+            ));
+        }
+    }
+    problems
+}
+
 /// The workflow that gates a merge.
 const GATING_PIPELINE: &str = "ci-main.yml";
 

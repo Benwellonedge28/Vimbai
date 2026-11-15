@@ -505,6 +505,54 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
 }
 
 #[test]
+fn the_workflow_index_names_every_workflow_and_invents_none() {
+    // This repository: every workflow that exists is described, and nothing described has been deleted.
+    let root = root();
+    assert_eq!(
+        workflows::documented_workflows(&root),
+        Vec::<String>::new(),
+        "the pipeline index is out of step with the workflows"
+    );
+
+    // and the gate can fail both ways: a workflow missing from the index, and an index naming a workflow that is gone.
+    let scratch = std::env::temp_dir().join(format!("vimbai_index_gate_{}", std::process::id()));
+    let workflows = scratch.join(".github").join("workflows");
+    std::fs::create_dir_all(&workflows).expect("a scratch directory");
+    std::fs::write(workflows.join("library-ci.yml"), "jobs: {}\n").expect("a workflow");
+    std::fs::write(workflows.join("README.md"), "The pipelines.\n").expect("an index");
+    let silent = workflows::documented_workflows(&scratch);
+    assert!(
+        silent
+            .iter()
+            .any(|problem| problem.contains("library-ci.yml")),
+        "an undocumented workflow went unnoticed: {silent:?}"
+    );
+
+    std::fs::write(
+        workflows.join("README.md"),
+        "The pipelines: `library-ci.yml` and `gone.yml`.\n",
+    )
+    .expect("an index naming a deleted workflow");
+    let invented = workflows::documented_workflows(&scratch);
+    assert!(
+        invented.iter().any(|problem| problem.contains("gone.yml")),
+        "an index naming a workflow that does not exist went unnoticed: {invented:?}"
+    );
+
+    std::fs::write(
+        workflows.join("README.md"),
+        "The pipelines: `library-ci.yml`.\n",
+    )
+    .expect("an honest index");
+    assert_eq!(
+        workflows::documented_workflows(&scratch),
+        Vec::<String>::new(),
+        "an index that names exactly the workflows that exist has to pass"
+    );
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
 fn no_workflow_swallows_a_test_result() {
     // This repository first: a suite whose failure cannot fail the job is not a gate. The gateway's own tests were run behind
     // `|| echo "No tests found"`, so they had never decided anything.
