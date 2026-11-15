@@ -1,5 +1,9 @@
 # The estate every environment has: one engine, one gateway, one sync server, one worker, the policies around them.
 #
+# The store is not in here. ADR-007 makes PostgreSQL the system of record for a deployment and leaves the choice of server to the
+# operator, so the engine and the worker read `VIMBAI_POSTGRES_URL` from a secret instead of pointing at a database this
+# kustomization would have had to deploy for them.
+#
 # There is no per-service anything here. Every service the platform used to deploy as its own pod now answers from the
 # engine, so a Deployment for one of them would be a pod behind an address nothing routes - which is exactly the drift
 # the repository gate refuses.
@@ -19,8 +23,6 @@ resources:
   - pod-disruption-budgets.yaml
   - network-policies.yaml
   - tracing.yaml
-  - neo4j-backup-cronjob.yaml
-  - neo4j-backup-pvc.yaml
 
 commonLabels:
   app.kubernetes.io/name: vimbai
@@ -30,8 +32,6 @@ configMapGenerator:
   - name: vimbai-config
     literals:
       - LOG_LEVEL=INFO
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAMESPACE=vimbai

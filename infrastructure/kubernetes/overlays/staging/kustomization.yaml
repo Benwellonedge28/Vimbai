@@ -20,4 +20,3 @@ configMapGenerator:
     behavior: merge
     literals:
       - LOG_LEVEL=DEBUG
-      - NEO4J_URI=bolt://neo4j-staging:7687

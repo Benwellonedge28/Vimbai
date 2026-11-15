@@ -35,28 +35,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-neo4j-access
-  namespace: vimbai
-spec:
-  podSelector:
-    matchLabels:
-      app: neo4j
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          tier: backend
-  ports:
-  - protocol: TCP
-    port: 7687
-  - protocol: TCP
-    port: 7474
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: allow-rabbitmq-access
   namespace: vimbai
 spec:
@@ -93,28 +71,3 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-internal-services-egress
-  namespace: vimbai
-spec:
-  podSelector:
-    matchLabels:
-      tier: backend
-  policyTypes:
-  - Egress
-  egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          app: neo4j
-  - to:
-    - podSelector:
-        matchLabels:
-          app: rabbitmq
-  - to:
-    - podSelector:
-        matchLabels:
-          app: api-gateway

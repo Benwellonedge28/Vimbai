@@ -32,40 +32,12 @@ spec:
         env:
         - name: VIMBAI_API_ADDR
           value: "0.0.0.0:8099"
-        - name: NEO4J_URI
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_URI
-        - name: NEO4J_USER
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_USER
-        - name: NEO4J_PASSWORD
+        - name: VIMBAI_POSTGRES_URL
           valueFrom:
             secretKeyRef:
               name: vimbai-secrets
-              key: NEO4J_PASSWORD
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8099
-          initialDelaySeconds: 10
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8099
-          initialDelaySeconds: 5
-          periodSeconds: 10
+              key: VIMBAI_POSTGRES_URL
+
 ---
 apiVersion: v1
 kind: Service

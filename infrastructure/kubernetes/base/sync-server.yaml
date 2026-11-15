@@ -32,7 +32,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: vimbai-secrets
-                  key: jwt-secret
+                  key: JWT_SECRET
           livenessProbe:
             httpGet:
               path: /health

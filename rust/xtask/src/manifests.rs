@@ -553,5 +553,197 @@ pub fn manifest_problems(root: &Path) -> Vec<String> {
     problems.extend(kustomization_problems(root));
     problems.extend(compose_problems(root));
     problems.extend(image_problems(root));
+    problems.extend(store_problems(root));
     problems
+}
+
+/// The store a deployment is configured for, and the values it reads out of a Secret.
+///
+/// Two defects of one shape lived in this estate, and neither is visible from any single file. The engine read `NEO4J_URI`
+/// pointing at `bolt://neo4j:7687` while the kustomization built `bolt://neo4j-service:7687` under the same ConfigMap name, and the
+/// estate declared no Neo4j at all - so the record routes mounted and then failed at the first query, in a cluster that looked
+/// configured. The worker read `neo4j-password` from a Secret that declares `NEO4J_PASSWORD`, which is a pod that never starts.
+///
+/// So: a Secret key a container reads is a key the Secret declares, and a store address written into a manifest names a Service this
+/// estate serves.
+pub fn store_problems(root: &Path) -> Vec<String> {
+    let files = kubernetes_files(root);
+    if files.is_empty() {
+        return vec![
+            "no Kubernetes manifest is readable, so the store scan is reading nothing".to_string(),
+        ];
+    }
+    let mut secrets: Vec<(String, Vec<String>)> = Vec::new();
+    let mut services: Vec<String> = Vec::new();
+    for (_, text) in &files {
+        for object in objects(text) {
+            if object.kind == "Secret" && !object.name.is_empty() {
+                secrets.push((object.name.clone(), object.data_keys()));
+            }
+            if object.kind == "Service" && !object.name.is_empty() {
+                services.push(object.name.clone());
+            }
+        }
+    }
+    if secrets.is_empty() {
+        return vec![
+            "the estate declares no Secret, so the store scan is reading nothing".to_string(),
+        ];
+    }
+
+    let mut problems = Vec::new();
+    for (file, text) in &files {
+        for object in objects(text) {
+            // every `secretKeyRef` in the object, as (secret, key)
+            let lines: Vec<&str> = object.body.lines().collect();
+            for (index, line) in lines.iter().enumerate() {
+                if !line.contains("secretKeyRef") {
+                    continue;
+                }
+                let mut name = String::new();
+                let mut key = String::new();
+                for follow in lines.iter().skip(index + 1).take(4) {
+                    let trimmed = follow.trim();
+                    if let Some(rest) = trimmed.strip_prefix("name:") {
+                        name = rest.trim().to_string();
+                    } else if let Some(rest) = trimmed.strip_prefix("key:") {
+                        key = rest.trim().to_string();
+                    }
+                }
+                let Some((_, keys)) = secrets.iter().find(|(declared, _)| *declared == name) else {
+                    continue;
+                };
+                if !key.is_empty() && !keys.contains(&key) {
+                    problems.push(format!(
+                        "{file} reads `{key}` from Secret `{name}`, which declares {} instead",
+                        keys.join(", ")
+                    ));
+                }
+            }
+            // every store address: the host has to be a Service, not a name somebody remembered
+            for line in object.body.lines() {
+                for scheme in ["bolt://", "postgres://", "postgresql://", "redis://"] {
+                    let Some(index) = line.find(scheme) else {
+                        continue;
+                    };
+                    if line.contains("CHANGE_ME") {
+                        // a placeholder an operator replaces: its host is not this estate's to provide
+                        continue;
+                    }
+                    let rest = &line[index + scheme.len()..];
+                    // `user:password@host:port` in a DSN: the host starts after the last `@`
+                    let rest = rest.rsplit('@').next().unwrap_or(rest);
+                    let host: String = rest
+                        .chars()
+                        .take_while(|character| {
+                            character.is_ascii_alphanumeric()
+                                || *character == '-'
+                                || *character == '.'
+                        })
+                        .collect();
+                    if host.is_empty() || host.contains("CHANGE_ME") || host == "localhost" {
+                        continue;
+                    }
+                    if !services.contains(&host) {
+                        problems.push(format!(
+                            "{file} points at `{host}`, which no Service in the estate provides"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    problems.sort();
+    problems.dedup();
+    problems
+}
+
+struct Object {
+    kind: String,
+    name: String,
+    body: String,
+}
+
+impl Object {
+    /// The keys under `data:`/`stringData:` and nothing else: a Secret's payload.
+    fn data_keys(&self) -> Vec<String> {
+        let mut keys = Vec::new();
+        let mut inside = false;
+        for line in self.body.lines() {
+            let trimmed = line.trim_end();
+            if trimmed.trim() == "stringData:" || trimmed.trim() == "data:" {
+                inside = true;
+                continue;
+            }
+            if !inside {
+                continue;
+            }
+            if !line.starts_with("  ") || line.starts_with("    ") {
+                // the payload is one level in; a shallower line that is not blank ends the block
+                if !line.trim().is_empty() && !line.starts_with(' ') {
+                    inside = false;
+                }
+                continue;
+            }
+            if let Some((key, _)) = line.trim().split_once(':') {
+                keys.push(key.trim().to_string());
+            }
+        }
+        keys
+    }
+}
+
+/// The documents of a YAML file, split on `---`, with the `kind` and the object's own `name` read out.
+fn objects(text: &str) -> Vec<Object> {
+    let mut found = Vec::new();
+    for document in text.split("\n---") {
+        let mut kind = String::new();
+        let mut name = String::new();
+        for line in document.lines() {
+            if let Some(rest) = line.strip_prefix("kind:") {
+                kind = rest.trim().to_string();
+            } else if line.starts_with("  name:") {
+                name = line.trim_start_matches("  name:").trim().to_string();
+            }
+        }
+        if !kind.is_empty() {
+            found.push(Object {
+                kind,
+                name,
+                body: document.to_string(),
+            });
+        }
+    }
+    found
+}
+
+fn kubernetes_files(root: &Path) -> Vec<(String, String)> {
+    let estate = root.join("infrastructure/kubernetes");
+    let mut found = Vec::new();
+    let mut stack = vec![estate.clone()];
+    while let Some(directory) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        let mut paths: Vec<std::path::PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .collect();
+        paths.sort();
+        for path in paths {
+            if path.is_dir() {
+                stack.push(path);
+            } else if let Ok(text) = std::fs::read_to_string(&path) {
+                found.push((
+                    path.strip_prefix(&estate)
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .into_owned(),
+                    text,
+                ));
+            }
+        }
+    }
+    found.sort_by(|left, right| left.0.cmp(&right.0));
+    found
 }

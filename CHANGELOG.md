@@ -6,6 +6,18 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The estate pointed at a database it did not have. `calculation-api` read `NEO4J_URI` from a ConfigMap, the kustomization generated
+  the same ConfigMap name with a different host (`neo4j` against `neo4j-service`), no manifest declared a Neo4j at all, and the
+  worker read `neo4j-password` from a Secret that declares `NEO4J_PASSWORD`. Each file looked right; together they were a cluster
+  that starts, mounts its record routes, and fails at the first query - with a green deploy. Per ADR-007 the deployment store is
+  PostgreSQL, so the engine and the worker now read `VIMBAI_POSTGRES_URL` from `vimbai-secrets`, the hand-written ConfigMap is gone
+  (the generator was already declaring the same name), the sync server reads the `JWT_SECRET` the Secret actually declares, and the
+  Neo4j backup CronJob, its volume and its network policies are removed - they maintained and protected a database the estate never
+  ran. Compose keeps its Neo4j, because compose declares one.
+- `cargo run -p xtask -- manifests` now compares both directions: a Secret key a container reads has to be declared by that Secret,
+  and a store address written into a manifest has to name a Service the estate serves. A placeholder containing `CHANGE_ME` is
+  skipped, so the DSN an operator replaces does not have to name a Service the repository cannot provide.
+
 - Both deploy workflows restarted one Deployment by name - `api-gateway` - and waited for that one. Every image carries
   `:latest`, so `kubectl apply -k` on an unchanged spec starts no rollout: the engine, the sync server and the worker were applied
   on every release and kept serving the previous image until a pod happened to die. A green log cannot tell a restart of one
