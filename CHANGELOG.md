@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A crate the workspace does not list is invisible, and nothing was watching for one. `cargo test --workspace` would never build
+  it, clippy would never read it, and `make safety` would hold it to nothing; it compiles only if someone remembers to cd into it.
+  `cargo run -p xtask -- workspace` (`make workspace`) compares the manifest against the crates on disk in both directions: every
+  `rust/**/Cargo.toml` is a member or in `exclude`, and every member is there. A crate declaring its own `[workspace]` is allowed
+  only when it says so in `exclude`, because that is the one case where not building it from here is deliberate. Today the two
+  lists agree exactly: 70 members, 70 crates.
 - A clean preflight now means a green pipeline, and it did not. `ci-main.yml`'s app job has run `dart format
   --set-exit-if-changed` and `flutter analyze --no-fatal-infos` since it was written; `scripts/preflight.sh` ran `flutter test`
   alone, so an unformatted or unanalysed change passed preflight and failed the pipeline at the first step. Preflight now runs all

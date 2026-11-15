@@ -26,3 +26,4 @@ pub mod safety;
 pub mod servers;
 pub mod wiring;
 pub mod workflows;
+pub mod workspace;

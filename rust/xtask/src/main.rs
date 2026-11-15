@@ -10,7 +10,7 @@ use std::process::ExitCode;
 
 use xtask::{
     boundaries, catalog, documentation, domains, flutter, gateway, makefile, manifests, openapi,
-    owners, preflight, published, reachability, readme, safety,
+    owners, preflight, published, reachability, readme, safety, workspace,
 };
 
 const USAGE: &str = "\
@@ -35,6 +35,7 @@ COMMANDS:
     docs               check the index, the counts, the references and the tests a page names
     safety             check the safe-Rust rule and that no Python is left
     preflight          check that scripts/preflight.sh runs everything the pipelines run
+    workspace          check that every crate on disk is a workspace member
     makefile           check every target is .PHONY, described by `make help`, and runs a command xtask has
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
@@ -204,6 +205,19 @@ fn main() -> ExitCode {
             }
             if problems.is_empty() {
                 println!("docs: the index names every document, every path exists, and every count is the count");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
+        }
+        "workspace" => {
+            let problems = workspace::not_in_the_workspace(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!(
+                    "workspace: every crate on disk is built by the workspace, and every member is there"
+                );
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE
