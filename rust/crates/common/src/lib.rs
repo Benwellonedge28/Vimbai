@@ -56,6 +56,30 @@ pub fn with_id(mut answer: serde_json::Value, id: &str) -> serde_json::Value {
     answer
 }
 
+/// The token signing secret a deployment supplies, if it supplies one.
+///
+/// Two components issue and verify the same tokens: the engine signs a caller in, the sync server refuses or accepts the result.
+/// Each resolved the secret by its own rule - the engine from `VIMBAI_JWT_SECRET` then `JWT_SECRET`, the sync server from a file
+/// beside its data and otherwise from a freshly generated value - so a deployment that set the variable had a sync server signing
+/// with a secret no other component knew, and every token minted on one side was refused on the other. One rule, in the crate both
+/// of them already depend on.
+pub fn secret_from_environment() -> Option<String> {
+    secret_from(|name| std::env::var(name).ok())
+}
+
+/// The same rule with the lookup supplied, so it can be read without touching process state.
+pub fn secret_from(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
+    for name in ["VIMBAI_JWT_SECRET", "JWT_SECRET"] {
+        if let Some(value) = lookup(name) {
+            let trimmed = value.trim().to_string();
+            if !trimmed.is_empty() {
+                return Some(trimmed);
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

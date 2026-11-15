@@ -68,17 +68,26 @@ struct Sync {
 
 impl Sync {
     fn start(data_dir: &Path) -> Option<Sync> {
+        Sync::start_with(data_dir, &[])
+    }
+
+    fn start_with(data_dir: &Path, environment: &[(&str, &str)]) -> Option<Sync> {
         let binary = binary();
         if !binary.is_file() {
             eprintln!("skipped: {} is not built", binary.display());
             return None;
         }
         std::fs::create_dir_all(data_dir).expect("a data directory");
-        let mut child = Command::new(&binary)
+        let mut command = Command::new(&binary);
+        command
             .arg("--port")
             .arg("0")
             .arg("--data-dir")
-            .arg(data_dir)
+            .arg(data_dir);
+        for (name, value) in environment {
+            command.env(name, value);
+        }
+        let mut child = command
             .stdout(Stdio::piped())
             .spawn()
             .expect("the sync server starts");
@@ -484,5 +493,36 @@ fn a_sync_server_will_not_post_a_journal_entry() {
     assert!(
         body.contains("/books"),
         "and the refusal says what this server does serve: {body}"
+    );
+}
+
+/// A deployment supplies the signing secret, and it has to be the secret the engine signs with: this server used to ignore the
+/// variable and sign with a file of its own, so every token minted by the engine was refused here, and the other way round. The
+/// token below is read back with the deployment secret and with a different one, so the answer cannot come from a written or
+/// generated value that happens to be reused.
+#[test]
+fn the_secret_a_deployment_supplies_is_the_one_tokens_are_signed_with() {
+    let secret = "deployment-supplied-secret-for-the-sync-server";
+    let directory = scratch("configured-secret");
+    let Some(server) = Sync::start_with(&directory, &[("VIMBAI_JWT_SECRET", secret)]) else {
+        return;
+    };
+    sign_in(&server, "configured");
+    let username = format!("sync_configured_{}", std::process::id());
+    let (status, body) = server.post(
+        "/identity/users/login",
+        &format!(r#"{{"username":"{username}","password":"{PASSWORD}"}}"#),
+        &[],
+    );
+    assert_eq!(status, 200, "login answered {status}: {body}");
+    let token = json_string(&body, "access_token").unwrap_or_else(|| panic!("no token in {body}"));
+
+    assert!(
+        sso::accounts::verify_token(&token, secret, chrono::Utc::now()).is_some(),
+        "a token this server signed is not readable with the secret the deployment supplied"
+    );
+    assert!(
+        sso::accounts::verify_token(&token, "a-different-secret", chrono::Utc::now()).is_none(),
+        "the token verified against a secret nobody supplied, so the variable was not what signed it"
     );
 }

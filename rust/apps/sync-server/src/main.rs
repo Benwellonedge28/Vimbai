@@ -127,8 +127,16 @@ impl Options {
         self.data_dir.join("store.json")
     }
 
-    /// The secret that signs the tokens this server issues, kept beside the data it signs for and created once.
+    /// The secret that signs the tokens this server issues.
+    ///
+    /// A deployment supplies one, and it has to be the secret the engine signs with: this server accepts the engine's tokens and
+    /// the engine accepts its own, so a second secret here means every request between them is refused. The environment wins for
+    /// that reason. A machine that has not been told one keeps the behaviour it needs to start at all - a file beside the data it
+    /// signs for, created once.
     fn secret(&self) -> String {
+        if let Some(configured) = common::secret_from_environment() {
+            return configured;
+        }
         let path = self.data_dir.with_file_name("jwt_secret");
         if let Ok(existing) = std::fs::read_to_string(&path) {
             let trimmed = existing.trim();

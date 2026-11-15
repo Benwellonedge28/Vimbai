@@ -3949,6 +3949,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "vimbai_api",
+ "vimbai_common",
  "vimbai_gateway",
  "vimbai_sso",
 ]

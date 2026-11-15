@@ -61,9 +61,7 @@ fn iso(moment: DateTime<Utc>) -> String {
 /// The token signing secret. A deployment sets one; a machine that has not been told one still has to be able to sign
 /// somebody in, so a fixed development secret is used and named as such rather than an empty key.
 fn secret() -> String {
-    std::env::var("VIMBAI_JWT_SECRET")
-        .or_else(|_| std::env::var("JWT_SECRET"))
-        .unwrap_or_else(|_| "vimbai-development-secret".to_string())
+    common::secret_from_environment().unwrap_or_else(|| "vimbai-development-secret".to_string())
 }
 
 /// A store refusal, answered the way this surface answers everything else.

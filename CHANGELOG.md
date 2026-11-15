@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The engine and the sync server signed tokens with different secrets. The engine read `VIMBAI_JWT_SECRET` then `JWT_SECRET`;
+  the sync server ignored both, minted a secret on first boot and kept it in a file beside its data. A deployment that set the
+  variable therefore had two components issuing and checking the same tokens against two keys, so a token minted on one side was
+  refused on the other - and the on-device runtime, which sets neither, never showed it. One rule now lives in `vimbai_common`
+  (`secret_from_environment`), both components call it, and a machine with nothing configured keeps the file it needs to start.
+  A test starts the real sync server with the variable set and verifies the token it signs against that secret and against a
+  different one, so the answer cannot come from a written or generated value.
+
 - The estate pointed at a database it did not have. `calculation-api` read `NEO4J_URI` from a ConfigMap, the kustomization generated
   the same ConfigMap name with a different host (`neo4j` against `neo4j-service`), no manifest declared a Neo4j at all, and the
   worker read `neo4j-password` from a Secret that declares `NEO4J_PASSWORD`. Each file looked right; together they were a cluster
