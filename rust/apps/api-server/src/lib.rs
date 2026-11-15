@@ -469,6 +469,9 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "substantive-testing",
         advisory::substantive_testing::evaluate,
     );
+    map.insert("household-finance-analyze", |payload| {
+        Ok(advisory::analyze_household(payload))
+    });
     map.insert(
         "payment-optimization",
         treasury_fx::payment_optimization::evaluate,

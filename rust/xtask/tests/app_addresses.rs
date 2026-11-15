@@ -26,20 +26,12 @@ fn every_prefix_the_app_calls_is_routed_or_open() {
     // `/identity` is an open door in the gateway rather than a routed prefix, and has to be: a caller cannot present a token
     // before the door that issues one has answered. `/health` is the other one, for the same reason.
     const OPEN: [&str; 2] = ["identity", "health"];
-    // Two addresses the app calls that nothing serves, both needing a decision rather than a rename, so both are named here -
-    // the list cannot grow quietly and cannot be fixed quietly either.
-    //
-    // `/ratio-analysis`: the engine computes ratios from the Book's stored sheet at `GET /balance-sheet/ratios/{company_id}`,
-    // which is routed. The app instead POSTs a balance sheet it worked out itself, so moving it changes the contract.
-    //
-    // `/household-finance`: the app asks for `/analyze`. The engine's household surface is `/personal-finance` - debts, goals,
-    // income, investments and an `/overview` - and has no `/analyze`, so the screen needs pointing at the addresses that exist
-    // rather than at a service that was never ported.
-    const UNANSWERED: [&str; 2] = ["ratio-analysis", "household-finance"];
+    // Nothing is unanswered any more: `/ratio-analysis` and `/household-finance` were the two addresses the app called that
+    // nothing served, and both now ask the engine's calculator door at `/calc`, which is routed and holds the one copy of
+    // each calculation. A list of tolerated gaps would only be a place for the next one to hide.
     let unaccounted: Vec<&String> = prefixes
         .iter()
         .filter(|prefix| !routed.contains(prefix) && !OPEN.contains(&prefix.as_str()))
-        .filter(|prefix| !UNANSWERED.contains(&prefix.as_str()))
         .collect();
     assert!(
         unaccounted.is_empty(),

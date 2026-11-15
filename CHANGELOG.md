@@ -6,6 +6,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The app's addresses are checked against the platform's. Every screen builds its URL from one constant, and nothing checked
+  that the prefix after it was one the gateway routes, so `/budget` sat in the app after the budget surfaces moved to
+  `/budgeting` - reachable on a device only because the local runtime forwards what it does not recognise. `xtask
+  app-addresses` reads the app's own Dart sources for `${AppConfig.apiUrl}/...` and fails when a prefix is not routed and is not
+  one of the two open doors. It found two more, and both are now answered rather than tolerated: the ratios the budget screen
+  works out are posted to `/calc/ratio-analysis-ratios`, the calculator that already takes exactly that payload, and the
+  household analysis - ported but never registered, so nothing could reach it - is `household-finance-analyze` behind the same
+  door. `/budgeting` gained the gateway entry the whole budgeting surface was missing. 139 services.
 - ADR-007: Postgres is the system of record for a deployment, SQLite on a device, and Neo4j stays behind the store trait
   as a working backend rather than being extended. It closes the decision P8 was waiting on.
 - Moving the data between stores: `vimbai_store::dump` carries every record of every kind and every edge, and

@@ -21,7 +21,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 class FinanceApiService {
   final ApiClient _client = ApiClient();
   final String _varianceUrl = '${AppConfig.apiUrl}/budgeting';
-  final String _ratiosUrl = '${AppConfig.apiUrl}/ratio-analysis';
+  final String _ratiosUrl = '${AppConfig.apiUrl}/calc';
 
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final AccountingApiService _accounting = AccountingApiService();
@@ -199,7 +199,7 @@ class FinanceApiService {
 
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_ratiosUrl/ratios'),
+      Uri.parse('$_ratiosUrl/ratio-analysis-ratios'),
       headers: headers,
       body: json.encode({
         'company_id': _companyId,

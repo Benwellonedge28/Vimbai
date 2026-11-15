@@ -13,7 +13,8 @@ class HouseholdFinanceService {
 
   static const String _kBaseUrl = String.fromEnvironment(
     'VIMBAI_HOUSEHOLD_FINANCE_URL',
-    defaultValue: '${AppConfig.apiUrl}/household-finance',
+    // the household analysis is a calculation the engine answers, and `/calc` is the routed door to it
+    defaultValue: '${AppConfig.apiUrl}/calc',
   );
 
   String? _token;
@@ -43,7 +44,7 @@ class HouseholdFinanceService {
     List<Map<String, dynamic>> liabilities = const [],
   }) async {
     final r = await _client.post(
-      _u('/analyze'),
+      _u('/household-finance-analyze'),
       headers: _headers,
       body: jsonEncode({
         'household_id': householdId,
