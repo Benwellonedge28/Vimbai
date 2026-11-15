@@ -76,9 +76,9 @@ jobs:
       - name: Deploy to Production Cluster
         if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
-          kubectl apply -k infrastructure/kubernetes/overlays/production
-          kubectl rollout restart deployment -n vimbai api-gateway
-          kubectl rollout status deployment -n vimbai api-gateway --timeout=300s
+          # applies the overlay and restarts every Deployment in it, not just the gateway: the images carry :latest, so an
+          # apply on its own starts no rollout and the cluster keeps serving the previous release
+          ./scripts/deploy.sh production
 
       - name: Verify deployment health
         if: steps.check.outputs.has_kubeconfig == 'true'

@@ -3,7 +3,7 @@ CARGO := cargo
 MANIFEST := rust/Cargo.toml
 XTASK := $(CARGO) run -q -p xtask --manifest-path $(MANIFEST) --
 
-.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests safety preflight-check workspace workflows images build
+.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests safety preflight-check workspace workflows images deploy build
 
 help:
 	@echo "make help          this list"
@@ -23,6 +23,7 @@ help:
 	@echo "make workspace     check that every crate on disk is a workspace member"
 	@echo "make workflows     check that no workflow names a job, action or file that is not there"
 	@echo "make images        check that every image a manifest pulls is one a workflow publishes"
+	@echo "make deploy        check that a deploy rolls out every Deployment it applies"
 	@echo "make readme        check the front page against the catalogue and the decisions"
 	@echo "make makefile      check this file against its own targets and help"
 	@echo "make routes        regenerate the published address snapshot"
@@ -82,6 +83,9 @@ workflows:
 
 images:
 	$(XTASK) images
+
+deploy:
+	$(XTASK) deploy
 
 makefile:
 	$(XTASK) makefile

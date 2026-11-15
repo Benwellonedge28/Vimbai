@@ -4,6 +4,17 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Fixed
+
+- Both deploy workflows restarted one Deployment by name - `api-gateway` - and waited for that one. Every image carries
+  `:latest`, so `kubectl apply -k` on an unchanged spec starts no rollout: the engine, the sync server and the worker were applied
+  on every release and kept serving the previous image until a pod happened to die. A green log cannot tell a restart of one
+  Deployment from a restart of the set. Deploys now go through `scripts/deploy.sh`, which applies the overlay, reads the Deployments
+  from the cluster and restarts and waits for every one of them, so a fourth Deployment rolls out because it exists rather than
+  because someone remembered a list.
+- `cargo run -p xtask -- deploy` (`make deploy`) refuses a workflow that restarts a named Deployment or applies an overlay without
+  the script, and refuses a script that has gone back to naming its deployments instead of asking for them.
+
 ### Added
 
 - `docker-publish.yml` had never published an image. It found "changed services" by looking for a top-level directory holding a

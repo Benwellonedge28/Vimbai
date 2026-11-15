@@ -9,8 +9,9 @@
 use std::process::ExitCode;
 
 use xtask::{
-    boundaries, catalog, documentation, domains, flutter, gateway, images, makefile, manifests,
-    openapi, owners, preflight, published, reachability, readme, safety, workflows, workspace,
+    boundaries, catalog, deploy, documentation, domains, flutter, gateway, images, makefile,
+    manifests, openapi, owners, preflight, published, reachability, readme, safety, workflows,
+    workspace,
 };
 
 const USAGE: &str = "\
@@ -38,6 +39,7 @@ COMMANDS:
     workspace          check that every crate on disk is a workspace member
     workflows          check that no workflow names a job, action or file that is not there
     images             check that every image a manifest pulls is one a workflow publishes
+    deploy             check that a deploy rolls out every Deployment it applies
     makefile           check every target is .PHONY, described by `make help`, and runs a command xtask has
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
@@ -207,6 +209,17 @@ fn main() -> ExitCode {
             }
             if problems.is_empty() {
                 println!("docs: the index names every document, every path exists, and every count is the count");
+                return ExitCode::SUCCESS;
+            }
+            ExitCode::FAILURE
+        }
+        "deploy" => {
+            let problems = deploy::rollout_problems(&root);
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if problems.is_empty() {
+                println!("deploy: every workflow applies an overlay through the one script that rolls the whole set out");
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE
