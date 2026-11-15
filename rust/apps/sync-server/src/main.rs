@@ -86,6 +86,18 @@ async fn surface_only(request: Request<Body>, next: Next) -> Response {
         .into_response()
 }
 
+/// Where this server listens when no argument says otherwise.
+///
+/// The cluster sets `VIMBAI_SYNC_ADDR` and declares the container port it names, the same way the engine reads
+/// `VIMBAI_API_ADDR`. Nothing read it, so the pod listened on `127.0.0.1:8100` while the manifest published 8099: a container
+/// that reports no listener on the port it declares, and a sync endpoint no client can reach.
+fn default_bind(lookup: impl Fn(&str) -> Option<String>) -> String {
+    lookup("VIMBAI_SYNC_ADDR")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "127.0.0.1:8100".to_string())
+}
+
 struct Options {
     bind: String,
     data_dir: PathBuf,
@@ -94,7 +106,7 @@ struct Options {
 impl Options {
     fn from_args(args: impl Iterator<Item = String>) -> Self {
         let mut options = Options {
-            bind: "127.0.0.1:8100".to_string(),
+            bind: default_bind(|name| std::env::var(name).ok()),
             data_dir: std::env::temp_dir().join("vimbai-sync"),
         };
         let mut args = args.peekable();
@@ -153,5 +165,30 @@ impl Options {
         );
         let _ = std::fs::write(&path, &secret);
         secret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn address(value: Option<&str>) -> String {
+        default_bind(|name| {
+            assert_eq!(name, "VIMBAI_SYNC_ADDR");
+            value.map(str::to_string)
+        })
+    }
+
+    #[test]
+    fn the_configured_address_is_the_one_used() {
+        assert_eq!(address(Some("0.0.0.0:8099")), "0.0.0.0:8099");
+        assert_eq!(address(Some(" 0.0.0.0:9000 ")), "0.0.0.0:9000");
+    }
+
+    #[test]
+    fn an_unconfigured_machine_keeps_the_loopback_default() {
+        assert_eq!(address(None), "127.0.0.1:8100");
+        // an empty variable is a deployment that meant to say nothing, and "" is not a bind address
+        assert_eq!(address(Some("")), "127.0.0.1:8100");
     }
 }

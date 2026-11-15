@@ -72,6 +72,16 @@ impl Sync {
     }
 
     fn start_with(data_dir: &Path, environment: &[(&str, &str)]) -> Option<Sync> {
+        Sync::start_told_where(data_dir, environment, true)
+    }
+
+    /// `with_port_argument` false leaves the address to `VIMBAI_SYNC_ADDR`, which is the only way to see whether the server
+    /// reads what the cluster sets: an argument would override the variable and prove nothing.
+    fn start_told_where(
+        data_dir: &Path,
+        environment: &[(&str, &str)],
+        with_port_argument: bool,
+    ) -> Option<Sync> {
         let binary = binary();
         if !binary.is_file() {
             eprintln!("skipped: {} is not built", binary.display());
@@ -79,11 +89,10 @@ impl Sync {
         }
         std::fs::create_dir_all(data_dir).expect("a data directory");
         let mut command = Command::new(&binary);
-        command
-            .arg("--port")
-            .arg("0")
-            .arg("--data-dir")
-            .arg(data_dir);
+        if with_port_argument {
+            command.arg("--port").arg("0");
+        }
+        command.arg("--data-dir").arg(data_dir);
         for (name, value) in environment {
             command.env(name, value);
         }
@@ -524,5 +533,22 @@ fn the_secret_a_deployment_supplies_is_the_one_tokens_are_signed_with() {
     assert!(
         sso::accounts::verify_token(&token, "a-different-secret", chrono::Utc::now()).is_none(),
         "the token verified against a secret nobody supplied, so the variable was not what signed it"
+    );
+}
+
+/// A sync server given no address argument at all starts and answers, which is how the cluster runs it: the address there comes
+/// from `VIMBAI_SYNC_ADDR`, and that the variable is the one used is asserted deterministically beside `default_bind`.
+#[test]
+fn a_server_told_only_by_the_environment_starts_and_answers() {
+    let directory = scratch("configured-address");
+    let Some(server) =
+        Sync::start_told_where(&directory, &[("VIMBAI_SYNC_ADDR", "127.0.0.1:0")], false)
+    else {
+        return;
+    };
+    let (status, body) = server.get("/health", &[]);
+    assert_eq!(
+        status, 200,
+        "a server told its address did not answer: {body}"
     );
 }

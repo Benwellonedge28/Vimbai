@@ -32,7 +32,6 @@ configMapGenerator:
   - name: vimbai-config
     literals:
       - LOG_LEVEL=INFO
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAMESPACE=vimbai
 

@@ -2,8 +2,10 @@
 #
 #   docker compose -f infrastructure/compose/compose.yaml -f infrastructure/compose/compose.observability.yaml up --build
 #
-# OTEL_EXPORTER_OTLP_ENDPOINT already points at otel-collector in the base file, so adding this file is the whole of
-# switching tracing on: no binary changes, no rebuild with a different feature.
+# This variant adds the collector, Prometheus and Grafana; it does not switch tracing on, because nothing here emits spans.
+# The binaries used to be handed OTEL_EXPORTER_OTLP_ENDPOINT and the header above said tracing came on with no binary change,
+# but no OpenTelemetry exporter is linked into any binary, so the collector received nothing while the estate read as traced.
+# The variable is gone until something actually exports; what this variant does observe is the estate's own metrics.
 
 services:
   otel-collector:

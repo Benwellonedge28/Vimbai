@@ -3,7 +3,7 @@ CARGO := cargo
 MANIFEST := rust/Cargo.toml
 XTASK := $(CARGO) run -q -p xtask --manifest-path $(MANIFEST) --
 
-.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests safety preflight-check workspace workflows images deploy build
+.PHONY: help preflight test fmt clippy flutter-test catalog gateway reachability boundaries rules docs readme makefile routes openapi owners domains manifests settings safety preflight-check workspace workflows images deploy build
 
 help:
 	@echo "make help          this list"
@@ -31,6 +31,7 @@ help:
 	@echo "make owners        report which crate answers each unrouted prefix"
 	@echo "make domains       check every routed service has a domain page"
 	@echo "make manifests     check cluster, compose and image declarations"
+	@echo "make settings      check every configured environment variable is read"
 	@echo "make build         release build of the engine and the local runtime"
 
 flutter-test:
@@ -104,6 +105,9 @@ domains:
 
 manifests:
 	$(XTASK) manifests
+
+settings:
+	$(XTASK) settings
 
 build:
 	$(CARGO) build --release --manifest-path $(MANIFEST) -p vimbai_api -p vimbai_local

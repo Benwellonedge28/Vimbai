@@ -6,6 +6,16 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- A manifest could configure something nothing reads, and every file involved looked right. Three of them were live: the sync
+  server was handed `VIMBAI_SYNC_ADDR` and ignored it, so the pod bound `127.0.0.1:8100` while declaring container port 8099 -
+  a sync endpoint no client in the cluster could reach; the engine was handed `OTEL_EXPORTER_OTLP_ENDPOINT` with no
+  OpenTelemetry exporter linked into any binary, while `compose.observability.yaml` said tracing came on with no rebuild, so the
+  collector received nothing; and a set of service URLs pointed at services that no longer exist. A new gate (`make settings`)
+  fails when a manifest or compose file sets a name no source file reads, with a named excuse - and the image that reads it - for
+  the variables belonging to images this repository pulls rather than builds. The excuse list is checked too: an entry that
+  stops being configured, or that hides a name our own code reads, fails the build. `VIMBAI_SYNC_ADDR` is now read the way the
+  engine reads `VIMBAI_API_ADDR`, an empty value treated as none, and the tracing claim is written as what the binaries do.
+
 - The engine and the sync server signed tokens with different secrets. The engine read `VIMBAI_JWT_SECRET` then `JWT_SECRET`;
   the sync server ignored both, minted a secret on first boot and kept it in a file beside its data. A deployment that set the
   variable therefore had two components issuing and checking the same tokens against two keys, so a token minted on one side was

@@ -10,8 +10,8 @@ use std::process::ExitCode;
 
 use xtask::{
     boundaries, catalog, deploy, documentation, domains, flutter, gateway, images, makefile,
-    manifests, openapi, owners, preflight, published, reachability, readme, safety, workflows,
-    workspace,
+    manifests, openapi, owners, preflight, published, reachability, readme, safety, settings,
+    workflows, workspace,
 };
 
 const USAGE: &str = "\
@@ -48,6 +48,7 @@ COMMANDS:
     routes             rewrite docs/routes-snapshot.json from the addresses the engine answers
     routes --check     report whether the committed snapshot is current, and exit 1 if it is not
     manifests          report a cluster, compose or image declaration that does not hold, and exit 1 if any
+    settings           report an environment variable a manifest sets that no source file reads, and exit 1 if any
 ";
 
 fn main() -> ExitCode {
@@ -270,6 +271,22 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             ExitCode::FAILURE
+        }
+        "settings" => {
+            let mut problems = settings::problems(&root);
+            problems.extend(settings::excuse_problems(&root));
+            for problem in &problems {
+                println!("{problem}");
+            }
+            if !problems.is_empty() {
+                return ExitCode::FAILURE;
+            }
+            println!(
+                "{} environment variables configured, {} named in the source",
+                settings::configured(&root).len(),
+                settings::named_in_source(&root).len()
+            );
+            ExitCode::SUCCESS
         }
         "safety" => {
             let mut problems = safety::roots_without_the_attribute(&root);
