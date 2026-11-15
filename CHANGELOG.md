@@ -6,6 +6,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The roadmap's Evidence column was unchecked: it cited `tests/parity.rs` and `request-conventions.md` without the folders they
+  sit in, claimed 11 tests in the worker's `src/lib.rs` where there are 12, and named a deleted file as evidence. The roadmap
+  check now reads the evidence column too - a cited path has to resolve, from the repository root, from one of the trees the
+  document names, or from a path cited earlier in the same cell, and a stated test count has to be the number of `#[test]`
+  functions in the file it names. Four citations were corrected; a line recording a removal is still allowed to name what was
+  removed. A test runs the check over a table written to be wrong, so the gate cannot pass by scanning nothing.
+
 - The roadmap's status table carried figures nobody checked, and had drifted: it said 139 routed services while the catalogue
   held 143, and 2,910 tests long after the suite had grown past it. `cargo run -p xtask -- roadmap` compares every figure the
   tree can answer for - routed services, domain, calculation and platform crates, Python files, catalogue domain files, dart

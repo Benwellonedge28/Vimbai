@@ -997,6 +997,33 @@ fn the_published_snapshot_is_what_the_engine_answers() {
 }
 
 #[test]
+fn the_roadmap_gate_reads_the_table_it_is_given() {
+    // A gate that scans nothing passes, so this runs the check over a table written to be wrong and insists it says so.
+    let scratch = std::env::temp_dir().join(format!("vimbai-roadmap-{}", std::process::id()));
+    std::fs::create_dir_all(scratch.join("docs")).expect("scratch docs");
+    std::fs::write(scratch.join("docs/ROADMAP.md"), "| Phase | Work | State | Evidence |\n| --- | --- | --- | --- |\n| P9 | Sync | done | `rust/apps/gone` and 9 tests in `a.rs` |\n").expect("scratch roadmap");
+    std::fs::write(
+        scratch.join("a.rs"),
+        "#[test]\nfn one() {}\n#[test]\nfn two() {}\n",
+    )
+    .expect("scratch test file");
+    let problems = xtask::readme::roadmap_claims(&scratch);
+    assert!(
+        problems
+            .iter()
+            .any(|problem| problem.contains("rust/apps/gone")),
+        "a cited path that is not there was accepted: {problems:#?}"
+    );
+    assert!(
+        problems
+            .iter()
+            .any(|problem| problem.contains("holds 9 tests") && problem.contains("it holds 2")),
+        "a cited test count that is wrong was accepted: {problems:#?}"
+    );
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
 fn the_roadmap_status_table_states_figures_that_are_true() {
     // The table said 139 routed services while the catalogue held 143, and 2,910 tests long after the suite had grown, because
     // a hand-written figure does not fail a build. Every figure in it that the tree can answer for is compared here, and a

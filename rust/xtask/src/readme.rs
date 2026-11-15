@@ -164,7 +164,9 @@ pub fn roadmap_claims(root: &Path) -> Vec<String> {
     };
     let mut problems = Vec::new();
     let mut checked = 0;
-    for (label, value) in status_rows(&roadmap) {
+    for (label, value, evidence) in status_rows(&roadmap) {
+        // a status row carries the evidence in its own column, so that is what a citation is read from
+        problems.extend(cited_evidence(root, &label, &evidence));
         let wanted: Option<(&str, usize)> = match label.as_str() {
             "Routed services" => {
                 routed_services(root).map(|count| ("routed services", count as usize))
@@ -214,7 +216,7 @@ pub fn roadmap_claims(root: &Path) -> Vec<String> {
 }
 
 /// The `| Fact | Value |` rows of the roadmap's status table.
-fn status_rows(roadmap: &str) -> Vec<(String, String)> {
+fn status_rows(roadmap: &str) -> Vec<(String, String, String)> {
     let mut rows = Vec::new();
     for line in roadmap.lines() {
         let line = line.trim();
@@ -229,7 +231,12 @@ fn status_rows(roadmap: &str) -> Vec<(String, String)> {
         if label.is_empty() || label == "Fact" || label.starts_with("---") {
             continue;
         }
-        rows.push((label.to_string(), value.to_string()));
+        let evidence = if cells.len() > 3 {
+            cells[3..].join(" | ")
+        } else {
+            String::new()
+        };
+        rows.push((label.to_string(), value.to_string(), evidence));
     }
     rows
 }
@@ -285,4 +292,110 @@ fn python_files(root: &Path) -> usize {
         .iter()
         .filter(|problem| problem.ends_with(" is Python"))
         .count()
+}
+
+/// The evidence a status row cites: a path that is not there, or a test count that is not the file's, is a phase claiming to be
+/// finished on work this repository cannot show. The table said a file had nine tests when it had ten, which is how a "done"
+/// slowly stops meaning anything.
+fn cited_evidence(root: &Path, label: &str, value: &str) -> Vec<String> {
+    let mut problems = Vec::new();
+    // an earlier citation in the same cell is often the tree the later ones live in: `rust/apps/worker` and then `src/lib.rs`
+    let mut bases: Vec<String> = vec![
+        String::new(),
+        "rust/".to_string(),
+        "rust/crates/".to_string(),
+        "apps/flutter/".to_string(),
+    ];
+    for span in backticked(value) {
+        let trimmed = span.trim();
+        let is_a_path = !trimmed.starts_with('/')
+            && !trimmed.contains(' ')
+            && !trimmed.starts_with("--")
+            && (trimmed.contains('/')
+                || [
+                    ".md", ".rs", ".yaml", ".json", ".toml", ".txt", ".dart", ".yml",
+                ]
+                .iter()
+                .any(|extension| trimmed.ends_with(extension)));
+        if !is_a_path {
+            continue;
+        }
+        let candidate = trimmed.trim_end_matches('/');
+        let found = bases
+            .iter()
+            .any(|base| root.join(format!("{base}{candidate}")).exists());
+        if !found && !records_a_removal(value, trimmed) {
+            problems.push(format!(
+                "docs/ROADMAP.md cites `{trimmed}` as evidence for {label}, and it is not there"
+            ));
+        }
+        // a path that resolved is a place later citations may be relative to
+        bases.push(format!("{candidate}/"));
+        bases.push(candidate.to_string());
+    }
+    let mut rest = value;
+    while let Some(at) = rest.find(" tests in `") {
+        let before = &rest[..at];
+        let number: String = before
+            .chars()
+            .rev()
+            .take_while(|character| character.is_ascii_digit())
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
+        let after = &rest[at + " tests in `".len()..];
+        let Some(close) = after.find('`') else {
+            break;
+        };
+        let path = &after[..close];
+        if let Ok(stated) = number.parse::<usize>() {
+            let resolved = bases
+                .iter()
+                .map(|base| root.join(format!("{base}{path}")))
+                .find(|candidate| candidate.is_file());
+            if let Some(file) = resolved {
+                if let Ok(text) = std::fs::read_to_string(file) {
+                    let actual = text.lines().filter(|line| line.trim() == "#[test]").count();
+                    if actual != stated {
+                        problems.push(format!(
+                            "docs/ROADMAP.md says `{path}` holds {stated} tests for {label}; it holds {actual}"
+                        ));
+                    }
+                }
+            }
+        }
+        rest = &after[close..];
+    }
+    problems
+}
+
+/// A line recording that something was removed is not citing it as evidence it exists.
+fn records_a_removal(value: &str, span: &str) -> bool {
+    value
+        .find(span)
+        .map(|at| {
+            value[..at].trim_end().ends_with("deleted,")
+                || value[..at].trim_end().ends_with("deleted")
+                || value[at + span.len()..]
+                    .trim_start_matches('`')
+                    .trim_start()
+                    .starts_with("deleted")
+        })
+        .unwrap_or(false)
+}
+
+/// Every backticked span in a line of the status table.
+fn backticked(text: &str) -> Vec<String> {
+    let mut spans = Vec::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('`') {
+        let after = &rest[open + 1..];
+        let Some(close) = after.find('`') else {
+            break;
+        };
+        spans.push(after[..close].to_string());
+        rest = &after[close + 1..];
+    }
+    spans
 }
