@@ -6,6 +6,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The trial balance screen read its rows from `entries`, but the engine answers them under `accounts`, so the report would
+  have shown nothing on a Book that had posted an entry. The model reads the name the engine writes. A test now fetches the
+  trial balance, the income statement and the balance sheet after posting and holds each frame against the keys the screens
+  read, so a renamed key blanks a test instead of a screen.
 - An entry the engine answered could not be read even once its money parsed: `JournalLine` read `accountNumber` while the
   engine and the local `journal_lines` table both write `account_number`, so every posted entry, every listed entry and the
   offline copy threw on the first line. The model now carries the wire name, which fixes the engine path and the local path

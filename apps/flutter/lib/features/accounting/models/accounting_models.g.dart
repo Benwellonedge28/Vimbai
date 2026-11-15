@@ -261,7 +261,7 @@ Map<String, dynamic> _$TrialBalanceEntryToJson(TrialBalanceEntry instance) =>
 
 TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
   reportDate: DateTime.parse(json['report_date'] as String),
-  entries: (json['entries'] as List<dynamic>)
+  entries: (json['accounts'] as List<dynamic>)
       .map((e) => TrialBalanceEntry.fromJson(e as Map<String, dynamic>))
       .toList(),
   totalDebits: amountFromJson(json['total_debits']),
@@ -272,7 +272,7 @@ TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
 Map<String, dynamic> _$TrialBalanceToJson(TrialBalance instance) =>
     <String, dynamic>{
       'report_date': instance.reportDate.toIso8601String(),
-      'entries': instance.entries.map((e) => e.toJson()).toList(),
+      'accounts': instance.entries.map((e) => e.toJson()).toList(),
       'total_debits': instance.totalDebits,
       'total_credits': instance.totalCredits,
       'is_balanced': instance.isBalanced,

@@ -314,6 +314,9 @@ class TrialBalanceEntry {
 class TrialBalance {
   @JsonKey(name: 'report_date')
   final DateTime reportDate;
+
+  // the engine answers the rows under `accounts`; reading `entries` left the screen empty
+  @JsonKey(name: 'accounts')
   final List<TrialBalanceEntry> entries;
   @JsonKey(name: 'total_debits')
   final double totalDebits;

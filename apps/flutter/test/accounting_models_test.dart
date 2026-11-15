@@ -50,4 +50,25 @@ void main() {
       expect(line.toJson().containsKey('accountNumber'), isFalse);
     });
   });
+
+  group('reading a trial balance the engine answered', () {
+    test('the rows arrive under the name the engine writes', () {
+      final trial = TrialBalance.fromJson({
+        'report_date': '2026-12-31T00:00:00.000',
+        'accounts': [
+          {'account_number': '1000', 'account_name': 'Cash', 'account_type': 'asset', 'debit': '250.000000', 'credit': '0.000000'},
+          {'account_number': '4000', 'account_name': 'Sales', 'account_type': 'revenue', 'debit': '0.000000', 'credit': '250.000000'},
+        ],
+        'total_debits': '250.000000',
+        'total_credits': '250.000000',
+        'is_balanced': true,
+      });
+
+      expect(trial.entries, hasLength(2));
+      expect(trial.entries.first.accountNumber, '1000');
+      expect(trial.entries.last.creditTotal, 250.0);
+      expect(trial.totalDebits, 250.0);
+      expect(trial.isBalanced, isTrue);
+    });
+  });
 }

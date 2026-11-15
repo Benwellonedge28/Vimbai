@@ -164,3 +164,118 @@ async fn the_variance_analysis_the_budget_screen_asks_for_is_answered_in_the_sha
     assert!(reply.get("favorable_variance").is_some(), "{reply}");
     assert!(reply.get("unfavorable_variance").is_some(), "{reply}");
 }
+
+/// A stranger who has registered, opened a Book and posted an entry of 250.
+async fn stranger_with_a_posted_entry() -> Walk {
+    let mut walk = Walk::stranger();
+    let (status, made) = walk
+        .call(
+            Method::POST,
+            "/identity/users/register",
+            Some(json!({"email": "reports@example.com", "password": "Str0ng-pass-9", "first_name": "Reports"})),
+        )
+        .await;
+    assert!(status.is_success(), "{made}");
+    walk.user = made["id"].as_str().expect("an id").to_string();
+    let (_, book) = walk
+        .call(
+            Method::POST,
+            "/books",
+            Some(json!({"name": "Reports", "currency": "USD", "tier": "business"})),
+        )
+        .await;
+    walk.book = book["book"]["id"].as_str().unwrap().to_string();
+    let (code, reply) = walk
+        .call(
+            Method::POST,
+            "/accounting/journal-entries",
+            Some(json!({
+                "id": "3f2b6a1e-0000-4000-8000-000000000002",
+                "entry_date": "2026-11-15T20:41:00.000000",
+                "description": "a sale",
+                "source_module": "MobileApp",
+                "status": "posted",
+                "lines": [
+                    {"account_number": "1000", "debit": 250.0, "credit": 0.0},
+                    {"account_number": "4000", "debit": 0.0, "credit": 250.0}
+                ]
+            })),
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{reply}");
+    walk
+}
+
+fn holds(report: &Value, keys: &[&str]) {
+    for key in keys {
+        assert!(
+            report.get(*key).is_some(),
+            "the screen reads `{key}`: {report}"
+        );
+    }
+}
+
+/// The three report screens each read a fixed frame; a frame that changes shape blanks the screen rather than failing loudly,
+/// so each key they read is named here against a Book that has actually posted something.
+#[tokio::test]
+async fn the_report_screens_frames_are_answered_under_the_keys_they_read() {
+    let walk = stranger_with_a_posted_entry().await;
+
+    let (code, trial) = walk
+        .call(
+            Method::GET,
+            "/accounting/trial-balance?as_of_date=2026-12-31T00:00:00.000",
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{trial}");
+    holds(
+        &trial,
+        &[
+            "report_date",
+            "accounts",
+            "total_debits",
+            "total_credits",
+            "is_balanced",
+        ],
+    );
+
+    let (code, income) = walk
+        .call(
+            Method::GET,
+            "/accounting/income-statement?start_date=2026-01-01T00:00:00.000&end_date=2026-12-31T00:00:00.000",
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{income}");
+    holds(
+        &income,
+        &[
+            "start_date",
+            "end_date",
+            "revenues",
+            "expenses",
+            "net_income",
+        ],
+    );
+
+    let (code, sheet) = walk
+        .call(
+            Method::GET,
+            "/accounting/balance-sheet?as_of_date=2026-12-31T00:00:00.000",
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{sheet}");
+    holds(
+        &sheet,
+        &[
+            "as_of_date",
+            "assets",
+            "liabilities",
+            "equity",
+            "total_assets",
+            "total_liabilities_equity",
+        ],
+    );
+}
