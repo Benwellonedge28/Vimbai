@@ -356,7 +356,7 @@ class _BooksPageState extends State<BooksPage> {
   }
 
   Future<void> _invite(String bookId) async {
-    final userIdCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
     String role = 'bookkeeper';
     final res = await showDialog<Map<String, String>>(
       context: context,
@@ -369,9 +369,10 @@ class _BooksPageState extends State<BooksPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
-                    controller: userIdCtrl,
+                    controller: nameCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Member user ID',
+                      labelText: 'Username or email',
+                      helperText: 'The name they signed up with',
                     ),
                   ),
                   DropdownButton<String>(
@@ -399,7 +400,7 @@ class _BooksPageState extends State<BooksPage> {
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(ctx, {
-                    'user_id': userIdCtrl.text.trim(),
+                    'username': nameCtrl.text.trim(),
                     'role': role,
                   }),
                   child: const Text('Invite'),
@@ -410,13 +411,22 @@ class _BooksPageState extends State<BooksPage> {
         );
       },
     );
-    if (res == null || (res['user_id'] ?? '').isEmpty) return;
+    if (res == null || (res['username'] ?? '').isEmpty) return;
     try {
-      await _sync.inviteMember(bookId, res['user_id']!, res['role']!);
+      final person = await _sync.inviteMemberByUsername(
+        bookId,
+        res['username']!,
+        res['role']!,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invitation sent')));
+        final name = (person['full_name'] as String?)?.trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Invitation sent to ${name == null || name.isEmpty ? person['username'] : name}',
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

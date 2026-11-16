@@ -454,6 +454,40 @@ class BookSyncService {
     return r.statusCode == 200;
   }
 
+  /// Find a person by username or email, so an invitation can name somebody instead of asking for an internal id.
+  ///
+  /// Returns null when no active account has that name, which the shell shows as "no account called that" rather than as
+  /// a failure: a mistyped name is not a broken engine.
+  Future<Map<String, dynamic>?> findPerson(String usernameOrEmail) async {
+    final name = usernameOrEmail.trim();
+    if (name.isEmpty) return null;
+    final r = await _client.get(
+      Uri.parse(
+        '${AppConfig.apiUrl}/identity/users/lookup?username=${Uri.encodeQueryComponent(name)}',
+      ),
+      headers: _headers,
+    );
+    if (r.statusCode == 404) return null;
+    if (r.statusCode != 200) {
+      throw Exception('Could not look that name up: ${r.statusCode} ${r.body}');
+    }
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  /// Invite by the name a person already knows, resolving it here so the caller passes a username rather than an id.
+  Future<Map<String, dynamic>> inviteMemberByUsername(
+    String bookId,
+    String usernameOrEmail,
+    String role,
+  ) async {
+    final person = await findPerson(usernameOrEmail);
+    if (person == null) {
+      throw Exception('No active account is called "$usernameOrEmail".');
+    }
+    await inviteMember(bookId, person['id'] as String, role);
+    return person;
+  }
+
   /// Another person's public key, fetched so a Book key can be wrapped for them.
   Future<RSAPublicKey> fetchPublicKey(String userId) async {
     final r = await _client.get(

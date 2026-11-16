@@ -24,6 +24,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   publishes its own key when a Book is created, and an invitation fetches the invitee's key and wraps the real Book key for
   it. Inviting someone who never opened the app says so instead of posting something they could not open. Two engine tests
   and two app tests hold it, the app pair proven to fail on the placeholder.
+- Inviting someone still needed their internal account id typed by hand, which nobody knows. The engine now answers an exact
+  lookup by username or email (`GET /identity/users/lookup?username=`, signed in only, inactive accounts reported as absent
+  so a Book is never offered to someone who cannot accept it), and both invite dialogs ask for a username or email instead,
+  resolving it before anything is wrapped: a name that matches nobody posts nothing. One engine test and one app test.
 - The local stores had no seam for tests: both lived in one shared directory, so two test files running at once opened
   the same database and fought over its locks (the Flutter job failed at Test on the key-wrapping commit). The service
   takes a database directory from the caller now, and each test file opens its own temp directory and removes it.

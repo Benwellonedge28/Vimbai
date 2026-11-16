@@ -635,6 +635,7 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/users/:user_id/public-key"),
                 get(get_public_key),
             )
+            .route(&format!("{prefix}/users/lookup"), get(lookup_user))
             .route(
                 &format!("{prefix}/users/:user_id"),
                 get(get_user).put(put_user),
@@ -986,6 +987,36 @@ fn public_key_text(value: Option<&Value>, name: &str) -> Option<String> {
         base64::Engine::decode(&base64::engine::general_purpose::STANDARD, raw.as_bytes()).ok()?;
     let floor = if name == "modulus" { 128 } else { 1 };
     (bytes.len() >= floor).then_some(raw)
+}
+
+/// Find a person by exact username or email, so an invitation can name someone without asking for their id.
+///
+/// Signed in only, and an exact match only: this is a door for inviting a person whose name you already know, not a way
+/// to browse the account list. An account that is not active is reported as absent, because it cannot accept a Book.
+async fn lookup_user(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    if let Err(response) = caller(&graph, &headers) {
+        return *response;
+    }
+    let sent = fields(query.as_deref(), None);
+    let wanted = sent.get("username").cloned().unwrap_or_default();
+    let wanted = wanted.trim();
+    if wanted.is_empty() {
+        return error(400, "A username or email is required");
+    }
+    match by_identifier(&graph, wanted) {
+        Some(user) if user.status.may_sign_in() => Json(json!({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": format!("{} {}", user.first_name, user.last_name).trim().to_string(),
+        }))
+        .into_response(),
+        _ => error(404, "No account with that username"),
+    }
 }
 
 /// Publish the caller's public key, or replace it.

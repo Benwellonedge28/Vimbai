@@ -199,4 +199,93 @@ void main() {
       );
     },
   );
+
+  test(
+    'a name is resolved before anything is wrapped, and a wrong name posts nothing',
+    () async {
+      final invitee = _person();
+      final inviteePublic = invitee.publicKey as RSAPublicKey;
+      final asked = <String>[];
+      var posted = false;
+
+      ApiClient.transport = MockClient((request) async {
+        final json = {'content-type': 'application/json'};
+        if (request.url.path.endsWith('/identity/users/lookup')) {
+          asked.add(request.url.queryParameters['username'] ?? '');
+          if (request.url.queryParameters['username'] == 'them') {
+            return http.Response(
+              jsonEncode({
+                'id': 'their-id',
+                'username': 'them',
+                'full_name': 'Tariro Moyo',
+              }),
+              200,
+              headers: json,
+            );
+          }
+          return http.Response(
+            '{"detail":"No account with that username"}',
+            404,
+            headers: json,
+          );
+        }
+        if (request.url.path.contains('/identity/users/') &&
+            request.url.path.endsWith('/public-key')) {
+          return http.Response(
+            jsonEncode({
+              'user_id': 'their-id',
+              'modulus': _b64(inviteePublic.modulus!),
+              'exponent': _b64(inviteePublic.exponent!),
+            }),
+            200,
+            headers: json,
+          );
+        }
+        if (request.url.path.endsWith('/members')) {
+          posted = true;
+          return http.Response('{"member":{}}', 200, headers: json);
+        }
+        if (request.url.path.endsWith('/devices')) {
+          return http.Response('{"device_id":"device-1"}', 200, headers: json);
+        }
+        return http.Response(
+          jsonEncode({
+            'book': {
+              'id': 'book-1',
+              'name': 'Mukandara Books',
+              'tier': 'household',
+              'description': '',
+              'folder': '',
+              'role': 'owner',
+              'status': 'active',
+            },
+          }),
+          200,
+          headers: json,
+        );
+      });
+      service.setAuthToken('a-token');
+      final book = await service.createBook('Mukandara Books', 'household');
+
+      final person = await service.inviteMemberByUsername(
+        book.id,
+        'them',
+        'member',
+      );
+      expect(person['full_name'], 'Tariro Moyo');
+      expect(posted, isTrue);
+      expect(asked, ['them']);
+
+      posted = false;
+      await expectLater(
+        service.inviteMemberByUsername(book.id, 'typo', 'member'),
+        throwsA(predicate((e) => e.toString().contains('No active account'))),
+      );
+      expect(
+        posted,
+        isFalse,
+        reason: 'a name that resolves to nobody posts nothing at all',
+      );
+    },
+  );
 }

@@ -250,7 +250,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
   }
 
   Future<void> _invite() async {
-    final userIdCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
     String role = 'bookkeeper';
     final res = await showDialog<Map<String, String>>(
       context: context,
@@ -261,8 +261,11 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: userIdCtrl,
-                decoration: const InputDecoration(labelText: 'Member user ID'),
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Username or email',
+                  helperText: 'The name they signed up with',
+                ),
               ),
               DropdownButton<String>(
                 value: role,
@@ -290,7 +293,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, {
-                'user_id': userIdCtrl.text.trim(),
+                'username': nameCtrl.text.trim(),
                 'role': role,
               }),
               child: const Text('Invite'),
@@ -299,11 +302,18 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
         ),
       ),
     );
-    if (res == null || (res['user_id'] ?? '').isEmpty) return;
+    if (res == null || (res['username'] ?? '').isEmpty) return;
     try {
-      await _sync.inviteMember(_book.id, res['user_id']!, res['role']!);
+      final person = await _sync.inviteMemberByUsername(
+        _book.id,
+        res['username']!,
+        res['role']!,
+      );
       if (!mounted) return;
-      _toast('Invitation sent');
+      final name = (person['full_name'] as String?)?.trim();
+      _toast(
+        'Invitation sent to ${name == null || name.isEmpty ? person['username'] : name}',
+      );
       _loadMembers();
     } catch (e) {
       if (!mounted) return;

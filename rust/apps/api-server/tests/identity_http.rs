@@ -987,3 +987,88 @@ async fn nobody_has_published_a_key_and_an_unsigned_caller_reads_nothing() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
+
+/// An invitation has to name someone, and asking an inviter to type an internal id is not naming them. The lookup is an
+/// exact match on the name already known, signed in only, and it answers absent for an account that cannot accept a Book.
+#[tokio::test]
+async fn a_person_is_found_by_username_or_email_and_only_while_signed_in() {
+    let graph = Arc::new(MemoryGraph::new());
+    let made = registered(graph.clone(), "tariro", "Password123!").await;
+    let who = made["id"].as_str().unwrap().to_string();
+    registered(graph.clone(), "samuel", "Password123!").await;
+    let session = signed_in(graph.clone(), "samuel", "Password123!").await;
+    let token = session["access_token"].as_str().unwrap().to_string();
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        "/users/lookup?username=tariro",
+        None,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], json!(who));
+    assert_eq!(body["username"], json!("tariro"));
+    assert_eq!(body["full_name"], json!("Tariro Moyo"));
+
+    // an email finds the same person, because that is what an inviter may have been given
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        "/users/lookup?username=tariro%40example.com",
+        None,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], json!(who));
+
+    // the part of an email before the @ is not a username
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        "/users/lookup?username=nobody",
+        None,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, _) = call(
+        graph.clone(),
+        Method::GET,
+        "/users/lookup?username=tariro",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    // an account turned off cannot accept a Book, so it reads as absent rather than as someone to invite. Tariro switches
+    // the account off herself, the shipped way, because only the person or an administrator may.
+    let her_session = signed_in(graph.clone(), "tariro", "Password123!").await;
+    let her_token = her_session["access_token"].as_str().unwrap().to_string();
+    let (status, _) = call(
+        graph.clone(),
+        Method::PUT,
+        &format!("/users/{who}"),
+        Some(json!({ "is_active": false })),
+        Some(&her_token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        "/users/lookup?username=tariro",
+        None,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "an inactive account is not offered as someone to invite: {body}"
+    );
+}
