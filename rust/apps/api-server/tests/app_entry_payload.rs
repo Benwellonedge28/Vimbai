@@ -287,6 +287,95 @@ async fn the_report_screens_frames_are_answered_under_the_keys_they_read() {
     );
 }
 
+/// The ledger screen opens one account and prints its name, its type, the side it normally sits on and what it holds.
+///
+/// `getLedgerAccountBalance` parses the reply into `LedgerAccountBalance`, whose `accountType` defaults to `'unknown'`
+/// precisely because the engine never sent one: the screen then said "Type: unknown" above the rows of every account it
+/// opened. The key is now answered from the account itself, so this holds the whole frame the screen reads.
+#[tokio::test]
+async fn the_ledger_screen_reads_the_frame_it_prints() {
+    let walk = stranger_with_a_posted_entry().await;
+
+    let (code, ledger) = walk
+        .call(
+            Method::GET,
+            "/accounting/ledgers/1000?start_date=2026-01-01&end_date=2026-12-31",
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{ledger}");
+    holds(
+        &ledger,
+        &[
+            "account_number",
+            "account_name",
+            "account_type",
+            "normal_balance",
+            "start_balance",
+            "entries",
+            "end_balance",
+        ],
+    );
+    assert_eq!(ledger["account_number"], json!("1000"), "{ledger}");
+    assert_eq!(ledger["account_type"], json!("asset"), "{ledger}");
+    assert_eq!(ledger["normal_balance"], json!("debit"), "{ledger}");
+    // the sale moved this account, so the screen has a row to show and a balance to print above it
+    let rows = ledger["entries"].as_array().expect("rows");
+    assert_eq!(rows.len(), 1, "{ledger}");
+    assert_eq!(rows[0]["debit"], json!("250.000000"), "{ledger}");
+    assert_eq!(ledger["end_balance"], json!("250.000000"), "{ledger}");
+}
+
+/// The journal screens read a bare array from the list and one object from the detail, and both are cast without a fallback.
+///
+/// `getJournalEntries` does `json.decode(body) as List<dynamic>`, so a wrapped `{"entries": [...]}` would throw rather than
+/// show an empty list, and every row is parsed into `JournalEntry`, which casts `id`, `entry_date`, `description`,
+/// `source_module` and `lines` as non-null. This holds the list, the detail and the row shape together against a posted sale.
+#[tokio::test]
+async fn the_journal_screens_read_the_list_and_the_detail_they_ask_for() {
+    let walk = stranger_with_a_posted_entry().await;
+
+    let (code, listed) = walk
+        .call(Method::GET, "/accounting/journal-entries", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let rows = listed.as_array().expect("the list is a bare array: {listed}");
+    assert_eq!(rows.len(), 1, "{listed}");
+    let row = &rows[0];
+    holds(
+        row,
+        &[
+            "id",
+            "entry_date",
+            "description",
+            "source_module",
+            "status",
+            "lines",
+        ],
+    );
+    assert!(row["status"].is_string(), "{row}");
+    let lines = row["lines"].as_array().expect("lines");
+    assert_eq!(lines.len(), 2, "{row}");
+    for line in lines {
+        // the screen declares these as double and reads them through amountFromJson
+        assert!(line["account_number"].is_string(), "{line}");
+        assert!(line["debit"].is_string(), "{line}");
+        assert!(line["credit"].is_string(), "{line}");
+    }
+
+    let id = row["id"].as_str().expect("an id");
+    let (code, detail) = walk
+        .call(
+            Method::GET,
+            &format!("/accounting/journal-entries/{id}"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{detail}");
+    assert_eq!(detail["id"], row["id"], "{detail}");
+    assert_eq!(detail["lines"].as_array().map(Vec::len), Some(2), "{detail}");
+}
+
 /// The cash flow page reads a statement the service maps out of the engine's reply, key by key.
 #[tokio::test]
 async fn the_cash_flow_page_reads_keys_the_engine_answers() {

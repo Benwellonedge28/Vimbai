@@ -795,6 +795,9 @@ pub fn ledger_report<G: Graph + ?Sized>(
     Ok(json!({
         "account_number": number,
         "account_name": field(&account, "name"),
+        // the type is what a person reads above the rows: a ledger screen that only knows the normal side
+        // still has to say whether the account it opened is an asset, a liability or revenue
+        "account_type": field(&account, "account_type"),
         "normal_balance": field(&account, "normal_balance"),
         "start_balance": wire(&opening),
         "entries": rows,
@@ -1282,6 +1285,7 @@ mod tests {
             &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
         )
         .expect("ledger");
+        assert_eq!(answer["account_type"], json!("asset"));
         assert_eq!(answer["start_balance"], json!("100.000000"));
         assert_eq!(answer["entries"].as_array().expect("rows").len(), 2);
         assert_eq!(answer["entries"][0]["balance"], json!("70.000000"));

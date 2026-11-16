@@ -24,6 +24,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The ledger screen no longer says "Type: unknown" above the rows. `LedgerAccountBalance.accountType` defaults to
+  `unknown` because `GET /ledgers/{number}` never answered an `account_type`; it now answers the account's own type, and a
+  test walks a stranger through register, Book, posted sale and the account's ledger, holding every key the screen prints.
+  The journal list and detail screens are pinned the same way: the list is a bare array the app casts directly, and each row
+  carries the id, date, description, source module and decimal-string money the screens parse.
+
 - The catalogue gate passed, and the next one up failed on a clean checkout: `docs/ROADMAP.md` cites `web-frontend/` and the
   two `.db` files as evidence for P0, and a clone does not have them because they were untracked, not deleted - they were on
   this disk, which is why the check passed here. Evidence is now accepted when git's own ignore rules exclude the path, so
