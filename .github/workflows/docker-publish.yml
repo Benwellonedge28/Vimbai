@@ -6,6 +6,10 @@ name: Publish Docker Images
 # Python microservices had and this repository does not - so every matrix entry skipped itself and the job was green while
 # publishing nothing, next to manifests asking ghcr.io for images nobody had ever pushed. The set is now stated once, in the
 # matrix, and a Dockerfile that is not there fails the build instead of being skipped past.
+#
+# Which images to build is decided by the `plan` job rather than by the build jobs' own conditions. A job-level `if` may
+# only read github, inputs, needs and vars - not matrix - so asking a matrix entry whether it was the one requested made the
+# whole file invalid: GitHub rejected it at startup, ran no job, and the failure arrived with nothing to read.
 
 on:
   push:
@@ -28,11 +32,52 @@ env:
   NAMESPACE: ghcr.io/benwellonedge28/vimbai
 
 jobs:
+  # One place decides what to build, so the build jobs need no condition of their own beyond "was anything chosen".
+  plan:
+    name: Plan the images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      rust: ${{ steps.pick.outputs.rust }}
+      gateway: ${{ steps.pick.outputs.gateway }}
+    steps:
+      - id: pick
+        env:
+          WANTED: ${{ github.event.inputs.images }}
+        run: |
+          set -euo pipefail
+          wanted="${WANTED:-all}"
+          set +e
+          rust=$(jq -c --arg wanted "$wanted" \
+            'if $wanted == "all" then . else map(select(.image == $wanted)) end' <<'JSON'
+          [
+            {"image": "calculation-api", "package": "vimbai_api", "bin": "vimbai-api"},
+            {"image": "sync", "package": "vimbai_sync", "bin": "vimbai-sync"},
+            {"image": "worker", "package": "vimbai_worker", "bin": "vimbai-worker"}
+          ]
+          JSON
+          )
+          set -e
+          case "$wanted" in
+            all|api-gateway) gateway=true ;;
+            *) gateway=false ;;
+          esac
+          # an unknown name asks for nothing rather than silently building everything
+          if [ "$wanted" != "all" ] && [ "$wanted" != "api-gateway" ] && [ "$rust" = "[]" ]; then
+            echo "::error::Unknown image '$wanted'. Name one of calculation-api, sync, worker, api-gateway, or all."
+            exit 1
+          fi
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "gateway=$gateway" >> "$GITHUB_OUTPUT"
+          echo "building: $rust (gateway: $gateway)"
+
   # The engine, the worker and the sync server are three entry points into one workspace, so they are one Dockerfile with two
   # build arguments rather than three that would drift apart the first time a dependency changed.
   rust-images:
     name: Build ${{ matrix.image }}
-    if: github.event.inputs.images == '' || github.event.inputs.images == 'all' || github.event.inputs.images == matrix.image
+    needs: plan
+    if: needs.plan.outputs.rust != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,16 +85,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: calculation-api
-            package: vimbai_api
-            bin: vimbai-api
-          - image: sync
-            package: vimbai_sync
-            bin: vimbai-sync
-          - image: worker
-            package: vimbai_worker
-            bin: vimbai-worker
+        include: ${{ fromJSON(needs.plan.outputs.rust) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +121,8 @@ jobs:
 
   gateway-image:
     name: Build api-gateway
-    if: github.event.inputs.images == '' || github.event.inputs.images == 'all' || github.event.inputs.images == 'api-gateway'
+    needs: plan
+    if: needs.plan.outputs.gateway == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

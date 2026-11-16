@@ -11,6 +11,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- `docker-publish` failed at startup with no job ever running, so nothing has been published since it was written. A
+  job-level `if` asked `matrix.image` whether it was the one requested, and a job-level condition may only read `github`,
+  `inputs`, `needs` and `vars`; GitHub rejected the whole file. A `plan` job now decides which images to build and hands the
+  matrix to the build job through `fromJSON`, refusing a name it does not know. The image gate reads that list too, so the
+  comparison against what the cluster pulls still holds.
 - The organisations page always showed zero Books. Each organisation the engine lists now carries a `book_count` of the
   Books whose `organisation_id` is that organisation, so a Book put in it is counted straight away. A test signs in,
   registers an organisation, moves the Book in and reads the count back as one.

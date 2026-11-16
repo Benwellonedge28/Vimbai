@@ -170,6 +170,20 @@ fn image_names(text: &str) -> Vec<(String, String)> {
             }
             found.push((without_tag.clone(), without_tag));
         }
+        // the same list written as JSON, which is how a planned matrix is handed to `fromJSON`: `{"image": "name", ...}`
+        for (index, _) in line.match_indices("\"image\":") {
+            let after = &line[index + "\"image\":".len()..];
+            let quoted = after.trim_start();
+            let name = quoted
+                .trim_start_matches('"')
+                .split('"')
+                .next()
+                .unwrap_or("");
+            if !name.is_empty() && !name.contains('/') && !name.contains('$') {
+                found.push((format!("{OWN_REGISTRY}{name}"), name.to_string()));
+                found.push((name.to_string(), name.to_string()));
+            }
+        }
         // the matrix names its image and the namespace separately; a line of the form `- image: name` completes it
         if let Some(rest) = line.trim_start().strip_prefix("- image:") {
             let name = rest.trim();
