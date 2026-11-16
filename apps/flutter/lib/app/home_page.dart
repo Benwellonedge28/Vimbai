@@ -197,7 +197,7 @@ class _HomePageState extends State<HomePage> {
 
   /// Make the tapped Book the active context for every service call.
   Future<void> _activateBook(VBook b) async {
-    if (b.membershipStatus == 'invited') {
+    if (b.isPendingInvitation) {
       // invitations are accepted on the Books page
       await _openBooksPage();
       return;
@@ -475,7 +475,7 @@ class _HomePageState extends State<HomePage> {
                   else
                     ..._filteredBooks().map((b) {
                       final active = b.id == BookContext.instance.current?.id;
-                      final invited = b.membershipStatus == 'invited';
+                      final invited = b.isPendingInvitation;
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         color: active

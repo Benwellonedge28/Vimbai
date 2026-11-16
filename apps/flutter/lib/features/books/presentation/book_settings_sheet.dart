@@ -369,7 +369,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final invited = _book.membershipStatus == 'invited';
+    final invited = _book.isPendingInvitation;
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,

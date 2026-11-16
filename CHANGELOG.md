@@ -6,6 +6,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- An invitation waiting on the engine could not be accepted on the phone. The engine names a membership that has not been
+  accepted `pending`, and every screen in the app compared against `invited`, so an invitation arrived as an ordinary Book:
+  no Accept button, nothing to explain why opening it failed, and the invitation real and unreachable at the same time. Both
+  names are one state now, decided in one place on the model, and a test drives a pending Book through to accepted and joined
+  with its key held.
+
 - A Book shared with somebody read empty to them. The store held every row under the person who wrote it, so the member who
   had just accepted an invitation was a member of a Book whose chart, entries and reports all came back blank while the owner
   saw them. Rows are held under the Book now and answered to every member of it, and the membership rule that says who a

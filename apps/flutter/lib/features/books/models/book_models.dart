@@ -12,7 +12,10 @@ class VBook {
   final String description;
   final String folder; // optional client-side folder grouping ("" = unfiled)
   final String yourRole;
-  final String membershipStatus; // active | invited
+
+  /// Where this phone stands with the Book, as the engine names it: `active` once the membership is real, `pending` while
+  /// an invitation is waiting, and `invited` (the older name, still answered by older rows) meaning the same as pending.
+  final String membershipStatus;
   final int seq;
   final DateTime? createdAt;
 
@@ -27,6 +30,13 @@ class VBook {
     this.seq = 0,
     this.createdAt,
   });
+
+  /// Whether this Book is still an invitation - something to accept rather than something to open.
+  ///
+  /// One rule in one place, because the two names are one state: a screen that compared against `invited` alone showed an
+  /// engine invitation as an ordinary Book, with no way to accept it and nothing to say why opening it failed.
+  bool get isPendingInvitation =>
+      membershipStatus == 'pending' || membershipStatus == 'invited';
 
   factory VBook.fromJson(Map<String, dynamic> j) {
     return VBook(

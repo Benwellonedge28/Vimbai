@@ -531,7 +531,7 @@ class _BooksPageState extends State<BooksPage> {
                         ),
                       ...books.map((b) {
                         final isActive = b.id == _activeBookId;
-                        final invited = b.membershipStatus == 'invited';
+                        final invited = b.isPendingInvitation;
                         return Card(
                           color: isActive
                               ? Theme.of(context).colorScheme.primaryContainer

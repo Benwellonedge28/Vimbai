@@ -74,6 +74,71 @@ void main() {
     ApiClient.transport = originalTransport;
   });
 
+  test('an invitation waiting on the engine is something this phone can accept', () async {
+    // The engine names a waiting membership `pending`; this app was built against `invited`. A screen comparing only
+    // against `invited` showed the invitation as an ordinary Book, with no Accept button and nothing to explain why
+    // opening it failed - the invitation was real and unreachable at the same time. Both names are one state now, held
+    // in one place, and this drives the whole way through: the Book arrives pending, is accepted, and is joined.
+    const bookKey = 'a-book-key-only-the-members-hold';
+    var accepted = false;
+    // sealed for this phone, exactly as the owner's device would seal it for a published key
+    final wrapped = await BookSyncService.instance.wrapBookKeyForSelf(bookKey);
+
+    ApiClient.transport = MockClient((request) async {
+      final headers = {'content-type': 'application/json'};
+      if (request.url.path.endsWith('/identity/users/me/public-key')) {
+        return http.Response('{}', 200, headers: headers);
+      }
+      if (request.url.path.endsWith('/books/book-1/members/accept')) {
+        accepted = true;
+        return http.Response(
+          jsonEncode({'status': 'active', 'wrapped_book_key': wrapped}),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books')) {
+        return http.Response(
+          jsonEncode({
+            'books': [
+              {
+                'id': 'book-1',
+                'name': 'Mukandara Books',
+                'tier': 'household',
+                'description': '',
+                'folder': '',
+                'your_role': 'bookkeeper',
+                'membership_status': 'pending',
+                'seq': 0,
+              },
+            ],
+          }),
+          200,
+          headers: headers,
+        );
+      }
+      return http.Response('{}', 404, headers: headers);
+    });
+
+    final listed = await BookSyncService.instance.refreshBooksFromServer();
+    expect(listed.single.isPendingInvitation, isTrue);
+    // the same Book read back from this phone's own registry, which is what a screen sees
+    final stored = (await BookSyncService.instance.localBooks()).firstWhere(
+      (book) => book.id == 'book-1',
+    );
+    expect(stored.isPendingInvitation, isTrue);
+    expect(stored.membershipStatus, 'pending');
+
+    await BookSyncService.instance.acceptInvite('book-1');
+    expect(accepted, isTrue, reason: 'accepting has to reach the engine');
+    expect(await BookSyncService.instance.bookKeyFor('book-1'), bookKey);
+    final joined = (await BookSyncService.instance.localBooks()).firstWhere(
+      (book) => book.id == 'book-1',
+    );
+    expect(joined.isPendingInvitation, isFalse);
+    expect(joined.membershipStatus, 'active');
+  });
+
   test(
     'an invitation carries the Book key made openable for that person',
     () async {
