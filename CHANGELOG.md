@@ -28,6 +28,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   lookup by username or email (`GET /identity/users/lookup?username=`, signed in only, inactive accounts reported as absent
   so a Book is never offered to someone who cannot accept it), and both invite dialogs ask for a username or email instead,
   resolving it before anything is wrapped: a name that matches nobody posts nothing. One engine test and one app test.
+- Sharing was proven in halves and never together: the inviter wraps for a published key, the invitee opens whatever
+  arrives, and nothing checked that the two agree. An app test now publishes this phone's key, wraps a Book key for exactly
+  that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
+  have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
+  payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
 - The local stores had no seam for tests: both lived in one shared directory, so two test files running at once opened
   the same database and fought over its locks (the Flutter job failed at Test on the key-wrapping commit). The service
   takes a database directory from the caller now, and each test file opens its own temp directory and removes it.

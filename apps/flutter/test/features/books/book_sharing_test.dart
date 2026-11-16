@@ -45,6 +45,14 @@ String _b64(BigInt value) {
   return base64Encode(bytes.isEmpty ? [0] : bytes);
 }
 
+BigInt _fromB64Bytes(String b64) {
+  var value = BigInt.zero;
+  for (final byte in base64Decode(b64)) {
+    value = (value << 8) | BigInt.from(byte);
+  }
+  return value;
+}
+
 void main() {
   final service = BookSyncService.instance;
   late Directory deviceDir;
@@ -285,6 +293,87 @@ void main() {
         posted,
         isFalse,
         reason: 'a name that resolves to nobody posts nothing at all',
+      );
+    },
+  );
+
+  test(
+    'a person who accepted an invitation holds a key this phone can open and use',
+    () async {
+      // the two halves have only been proven apart until here: the inviter wraps for a published key, and the invitee opens
+      // whatever arrives. If those two disagree about the key - a different modulus, a different padding - the member joins
+      // and can read nothing, which is the exact failure this whole door exists to prevent.
+      var wrappedForMe = '';
+      String? myModulus;
+      String? myExponent;
+
+      ApiClient.transport = MockClient((request) async {
+        final json = {'content-type': 'application/json'};
+        if (request.url.path.endsWith('/identity/users/me/public-key')) {
+          final sent = jsonDecode(request.body) as Map<String, dynamic>;
+          myModulus = sent['modulus'] as String;
+          myExponent = sent['exponent'] as String;
+          return http.Response('{}', 200, headers: json);
+        }
+        if (request.url.path.endsWith('/books')) {
+          return http.Response(
+            jsonEncode({
+              'books': [
+                {
+                  'id': 'book-2',
+                  'name': 'Family Books',
+                  'tier': 'household',
+                  'description': '',
+                  'folder': '',
+                  'your_role': 'bookkeeper',
+                  'membership_status': 'invited',
+                },
+              ],
+            }),
+            200,
+            headers: json,
+          );
+        }
+        if (request.url.path.endsWith('/books/book-2/members/accept')) {
+          return http.Response(
+            jsonEncode({'wrapped_book_key': wrappedForMe}),
+            200,
+            headers: json,
+          );
+        }
+        return http.Response('{}', 200, headers: json);
+      });
+      service.setAuthToken('a-token');
+
+      await service.publishDevicePublicKey();
+      expect(
+        myModulus,
+        isNotNull,
+        reason: 'this phone publishes the key others wrap for',
+      );
+
+      // the inviter's side, done here with the key this phone actually published
+      const bookKey = 'Zm9yLXRlc3Rpbmctb25seS1hZXMtMjU2LWtleS0xMjM0';
+      final engine = OAEPEncoding(RSAEngine())
+        ..init(
+          true,
+          PublicKeyParameter<RSAPublicKey>(
+            RSAPublicKey(_fromB64Bytes(myModulus!), _fromB64Bytes(myExponent!)),
+          ),
+        );
+      wrappedForMe = base64Encode(
+        engine.process(Uint8List.fromList(utf8.encode(bookKey))),
+      );
+
+      final books = await service.refreshBooksFromServer();
+      expect(books.single.id, 'book-2');
+      expect(books.single.membershipStatus, 'invited');
+
+      await service.acceptInvite('book-2');
+      expect(
+        await service.bookKeyFor('book-2'),
+        bookKey,
+        reason: 'the key stored after accepting is the one the inviter wrapped',
       );
     },
   );
