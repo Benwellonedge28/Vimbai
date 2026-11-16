@@ -6,6 +6,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The second-factor test failed once in thirty CI runs, and the fault was in the test rather than the engine. It asked for
+  the code thirty-one seconds on from "now", which crosses two thirty-second steps when the start lands late in one, and two
+  steps is past the drift a real authenticator is allowed. It now names the next step boundary, which is exactly one step
+  ahead whenever it is asked.
+
 - An invitation waiting on the engine could not be accepted on the phone. The engine names a membership that has not been
   accepted `pending`, and every screen in the app compared against `invited`, so an invitation arrived as an ordinary Book:
   no Accept button, nothing to explain why opening it failed, and the invitation real and unreachable at the same time. Both

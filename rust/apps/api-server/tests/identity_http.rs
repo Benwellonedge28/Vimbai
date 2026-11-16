@@ -522,8 +522,11 @@ async fn a_second_factor_is_enrolled_from_an_authenticator_app_and_then_asked_fo
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(body["detail"], json!("Invalid MFA code"));
 
-    // the next code the app shows finishes the sign-in, and a real session comes back
-    let later = now() + 31;
+    // The next code the app shows finishes the sign-in, and a real session comes back. The moment is named as the next step
+    // boundary rather than as "now plus a bit": thirty-one seconds on from a start late in a step crosses two boundaries,
+    // which is one step past the drift a real authenticator is allowed, and the test failed in CI once in thirty runs for a
+    // reason that was not a defect in the engine at all.
+    let later = (now() / mfa::totp::STEP_SECONDS + 1) * mfa::totp::STEP_SECONDS;
     let (status, body) = call(
         graph.clone(),
         Method::POST,
@@ -555,7 +558,11 @@ async fn a_second_factor_is_enrolled_from_an_authenticator_app_and_then_asked_fo
         graph.clone(),
         Method::POST,
         &format!("/users/{id}/mfa/disable"),
-        Some(json!({"code": mfa::totp::code_at(&secret, now() + 31).unwrap()})),
+        Some(json!({"code": mfa::totp::code_at(
+            &secret,
+            (now() / mfa::totp::STEP_SECONDS + 1) * mfa::totp::STEP_SECONDS
+        )
+        .unwrap()})),
         Some(&token),
     )
     .await;
