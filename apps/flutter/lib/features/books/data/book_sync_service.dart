@@ -58,8 +58,18 @@ class BookSyncService {
     final dir = await getDatabasesPath();
     _metaDb = await openDatabase(
       p.join(dir, 'vimbai_books.db'),
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
+        await db.execute('''
+          CREATE TABLE device_key (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            modulus TEXT NOT NULL,
+            exponent TEXT NOT NULL,
+            private_exponent TEXT NOT NULL,
+            prime_p TEXT,
+            prime_q TEXT
+          )
+        ''');
         await db.execute('''
           CREATE TABLE registry (
             book_id TEXT PRIMARY KEY,
@@ -77,6 +87,19 @@ class BookSyncService {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          // v3: the device holds its own key pair, so a Book key leaves this phone wrapped for it
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS device_key (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              modulus TEXT NOT NULL,
+              exponent TEXT NOT NULL,
+              private_exponent TEXT NOT NULL,
+              prime_p TEXT,
+              prime_q TEXT
+            )
+          ''');
+        }
         if (oldVersion < 2) {
           // v2: Books can be organized into folders.
           await db.execute(
@@ -274,6 +297,7 @@ class BookSyncService {
     String folder = '',
   }) async {
     final bookKey = generateBookKey();
+    final wrapped = await wrapBookKeyForSelf(bookKey);
     final r = await _client.post(
       _u('/books'),
       headers: _headers,
@@ -282,7 +306,7 @@ class BookSyncService {
         'tier': tier,
         'description': description,
         'folder': folder,
-        'wrapped_book_key': _wrapForSelf(bookKey),
+        'wrapped_book_key': wrapped,
       }),
     );
     if (r.statusCode != 200) {
@@ -310,11 +334,122 @@ class BookSyncService {
     return book;
   }
 
-  /// Placeholder wrap: in production the key is RSA-OAEP wrapped with
-  /// the user's public key from identity-service. Kept as a seam so the
-  /// protocol does not change when the registry lands.
-  String _wrapForSelf(String bookKey) =>
-      'self:${base64Encode(utf8.encode(bookKey))}';
+  // -- device key pair ---------------------------------------------------
+
+  static String _b64(BigInt value) => base64Encode(_unsignedBytes(value));
+
+  static List<int> _unsignedBytes(BigInt value) {
+    final bytes = <int>[];
+    var rest = value;
+    while (rest > BigInt.zero) {
+      bytes.insert(0, (rest & BigInt.from(0xFF)).toInt());
+      rest = rest >> 8;
+    }
+    return bytes.isEmpty ? [0] : bytes;
+  }
+
+  static BigInt _fromB64(String b64) {
+    var value = BigInt.zero;
+    for (final byte in base64Decode(b64)) {
+      value = (value << 8) | BigInt.from(byte);
+    }
+    return value;
+  }
+
+  RSAKeyPairHolder? _deviceKeys;
+
+  /// The device's own RSA key pair, made once and kept on this phone.
+  ///
+  /// A Book key must reach another member without the server ever holding it in a form it can read, which needs a key
+  /// pair belonging to the device. It is generated on first use and stored beside the Book registry; the private half
+  /// never leaves the phone.
+  Future<RSAKeyPairHolder> _deviceKeyPair() async {
+    if (_deviceKeys != null) return _deviceKeys!;
+    final db = await _meta();
+    final rows = await db.query('device_key', where: 'id = 1', limit: 1);
+    if (rows.isEmpty) {
+      final generator = RSAKeyGenerator()
+        ..init(
+          ParametersWithRandom(
+            RSAKeyGeneratorParameters(BigInt.from(65537), 2048, 64),
+            _secureRandom(),
+          ),
+        );
+      final pair = generator.generateKeyPair();
+      final pub = pair.publicKey as RSAPublicKey;
+      final priv = pair.privateKey as RSAPrivateKey;
+      await db.insert('device_key', {
+        'id': 1,
+        'modulus': _b64(pub.modulus!),
+        'exponent': _b64(pub.exponent!),
+        'private_exponent': _b64(priv.privateExponent!),
+        'prime_p': priv.p == null ? null : _b64(priv.p!),
+        'prime_q': priv.q == null ? null : _b64(priv.q!),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      _deviceKeys = RSAKeyPairHolder(pub, priv);
+      return _deviceKeys!;
+    }
+    final row = rows.first;
+    final n = _fromB64(row['modulus'] as String);
+    final e = _fromB64(row['exponent'] as String);
+    final d = _fromB64(row['private_exponent'] as String);
+    final pp = row['prime_p'] as String?;
+    final qq = row['prime_q'] as String?;
+    _deviceKeys = RSAKeyPairHolder(
+      RSAPublicKey(n, e),
+      RSAPrivateKey(
+        n,
+        d,
+        pp == null ? null : _fromB64(pp),
+        qq == null ? null : _fromB64(qq),
+      ),
+    );
+    return _deviceKeys!;
+  }
+
+  SecureRandom _secureRandom() {
+    final seed = Uint8List.fromList(
+      List<int>.generate(32, (_) => Random.secure().nextInt(256)),
+    );
+    return FortunaRandom()..seed(KeyParameter(seed));
+  }
+
+  Uint8List _oaep(
+    bool forEncryption,
+    AsymmetricKeyParameter key,
+    Uint8List input,
+  ) {
+    final engine = OAEPEncoding(RSAEngine())..init(forEncryption, key);
+    return engine.process(input);
+  }
+
+  /// Wrap a Book key for this device's own public key.
+  Future<String> wrapBookKeyForSelf(String bookKey) async {
+    final keys = await _deviceKeyPair();
+    final sealed = _oaep(
+      true,
+      PublicKeyParameter<RSAPublicKey>(keys.publicKey),
+      Uint8List.fromList(utf8.encode(bookKey)),
+    );
+    return base64Encode(sealed);
+  }
+
+  /// Open a Book key that was wrapped for this device.
+  ///
+  /// A key wrapped by the first version of this file carries the plaintext key base64-encoded behind a `self:` mark; it is
+  /// still read so Books created before the device had a key pair keep opening.
+  Future<String> unwrapBookKey(String wrapped) async {
+    if (wrapped.startsWith('self:')) {
+      return utf8.decode(base64Decode(wrapped.substring('self:'.length)));
+    }
+    final keys = await _deviceKeyPair();
+    final clear = _oaep(
+      false,
+      PrivateKeyParameter<RSAPrivateKey>(keys.privateKey),
+      Uint8List.fromList(base64Decode(wrapped)),
+    );
+    return utf8.decode(clear);
+  }
 
   /// Update a Book (name/description/folder). Folder moves keep the Book in
   /// the chosen client-side folder; pass '' to unfile it. Requires owner or
@@ -391,13 +526,13 @@ class BookSyncService {
       throw Exception('Accept failed: ${r.statusCode} ${r.body}');
     }
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    // TODO(seam): unwrap with the device RSA private key once the
-    // identity-service key registry is live; until then store the
-    // wrapped form so nothing is lost.
+    // the key arrives wrapped for this device, so it is opened here and never stored in a form the server could read
+    final wrapped = j['wrapped_book_key'] as String? ?? '';
+    final bookKey = wrapped.isEmpty ? '' : await unwrapBookKey(wrapped);
     final meta = await _meta();
     await meta.update(
       'registry',
-      {'status': 'active', 'book_key': j['wrapped_book_key'] ?? ''},
+      {'status': 'active', 'book_key': bookKey},
       where: 'book_id = ?',
       whereArgs: [bookId],
     );
@@ -636,4 +771,12 @@ extension BookKeyInfo on VBook {
     // The registry row stores the key; the returned model keeps identity.
     return this;
   }
+}
+
+/// The two halves of a device's key pair, kept together so the wrap and unwrap paths read the same store.
+class RSAKeyPairHolder {
+  final RSAPublicKey publicKey;
+  final RSAPrivateKey privateKey;
+
+  RSAKeyPairHolder(this.publicKey, this.privateKey);
 }

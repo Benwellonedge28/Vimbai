@@ -16,6 +16,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- A Book key left the phone in a form the server could read: the app sent `self:` followed by the key base64-encoded,
+  which is the key itself, so anyone able to read the store could read every Book. The device now keeps its own 2048-bit
+  RSA key pair in the local registry (schema v3) and wraps the Book key for its own public key with RSA-OAEP, and an
+  invitation's wrapped key is opened on arrival instead of being stored sealed. A key wrapped the old way still opens, so
+  Books created before the device had a key pair keep working. Four tests hold it: wrap and unwrap returning the key, the
+  wrapped form carrying neither the key nor the old mark, two wraps of one key differing, and an old wrapped key opening.
 - Book payloads were sealed under a GCM nonce that never changed: every payload a Book ever held used twelve zero bytes,
   so two entries under one key shared a keystream and the tag became forgeable. Each payload now carries a fresh random
   nonce in front of the ciphertext under a four-byte mark, an unmarked payload is read the old way so existing Books still
