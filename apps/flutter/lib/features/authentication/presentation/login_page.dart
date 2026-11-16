@@ -32,7 +32,10 @@ class _LoginPageState extends State<LoginPage> {
     // data is for reading what is already on the phone, not for deciding who someone is.
     final success = await _authService.login(username, password);
     if (!success) {
+      // the engine's own reason, in the words the service chose for a person to read; a cause it cannot name falls back
+      // to the sentence this page always used
       _errorMessage =
+          _authService.lastError ??
           'Sign-in failed. Check your username and password, and that the accounting engine is running.';
     }
 

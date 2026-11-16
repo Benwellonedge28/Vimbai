@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- A refused sign-in said one thing whatever the cause: "check your username and password, and that the accounting engine
+  is running". So a person with the right password retyped it, while the real fact - the account wants a second factor,
+  the engine is not running, too many wrong guesses with the engine's own wait, an account that is not active - was
+  printed where nobody on a phone can see it. The service now states the reason in words a person can act on, the page
+  shows it, and a good sign-in clears it. Eight app tests, one of which drives the page itself and fails when the page
+  falls back to the old sentence.
 - A session the engine had ended left the person sitting on a home page whose every screen failed. The app now returns to
   the sign-in screen when the engine refuses the refresh token, once however many calls noticed it; the stored session
   was already cleared, so this is the visible half of the same fact. One app test holds it, failing with the notice

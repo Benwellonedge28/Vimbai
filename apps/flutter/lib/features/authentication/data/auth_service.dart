@@ -25,6 +25,13 @@ import 'package:vimbai_mobile_client/core/offline/sync_service.dart'; // For API
 ///     -> the authenticated user's profile
 class AuthService {
   final ApiClient _client = ApiClient();
+
+  /// Why the last sign-in or registration was refused, in words a person can act on.
+  ///
+  /// The page used to say one thing for every cause - wrong password, an account wanting a second factor, an engine
+  /// that was not running - so a person with the right password kept retyping it. Nothing technical goes in here: it is
+  /// read aloud by the screen.
+  String? lastError;
   final String _baseUrl = AppConfig.apiUrl; // API Gateway URL
 
   /// Auth token for outgoing API requests (null when logged out).
@@ -98,11 +105,31 @@ class AuthService {
       print(
         'Sign-in refused: the accounting engine could not be reached ($failure).',
       );
+      lastError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+
+    if (response.statusCode == 429) {
+      // the engine states the pause in seconds; repeating its own figure beats guessing
+      final wait = _retryAfter(response.headers['retry-after'], response.body);
+      lastError = wait == null
+          ? 'Too many wrong attempts. Wait a few minutes and try again.'
+          : wait >= 120
+          ? 'Too many wrong attempts. Try again in about ${(wait / 60).ceil()} minutes.'
+          : 'Too many wrong attempts. Try again in $wait seconds.';
+      return false;
+    }
+
+    if (response.statusCode == 403) {
+      lastError =
+          'That account is not active. Ask an administrator to enable it.';
       return false;
     }
 
     if (response.statusCode != 200) {
       print('Online login failed: ${response.statusCode} - ${response.body}');
+      lastError = 'That username and password were not accepted.';
       return false;
     }
 
@@ -114,14 +141,18 @@ class AuthService {
       print(
         'MFA required (method: ${data['method']}); mobile client cannot complete this login.',
       );
+      lastError =
+          'This account asks for a second factor, which this app cannot do yet. Sign in from another Vimbai client.';
       return false;
     }
 
     final token = data['access_token'] as String?;
     if (token == null) {
       print('Login response missing access_token.');
+      lastError = 'The engine answered without a session. Try again.';
       return false;
     }
+    lastError = null;
     await UserLocalData.saveAuthToken(token);
     final refresh = data['refresh_token'] as String?;
     if (refresh != null && refresh.isNotEmpty) {
@@ -161,6 +192,20 @@ class AuthService {
     }
     print('Online login successful for $username. Token saved.');
     return true;
+  }
+
+  /// The pause the engine stated, in seconds, from its header or its body.
+  static int? _retryAfter(String? header, String body) {
+    final stated = int.tryParse((header ?? '').trim());
+    if (stated != null) return stated;
+    try {
+      final data = json.decode(body);
+      if (data is! Map) return null;
+      final seconds = data['retry_after'];
+      return seconds is num ? seconds.round() : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   /// Buy a new access token with the refresh token, once, when the old one is nearly spent.
