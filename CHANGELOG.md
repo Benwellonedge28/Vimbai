@@ -33,6 +33,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- There was no way to change your own password on the phone, though the engine has answered
+  `users/{id}/change-password` all along. Home now has a lock button: current password, new password twice, and the
+  engine's own reasons for a wrong current password or a missed rule. A completed change ends the session on purpose -
+  the engine retires every refresh token the person holds, this phone's included - so it returns to sign-in with that
+  said plainly instead of failing quietly an hour later. Five app tests, one of which fails without the change.
 - Forgetting a password was a dead end on a phone: the engine has answered `password/reset` and
   `password/reset/confirm` all along, and the app had nothing, so the only way back in was another client. Sign-in now
   offers "Forgot your password?", which asks the engine for a link and then takes the code from it with a new password.

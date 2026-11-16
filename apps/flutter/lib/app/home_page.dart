@@ -4,6 +4,7 @@ import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/change_password_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart'; // NEW
@@ -281,6 +282,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// A password change retires every session this person holds, this phone's included, so it ends at the sign-in screen
+  /// with the reason rather than a home page that stops working quietly.
+  Future<void> _changePassword() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ChangePasswordPage(authService: _authService),
+      ),
+    );
+    if (changed != true || !mounted) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Password changed. Sign in with the new one; your other devices were signed out.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _readProfile() async {
     final profile = await const MachineProfileService().read();
     if (mounted) {
@@ -300,6 +322,11 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const OrganisationPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.lock_reset),
+            tooltip: 'Change password',
+            onPressed: _changePassword,
           ),
           IconButton(
             icon: const Icon(Icons.logout),

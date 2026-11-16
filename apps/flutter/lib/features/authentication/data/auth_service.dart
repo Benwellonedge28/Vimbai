@@ -490,6 +490,54 @@ class AuthService {
     return true;
   }
 
+  /// Change this person's own password, with the current one as proof.
+  ///
+  /// The engine retires every refresh token the person holds when the password changes - that is the whole point of the moment
+  /// - so this phone's session cannot be renewed afterwards. It is ended here rather than left to fail an hour later on some
+  /// other screen: a change is finished with a fresh sign-in, which is also what the other devices now have to do.
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    lastResetError = null;
+    final user = await UserLocalData.getUser();
+    final token = await UserLocalData.getAuthToken();
+    if (user == null || token == null) {
+      lastResetError = 'Sign in first.';
+      return false;
+    }
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/users/${user.id}/change-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+    } on OfflineException catch (failure) {
+      print(
+        'Password change not sent: the engine was not reachable ($failure).',
+      );
+      lastResetError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+    if (response.statusCode != 200) {
+      // "Current password is incorrect", or the rule the new one missed, in the engine's own words
+      lastResetError =
+          _engineMessage(response.body) ??
+          'That password could not be changed. Try again.';
+      return false;
+    }
+    await logout();
+    return true;
+  }
+
   Future<void> logout() async {
     await UserLocalData.clearUserData();
     SyncService.instance.stop(); // halt the offline outbox until next login
