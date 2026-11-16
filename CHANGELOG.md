@@ -11,6 +11,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The personal finance screens could not read a single list: the engine answers debts, recurring items and
+  holdings as bare arrays while the service decoded every reply as an object, so the page threw before showing a
+  row. The service now reads either shape, and the page finds its holdings under `investments`.
+- Opening a debt from the phone was refused with "term_months must be a whole number" because the engine only
+  accepted the term as a string while the app posts a number. Both spellings are accepted now, and a test opens a
+  debt with the phone's own payload and lists it back.
 - The trial balance screen read its rows from `entries`, but the engine answers them under `accounts`, so the report would
   have shown nothing on a Book that had posted an entry. The model reads the name the engine writes. A test now fetches the
   trial balance, the income statement and the balance sheet after posting and holds each frame against the keys the screens

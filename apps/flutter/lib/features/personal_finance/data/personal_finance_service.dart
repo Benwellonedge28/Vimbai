@@ -36,11 +36,23 @@ class PersonalFinanceService {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
+  /// The engine answers these lists as a bare array, so reading `j['debts']` threw before the screen
+  /// saw a row. Either shape is accepted, and a wrapped answer still reads under its own name.
+  List<Map<String, dynamic>> _rows(http.Response r, String key) {
+    if (r.statusCode >= 400) {
+      throw Exception('API ${r.statusCode}: ${r.body}');
+    }
+    final decoded = jsonDecode(r.body);
+    final list = decoded is List
+        ? decoded
+        : (decoded as Map<String, dynamic>)[key];
+    return (list as List).cast<Map<String, dynamic>>();
+  }
+
   // -- Recurring -----------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listRecurring() async {
-    final j = _decode(await _client.get(_u('/recurring'), headers: _headers));
-    return (j['recurring'] as List).cast<Map<String, dynamic>>();
+    return _rows(await _client.get(_u('/recurring'), headers: _headers), 'recurring');
   }
 
   Future<void> createRecurring({
@@ -72,8 +84,7 @@ class PersonalFinanceService {
   // -- Debts ---------------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listDebts() async {
-    final j = _decode(await _client.get(_u('/debts'), headers: _headers));
-    return (j['debts'] as List).cast<Map<String, dynamic>>();
+    return _rows(await _client.get(_u('/debts'), headers: _headers), 'debts');
   }
 
   Future<void> createDebt({
@@ -107,8 +118,16 @@ class PersonalFinanceService {
 
   // -- Investments ---------------------------------------------------------
 
-  Future<Map<String, dynamic>> portfolio() async =>
-      _decode(await _client.get(_u('/investments'), headers: _headers));
+  Future<Map<String, dynamic>> portfolio() async {
+    final r = await _client.get(_u('/investments'), headers: _headers);
+    if (r.statusCode >= 400) {
+      throw Exception('API ${r.statusCode}: ${r.body}');
+    }
+    final decoded = jsonDecode(r.body);
+    // the engine answers the holdings as a bare array; the page reads them under `investments`
+    if (decoded is List) return {'investments': decoded};
+    return decoded as Map<String, dynamic>;
+  }
 
   Future<void> createInvestment({
     required String name,

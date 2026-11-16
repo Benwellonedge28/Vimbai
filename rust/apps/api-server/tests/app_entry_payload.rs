@@ -335,3 +335,53 @@ async fn the_chart_of_accounts_reads_keys_the_engine_answers() {
         &["account_number", "name", "account_type", "normal_balance"],
     );
 }
+
+/// The personal finance screens list what the engine answers, whichever shape it uses.
+#[tokio::test]
+async fn the_personal_finance_lists_answer_rows_the_screens_can_read() {
+    let walk = stranger_with_a_posted_entry().await;
+    let (code, opened) = walk
+        .call(
+            Method::POST,
+            "/personal-finance/debts",
+            Some(json!({
+                "name": "Car loan",
+                "principal": 1000.0,
+                "annual_rate": 12.0,
+                "term_months": 12,
+                "started_at": "2026-01-01"
+            })),
+        )
+        .await;
+    assert!(code.is_success(), "{opened}");
+    let (code, debts) = walk
+        .call(Method::GET, "/personal-finance/debts", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{debts}");
+    // the engine answers a bare array; the app now reads either that or a wrapped one
+    let rows = debts
+        .as_array()
+        .cloned()
+        .or_else(|| debts["debts"].as_array().cloned())
+        .unwrap_or_else(|| panic!("a list of debts: {debts}"));
+    assert_eq!(rows.len(), 1, "{debts}");
+    assert_eq!(rows[0]["name"], json!("Car loan"), "{debts}");
+
+    let (code, recurring) = walk
+        .call(Method::GET, "/personal-finance/recurring", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{recurring}");
+    assert!(
+        recurring.is_array() || recurring["recurring"].is_array(),
+        "{recurring}"
+    );
+
+    let (code, holdings) = walk
+        .call(Method::GET, "/personal-finance/investments", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{holdings}");
+    assert!(
+        holdings.is_array() || holdings["investments"].is_array(),
+        "{holdings}"
+    );
+}

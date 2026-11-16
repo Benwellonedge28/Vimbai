@@ -356,9 +356,17 @@ pub fn create_debt(
     }
     let principal = positive(payload, "principal")?;
     let annual_rate = rate_of(payload, "annual_rate")?;
-    let term_months = field(payload, "term_months")
-        .parse::<i64>()
-        .map_err(|_| refused("term_months must be a whole number"))?;
+    // the phone posts a number; a string is accepted too, so neither caller is refused over its spelling
+    let term_months = match payload.get("term_months") {
+        Some(Value::Number(number)) => number
+            .as_i64()
+            .ok_or_else(|| refused("term_months must be a whole number"))?,
+        Some(Value::String(months)) => months
+            .parse::<i64>()
+            .map_err(|_| refused("term_months must be a whole number"))?,
+        Some(Value::Null) | None => return Err(refused("term_months is required")),
+        Some(_) => return Err(refused("term_months must be a whole number")),
+    };
     if term_months <= 0 {
         return Err(refused("term_months must be greater than zero"));
     }
