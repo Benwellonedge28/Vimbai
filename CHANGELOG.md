@@ -11,6 +11,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- `Calculation Library CI` failed at its safe-Rust check with nothing unsafe in the tree. The step grepped for the word and
+  matched the gate's own source, where the rule is stated inside a string literal. It now runs the repository's safety gate
+  (`cargo run -p xtask -- safety`), which reads code past comments and strings and also holds every crate root to
+  `#![forbid(unsafe_code)]` and the repository to no Python.
 - `docker-publish` failed at startup with no job ever running, so nothing has been published since it was written. A
   job-level `if` asked `matrix.image` whether it was the one requested, and a job-level condition may only read `github`,
   `inputs`, `needs` and `vars`; GitHub rejected the whole file. A `plan` job now decides which images to build and hands the

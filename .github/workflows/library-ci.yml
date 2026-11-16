@@ -40,10 +40,11 @@ jobs:
           components: rustfmt, clippy
 
       - name: Verify safe Rust only (no unsafe blocks)
-        run: |
-          # There is no exception any more. The PyO3 extension that needed unsafe to cross
-          # the interpreter boundary is gone, so every crate is held to this.
-          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' rust --include="*.rs"
+        # The gate reads the code the way the compiler does, so prose about unsafe - a comment, or the string a gate
+        # states its own rule in - is not mistaken for an unsafe block. A plain grep over the tree cannot tell them
+        # apart and fails on the gate's own source.
+        run: cargo run -p xtask -- safety
+        working-directory: rust
 
       - name: Formatting
         run: cargo fmt --all -- --check
