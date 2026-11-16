@@ -336,26 +336,28 @@ class MultimodalProcessingTaskInDB extends MultimodalProcessingTaskBase {
 ///
 /// Only names the engine itself answers are touched, and a key already in camelCase is kept, so one factory loads both
 /// an engine row and a capture queued on the phone.
+/// The engine's name for each capture field, kept once so a read and a write cannot drift apart.
+const captureNames = {
+  'input_type': 'inputType',
+  'input_url': 'inputUrl',
+  'input_raw_text': 'inputRawText',
+  'processing_start_time': 'processingStartTime',
+  'processing_end_time': 'processingEndTime',
+  'last_review_request_time': 'lastReviewRequestTime',
+  'document_result': 'documentResult',
+  'audio_result': 'audioResult',
+  'image_result': 'imageResult',
+  'suggested_journal_entry': 'suggestedJournalEntry',
+  'linked_vimbai_entity_id': 'linkedFinaccEntityId',
+  'ai_model_version': 'aiModelVersion',
+  'created_at': 'createdAt',
+  'updated_at': 'updatedAt',
+};
+
 Map<String, dynamic> engineCaptureNames(Map<String, dynamic> json) {
-  const renamed = {
-    'input_type': 'inputType',
-    'input_url': 'inputUrl',
-    'input_raw_text': 'inputRawText',
-    'processing_start_time': 'processingStartTime',
-    'processing_end_time': 'processingEndTime',
-    'last_review_request_time': 'lastReviewRequestTime',
-    'document_result': 'documentResult',
-    'audio_result': 'audioResult',
-    'image_result': 'imageResult',
-    'suggested_journal_entry': 'suggestedJournalEntry',
-    'linked_vimbai_entity_id': 'linkedFinaccEntityId',
-    'ai_model_version': 'aiModelVersion',
-    'created_at': 'createdAt',
-    'updated_at': 'updatedAt',
-  };
   final named = <String, dynamic>{};
   json.forEach((key, value) {
-    named[renamed[key] ?? key] = value;
+    named[captureNames[key] ?? key] = value;
   });
   // the engine stamps a time as epoch seconds, and the generated parser reads an ISO string, so a row straight from the
   // engine threw on `createdAt` after the names had been mapped
@@ -369,6 +371,24 @@ Map<String, dynamic> engineCaptureNames(Map<String, dynamic> json) {
     named['aiModelVersion'] = '1.0';
   }
   return named;
+}
+
+/// A capture written the way the engine reads one.
+///
+/// The engine takes a capture by its own names and refuses one whose `input_type` it cannot read, so a capture sent in the
+/// app's camelCase was refused outright: the field arrived as `inputType`, the engine saw no kind of input, and the note
+/// never reached the inbox. Nulls are dropped rather than sent, because the engine stamps its own nulls and a null means
+/// the same as absent.
+Map<String, dynamic> engineCaptureRequest(Map<String, dynamic> written) {
+  final reversed = {for (final e in captureNames.entries) e.value: e.key};
+  final request = <String, dynamic>{};
+  written.forEach((key, value) {
+    if (value == null) return;
+    // a capture belongs to the Book it came through; the engine does not read a user off the row
+    if (key == 'userId') return;
+    request[reversed[key] ?? key] = value;
+  });
+  return request;
 }
 
 // --- User Correction / Feedback Model ---

@@ -75,6 +75,45 @@ void main() {
     });
   });
 
+  test(
+    'a note taken on the phone is written the way the engine reads it',
+    () async {
+      late Map<String, dynamic> sent;
+      ApiClient.transport = MockClient((request) async {
+        sent = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            ...engineRow(),
+            'id': 'capture-2',
+            'input_raw_text': 'paid 40 for fuel',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final kept = await service().createTask(
+        MultimodalProcessingTaskCreate(
+          userId: 'self',
+          inputType: MultimodalInputType.text,
+          inputRawText: 'paid 40 for fuel',
+          metadata: {'source_context': 'mobile'},
+        ),
+      );
+
+      // the engine refuses a capture whose kind it cannot name, so the kind has to arrive as `input_type`
+      expect(sent['input_type'], 'text');
+      expect(sent['input_raw_text'], 'paid 40 for fuel');
+      expect(sent.containsKey('inputType'), isFalse);
+      expect(
+        sent.containsKey('userId'),
+        isFalse,
+        reason: 'a capture belongs to the Book it came through',
+      );
+      expect(kept.id, 'capture-2');
+    },
+  );
+
   test('the inbox reads the bare array the engine answers', () async {
     late Uri asked;
     ApiClient.transport = MockClient((request) async {

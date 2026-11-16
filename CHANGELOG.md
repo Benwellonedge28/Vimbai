@@ -16,6 +16,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- A capture taken on the phone was refused by the engine. The service wrote it in the app's camelCase
+  (`inputType`, `inputRawText`) while the engine reads `input_type`, so the kind of input arrived empty and the engine
+  answered "input_type must be one of: document, audio, image, text, video (got )" - an inbox could not fill because
+  nothing could be put in it. A capture and an update to one are both written the engine's way now, from one table of
+  names shared with the reader so the two cannot drift.
+
 - A capture listed in the inbox still threw, one layer down: the engine stamps a time as epoch seconds
   (`1763300000.5`) and the parser read an ISO string, so every row failed on its first date field. A time is translated
   on the way in, and a payload already written as an ISO string is left alone.

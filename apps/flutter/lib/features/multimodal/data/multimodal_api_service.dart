@@ -183,7 +183,8 @@ class MultimodalApiService {
     final response = await _client.post(
       Uri.parse('$_baseUrl/tasks'),
       headers: await _getHeaders(),
-      body: json.encode(task.toJson()),
+      // written the way the engine reads a capture, which refuses one whose kind it cannot name
+      body: json.encode(engineCaptureRequest(task.toJson())),
     );
 
     // the engine answers a created capture with 200, not 201: the record is written either way, so both count as made
@@ -230,7 +231,8 @@ class MultimodalApiService {
     final response = await _client.put(
       Uri.parse('$_baseUrl/tasks/$taskId'),
       headers: await _getHeaders(),
-      body: json.encode(task.toJson()),
+      // an update names the same fields a create does, so it is written the same way
+      body: json.encode(engineCaptureRequest(task.toJson())),
     );
 
     if (response.statusCode == 200) {
