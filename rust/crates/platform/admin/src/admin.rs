@@ -147,7 +147,10 @@ fn moment(payload: &Value, key: &str) -> Result<Option<f64>, StoreError> {
 
 /// The catalogue with this caller's own overrides applied, in catalogue order.
 fn merged(graph: &(impl Graph + ?Sized), scope: &BookScope) -> Result<Vec<Value>, StoreError> {
-    let overrides = Records::new(graph, FEATURE_OVERRIDE).list(scope, 500)?;
+    // A switch belongs to the person who set it, not to the Book. The store now answers a Book's rows to every member of
+    // that Book - which is what a ledger needs and what made a shared Book read empty before - so a per-person setting
+    // has to say whose it is. Without this, one member turning a feature off turned it off for everybody.
+    let overrides = my_rows(graph, FEATURE_OVERRIDE, scope, 500)?;
     let mut merged = Vec::with_capacity(feature_seeds().len());
     for seed in feature_seeds() {
         let held = overrides.iter().find(|held| {
@@ -156,6 +159,45 @@ fn merged(graph: &(impl Graph + ?Sized), scope: &BookScope) -> Result<Vec<Value>
         merged.push(merge_one(seed, held));
     }
     Ok(merged)
+}
+
+/// Whether a row belongs to the caller rather than merely to the Book: a setting with no owner recorded is the Book's.
+fn mine<'a>(scope: &'a BookScope) -> impl Fn(&Value) -> bool + 'a {
+    move |held| {
+        held.get("user_id")
+            .and_then(Value::as_str)
+            .map(|owner| owner == scope.user_id)
+            .unwrap_or(true)
+    }
+}
+
+/// The rows of one kind this caller's own: a setting or a request belongs to the person who filed it, not to the Book.
+fn my_rows(
+    graph: &(impl Graph + ?Sized),
+    kind: RecordKind,
+    scope: &BookScope,
+    limit: usize,
+) -> Result<Vec<Value>, StoreError> {
+    Ok(Records::new(graph, kind)
+        .list(scope, limit)?
+        .into_iter()
+        .filter(mine(scope))
+        .collect())
+}
+
+/// One row of one kind, only if it is this caller's.
+fn my_row(
+    graph: &(impl Graph + ?Sized),
+    kind: RecordKind,
+    scope: &BookScope,
+    id: &str,
+) -> Result<Value, StoreError> {
+    my_rows(graph, kind, scope, 500)?
+        .into_iter()
+        .find(|held| held.get("id").and_then(Value::as_str) == Some(id))
+        // not there, because it is not yours: the answer a caller gets for a row of their own that has gone is the same
+        // answer they get for one that was never theirs, which is what keeps the difference from being a way to ask
+        .ok_or(StoreError::NotFound)
 }
 
 /// One feature with the named fields of an override laid over it, and nothing else disturbed.
@@ -185,8 +227,8 @@ fn merged_one(
     id: &str,
 ) -> Result<Value, StoreError> {
     known_feature(id)?;
-    let held = Records::new(graph, FEATURE_OVERRIDE)
-        .list(scope, 500)?
+    // as above: a switch is the setter's, so one member's answer is not read as another's
+    let held = my_rows(graph, FEATURE_OVERRIDE, scope, 500)?
         .into_iter()
         .find(|held| held.get("feature_id").and_then(Value::as_str) == Some(id));
     Ok(merge_one(
@@ -689,8 +731,7 @@ pub fn requests(
         .filter(|whole| *whole >= 0)
         .unwrap_or(50) as usize;
 
-    let mut held: Vec<Value> = Records::new(graph, REQUEST)
-        .list(scope, 500)?
+    let mut held: Vec<Value> = my_rows(graph, REQUEST, scope, 500)?
         .into_iter()
         .filter(|held| {
             let matches = |key: &str, wanted: &Option<String>| match wanted {
@@ -722,7 +763,7 @@ pub fn request(
     scope: &BookScope,
     id: &str,
 ) -> Result<Value, StoreError> {
-    let held = Records::new(graph, REQUEST).get(scope, id)?;
+    let held = my_row(graph, REQUEST, scope, id)?;
     Ok(presented(&held))
 }
 
@@ -734,7 +775,7 @@ pub fn review_request(
     asked: &Value,
 ) -> Result<Value, StoreError> {
     let records = Records::new(graph, REQUEST);
-    let held = records.get(scope, id)?;
+    let held = my_row(graph, REQUEST, scope, id)?;
     let state = text(asked, "status");
     if !REQUEST_STATUSES.contains(&state.as_str()) {
         return Err(refused(&format!("{state} is not a request state")));
@@ -774,7 +815,7 @@ pub fn withdraw_request(
     id: &str,
 ) -> Result<Value, StoreError> {
     let records = Records::new(graph, REQUEST);
-    let held = records.get(scope, id)?;
+    let held = my_row(graph, REQUEST, scope, id)?;
     records.delete(
         scope,
         held.get("id").and_then(Value::as_str).unwrap_or_default(),
@@ -824,8 +865,7 @@ fn config_one(
         .get(key)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    let held = Records::new(graph, CONFIG_OVERRIDE)
-        .list(scope, 500)?
+    let held = my_rows(graph, CONFIG_OVERRIDE, scope, 500)?
         .into_iter()
         .find(|held| held.get("key").and_then(Value::as_str) == Some(key));
 
@@ -912,8 +952,7 @@ pub fn set_config(
         .map(|(answered, _)| answered.get("value").cloned().unwrap_or(Value::Null))?;
 
     let records = Records::new(graph, CONFIG_OVERRIDE);
-    let held = records
-        .list(scope, 500)?
+    let held = my_rows(graph, CONFIG_OVERRIDE, scope, 500)?
         .into_iter()
         .find(|held| held.get("key").and_then(Value::as_str) == Some(key));
     let fields = json!({"key": key, "value": value, "updated_by": by, "updated_at": now()});
@@ -1014,8 +1053,7 @@ pub fn audit(
         .filter(|whole| *whole >= 0)
         .unwrap_or(100) as usize;
 
-    let mut held: Vec<Value> = Records::new(graph, AUDIT)
-        .list(scope, 1000)?
+    let mut held: Vec<Value> = my_rows(graph, AUDIT, scope, 1000)?
         .into_iter()
         .filter(|held| {
             let matches = |key: &str, wanted: &Option<String>| match wanted {
@@ -1078,7 +1116,7 @@ pub fn stats(graph: &(impl Graph + ?Sized), scope: &BookScope) -> Result<Value, 
             .count()
     };
 
-    let requests = Records::new(graph, REQUEST).list(scope, 500)?;
+    let requests = my_rows(graph, REQUEST, scope, 500)?;
     let pending = requests
         .iter()
         .filter(|held| held.get("status").and_then(Value::as_str) == Some("pending"))
@@ -1111,7 +1149,7 @@ pub fn stats(graph: &(impl Graph + ?Sized), scope: &BookScope) -> Result<Value, 
         }
     }
 
-    let audit_count = Records::new(graph, AUDIT).list(scope, 1000)?.len();
+    let audit_count = my_rows(graph, AUDIT, scope, 1000)?.len();
 
     Ok(json!({
         "total_features": features.len(),

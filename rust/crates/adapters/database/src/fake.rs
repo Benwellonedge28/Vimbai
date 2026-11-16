@@ -539,9 +539,11 @@ impl Graph for MemoryGraph {
 
         let label = matched_label(cypher)
             .ok_or_else(|| StoreError::Graph(format!("unreadable statement: {cypher}")))?;
-        // a statement that states no user_id is a Book-keyed read (see the shared module): the Book is the owner,
-        // and the caller has already established membership
-        let shared = params.get("user_id").is_none();
+        // A statement that walks no edge off a person is a read of the Book: the Book holds its rows, and who may read
+        // them is decided above the store by membership rather than by the shape of the query. Deciding it here instead
+        // is what made a Book read empty to the person it had just been shared with - their name was not on rows the
+        // owner had written, so a chart that existed was answered as a chart that did not.
+        let shared = !cypher.contains("->(x:");
         let user_id = stated(&params, "user_id");
         let book_id = stated(&params, "book_id");
         let id = stated(&params, "id");
@@ -736,7 +738,7 @@ mod scoping_tests {
     }
 
     #[test]
-    fn a_listing_answers_the_callers_own_rows_and_not_somebody_elses() {
+    fn a_listing_answers_the_books_rows_and_not_another_books() {
         let graph = MemoryGraph::new();
         let mine = BookScope::new("user-1", "book-1");
         let theirs = BookScope::new("user-2", "book-1");
@@ -747,14 +749,15 @@ mod scoping_tests {
             .create(&theirs, &json!({"name": "theirs"}))
             .expect("written");
 
-        // two people in the SAME Book: each sees only their own row. A listing that answered the Book's rows would hand
-        // one person the other's records, which is the one thing the store exists to prevent
+        // Two people in the SAME Book: both read both rows, because a Book holds its rows and its members share them. Who
+        // may hold a Book at all is decided above the store - by the membership gate in front of every book-scoped path -
+        // so the store's own job is the second half of that sentence: a Book's rows never appear under another Book. The
+        // first half used to be decided here by hiding rows the caller had not written, and that is what left a Book shared
+        // with somebody reading empty to them: their name was not on rows the owner had written.
         let mine_listed = listing(&graph, &mine);
         let theirs_listed = listing(&graph, &theirs);
-        assert_eq!(mine_listed.len(), 1);
-        assert_eq!(theirs_listed.len(), 1);
-        assert_eq!(mine_listed[0]["name"], json!("mine"));
-        assert_eq!(theirs_listed[0]["name"], json!("theirs"));
+        assert_eq!(mine_listed.len(), 2);
+        assert_eq!(theirs_listed.len(), 2);
 
         // and one person in another Book sees nothing of either
         assert!(listing(&graph, &BookScope::new("user-3", "book-2")).is_empty());

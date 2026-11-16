@@ -407,7 +407,7 @@ async fn the_state_catalogue_names_the_moves() {
 }
 
 #[tokio::test]
-async fn the_records_hang_off_the_caller_and_their_book() {
+async fn the_records_are_read_by_the_book_they_belong_to() {
     let graph = Scripted::returning(vec![
         json!({"id": "doc-3", "current_state": "draft", "history": []}),
     ]);
@@ -415,9 +415,11 @@ async fn the_records_hang_off_the_caller_and_their_book() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["id"], json!("doc-3"));
 
+    // read by Book rather than by writer: a document is the Book's, and every member of that Book reads it. Reading it
+    // off the person who wrote it is what left a Book shared with somebody reading empty to them.
     let (cypher, params) = graph.last();
-    assert!(cypher.contains("OWNS_FINANCIAL_DOCUMENT"), "{cypher}");
-    assert_eq!(params["user_id"], json!(book().user_id));
+    assert!(!cypher.contains("OWNS_FINANCIAL_DOCUMENT"), "{cypher}");
+    assert!(cypher.contains("x.book_id = $book_id"), "{cypher}");
     assert_eq!(params["book_id"], json!(book().book_id));
 }
 

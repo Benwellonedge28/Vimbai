@@ -831,11 +831,10 @@ pub trait Graph {
         id: &str,
     ) -> Result<Value, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.id = $id AND x.book_id = $book_id\n\
              RETURN x",
             label = kind.label,
-            edge = kind.edge
         );
         let mut params = scope.params();
         params["id"] = json!(id);
@@ -851,12 +850,11 @@ pub trait Graph {
         child: RecordKind,
     ) -> Result<Value, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.id = $id AND x.book_id = $book_id\n\
              OPTIONAL MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
              RETURN x, collect(l) AS lines",
             label = kind.label,
-            edge = kind.edge,
             child_edge = child.edge,
             child_label = child.label
         );
@@ -874,13 +872,12 @@ pub trait Graph {
         limit: usize,
     ) -> Result<Vec<Value>, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.book_id = $book_id\n\
              RETURN x\n\
              ORDER BY x.created_at DESC\n\
              LIMIT $limit",
             label = kind.label,
-            edge = kind.edge
         );
         let mut params = scope.params();
         params["limit"] = json!(limit as i64);
@@ -904,13 +901,12 @@ pub trait Graph {
         limit: usize,
     ) -> Result<Vec<Value>, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.book_id = $book_id AND x.id > $after\n\
              RETURN x\n\
              ORDER BY x.id\n\
              LIMIT $limit",
             label = kind.label,
-            edge = kind.edge
         );
         let mut params = scope.params();
         params["after"] = json!(after);
@@ -928,14 +924,13 @@ pub trait Graph {
         child: RecordKind,
     ) -> Result<Vec<Value>, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.book_id = $book_id\n\
              OPTIONAL MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
              RETURN x, collect(l) AS lines\n\
              ORDER BY x.created_at DESC\n\
              LIMIT $limit",
             label = kind.label,
-            edge = kind.edge,
             child_edge = child.edge,
             child_label = child.label
         );
@@ -957,12 +952,11 @@ pub trait Graph {
         patch: Value,
     ) -> Result<Value, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.id = $id AND x.book_id = $book_id\n\
              SET x += $patch\n\
              RETURN x",
             label = kind.label,
-            edge = kind.edge
         );
         let mut params = scope.params();
         params["id"] = json!(id);
@@ -978,12 +972,11 @@ pub trait Graph {
         id: &str,
     ) -> Result<(), StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              WHERE x.id = $id AND x.book_id = $book_id\n\
              DETACH DELETE x\n\
              RETURN count(x) AS deleted",
             label = kind.label,
-            edge = kind.edge
         );
         let mut params = scope.params();
         params["id"] = json!(id);
@@ -1028,14 +1021,13 @@ pub trait Graph {
         limit: usize,
     ) -> Result<Vec<Value>, StoreError> {
         let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+            "MATCH (x:{label})\n\
              MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
              MATCH (l)-[:DEBITED|CREDITED]->(a:Account {{book_id: $book_id, account_number: $account_number}})\n\
              RETURN l, x.id AS entry_id, x.entry_date AS entry_date, x.description AS entry_description\n\
              ORDER BY entry_date DESC\n\
              LIMIT $limit",
             label = kind.label,
-            edge = kind.edge,
             child_edge = child.edge,
             child_label = child.label
         );

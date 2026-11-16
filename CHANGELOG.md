@@ -6,6 +6,23 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- A Book shared with somebody read empty to them. The store held every row under the person who wrote it, so the member who
+  had just accepted an invitation was a member of a Book whose chart, entries and reports all came back blank while the owner
+  saw them. Rows are held under the Book now and answered to every member of it, and the membership rule that says who a
+  Book's members are is the one already standing in front of every book-scoped path - so a shared Book reads the same to both
+  people, and a stranger who names somebody else's Book is still refused rather than shown nothing.
+
+- Feature switches, configuration, feature requests and the audit trail stopped being personal. They were only ever private
+  to the person who set them because the store hid rows the caller had not written; with a Book's rows now readable by every
+  member, one person turning a feature off turned it off for the whole Book and every request on it became everybody's to
+  read and review. Those four are settings and correspondence about a person, not bookkeeping, so they now say whose they are
+  and are answered to their owner alone.
+
+- The first-run walk was proving a router nobody serves. Its tests built the record routes on their own, without the
+  membership gate the binary, the on-device runtime and the cluster all pass through, so a person who never joined a Book
+  naming its id was answered with that Book's accounts. The walk now runs against the app that is actually served, and it
+  holds both halves: the invited member reads the same chart as the owner, and a third person is refused.
+
 - A second person could not have an account on the same engine. Sign-up stores the username a client sends, and a phone's
   sign-up screen asks for an address and a password rather than a name, so the account was stored nameless - and the
   *second* such sign-up collided with the first on the empty name and was refused with "Username already taken". An account

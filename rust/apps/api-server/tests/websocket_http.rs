@@ -20,11 +20,23 @@ async fn call(
     user: &str,
     body: Option<Value>,
 ) -> (StatusCode, Value) {
+    call_in(router, method, path, user, "book-1", body).await
+}
+
+/// The same call naming the Book it is made in, so a second Book can be asked and answered for itself.
+async fn call_in(
+    router: &axum::Router,
+    method: Method,
+    path: &str,
+    user: &str,
+    book: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
     let mut builder = Request::builder()
         .method(method)
         .uri(path)
         .header("x-user-id", user)
-        .header("x-book-id", "book-1");
+        .header("x-book-id", book);
     let request = match body {
         Some(body) => {
             builder = builder.header("content-type", "application/json");
@@ -143,8 +155,20 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(healthy["service"], json!("websocket-service"));
 
-    // another person's Book sees none of it
-    let (_, elsewhere) = call(&router, Method::GET, "/websocket/stats", "user-2", None).await;
+    // The figures belong to the Book, so a second person in that Book reads the same ones - which is what a shared Book
+    // means - while another Book sees none of it. The room belongs to the Book rather than to whoever opened the socket,
+    // and moving the line to the person instead is what once left a Book shared with somebody reading empty.
+    let (_, same_book) = call(&router, Method::GET, "/websocket/stats", "user-2", None).await;
+    assert_eq!(same_book["messages_sent"], json!(5));
+    let (_, elsewhere) = call_in(
+        &router,
+        Method::GET,
+        "/websocket/stats",
+        "user-2",
+        "book-2",
+        None,
+    )
+    .await;
     assert_eq!(elsewhere["messages_sent"], json!(0));
 
     // a closed socket stops being counted and stops being written to

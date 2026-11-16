@@ -27,10 +27,14 @@ struct Walk {
 }
 
 impl Walk {
-    /// A stranger, with no account and no Book.
+    /// A stranger, with no account and no Book, at the app the binary, the on-device runtime and the cluster all serve.
+    ///
+    /// The full app rather than the record routes alone, because the record routes are only half of it: the membership gate
+    /// stands in front of them, and a walk built without it passed while a stranger could read another person's Book. A
+    /// walk that is not the served app proves only that a router nobody runs answers what it was asked.
     fn stranger() -> Self {
-        let graph = Arc::new(MemoryGraph::new());
-        Self::on(vimbai_api::records::router(graph))
+        let graph: vimbai_api::records::GraphHandle = Arc::new(MemoryGraph::new());
+        Self::on(vimbai_api::routed(Some(graph)))
     }
 
     /// A second person at the same engine: two people only meet if they are talking to one store, and a walk that gives
@@ -452,9 +456,32 @@ async fn an_invited_person_sees_the_book_and_accepts_it() {
         "the guest has to receive the key that was sealed for them: {accepted}"
     );
 
-    // The next step in a shared Book - reading its accounts - does not answer yet, and it is not a defect in accepting:
-    // a Book's records are held under the person who wrote them, so a member who joined a moment ago is a member of a
-    // Book that reads empty. Holding them by Book and checking membership on every path is the work that opens them.
+    // and the Book answers them, which is the point of accepting: a Book holds its records rather than each person holding
+    // their own, so the accounts the owner seeded are the accounts the guest reads
+    guest.book = owner.book.clone();
+    let shared = guest.chart().await;
+    let owned = owner.chart().await;
+    assert!(!shared.is_empty(), "a joined Book has a chart: {shared:?}");
+    assert_eq!(
+        shared.len(),
+        owned.len(),
+        "a joined member reads the same chart as the owner"
+    );
+
+    // A Book id is not a secret, so naming one is not the same as being allowed in: somebody who never joined is refused
+    // rather than shown an empty chart, which would be a lie about what the Book holds.
+    let mut gatecrasher = Walk::on(owner.router.clone());
+    gatecrasher.sign_up("gatecrasher@example.com", "Gwen").await;
+    gatecrasher.book = owner.book.clone();
+    let (status, refused) = gatecrasher
+        .call(Method::GET, "/accounting/accounts", None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a Book opens for its members and nobody else: {refused}"
+    );
+
     let (status, listed) = guest.call(Method::GET, "/books", None).await;
     assert_eq!(status, StatusCode::OK, "{listed}");
     assert_eq!(

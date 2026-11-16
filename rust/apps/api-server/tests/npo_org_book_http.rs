@@ -68,10 +68,11 @@ async fn an_org_with_no_book_says_so_and_only_the_owner_may_link_one() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "org {org} answered {body}");
 
-    // someone who is not the owner is refused. The shipped service answered 403 here because its sqlite rows were visible
-    // to any requester; every Rust row is scoped to its owner, so a stranger cannot see the organisation at all and the
-    // answer is the uniform 404. The 403 is still what a VISIBLE row owned by someone else gets, and the crate test pins
-    // that branch - routed through the store, invisibility wins first
+    // someone who is not the owner is refused. A Book's rows are its members' rows, so a second person in the same Book can
+    // see the organisation - as they must, since the organisation holds work they share - and the refusal is about the role
+    // rather than about the row being hidden: 403, "only the org owner", not a uniform 404 that pretends there is nothing.
+    // Being told no is the useful answer inside a shared Book; a role that cannot manage members is a different thing from
+    // an organisation that does not exist.
     let (status, refusal) = call(
         &router,
         Method::POST,
@@ -80,7 +81,7 @@ async fn an_org_with_no_book_says_so_and_only_the_owner_may_link_one() {
         Some(json!({"user_id": "user-3", "role": "treasurer"})),
     )
     .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "{refusal}");
+    assert_eq!(status, StatusCode::FORBIDDEN, "{refusal}");
 
     // linking a Book that does not exist is refused, and the org still has none
     let (status, _) = call(
