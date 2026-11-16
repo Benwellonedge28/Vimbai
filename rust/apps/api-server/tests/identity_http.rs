@@ -534,6 +534,127 @@ async fn a_recovery_code_is_the_way_back_in_when_the_phone_is_gone() {
 }
 
 #[tokio::test]
+async fn turning_the_second_factor_off_closes_every_way_past_it() {
+    // A recovery code is a way past the factor, so it must not outlive the factor it exists for. What this proves is the
+    // property a person relies on when they switch it off: nothing from the closed factor opens the account, and a code from
+    // before is not quietly carried into the next one. (The engine also drops the hashes at rest, which is not visible from
+    // outside - off should leave nothing of the mechanism behind - so this test deliberately does not claim to see that.)
+    let graph = Arc::new(MemoryGraph::new());
+    registered_role(graph.clone(), "tariro", "correct horse battery", "admin").await;
+    let session = signed_in(graph.clone(), "tariro", "correct horse battery").await;
+    let token = session["access_token"].as_str().unwrap().to_string();
+    let id = call(graph.clone(), Method::GET, "/users/me", None, Some(&token))
+        .await
+        .1["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/setup"),
+        Some(json!({"method": "totp"})),
+        Some(&token),
+    )
+    .await;
+    let secret = body["secret"].as_str().unwrap().to_string();
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/verify"),
+        Some(json!({"code": mfa::totp::code_at(&secret, now()).unwrap()})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let code = body["recovery_codes"].as_array().unwrap()[0]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let later = (now() / mfa::totp::STEP_SECONDS + 1) * mfa::totp::STEP_SECONDS;
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/disable"),
+        Some(json!({"code": mfa::totp::code_at(&secret, later).unwrap()})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // turned off, so a sign-in asks for nothing at all - and the code from before is not a way past anything
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({"username": "tariro", "password": "correct horse battery"})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["temp_token"].is_null(),
+        "with the factor off there is no second step to answer: {body}"
+    );
+
+    // turning it on again issues a fresh list, and the old code is dead: it was the previous factor's, not this one's
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/setup"),
+        Some(json!({"method": "totp"})),
+        Some(&token),
+    )
+    .await;
+    let second_secret = body["secret"].as_str().unwrap().to_string();
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/verify"),
+        Some(json!({"code": mfa::totp::code_at(&second_secret, now()).unwrap()})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let fresh: Vec<String> = body["recovery_codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|one| one.as_str().map(str::to_owned))
+        .collect();
+    assert_eq!(fresh.len(), 10, "{body}");
+    assert!(
+        !fresh.contains(&code),
+        "the codes of a factor that was turned off must not come back with the next one"
+    );
+
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({"username": "tariro", "password": "correct horse battery"})),
+        None,
+    )
+    .await;
+    let challenge = body["temp_token"].as_str().unwrap().to_string();
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": challenge, "code": code})),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "a code from the closed factor is not a way in: {body}"
+    );
+}
+
+#[tokio::test]
 async fn a_second_factor_is_enrolled_from_an_authenticator_app_and_then_asked_for() {
     let graph = Arc::new(MemoryGraph::new());
     registered_role(graph.clone(), "tariro", "correct horse battery", "admin").await;

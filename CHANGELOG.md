@@ -13,7 +13,8 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   letters read as digits, ten characters in two groups, dashed, typed back with any case or spacing - and there is one place
   that issues, one that hashes and one that finds and spends, so a second recovery path cannot drift from the first. The
   sign-in code screen takes either kind: a field that accepted only digits could not be given a recovery code, which would have
-  left the whole path unreachable in the app.
+  left the whole path unreachable in the app. Turning the factor off drops the hashes too, so "off" leaves nothing of the
+  mechanism behind, and a code from a closed factor cannot open the account afterwards.
 
 ### Fixed
 

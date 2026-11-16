@@ -1566,6 +1566,9 @@ async fn disable_mfa(
             "mfa_enabled": false,
             "mfa_method": Value::Null,
             "mfa_secret": Value::Null,
+            // the codes belong to the factor being turned off. Leaving the hashes behind would keep a way into the account
+            // that outlived the mechanism meant to guard it, and "off" has to mean nothing of it is left.
+            "mfa_recovery": Vec::<String>::new(),
             "updated_at": iso(now()),
         }),
     );
