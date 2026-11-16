@@ -16,6 +16,9 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- The local stores had no seam for tests: both lived in one shared directory, so two test files running at once opened
+  the same database and fought over its locks (the Flutter job failed at Test on the key-wrapping commit). The service
+  takes a database directory from the caller now, and each test file opens its own temp directory and removes it.
 - A Book key left the phone in a form the server could read: the app sent `self:` followed by the key base64-encoded,
   which is the key itself, so anyone able to read the store could read every Book. The device now keeps its own 2048-bit
   RSA key pair in the local registry (schema v3) and wraps the Book key for its own public key with RSA-OAEP, and an

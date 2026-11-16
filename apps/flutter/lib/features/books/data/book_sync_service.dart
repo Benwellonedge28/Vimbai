@@ -53,9 +53,18 @@ class BookSyncService {
 
   // -- registry ----------------------------------------------------------
 
+  /// Where the local stores live. A test points this at its own directory.
+  ///
+  /// Both stores used to sit in one shared directory, so two test files running at once opened the same database file and
+  /// fought over its locks. Nothing in the app sets it.
+  static String? databasesDirectory;
+
+  Future<String> _databaseDirectory() async =>
+      databasesDirectory ?? await getDatabasesPath();
+
   Future<Database> _meta() async {
     if (_metaDb != null) return _metaDb!;
-    final dir = await getDatabasesPath();
+    final dir = await _databaseDirectory();
     _metaDb = await openDatabase(
       p.join(dir, 'vimbai_books.db'),
       version: 3,
@@ -113,7 +122,7 @@ class BookSyncService {
 
   Future<Database> _bookDb(String bookId) async {
     if (_bookDbs.containsKey(bookId)) return _bookDbs[bookId]!;
-    final dir = await getDatabasesPath();
+    final dir = await _databaseDirectory();
     final db = await openDatabase(
       p.join(dir, 'vimbai_book_$bookId.db'),
       version: 1,

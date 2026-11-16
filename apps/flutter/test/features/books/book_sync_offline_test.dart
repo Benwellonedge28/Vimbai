@@ -15,9 +15,19 @@ import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart'
 
 void main() {
   // the Book registry is kept on the device, so a test needs the same store the phone has
+  late Directory deviceDir;
+
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    // its own directory per test file: two files sharing one store fight over the locks
+    deviceDir = Directory.systemTemp.createTempSync('vimbai_books_');
+    BookSyncService.databasesDirectory = deviceDir.path;
+  });
+
+  tearDownAll(() {
+    BookSyncService.databasesDirectory = null;
+    if (deviceDir.existsSync()) deviceDir.deleteSync(recursive: true);
   });
 
   final originalTransport = ApiClient.transport;
