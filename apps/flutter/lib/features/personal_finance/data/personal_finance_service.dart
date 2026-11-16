@@ -2,6 +2,7 @@
 // tax estimation. The API gateway injects X-User-ID from the JWT.
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
@@ -26,6 +27,11 @@ class PersonalFinanceService {
   };
 
   http.Client _client = http.Client();
+
+  /// A test calls the service against a transport it controls, so what the screen reads back from a reply
+  /// is proven without a server. The real client is untouched until a test swaps it.
+  @visibleForTesting
+  void useClient(http.Client client) => _client = client;
 
   Uri _u(String p) => Uri.parse('$_kBaseUrl$p');
 
