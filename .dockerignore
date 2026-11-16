@@ -1,0 +1,14 @@
+# The Rust images are built from the repository root, because one file they compile in - the gateway's routing manifest - sits
+# under gateway/ and a context of rust/ alone cannot see it. Everything the build does not need is kept out of the context.
+
+.git
+.github
+**/target
+**/node_modules
+**/.dart_tool
+**/build
+apps/flutter/**/build
+*.db
+*.db-journal
+**/*.pyc
+.DS_Store

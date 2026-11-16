@@ -2,17 +2,24 @@
 #
 # The engine, the worker and the sync server are three entry points into the SAME workspace, so they are one build with
 # an argument rather than three Dockerfiles that would drift apart the first time a dependency changed. Everything in
-# rust/ is a path dependency of everything else, so the context is rust/ and never one app directory.
+# rust/ is a path dependency of everything else.
 #
-#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_api     --build-arg BIN=vimbai-api     rust/
-#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_worker  --build-arg BIN=vimbai-worker  rust/
-#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_sync    --build-arg BIN=vimbai-sync    rust/
+# The context is the repository root rather than rust/, because the gateway crate compiles in gateway/go/config/services.json
+# - the routing table an installed binary carries with it - and a rust/ context cannot see that file. The sync server depends
+# on that crate, so a rust/-only context built two of the three images and failed the third.
+#
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_api     --build-arg BIN=vimbai-api     .
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_worker  --build-arg BIN=vimbai-worker  .
+#   docker build -f infrastructure/docker/Dockerfile.rust --build-arg PACKAGE=vimbai_sync    --build-arg BIN=vimbai-sync    .
 
 FROM rust:1-slim AS build
 ARG PACKAGE
 ARG BIN
 WORKDIR /src
-COPY . .
+COPY rust ./rust
+# the one file the workspace reads from outside rust/, kept at the path the crate names
+COPY gateway/go/config/services.json ./gateway/go/config/services.json
+WORKDIR /src/rust
 # --locked so the image is what the repository says it is, not whatever the registry has moved to
 RUN cargo build --release --locked -p "${PACKAGE}" --bin "${BIN}"
 

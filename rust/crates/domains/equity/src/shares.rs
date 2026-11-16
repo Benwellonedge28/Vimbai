@@ -80,7 +80,7 @@ pub fn declare_ordinary_dividend<G: Graph + ?Sized>(
     let journal = entry(
         &date,
         format!("Declaration of {kind} dividend"),
-        format!("DIV-{}", &text(payload, "id")),
+        format!("DIV-{}", text(payload, "id")),
         vec![
             line("3300", "Retained Earnings", &total, &zero()),
             line("2310", "Dividend Payable", &zero(), &total),

@@ -99,7 +99,7 @@ pub fn create_reserve<G: Graph + ?Sized>(
         Some(ledger(
             "",
             format!("Creation of {name} reserve"),
-            format!("RESERVE-CREATE-{}", &text(payload, "id")),
+            format!("RESERVE-CREATE-{}", text(payload, "id")),
             vec![
                 line("3300", "Retained Earnings", &initial, &zero()),
                 line("3310", "General Reserve", &zero(), &initial),

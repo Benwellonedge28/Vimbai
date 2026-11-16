@@ -89,7 +89,7 @@ pub fn issue_bonus_shares<G: Graph + ?Sized>(
     let journal = ledger(
         &date,
         format!("Issue of {shares} bonus shares from {reserve}"),
-        format!("BONUS-{}", &text(payload, "id")),
+        format!("BONUS-{}", text(payload, "id")),
         vec![
             line(account, &format!("{reserve} Reserve"), &total, &zero()),
             line("3200", "Share Capital", &zero(), &total),

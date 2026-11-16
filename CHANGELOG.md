@@ -11,6 +11,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- `docker-publish` built two of its three Rust images and failed the sync server, which is the first time the workflow has
+  run at all. The sync server depends on `vimbai_gateway`, which compiles in `gateway/go/config/services.json`, and the build
+  context was `rust/`, which cannot see that file. The context is now the repository root with a `.dockerignore` keeping the
+  build's inputs small, so the one routing manifest is still the one file and no copy of it exists. Compose follows.
+- Noticed on the same run: the newer stable compiler's `clippy::useless_borrows_in_formatting` rejected three `format!` calls
+  in the equity crate. Fixed there rather than allowed, and the local toolchain was brought to the pipeline's version so
+  preflight sees the lints CI sees instead of discovering them one push at a time.
 - `Calculation Library CI` failed at its safe-Rust check with nothing unsafe in the tree. The step grepped for the word and
   matched the gate's own source, where the rule is stated inside a string literal. It now runs the repository's safety gate
   (`cargo run -p xtask -- safety`), which reads code past comments and strings and also holds every crate root to

@@ -32,8 +32,8 @@ services:
 
   engine:
     build:
-      context: ../../rust
-      dockerfile: ../infrastructure/docker/Dockerfile.rust
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.rust
       args:
         PACKAGE: vimbai_api
         BIN: vimbai-api
@@ -65,8 +65,8 @@ services:
 
   worker:
     build:
-      context: ../../rust
-      dockerfile: ../infrastructure/docker/Dockerfile.rust
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.rust
       args:
         PACKAGE: vimbai_worker
         BIN: vimbai-worker
@@ -86,8 +86,8 @@ services:
 
   sync:
     build:
-      context: ../../rust
-      dockerfile: ../infrastructure/docker/Dockerfile.rust
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.rust
       args:
         PACKAGE: vimbai_sync
         BIN: vimbai-sync
