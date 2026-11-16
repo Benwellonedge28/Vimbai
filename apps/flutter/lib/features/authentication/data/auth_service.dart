@@ -123,6 +123,16 @@ class AuthService {
       return false;
     }
     await UserLocalData.saveAuthToken(token);
+    final refresh = data['refresh_token'] as String?;
+    if (refresh != null && refresh.isNotEmpty) {
+      await UserLocalData.saveRefreshToken(refresh);
+    }
+    final seconds = (data['expires_in'] as num?)?.toInt();
+    if (seconds != null) {
+      await UserLocalData.saveAuthExpiry(
+        DateTime.now().add(Duration(seconds: seconds)),
+      );
+    }
 
     // Fetch the real profile so the stored user has the server-side id
     // (the login response only carries tokens).
@@ -153,6 +163,70 @@ class AuthService {
     return true;
   }
 
+  /// Buy a new access token with the refresh token, once, when the old one is nearly spent.
+  ///
+  /// The access token lasts an hour and the app used to throw the refresh token away, so a phone worked when it was set
+  /// up and refused everything the next morning while still calling itself signed in. Nothing about being offline is
+  /// handled here: an engine that cannot be reached leaves the session as it is and the next call tries again.
+  ///
+  /// Returns true when the session now holds a fresh token. A refresh token the engine has already spent (or refused)
+  /// means the session is over, so the stored session is cleared rather than left to fail on every screen.
+  Future<bool> refreshSession({Duration? renewWithin}) async {
+    final pending = _refreshing;
+    if (pending != null) return pending;
+    final started = _doRefresh(renewWithin: renewWithin);
+    _refreshing = started;
+    try {
+      return await started;
+    } finally {
+      _refreshing = null;
+    }
+  }
+
+  Future<bool>? _refreshing;
+
+  Future<bool> _doRefresh({Duration? renewWithin}) async {
+    final expiry = await UserLocalData.getAuthExpiry();
+    final grace = renewWithin ?? const Duration(minutes: 5);
+    final now = DateTime.now();
+    if (expiry != null && expiry.isAfter(now.add(grace))) {
+      return true; // still good, nothing to buy
+    }
+    final refresh = await UserLocalData.getRefreshToken();
+    if (refresh == null || refresh.isEmpty) {
+      // a session from before tokens were kept cannot be renewed; signing in again is the way back
+      return false;
+    }
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/token/refresh'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'refresh_token=${Uri.encodeQueryComponent(refresh)}',
+      );
+    } on OfflineException {
+      return false; // the engine could not be asked; keep what we have and try again later
+    }
+    if (response.statusCode != 200) {
+      await UserLocalData.clearUserData();
+      SyncService.instance.stop();
+      return false;
+    }
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    final token = data['access_token'] as String?;
+    if (token == null) return false;
+    await UserLocalData.saveAuthToken(token);
+    final renewed = data['refresh_token'] as String?;
+    if (renewed != null && renewed.isNotEmpty) {
+      await UserLocalData.saveRefreshToken(renewed);
+    }
+    final seconds = (data['expires_in'] as num?)?.toInt();
+    await UserLocalData.saveAuthExpiry(
+      DateTime.now().add(Duration(seconds: seconds ?? 3600)),
+    );
+    return true;
+  }
+
   Future<void> logout() async {
     await UserLocalData.clearUserData();
     SyncService.instance.stop(); // halt the offline outbox until next login
@@ -161,6 +235,7 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     final user = await UserLocalData.getUser();
     final token = await UserLocalData.getAuthToken();
-    return user != null && token != null;
+    if (user == null || token == null) return false;
+    return refreshSession();
   }
 }

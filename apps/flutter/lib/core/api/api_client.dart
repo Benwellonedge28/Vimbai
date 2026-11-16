@@ -70,21 +70,52 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> get(Uri url, {Map<String, String>? headers}) =>
-      _guard(() => transport.get(url, headers: headers), retryOnFailure: true);
+  /// Runs before each request, so a session that has aged out is renewed once instead of every screen failing.
+  ///
+  /// The one exception is the calls that do the renewing and the signing in: asking them to renew themselves first would
+  /// wait on the very refresh they are, so those go straight out.
+  static Future<void> Function()? beforeRequest;
+
+  static bool _renewsItself(Uri url) {
+    final path = url.path;
+    return path.endsWith('/token/refresh') ||
+        path.endsWith('/users/login') ||
+        path.endsWith('/users/register');
+  }
+
+  static Future<void> _ready(Uri url) async {
+    if (_renewsItself(url)) return;
+    await beforeRequest?.call();
+  }
+
+  Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
+    await _ready(url);
+    return _guard(
+      () => transport.get(url, headers: headers),
+      retryOnFailure: true,
+    );
+  }
 
   Future<http.Response> post(
     Uri url, {
     Map<String, String>? headers,
     Object? body,
-  }) => _guard(() => transport.post(url, headers: headers, body: body));
+  }) async {
+    await _ready(url);
+    return _guard(() => transport.post(url, headers: headers, body: body));
+  }
 
   Future<http.Response> put(
     Uri url, {
     Map<String, String>? headers,
     Object? body,
-  }) => _guard(() => transport.put(url, headers: headers, body: body));
+  }) async {
+    await _ready(url);
+    return _guard(() => transport.put(url, headers: headers, body: body));
+  }
 
-  Future<http.Response> delete(Uri url, {Map<String, String>? headers}) =>
-      _guard(() => transport.delete(url, headers: headers));
+  Future<http.Response> delete(Uri url, {Map<String, String>? headers}) async {
+    await _ready(url);
+    return _guard(() => transport.delete(url, headers: headers));
+  }
 }

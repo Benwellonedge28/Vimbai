@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- A signed-in phone died an hour after sign-in. The engine's access token lasts an hour, the app threw the refresh token
+  away, and nothing renewed it - so the next morning every screen wore the same "could not load" failure while the app
+  still answered "signed in". Sign-in now keeps the refresh token and its expiry, every request tops the session up first
+  (once, even when several calls arrive together, because each refresh spends the token it was given), and a refresh
+  token the engine refuses clears the session so the person is asked to sign in rather than left with dead screens. Five
+  app tests hold it, four of which fail with renewal switched off.
 - Only a phone that had created a Book had published a key, so a brand-new person could never be invited into anybody's
   Book: invitations are wrapped for a published key and there was none. Opening the Book list now publishes it once per
   visit (best effort - an unreachable engine still lists your Books, and the next visit tries again). One app test covers a
