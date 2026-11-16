@@ -79,7 +79,12 @@ class _BookInboxPageState extends State<BookInboxPage> {
   }
 
   Future<void> _refresh() async {
-    _pendingSync = await SyncService.instance.pendingCount();
+    // a local count that cannot be read says nothing about the Book, so it must not stop the inbox loading
+    try {
+      _pendingSync = await SyncService.instance.pendingCount();
+    } catch (_) {
+      _pendingSync = 0;
+    }
     setState(() {
       _loading = _records.isEmpty;
       _error = null;
@@ -541,6 +546,9 @@ class _BookInboxPageState extends State<BookInboxPage> {
   }
 
   Widget _recordsList() {
+    // a failed read leaves the list empty too, so the banner above is the whole story; saying "capture anything" beside it
+    // would tell a person their inbox is empty when nobody managed to ask
+    if (_records.isEmpty && _error != null) return const SizedBox.shrink();
     if (_records.isEmpty) {
       return ListView(
         children: [

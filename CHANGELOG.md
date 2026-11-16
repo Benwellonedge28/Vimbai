@@ -16,6 +16,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- The inbox said "No incomplete records. Capture anything..." beside its own "could not load inbox" banner, because a
+  failed read leaves the list empty exactly as an empty Book does. It keeps quiet now while a read has failed, matching
+  the rule the organisation page already follows, and a local count that cannot be read no longer stops the inbox from
+  loading at all.
+
 - A capture taken on the phone was refused by the engine. The service wrote it in the app's camelCase
   (`inputType`, `inputRawText`) while the engine reads `input_type`, so the kind of input arrived empty and the engine
   answered "input_type must be one of: document, audio, image, text, video (got )" - an inbox could not fill because
