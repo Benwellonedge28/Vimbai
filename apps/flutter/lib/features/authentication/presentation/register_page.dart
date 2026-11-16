@@ -57,7 +57,8 @@ class _RegisterPageState extends State<RegisterPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     } else if (mounted) {
-      _errorMessage = _errorMessage ?? 'Registration failed. Please try again.';
+      _errorMessage =
+          _authService.lastError ?? 'Registration failed. Please try again.';
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_errorMessage!)));

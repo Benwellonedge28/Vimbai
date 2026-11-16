@@ -67,23 +67,41 @@ class AuthService {
       print(
         'Registration refused: the accounting engine could not be reached ($failure).',
       );
+      lastError =
+          'The accounting engine could not be reached, so no account was created. Check that it is running, then try again.';
       return false;
     }
 
     if (response.statusCode == 201) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      final user = User(
-        id: (data['id'] as String?) ?? 'unknown',
-        username: (data['username'] as String?) ?? username,
-        email: (data['email'] as String?) ?? email,
-        role: roleName,
-      );
-      await UserLocalData.saveUser(user);
+      // An account, not a session: the engine answers with the new account and no tokens, so nothing is stored here and
+      // the person signs in next. Storing a profile with no session was a half-signed-in state - a name on the phone
+      // that no token backed - and it is what let an old build treat a cached profile as enough to get in.
+      lastError = null;
       return true;
-    } else {
-      print('Registration failed: ${response.body}');
+    }
+
+    if (response.statusCode == 429) {
+      final wait = _retryAfter(response.headers['retry-after'], response.body);
+      lastError = wait == null
+          ? 'Too many attempts. Wait a few minutes and try again.'
+          : wait >= 120
+          ? 'Too many attempts. Try again in about ${(wait / 60).ceil()} minutes.'
+          : 'Too many attempts. Try again in $wait seconds.';
       return false;
     }
+
+    if (response.statusCode == 400) {
+      // the engine names the collision in words a person can act on: "Username already taken", "Email already
+      // registered", or which password rule was missed
+      lastError =
+          _engineMessage(response.body) ??
+          'That account cannot be created as entered. Try a different username or email.';
+      return false;
+    }
+
+    print('Registration failed: ${response.statusCode} - ${response.body}');
+    lastError = 'Registration failed. Try again.';
+    return false;
   }
 
   Future<bool> login(String username, String password) async {
@@ -192,6 +210,18 @@ class AuthService {
     }
     print('Online login successful for $username. Token saved.');
     return true;
+  }
+
+  /// The engine's own refusal message, which is written for a person to read.
+  static String? _engineMessage(String body) {
+    try {
+      final data = json.decode(body);
+      if (data is! Map) return null;
+      final message = data['error'] ?? data['detail'];
+      return message is String && message.isNotEmpty ? message : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   /// The pause the engine stated, in seconds, from its header or its body.

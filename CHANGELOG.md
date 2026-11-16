@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- Registering on a phone said "Registration failed. Please try again." for every cause, including the one a stranger
+  actually meets: the username or email is already taken. It now shows the engine's own reason (taken, or which password
+  rule was missed), says plainly when no account could be created because the engine was unreachable, and repeats the
+  engine's wait when there were too many attempts. A successful registration also no longer leaves a stored profile
+  behind with no token to back it - a half-signed-in state, and the same cached-profile idea that once let a refused
+  password open a used device. Five app tests, one driving the register screen and failing without the change.
 - A refused sign-in said one thing whatever the cause: "check your username and password, and that the accounting engine
   is running". So a person with the right password retyped it, while the real fact - the account wants a second factor,
   the engine is not running, too many wrong guesses with the engine's own wait, an account that is not active - was
