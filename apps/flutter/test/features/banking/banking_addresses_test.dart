@@ -125,4 +125,63 @@ void main() {
     expect(asked.method, 'DELETE');
     expect(asked.url.path, endsWith('/bank-feed/connections/conn-1'));
   });
+
+  test('a feed row is read from the names the engine writes', () async {
+    // the feed writes `bank_connection_id` and `date`; the screen used to require `connection_id` and
+    // `transaction_date`, so the first row it received threw instead of showing
+    ApiClient.transport = MockClient((request) async {
+      return http.Response(
+        jsonEncode([
+          {
+            'id': 'txn-1',
+            'bank_connection_id': 'conn-1',
+            'date': '2026-11-15',
+            'amount': '250.000000',
+            'transaction_type': 'credit',
+            'description': 'a sale',
+            'status': 'cleared',
+          },
+        ]),
+        200,
+      );
+    });
+
+    final rows = await BankingApiService().getTransactions('conn-1');
+
+    expect(rows, hasLength(1));
+    expect(rows.single.connectionId, 'conn-1');
+    expect(rows.single.transactionDate.year, 2026);
+    expect(rows.single.transactionType, 'credit');
+    expect(rows.single.reconciled, isFalse);
+  });
+
+  test('a reconciled row says so, whether by its time or its status', () async {
+    ApiClient.transport = MockClient((request) async {
+      return http.Response(
+        jsonEncode([
+          {
+            'id': 'txn-2',
+            'bank_connection_id': 'conn-1',
+            'date': '2026-11-15',
+            'amount': '10.000000',
+            'transaction_type': 'debit',
+            'reconciled_at': '2026-11-15T10:00:00Z',
+          },
+          {
+            'id': 'txn-3',
+            'bank_connection_id': 'conn-1',
+            'date': '2026-11-15',
+            'amount': '20.000000',
+            'transaction_type': 'credit',
+            'status': 'reconciled',
+          },
+        ]),
+        200,
+      );
+    });
+
+    final rows = await BankingApiService().getTransactions('conn-1');
+
+    expect(rows.map((row) => row.reconciled), everyElement(isTrue));
+  });
 }
