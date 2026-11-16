@@ -11,6 +11,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- The app job now builds an APK as well as testing, so the app is proven to compile for a phone rather than only to pass
+  its tests. Compiling Dart and running the widget tests never asks the questions a device asks about plugins, the
+  manifest or Gradle; `flutter build apk --debug` does. It runs in the same job because the Dart toolchain is installed in
+  exactly one place, so its pin cannot drift, with the Gradle caches kept between runs.
+
 - The first-run walk ends at the organisation now, not at the Book. A Book opened before an organisation exists belongs to
   nobody and can never be shared, so `a_stranger_sets_up_an_organisation_and_their_book_lands_inside_it` registers, signs
   in, opens a Book, opens an organisation, moves the Book inside, and posts the first sale afterwards to show the

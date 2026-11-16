@@ -83,10 +83,19 @@ jobs:
   # broken Rust or Go change does. The version is pinned to the one the app is developed against and the gate in
   # rust/xtask holds every workflow to it.
   test-flutter:
+    # The tests prove the Dart compiles; the build at the end proves the *app* does, which is a different claim. A stranger
+    # installs an APK, and the plugin, manifest and Gradle questions a phone asks are only answered by building one. Both
+    # live in this job because the Dart toolchain is installed in exactly one place, so its pin cannot drift.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up the Java the Android plugin builds with
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Set up the Dart toolchain
         uses: flutter-actions/setup-flutter@v4
@@ -108,6 +117,21 @@ jobs:
         working-directory: apps/flutter
         run: flutter analyze --no-fatal-infos
 
+      - name: Keep the Gradle caches between runs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/flutter/android/**/*.gradle*', 'apps/flutter/pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Test
         working-directory: apps/flutter
         run: flutter test
+
+      - name: Build the app for a phone
+        working-directory: apps/flutter
+        run: flutter build apk --debug
+
+
