@@ -15,14 +15,28 @@ import 'package:vimbai_mobile_client/core/offline/sync_service.dart';
 /// continuous scanning); Vimbai processes everything in the background
 /// and the results appear here, ready to be organized into the Book.
 class BookInboxPage extends StatefulWidget {
-  const BookInboxPage({super.key});
+  const BookInboxPage({
+    super.key,
+    this.api,
+    this.pendingSyncCount,
+    this.liveUpdates = true,
+  });
+
+  /// The engine's inbox, overridable so a test can drive the screen without a network.
+  final MultimodalApiService? api;
+
+  /// How many captures are waiting to sync. A local-storage read, overridable for the same reason.
+  final Future<int> Function()? pendingSyncCount;
+
+  /// Whether to follow the live socket. A test turns this off, because a socket in `initState` is not what it is checking.
+  final bool liveUpdates;
 
   @override
   State<BookInboxPage> createState() => _BookInboxPageState();
 }
 
 class _BookInboxPageState extends State<BookInboxPage> {
-  final MultimodalApiService _api = MultimodalApiService();
+  late final MultimodalApiService _api = widget.api ?? MultimodalApiService();
   final ImagePicker _picker = ImagePicker();
 
   String _view = 'incomplete'; // incomplete | organized | all
@@ -38,14 +52,16 @@ class _BookInboxPageState extends State<BookInboxPage> {
   void initState() {
     super.initState();
     _refresh();
-    _startLiveUpdates();
+    if (widget.liveUpdates) _startLiveUpdates();
   }
 
   @override
   void dispose() {
     _fallbackPoll?.cancel();
     _realtimeSub?.cancel();
-    RealtimeService.instance.connected.removeListener(_onConnectionChanged);
+    if (widget.liveUpdates) {
+      RealtimeService.instance.connected.removeListener(_onConnectionChanged);
+    }
     super.dispose();
   }
 
@@ -81,7 +97,9 @@ class _BookInboxPageState extends State<BookInboxPage> {
   Future<void> _refresh() async {
     // a local count that cannot be read says nothing about the Book, so it must not stop the inbox loading
     try {
-      _pendingSync = await SyncService.instance.pendingCount();
+      _pendingSync =
+          await (widget.pendingSyncCount?.call() ??
+              SyncService.instance.pendingCount());
     } catch (_) {
       _pendingSync = 0;
     }

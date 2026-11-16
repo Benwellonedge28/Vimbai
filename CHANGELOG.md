@@ -19,7 +19,9 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 - The inbox said "No incomplete records. Capture anything..." beside its own "could not load inbox" banner, because a
   failed read leaves the list empty exactly as an empty Book does. It keeps quiet now while a read has failed, matching
   the rule the organisation page already follows, and a local count that cannot be read no longer stops the inbox from
-  loading at all.
+  loading at all. The screen takes its service, its pending count and whether to follow the live socket from its caller,
+  so it can finally be driven in a test: two now hold it, one refusing every read and one holding a capture stamped in
+  epoch seconds, and the first fails on the old code by finding "No incomplete records" under the error.
 
 - A capture taken on the phone was refused by the engine. The service wrote it in the app's camelCase
   (`inputType`, `inputRawText`) while the engine reads `input_type`, so the kind of input arrived empty and the engine
