@@ -185,6 +185,12 @@ class AuthService {
 
   Future<bool>? _refreshing;
 
+  /// Called when the engine refuses the refresh token, i.e. the session is genuinely over.
+  ///
+  /// The stored session is cleared either way; this is so the app can put the sign-in screen back. Without it the person
+  /// sat on a home page whose every screen failed, with nothing saying why.
+  static void Function()? onSessionEnded;
+
   Future<bool> _doRefresh({Duration? renewWithin}) async {
     final expiry = await UserLocalData.getAuthExpiry();
     final grace = renewWithin ?? const Duration(minutes: 5);
@@ -210,6 +216,7 @@ class AuthService {
     if (response.statusCode != 200) {
       await UserLocalData.clearUserData();
       SyncService.instance.stop();
+      onSessionEnded?.call();
       return false;
     }
     final data = json.decode(response.body) as Map<String, dynamic>;

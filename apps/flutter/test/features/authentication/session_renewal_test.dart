@@ -25,6 +25,7 @@ void main() {
   tearDown(() {
     ApiClient.transport = originalTransport;
     ApiClient.beforeRequest = null;
+    AuthService.onSessionEnded = null;
   });
 
   test('a nearly spent token is renewed and the new pair is kept', () async {
@@ -142,6 +143,30 @@ void main() {
         await auth.isLoggedIn(),
         isFalse,
         reason: 'the app stops claiming to be signed in',
+      );
+    },
+  );
+
+  test(
+    'the app is told once when the session ends, so sign-in can come back',
+    () async {
+      await UserLocalData.saveAuthToken('old-access');
+      await UserLocalData.saveRefreshToken('spent');
+      await UserLocalData.saveAuthExpiry(
+        DateTime.now().subtract(const Duration(hours: 2)),
+      );
+
+      ApiClient.transport = MockClient((request) async {
+        return http.Response('{"detail":"Invalid refresh token"}', 401);
+      });
+      var told = 0;
+      AuthService.onSessionEnded = () => told++;
+
+      await Future.wait([auth.refreshSession(), auth.refreshSession()]);
+      expect(
+        told,
+        1,
+        reason: 'one session ended once, however many calls noticed',
       );
     },
   );

@@ -21,13 +21,28 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final AuthService _authService = AuthService();
+  final GlobalKey<NavigatorState> _navigator = GlobalKey<NavigatorState>();
   bool _isLoggedIn = false;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    // a session the engine has ended puts the sign-in screen back, rather than leaving a home page that fails on every
+    // screen; the callback is dropped with the widget so a rebuilt app is not told twice
+    AuthService.onSessionEnded = () {
+      _navigator.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    };
     _checkLoginStatus();
+  }
+
+  @override
+  void dispose() {
+    AuthService.onSessionEnded = null;
+    super.dispose();
   }
 
   Future<void> _checkLoginStatus() async {
@@ -40,6 +55,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigator,
       title: 'Vimbai Mobile Client',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: _isLoading

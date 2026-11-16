@@ -33,6 +33,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- A session the engine had ended left the person sitting on a home page whose every screen failed. The app now returns to
+  the sign-in screen when the engine refuses the refresh token, once however many calls noticed it; the stored session
+  was already cleared, so this is the visible half of the same fact. One app test holds it, failing with the notice
+  removed.
 - A signed-in phone died an hour after sign-in. The engine's access token lasts an hour, the app threw the refresh token
   away, and nothing renewed it - so the next morning every screen wore the same "could not load" failure while the app
   still answered "signed in". Sign-in now keeps the refresh token and its expiry, every request tops the session up first
