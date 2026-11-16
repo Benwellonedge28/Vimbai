@@ -32,6 +32,14 @@ class AuthService {
   /// that was not running - so a person with the right password kept retyping it. Nothing technical goes in here: it is
   /// read aloud by the screen.
   String? lastError;
+
+  /// True when the password was right but the account owes a second sign-in step, i.e. the sign-in is half done.
+  ///
+  /// The short-lived token the engine handed back lives only here: it is a challenge, not a session, and must never be
+  /// stored, because a stored challenge is a way in waiting to be spent.
+  bool awaitingSecondFactor = false;
+  String? _pendingSecondFactorToken;
+  String? secondFactorMethod;
   final String _baseUrl = AppConfig.apiUrl; // API Gateway URL
 
   /// Auth token for outgoing API requests (null when logged out).
@@ -154,16 +162,85 @@ class AuthService {
     final data = json.decode(response.body) as Map<String, dynamic>;
 
     if (data['mfa_required'] == true) {
-      // MFA is enabled for this account. The mobile client does not support
-      // the second factor yet, so surface it instead of storing a dead token.
-      print(
-        'MFA required (method: ${data['method']}); mobile client cannot complete this login.',
-      );
-      lastError =
-          'This account asks for a second factor, which this app cannot do yet. Sign in from another Vimbai client.';
+      // The password was right and the account owes its second step. The engine answers with a short-lived challenge
+      // token; it is held in memory only and spent once, by completeSecondFactor.
+      final challenge = data['temp_token'] as String?;
+      if (challenge == null || challenge.isEmpty) {
+        lastError =
+            'The engine asked for a second step but sent nothing to complete it with. Try again.';
+        return false;
+      }
+      awaitingSecondFactor = true;
+      _pendingSecondFactorToken = challenge;
+      secondFactorMethod = data['method'] as String?;
+      lastError = secondFactorMethod == 'totp' || secondFactorMethod == null
+          ? 'Enter the 6-digit code from your authenticator app.'
+          : 'Enter the code this account asked for ($secondFactorMethod).';
       return false;
     }
 
+    return _keepSession(data, username);
+  }
+
+  /// Finish a half-done sign-in with the code the account asked for.
+  ///
+  /// The code is checked by the engine that raised it, and a code that is wrong, reused or past its life is refused
+  /// there. Nothing about the refusal is kept beyond the words for the person: a challenge that failed is spent.
+  Future<bool> completeSecondFactor(String code) async {
+    final challenge = _pendingSecondFactorToken;
+    if (challenge == null) {
+      lastError = 'Sign in with your password first.';
+      return false;
+    }
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/users/login/verify-mfa'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body:
+            'temp_token=${Uri.encodeQueryComponent(challenge)}'
+            '&code=${Uri.encodeQueryComponent(code.trim())}',
+      );
+    } on OfflineException catch (failure) {
+      print('Second step refused: the engine could not be reached ($failure).');
+      lastError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+
+    if (response.statusCode == 429) {
+      final wait = _retryAfter(response.headers['retry-after'], response.body);
+      lastError = wait == null
+          ? 'Too many attempts. Wait a few minutes and try again.'
+          : 'Too many attempts. Try again in $wait seconds.';
+      return false;
+    }
+
+    if (response.statusCode != 200) {
+      // the engine names only "Invalid MFA code": whether the code was wrong or already spent is not the client's to know
+      lastError =
+          _engineMessage(response.body) ??
+          'That code was not accepted. Check it and try again.';
+      if (response.statusCode == 401) {
+        _pendingSecondFactorToken = null;
+        awaitingSecondFactor = false;
+        lastError =
+            'That code was not accepted, and it cannot be tried twice. Sign in again to get a new one.';
+      }
+      return false;
+    }
+
+    awaitingSecondFactor = false;
+    _pendingSecondFactorToken = null;
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    return _keepSession(data, data['username'] as String? ?? '');
+  }
+
+  /// Store what a completed sign-in came back with: the tokens, when they expire, and who the person is.
+  ///
+  /// One place, because two doors now lead here - a password alone, and a password plus a code - and a second copy of
+  /// this is how one of them quietly stops keeping the refresh token.
+  Future<bool> _keepSession(Map<String, dynamic> data, String username) async {
     final token = data['access_token'] as String?;
     if (token == null) {
       print('Login response missing access_token.');

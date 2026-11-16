@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/app/home_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/register_page.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/second_factor_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,6 +47,13 @@ class _LoginPageState extends State<LoginPage> {
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else if (_authService.awaitingSecondFactor && mounted) {
+      // the password was right and the account owes its second step; that is a step forward, not an error
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => SecondFactorPage(authService: _authService),
+        ),
       );
     } else if (_errorMessage != null && mounted) {
       ScaffoldMessenger.of(

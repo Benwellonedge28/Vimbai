@@ -48,7 +48,9 @@ void main() {
         ),
       );
       expect(await auth.login('sam', 'right'), isFalse);
-      expect(auth.lastError, contains('second factor'));
+      // a second step is now a step forward rather than a refusal to repeat, so it is not called a wrong password either
+      expect(auth.awaitingSecondFactor, isTrue);
+      expect(auth.lastError, contains('authenticator'));
       expect(auth.lastError, isNot(contains('password were not')));
     },
   );
@@ -145,7 +147,8 @@ void pageTests() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('second factor'), findsOneWidget);
+    // an account owing a code is not left on a sign-in screen with an error: the code screen takes over
+    expect(find.text('Second step'), findsOneWidget);
     expect(
       find.textContaining('Check your username and password'),
       findsNothing,

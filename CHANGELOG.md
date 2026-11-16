@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- An account with a second factor was a dead end on a phone: the app said it could not do this and sent the person to
+  another client, though the engine has always accepted the code. There is now a second-step screen: the password opens
+  it, the code finishes the sign-in, and the session is kept through the same one path a password-only sign-in uses
+  (tokens, expiry, refresh, profile). The challenge token the engine hands back is a way in waiting to be spent, so it
+  lives in memory only and is dropped the moment a code is refused - a spent challenge is not retried, the person signs
+  in again for a new one. Six app tests, two of which drive the two screens and fail without the change.
 - Registering on a phone said "Registration failed. Please try again." for every cause, including the one a stranger
   actually meets: the username or email is already taken. It now shows the engine's own reason (taken, or which password
   rule was missed), says plainly when no account could be created because the engine was unreachable, and repeats the
