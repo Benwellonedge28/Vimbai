@@ -16,6 +16,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- A Book could not be shared with another person, and the invitation said it could: the wrapped key posted was the text
+  `wrapped:<user id>`, so the engine accepted the invitation, the person joined, and every entry they pulled failed to
+  decrypt. There was also nowhere to publish a public key or fetch one, so nothing could have wrapped correctly. The engine
+  now keeps one public key per person (`PUT /identity/users/me/public-key`, `GET /identity/users/{id}/public-key`, readable
+  by any signed-in caller because that half is what an inviter needs, refusing a modulus under 128 bytes), the phone
+  publishes its own key when a Book is created, and an invitation fetches the invitee's key and wraps the real Book key for
+  it. Inviting someone who never opened the app says so instead of posting something they could not open. Two engine tests
+  and two app tests hold it, the app pair proven to fail on the placeholder.
 - The local stores had no seam for tests: both lived in one shared directory, so two test files running at once opened
   the same database and fought over its locks (the Flutter job failed at Test on the key-wrapping commit). The service
   takes a database directory from the caller now, and each test file opens its own temp directory and removes it.

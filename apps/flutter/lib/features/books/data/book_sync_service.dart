@@ -306,6 +306,11 @@ class BookSyncService {
     String folder = '',
   }) async {
     final bookKey = generateBookKey();
+    try {
+      await publishDevicePublicKey();
+    } catch (_) {
+      // a Book that cannot be shared yet is still a working Book; sharing offers to publish again
+    }
     final wrapped = await wrapBookKeyForSelf(bookKey);
     final r = await _client.post(
       _u('/books'),
@@ -432,6 +437,70 @@ class BookSyncService {
     return engine.process(input);
   }
 
+  /// Publish this device's public key so another person can wrap a Book key for it.
+  ///
+  /// The public half is what an inviter fetches, so it has to exist before anybody can put you in a Book. Failure is not
+  /// fatal here: a Book that cannot be shared is still a working Book, and the shell that offers sharing says so.
+  Future<bool> publishDevicePublicKey() async {
+    final keys = await _deviceKeyPair();
+    final r = await _client.put(
+      Uri.parse('${AppConfig.apiUrl}/identity/users/me/public-key'),
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'modulus': _b64(keys.publicKey.modulus!),
+        'exponent': _b64(keys.publicKey.exponent!),
+      }),
+    );
+    return r.statusCode == 200;
+  }
+
+  /// Another person's public key, fetched so a Book key can be wrapped for them.
+  Future<RSAPublicKey> fetchPublicKey(String userId) async {
+    final r = await _client.get(
+      Uri.parse('${AppConfig.apiUrl}/identity/users/$userId/public-key'),
+      headers: _headers,
+    );
+    if (r.statusCode == 404) {
+      throw Exception(
+        'That person has not opened Vimbai on a phone yet, so there is no key to wrap the Book key for.',
+      );
+    }
+    if (r.statusCode != 200) {
+      throw Exception(
+        'Could not read their public key: ${r.statusCode} ${r.body}',
+      );
+    }
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    return RSAPublicKey(
+      _fromB64(j['modulus'] as String),
+      _fromB64(j['exponent'] as String),
+    );
+  }
+
+  /// Wrap a Book key for somebody else's public key.
+  Future<String> wrapBookKeyFor(String userId, String bookKey) async {
+    final theirKey = await fetchPublicKey(userId);
+    final sealed = _oaep(
+      true,
+      PublicKeyParameter<RSAPublicKey>(theirKey),
+      Uint8List.fromList(utf8.encode(bookKey)),
+    );
+    return base64Encode(sealed);
+  }
+
+  /// The Book key this phone holds for a Book, or '' when it holds none.
+  Future<String> bookKeyFor(String bookId) async {
+    final meta = await _meta();
+    final rows = await meta.query(
+      'registry',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return '';
+    return rows.first['book_key'] as String? ?? '';
+  }
+
   /// Wrap a Book key for this device's own public key.
   Future<String> wrapBookKeyForSelf(String bookKey) async {
     final keys = await _deviceKeyPair();
@@ -547,14 +616,26 @@ class BookSyncService {
     );
   }
 
+  /// Invite someone into a Book, wrapping the Book key for their key on the way out.
+  ///
+  /// The wrapped key used to be the text `wrapped:<user id>`, which is not a key at all: the engine accepted it and the
+  /// person joined and could read nothing. The wrap happens here now, so an invitation that leaves this phone is one the
+  /// invitee can actually open - and one the server cannot.
   Future<void> inviteMember(String bookId, String userId, String role) async {
+    final bookKey = await bookKeyFor(bookId);
+    if (bookKey.isEmpty) {
+      throw Exception(
+        'This Book has no key on this phone, so it cannot be shared from here.',
+      );
+    }
+    final wrapped = await wrapBookKeyFor(userId, bookKey);
     final r = await _client.post(
       _u('/books/$bookId/members'),
-      headers: _headers,
+      headers: {..._headers, 'Content-Type': 'application/json'},
       body: jsonEncode({
         'user_id': userId,
         'role': role,
-        'wrapped_book_key': 'wrapped:$userId',
+        'wrapped_book_key': wrapped,
       }),
     );
     if (r.statusCode != 200) {

@@ -864,3 +864,126 @@ async fn a_run_of_wrong_guesses_is_paused_rather_than_answered_forever() {
     .await;
     assert_eq!(fine, StatusCode::OK);
 }
+
+// ---------------------------------------------------------------------------
+// the key registry
+// ---------------------------------------------------------------------------
+
+/// A Book key leaves a phone wrapped for the person it is for, so the inviter has to be able to fetch that person's
+/// public half. Publishing is per person and replacing replaces, and the read is closed to strangers only - anyone
+/// signed in may look, because that is what "public" means.
+#[tokio::test]
+async fn a_public_key_is_published_and_read_by_another_person() {
+    let graph = Arc::new(MemoryGraph::new());
+    let made = registered(graph.clone(), "keyholder", "Password123!").await;
+    let who = made["id"].as_str().unwrap().to_string();
+    let mine = signed_in(graph.clone(), "keyholder", "Password123!").await;
+    let token = mine["access_token"].as_str().unwrap().to_string();
+
+    registered(graph.clone(), "inviter", "Password123!").await;
+    let other = signed_in(graph.clone(), "inviter", "Password123!").await;
+    let other_token = other["access_token"].as_str().unwrap().to_string();
+
+    let modulus = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        vec![0xAB_u8; 256],
+    );
+    let exponent = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        [0x01, 0x00, 0x01],
+    );
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::PUT,
+        "/users/me/public-key",
+        Some(json!({ "modulus": modulus, "exponent": exponent })),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/users/{who}/public-key"),
+        None,
+        Some(&other_token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["modulus"], json!(modulus));
+    assert_eq!(body["exponent"], json!(exponent));
+
+    // publishing again replaces rather than adding a second key
+    let second = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        vec![0xCD_u8; 256],
+    );
+    let (status, body) = call(
+        graph.clone(),
+        Method::PUT,
+        "/users/me/public-key",
+        Some(json!({ "modulus": second, "exponent": exponent })),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, body) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/users/{who}/public-key"),
+        None,
+        Some(&other_token),
+    )
+    .await;
+    assert_eq!(body["modulus"], json!(second));
+}
+
+#[tokio::test]
+async fn nobody_has_published_a_key_and_an_unsigned_caller_reads_nothing() {
+    let graph = Arc::new(MemoryGraph::new());
+    let made = registered(graph.clone(), "quiet", "Password123!").await;
+    let who = made["id"].as_str().unwrap().to_string();
+    let signed = signed_in(graph.clone(), "quiet", "Password123!").await;
+    let token = signed["access_token"].as_str().unwrap().to_string();
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/users/{who}/public-key"),
+        None,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, _) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/users/{who}/public-key"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    // a modulus too small to wrap a Book key is refused rather than stored
+    let tiny = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        vec![0x01_u8; 16],
+    );
+    let exponent = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        [0x01, 0x00, 0x01],
+    );
+    let (status, body) = call(
+        graph.clone(),
+        Method::PUT,
+        "/users/me/public-key",
+        Some(json!({ "modulus": tiny, "exponent": exponent })),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+}

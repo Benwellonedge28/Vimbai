@@ -41,6 +41,8 @@ use crate::records::GraphHandle;
 const ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_ACCOUNT");
 const ROLE: RecordKind = RecordKind::new("RoleDef", "OWNS_ROLE");
 const AUDIT: RecordKind = RecordKind::new("AuditEntry", "OWNS_AUDIT_ENTRY");
+/// The public half of each person's key pair, kept so a Book key can be wrapped for them before they are a member.
+const PUBLIC_KEY: RecordKind = RecordKind::new("PublicKey", "OWNS_PUBLIC_KEY");
 
 /// How long a refresh token is good for, as shipped.
 const REFRESH_TOKEN_DAYS: i64 = 7;
@@ -225,6 +227,10 @@ fn sha256_hex(text: &str) -> String {
 
 fn accounts_of(graph: &GraphHandle) -> PlatformRecords<'_, dyn store::Graph + Send + Sync> {
     PlatformRecords::new(graph.as_ref(), ACCOUNT)
+}
+
+fn public_keys_of(graph: &GraphHandle) -> PlatformRecords<'_, dyn store::Graph + Send + Sync> {
+    PlatformRecords::new(graph.as_ref(), PUBLIC_KEY)
 }
 
 fn roles_of(graph: &GraphHandle) -> PlatformRecords<'_, dyn store::Graph + Send + Sync> {
@@ -622,6 +628,14 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             .route(&format!("{prefix}/users/me"), get(me))
             .route(
+                &format!("{prefix}/users/me/public-key"),
+                axum::routing::put(publish_public_key),
+            )
+            .route(
+                &format!("{prefix}/users/:user_id/public-key"),
+                get(get_public_key),
+            )
+            .route(
                 &format!("{prefix}/users/:user_id"),
                 get(get_user).put(put_user),
             )
@@ -954,6 +968,106 @@ async fn me(State(graph): State<GraphHandle>, headers: HeaderMap) -> Response {
         "last_login": user.last_login,
     }))
     .into_response()
+}
+
+// ---------------------------------------------------------------------------
+// the key registry
+// ---------------------------------------------------------------------------
+
+/// A public key is a modulus and an exponent, base64. Nothing secret is stored here, which is why any signed-in person
+/// may read one: wrapping a Book key for someone is only possible if their public half can be fetched first.
+fn public_key_text(value: Option<&Value>, name: &str) -> Option<String> {
+    let raw = value?.get(name)?.as_str()?.trim().to_string();
+    if raw.is_empty() {
+        return None;
+    }
+    // a well-formed key is base64 of a big-endian integer, and a modulus smaller than 128 bytes cannot wrap a key
+    let bytes =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, raw.as_bytes()).ok()?;
+    let floor = if name == "modulus" { 128 } else { 1 };
+    (bytes.len() >= floor).then_some(raw)
+}
+
+/// Publish the caller's public key, or replace it.
+///
+/// One key per person, held under their own id, so publishing twice is an update rather than a second row: a phone that
+/// re-installs publishes again and invitations after that reach the new key.
+async fn publish_public_key(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    body: Option<axum::body::Bytes>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    let sent: Value = match body
+        .as_deref()
+        .and_then(|raw| serde_json::from_slice(raw).ok())
+    {
+        Some(value) => value,
+        None => return error(400, "A JSON body with modulus and exponent is required"),
+    };
+    let (Some(modulus), Some(exponent)) = (
+        public_key_text(Some(&sent), "modulus"),
+        public_key_text(Some(&sent), "exponent"),
+    ) else {
+        return error(
+            400,
+            "A public key is a base64 modulus of at least 128 bytes and a base64 exponent",
+        );
+    };
+    let records = public_keys_of(&graph);
+    // the record id is the person's own id, so one key per person and no second row to keep in step
+    let fields = json!({
+        "id": caller.id,
+        "modulus": modulus,
+        "exponent": exponent,
+        "updated_at": iso(now()),
+    });
+    let saved = match records.get(&caller.id) {
+        Ok(Some(existing)) => {
+            let created = existing.get("created_at").cloned().unwrap_or(Value::Null);
+            let mut patched = fields.clone();
+            if let Value::Object(map) = &mut patched {
+                map.insert("created_at".into(), created);
+            }
+            records.update(&caller.id, &patched)
+        }
+        _ => records.create(&fields).map(Some),
+    };
+    match saved {
+        Ok(_) => Json(json!({
+            "user_id": caller.id,
+            "modulus": modulus,
+            "exponent": exponent,
+        }))
+        .into_response(),
+        Err(error_) => error(500, &format!("Could not store the public key: {error_}")),
+    }
+}
+
+/// Read someone's public key. This is the half an inviter needs, so any signed-in person may fetch it.
+async fn get_public_key(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+) -> Response {
+    if let Err(response) = caller(&graph, &headers) {
+        return *response;
+    }
+    match public_keys_of(&graph).get(&user_id) {
+        Ok(Some(record)) => Json(json!({
+            "user_id": user_id,
+            "modulus": record.get("modulus").cloned().unwrap_or(Value::Null),
+            "exponent": record.get("exponent").cloned().unwrap_or(Value::Null),
+            "updated_at": record.get("updated_at").cloned().unwrap_or(Value::Null),
+        }))
+        .into_response(),
+        // somebody who has not opened a Book yet has published nothing, which is not an error
+        Ok(None) => error(404, "No public key published"),
+        Err(error_) => error(500, &format!("Could not read the public key: {error_}")),
+    }
 }
 
 async fn get_user(
