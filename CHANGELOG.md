@@ -4,7 +4,26 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Fixed
+
+- A note taken on the phone could never reach the inbox. The capture service asked the engine for `/multimodal/tasks/`,
+  and a trailing slash is a different address from the one a parameter route answers, so the queue and the list both came
+  back empty; it also demanded a `201` from a create the engine answers with `200`, so a capture that had in fact been
+  kept threw on the way back. Both addresses are the engine's own now, and either success code is accepted.
+
+- The inbox and the capture screen parsed the engine's capture under camelCase names while the engine keeps them in its
+  own (`input_type`, `input_raw_text`, `created_at`) and stamps no user, so every row threw rather than rendering. The
+  model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
+  the phone and a capture read back from the engine both load.
+
 ### Changed
+
+- The audit that holds the app's addresses against the engine reads the whole app now. Two holes hid the capture break:
+  a base declared on the line below its name (`final String _baseUrl =` then the route on the next line) was skipped, so
+  every address built from it was invisible, and the retired-service doors the app actually calls through (`/multimodal`
+  forwards into the engine's `/tasks`, `/inbox`) were not walked, so what was visible through them looked unanswered.
+  Both are read now, and the address is compared as written, because shaping it would trim the trailing slash that is the
+  defect being looked for.
 
 - The tests that hold an app screen's address against the engine now hold its shape too: the chart of accounts, the cash
   flow page and the three report screens each assert the exact keys their models read, after posting a real entry.

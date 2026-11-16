@@ -319,10 +319,51 @@ class MultimodalProcessingTaskInDB extends MultimodalProcessingTaskBase {
          aiModelVersion: aiModelVersion,
        );
 
+  /// Reads a capture as the engine stores it.
+  ///
+  /// The engine keeps a capture under its own names (`input_type`, `input_raw_text`, `created_at`) and stamps no
+  /// `userId`, because a capture belongs to the Book it came through rather than to a field on the row. The generated
+  /// parser reads camelCase and casts `userId` non-null, so a capture straight from the engine threw instead of
+  /// appearing in the inbox. This maps the engine's names onto the ones the generated parser reads and leaves a
+  /// payload already written in camelCase alone, so a locally queued capture and an engine row both load.
   factory MultimodalProcessingTaskInDB.fromJson(Map<String, dynamic> json) =>
-      _$MultimodalProcessingTaskInDBFromJson(json);
+      _$MultimodalProcessingTaskInDBFromJson(engineCaptureNames(json));
   @override
   Map<String, dynamic> toJson() => _$MultimodalProcessingTaskInDBToJson(this);
+}
+
+/// The engine's capture names, rewritten as the camelCase the generated parser reads.
+///
+/// Only names the engine itself answers are touched, and a key already in camelCase is kept, so one factory loads both
+/// an engine row and a capture queued on the phone.
+Map<String, dynamic> engineCaptureNames(Map<String, dynamic> json) {
+  const renamed = {
+    'input_type': 'inputType',
+    'input_url': 'inputUrl',
+    'input_raw_text': 'inputRawText',
+    'processing_start_time': 'processingStartTime',
+    'processing_end_time': 'processingEndTime',
+    'last_review_request_time': 'lastReviewRequestTime',
+    'document_result': 'documentResult',
+    'audio_result': 'audioResult',
+    'image_result': 'imageResult',
+    'suggested_journal_entry': 'suggestedJournalEntry',
+    'linked_vimbai_entity_id': 'linkedFinaccEntityId',
+    'ai_model_version': 'aiModelVersion',
+    'created_at': 'createdAt',
+    'updated_at': 'updatedAt',
+  };
+  final named = <String, dynamic>{};
+  json.forEach((key, value) {
+    named[renamed[key] ?? key] = value;
+  });
+  // a capture belongs to the Book it came through, so the engine stamps no user of its own
+  named['userId'] = named['userId'] ?? '';
+  final version = named['aiModelVersion'];
+  if (version is! String || version.isEmpty) {
+    named['aiModelVersion'] = '1.0';
+  }
+  return named;
 }
 
 // --- User Correction / Feedback Model ---

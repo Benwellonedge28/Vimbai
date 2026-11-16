@@ -339,7 +339,9 @@ async fn the_journal_screens_read_the_list_and_the_detail_they_ask_for() {
         .call(Method::GET, "/accounting/journal-entries", None)
         .await;
     assert_eq!(code, StatusCode::OK, "{listed}");
-    let rows = listed.as_array().expect("the list is a bare array: {listed}");
+    let rows = listed
+        .as_array()
+        .expect("the list is a bare array: {listed}");
     assert_eq!(rows.len(), 1, "{listed}");
     let row = &rows[0];
     holds(
@@ -373,7 +375,11 @@ async fn the_journal_screens_read_the_list_and_the_detail_they_ask_for() {
         .await;
     assert_eq!(code, StatusCode::OK, "{detail}");
     assert_eq!(detail["id"], row["id"], "{detail}");
-    assert_eq!(detail["lines"].as_array().map(Vec::len), Some(2), "{detail}");
+    assert_eq!(
+        detail["lines"].as_array().map(Vec::len),
+        Some(2),
+        "{detail}"
+    );
 }
 
 /// The cash flow page reads a statement the service maps out of the engine's reply, key by key.

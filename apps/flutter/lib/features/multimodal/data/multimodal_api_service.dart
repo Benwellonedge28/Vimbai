@@ -160,12 +160,13 @@ class MultimodalApiService {
     MultimodalProcessingTaskCreate task,
   ) async {
     final response = await _client.post(
-      Uri.parse('$_baseUrl/tasks/'),
+      Uri.parse('$_baseUrl/tasks'),
       headers: await _getHeaders(),
       body: json.encode(task.toJson()),
     );
 
-    if (response.statusCode == 201) {
+    // the engine answers a created capture with 200, not 201: the record is written either way, so both count as made
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return MultimodalProcessingTaskInDB.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to create multimodal task: ${response.body}');
@@ -187,7 +188,7 @@ class MultimodalApiService {
 
   Future<List<MultimodalProcessingTaskInDB>> getAllTasks() async {
     final response = await _client.get(
-      Uri.parse('$_baseUrl/tasks/'),
+      Uri.parse('$_baseUrl/tasks'),
       headers: await _getHeaders(),
     );
 
@@ -241,7 +242,8 @@ class MultimodalApiService {
       body: json.encode(correction.toJson()),
     );
 
-    if (response.statusCode == 201) {
+    // same shape as a capture: the engine answers 200 once the correction is kept
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return UserCorrectionInDB.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to submit user correction: ${response.body}');

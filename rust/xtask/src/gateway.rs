@@ -336,6 +336,44 @@ fn forwards_to_engine(entry: &Entry) -> bool {
     entry.url.contains("8099")
 }
 
+/// A door the gateway forwards into the engine, and whether it keeps the prefix on the way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Door {
+    /// The path the gateway answers, without a trailing slash.
+    pub prefix: String,
+    /// Whether the prefix is kept; when it is stripped, the engine sees only what follows it.
+    pub keeps_prefix: bool,
+}
+
+/// The doors whose own service is gone and whose answer now comes from the engine.
+///
+/// A retired service that the engine answers behind its old prefix still answers every address it published - the inbox a
+/// phone reads is `/multimodal/inbox` at the door and `/inbox` in the engine - so anything asking "does this address reach
+/// something?" has to walk the same doors the gateway walks.
+pub fn doors(root: &Path) -> Vec<Door> {
+    entries(root)
+        .into_iter()
+        .filter(|entry| forwards_to_engine(entry) && !root.join(&entry.name).is_dir())
+        .map(|entry| Door {
+            prefix: entry.path.trim_end_matches('/').to_string(),
+            keeps_prefix: !entry.strip_prefix,
+        })
+        .collect()
+}
+
+/// The engine address a call at `path` becomes when it goes through `door`, if it goes through that door at all.
+pub fn through(door: &Door, path: &str) -> Option<String> {
+    let rest = path.strip_prefix(&door.prefix)?;
+    if !(rest.is_empty() || rest.starts_with('/')) {
+        return None;
+    }
+    Some(if door.keeps_prefix {
+        path.to_string()
+    } else {
+        rest.to_string()
+    })
+}
+
 /// Every address a retired service published, checked against the form its gateway entry forwards.
 pub fn audit(root: &Path) -> Vec<String> {
     let engine = engine_routes(root);

@@ -164,12 +164,17 @@ fn constants(text: &str) -> BTreeMap<String, String> {
     for (name, value) in environment_defaults(text) {
         found.insert(name, value);
     }
-    for line in text.lines() {
+    let lines: Vec<&str> = text.lines().collect();
+    for (index, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
-        let Some(eq) = trimmed.find(" = ") else {
-            continue;
+        // `name = value` on one line, or `name =` with the value on the line below, which is how a long base is written
+        let (declaration, value) = match trimmed.split_once(" = ") {
+            Some((declaration, value)) => (declaration, without_comment(value)),
+            None => match trimmed.strip_suffix('=') {
+                Some(declaration) => (declaration.trim_end(), ""),
+                None => continue,
+            },
         };
-        let declaration = &trimmed[..eq];
         let Some(name) = declaration.split_whitespace().last() else {
             continue;
         };
@@ -180,7 +185,18 @@ fn constants(text: &str) -> BTreeMap<String, String> {
         if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
             continue;
         }
-        let value = trimmed[eq + 3..].trim().trim_end_matches(';').trim();
+        // the value may sit on the line below: `final String _baseUrl =` then `AppConfig.accountingRoute;`
+        let value = if value.is_empty() {
+            lines
+                .iter()
+                .skip(index + 1)
+                .map(|next| without_comment(next))
+                .find(|next| !next.is_empty())
+                .unwrap_or("")
+        } else {
+            value
+        };
+        let value = value.trim_end_matches(';').trim();
         if let Some(inner) = quoted(value) {
             found.insert(name.to_string(), inner);
         } else if let Some(reference) = value.strip_prefix("AppConfig.") {
@@ -188,6 +204,15 @@ fn constants(text: &str) -> BTreeMap<String, String> {
         }
     }
     found
+}
+
+/// A line without its trailing comment, because a comment after a value is not part of the value.
+fn without_comment(line: &str) -> &str {
+    let trimmed = line.trim();
+    match trimmed.find("//") {
+        Some(at) => trimmed[..at].trim_end(),
+        None => trimmed,
+    }
 }
 
 /// Constants whose value is a `String.fromEnvironment` default, which is written across several lines.
@@ -353,6 +378,10 @@ pub fn unanswered(root: &Path) -> Vec<Call> {
         .into_iter()
         .map(|row| row.gateway_path.trim_end_matches('/').to_string())
         .collect();
+    // a retired service's prefix the engine answers behind: `/multimodal/tasks` at the door is `/tasks` in the engine.
+    // Without these, every address a phone reads through one of those doors looked unanswered, so a wrong one hid among
+    // them - which is how `/multimodal/tasks/` sat in the app unread.
+    let doors = crate::gateway::doors(root);
     calls(root)
         .into_iter()
         .filter(|call| {
@@ -364,7 +393,16 @@ pub fn unanswered(root: &Path) -> Vec<Call> {
             if DOORS.iter().any(|door| path == *door) || routed.contains(&path) {
                 return false;
             }
-            !answered.iter().any(|engine| matches(engine, &path))
+            if answered.iter().any(|engine| matches(engine, &path)) {
+                return false;
+            }
+            let through_a_door = doors
+                .iter()
+                .filter_map(|door| crate::gateway::through(door, &path));
+            // the address is compared as written: shaping it would trim the trailing slash, which is the defect being looked for
+            !through_a_door
+                .into_iter()
+                .any(|address| answered.iter().any(|engine| matches(engine, &address)))
         })
         .collect()
 }
@@ -386,7 +424,38 @@ fn matches(engine: &str, path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::scan;
+    use super::{constants, scan};
+
+    #[test]
+    fn a_base_written_across_two_lines_is_still_a_base() {
+        // the shape that hid the capture service: the value sits under the name, and a comment follows it
+        let text =
+            "  final String _baseUrl =\n      AppConfig.multimodalRoute; // Via API Gateway\n";
+        let bases = constants(text);
+        assert_eq!(
+            bases.get("_baseUrl").map(String::as_str),
+            Some("${AppConfig.multimodalRoute}"),
+            "a base declared on the line below its name has to resolve, or every address built from it is invisible"
+        );
+    }
+
+    #[test]
+    fn a_trailing_slash_survives_a_door() {
+        let door = crate::gateway::Door {
+            prefix: "/multimodal".to_string(),
+            keeps_prefix: false,
+        };
+        assert_eq!(
+            crate::gateway::through(&door, "/multimodal/tasks/").as_deref(),
+            Some("/tasks/"),
+            "the slash is the defect being looked for, so walking a door keeps it"
+        );
+        assert_eq!(
+            crate::gateway::through(&door, "/multimodal/tasks").as_deref(),
+            Some("/tasks")
+        );
+        assert_eq!(crate::gateway::through(&door, "/multimodalx/tasks"), None);
+    }
 
     #[test]
     fn a_prefix_is_read_out_of_the_address_the_app_builds() {
