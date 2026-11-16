@@ -16,6 +16,18 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- A capture listed in the inbox still threw, one layer down: the engine stamps a time as epoch seconds
+  (`1763300000.5`) and the parser read an ISO string, so every row failed on its first date field. A time is translated
+  on the way in, and a payload already written as an ISO string is left alone.
+
+- Deleting a capture from the phone always failed. The app demanded an empty `204` from a delete the engine answers with
+  `200` and a confirmation body, so the row stayed and the screen reported a failure that had not happened.
+
+- A correction was sent in the app's names and read back in them too. The engine records a correction as `field_name`,
+  `original_value`, `corrected_value` and `reason`, so what arrived had an empty field and a null value, and the row it
+  answered could not be parsed at all. Both directions use the engine's names now, and the kind of correction is kept as
+  the app's own.
+
 ### Changed
 
 - The audit that holds the app's addresses against the engine reads the whole app now. Two holes hid the capture break:

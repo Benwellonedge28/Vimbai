@@ -357,6 +357,11 @@ Map<String, dynamic> engineCaptureNames(Map<String, dynamic> json) {
   json.forEach((key, value) {
     named[renamed[key] ?? key] = value;
   });
+  // the engine stamps a time as epoch seconds, and the generated parser reads an ISO string, so a row straight from the
+  // engine threw on `createdAt` after the names had been mapped
+  for (final field in ['createdAt', 'updatedAt']) {
+    if (named[field] != null) named[field] = isoMoment(named[field]);
+  }
   // a capture belongs to the Book it came through, so the engine stamps no user of its own
   named['userId'] = named['userId'] ?? '';
   final version = named['aiModelVersion'];
@@ -429,7 +434,76 @@ class UserCorrectionInDB extends UserCorrection {
        );
 
   factory UserCorrectionInDB.fromJson(Map<String, dynamic> json) =>
-      _$UserCorrectionInDBFromJson(json);
+      _$UserCorrectionInDBFromJson(engineCorrectionNames(json));
   @override
   Map<String, dynamic> toJson() => _$UserCorrectionInDBToJson(this);
 }
+
+/// A moment the way the generated parsers read one.
+///
+/// The engine stamps a time as epoch seconds (`1763300000.5`), sometimes inside a string; a payload already written as an
+/// ISO string is left alone. Without this, every engine row threw on its first date field.
+String isoMoment(Object? stamped) {
+  if (stamped is num) {
+    return DateTime.fromMillisecondsSinceEpoch(
+      (stamped * 1000).round(),
+    ).toIso8601String();
+  }
+  if (stamped is String) {
+    final seconds = double.tryParse(stamped);
+    if (seconds != null) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        (seconds * 1000).round(),
+      ).toIso8601String();
+    }
+    return stamped;
+  }
+  return DateTime.fromMillisecondsSinceEpoch(0).toIso8601String();
+}
+
+/// A correction as the engine stores it, rewritten as the camelCase the generated parser reads.
+///
+/// The engine keeps a correction as `task_id`, `field_name`, `original_value`, `corrected_value`, `reason` and
+/// `created_at`, and stamps no user and no kind of correction - a person overruled a reading, which is the same act
+/// whatever it was called. Reading it as it comes keeps a correction made on the phone visible afterwards instead of
+/// throwing on the way back.
+Map<String, dynamic> engineCorrectionNames(Map<String, dynamic> json) {
+  const renamed = {
+    'task_id': 'taskId',
+    'field_name': 'fieldName',
+    'original_value': 'originalValue',
+    'corrected_value': 'correctedValue',
+    'reason': 'comment',
+    'created_at': 'submittedAt',
+  };
+  final named = <String, dynamic>{};
+  json.forEach((key, value) {
+    named[renamed[key] ?? key] = value;
+  });
+  named['taskId'] = named['taskId'] ?? '';
+  named['userId'] = named['userId'] ?? '';
+  named['fieldName'] = named['fieldName'] ?? '';
+  // the engine keeps the value as it was written, which need not be a string
+  for (final field in ['originalValue', 'correctedValue', 'comment']) {
+    final held = named[field];
+    if (held != null && held is! String) named[field] = held.toString();
+  }
+  named['correctedValue'] = named['correctedValue'] ?? '';
+  named['feedbackType'] = named['feedbackType'] ?? 'value_correction';
+  named['submittedAt'] = isoMoment(named['submittedAt']);
+  return named;
+}
+
+/// A correction written the way the engine reads one.
+///
+/// The app's own name for a correction (`feedbackType`, `comment`) is kept in the app; what the engine records is the
+/// field touched, the value it started from, the value it became and why. Sending the app's names left the field empty and
+/// the value null, so a correction was kept and told nobody what had been corrected.
+Map<String, dynamic> engineCorrectionRequest(UserCorrection correction) => {
+  'task_id': correction.taskId,
+  'field_name': correction.fieldName,
+  'original_value': correction.originalValue,
+  'corrected_value': correction.correctedValue,
+  'reason': correction.comment ?? '',
+  'feedback_type': _$UserCorrectionTypeEnumMap[correction.feedbackType],
+};

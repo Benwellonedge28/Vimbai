@@ -10,11 +10,32 @@ import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 
 class MultimodalApiService {
-  final String _baseUrl =
-      AppConfig.multimodalRoute; // Via API Gateway (offline-aware client below)
-  final ApiClient _client = ApiClient();
-  final AuthService _authService = AuthService();
-  final DatabaseHelper _localDb = DatabaseHelper();
+  /// The capture service, with its collaborators passable so a test can drive it without a server, a signed-in person or a
+  /// database. `remember` is the offline copy the inbox keeps, and is the only piece a test has to stand in for.
+  MultimodalApiService({
+    String? baseUrl,
+    ApiClient? client,
+    AuthService? auth,
+    DatabaseHelper? localDb,
+    Future<void> Function(String key, String body)? remember,
+  }) : _baseUrl = baseUrl ?? AppConfig.multimodalRoute,
+       _client = client ?? ApiClient(),
+       _authService = auth ?? AuthService(),
+       _localDb = localDb ?? DatabaseHelper(),
+       _remember = remember;
+
+  final String _baseUrl; // Via API Gateway (offline-aware client below)
+  final ApiClient _client;
+  final AuthService _authService;
+  final DatabaseHelper _localDb;
+  final Future<void> Function(String key, String body)? _remember;
+
+  /// Keeps the last payload so the inbox stays readable offline, when a way to keep it was given.
+  Future<void> _keep(String key, String body) async {
+    final remember = _remember;
+    if (remember != null) return remember(key, body);
+    await _localDb.putOfflineCache(key, body);
+  }
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await _authService.getToken();
@@ -225,7 +246,8 @@ class MultimodalApiService {
       headers: await _getHeaders(),
     );
 
-    if (response.statusCode != 204) {
+    // the engine answers a delete with 200 and its own confirmation rather than an empty 204, so one of those two
+    if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete multimodal task: ${response.body}');
     }
   }
@@ -239,7 +261,8 @@ class MultimodalApiService {
     final response = await _client.post(
       Uri.parse('$_baseUrl/tasks/$taskId/corrections'),
       headers: await _getHeaders(),
-      body: json.encode(correction.toJson()),
+      // written the way the engine reads a correction, so the field and the value it changed are the ones recorded
+      body: json.encode(engineCorrectionRequest(correction)),
     );
 
     // same shape as a capture: the engine answers 200 once the correction is kept
@@ -273,7 +296,7 @@ class MultimodalApiService {
         );
         // Cache the last-known payload so the inbox stays readable offline
         // (potentially forever until the device reconnects).
-        await _localDb.putOfflineCache(cacheKey, response.body);
+        await _keep(cacheKey, response.body);
         return records;
       } else {
         throw Exception('Failed to load Book inbox: ${response.body}');
@@ -301,7 +324,7 @@ class MultimodalApiService {
       );
 
       if (response.statusCode == 200) {
-        await _localDb.putOfflineCache(cacheKey, response.body);
+        await _keep(cacheKey, response.body);
         return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Failed to load inbox summary: ${response.body}');
