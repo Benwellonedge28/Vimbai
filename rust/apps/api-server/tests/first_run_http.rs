@@ -19,6 +19,10 @@ use tower::ServiceExt;
 struct Walk {
     router: axum::Router,
     user: String,
+    /// The session the sign-in handed back. The record routes read the person from the header, but the identity surface
+    /// reads the token, which is also what a client keeps: a walk that sent only the id would pass here and fail at the
+    /// first address a real client calls.
+    token: String,
     book: String,
 }
 
@@ -29,6 +33,7 @@ impl Walk {
         Self {
             router: vimbai_api::records::router(graph),
             user: String::new(),
+            token: String::new(),
             book: String::new(),
         }
     }
@@ -40,6 +45,9 @@ impl Walk {
             .header("content-type", "application/json");
         if !self.user.is_empty() {
             builder = builder.header("x-user-id", &self.user);
+        }
+        if !self.token.is_empty() {
+            builder = builder.header("authorization", format!("Bearer {}", self.token));
         }
         if !self.book.is_empty() {
             builder = builder.header("x-book-id", &self.book);
@@ -87,10 +95,12 @@ impl Walk {
             )
             .await;
         assert_eq!(status, StatusCode::OK, "{signed}");
-        signed["access_token"]
+        let token = signed["access_token"]
             .as_str()
             .expect("a token")
-            .to_string()
+            .to_string();
+        self.token = token.clone();
+        token
     }
 
     async fn open_book(&mut self) -> Value {
@@ -104,6 +114,29 @@ impl Walk {
         assert_eq!(status, StatusCode::OK, "{made}");
         self.book = made["book"]["id"].as_str().expect("a book id").to_string();
         made
+    }
+
+    /// The organisation the stranger set up, named and administered by them, with their Book moved inside it.
+    async fn organise(&self) -> Value {
+        let (status, opened) = self
+            .call(
+                Method::POST,
+                "/identity/organizations",
+                Some(json!({"name": "Stan's studio"})),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{opened}");
+        let organisation = opened["id"].as_str().expect("an id").to_string();
+        let (status, moved) = self
+            .call(
+                Method::PUT,
+                &format!("/identity/organizations/{organisation}/books/{}", self.book),
+                Some(json!({})),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{moved}");
+        assert_eq!(moved["organisation_id"], json!(organisation));
+        opened
     }
 
     /// The accounts the Book holds, as `GET /accounting/accounts` answers them.
@@ -231,4 +264,62 @@ async fn a_draft_entry_is_kept_and_kept_out_of_the_statements() {
     walk.post_entry("posted", "99.00").await;
     let balance = walk.trial_balance().await;
     assert_eq!(balance["total_debits"], json!("99.000000"), "{balance}");
+}
+
+#[tokio::test]
+async fn a_stranger_sets_up_an_organisation_and_their_book_lands_inside_it() {
+    // The last step of the first run, and the one with no other way back: a Book opened before there is an organisation
+    // belongs to nobody, so it can never be shared, and the person has no way to ask for one later. The walk ends here
+    // rather than at the Book, because a Book nobody can reach is not a first run that worked.
+    let mut walk = Walk::stranger();
+    walk.register_and_sign_in().await;
+    walk.open_book().await;
+    let organisation = walk.organise().await;
+    assert_eq!(organisation["name"], json!("Stan's studio"));
+    // the person who opens it is its owner, which is the membership every later question reads
+    assert_eq!(organisation["role"], json!("owner"));
+
+    let (status, listed) = walk
+        .call(Method::GET, "/identity/organizations", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed["count"], json!(1));
+    assert_eq!(listed["organizations"][0]["role"], json!("owner"));
+
+    let organisation_id = organisation["id"].as_str().expect("an id");
+    let (status, books) = walk
+        .call(
+            Method::GET,
+            &format!("/identity/organizations/{organisation_id}/books"),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{books}");
+    assert_eq!(books["count"], json!(1));
+    assert_eq!(books["books"][0]["id"], json!(walk.book));
+
+    // and the bookkeeping still answers inside the organisation: moving the Book did not move its accounts
+    let (status, entry) = walk
+        .call(
+            Method::POST,
+            "/accounting/journal-entries",
+            Some(json!({
+                "entry_date": "2026-11-15",
+                "description": "first sale after the organisation was set up",
+                "status": "posted",
+                "lines": [
+                    {"account_number": "1000", "debit": "250.00", "credit": "0"},
+                    {"account_number": "4000", "debit": "0", "credit": "250.00"},
+                ],
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{entry}");
+    let balance = walk.trial_balance().await;
+    assert_eq!(
+        balance["total_debits"],
+        json!("250.000000"),
+        "the sale has to reach the trial balance after the Book moved: {balance}"
+    );
+    assert_eq!(balance["is_balanced"], json!(true), "{balance}");
 }

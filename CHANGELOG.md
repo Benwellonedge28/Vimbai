@@ -9,6 +9,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 - The tests that hold an app screen's address against the engine now hold its shape too: the chart of accounts, the cash
   flow page and the three report screens each assert the exact keys their models read, after posting a real entry.
 
+### Added
+
+- The first-run walk ends at the organisation now, not at the Book. A Book opened before an organisation exists belongs to
+  nobody and can never be shared, so `a_stranger_sets_up_an_organisation_and_their_book_lands_inside_it` registers, signs
+  in, opens a Book, opens an organisation, moves the Book inside, and posts the first sale afterwards to show the
+  bookkeeping still answers. Writing it exposed a gap in the walk itself: it sent the person's id and never their session,
+  which the record routes accept and the identity surface does not, so the walk now carries the token a client keeps.
+
 ### Fixed
 
 - The catalogue gate passed, and the next one up failed on a clean checkout: `docs/ROADMAP.md` cites `web-frontend/` and the
