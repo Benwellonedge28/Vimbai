@@ -31,6 +31,7 @@ use mfa::accounts::{
     sign_in, AccountError, MfaMethod, Role, SignIn, User, UserStatus, CAPABILITIES,
 };
 use mfa::password;
+use mfa::recovery;
 use mfa::totp;
 use serde_json::{json, Value};
 use store::{PlatformRecords, RecordKind};
@@ -353,6 +354,15 @@ fn user_from(record: &Value) -> Option<User> {
             .and_then(Value::as_bool)
             .unwrap_or(false),
         mfa_secret: text("mfa_secret"),
+        mfa_recovery: record
+            .get("mfa_recovery")
+            .and_then(Value::as_array)
+            .map(|held| {
+                held.iter()
+                    .filter_map(|one| one.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default(),
         mfa_method: MfaMethod::parse(&text("mfa_method").unwrap_or_default())
             .unwrap_or(MfaMethod::Totp),
         password_hash: text("password_hash").unwrap_or_default(),
@@ -360,6 +370,39 @@ fn user_from(record: &Value) -> Option<User> {
         updated_at: text("updated_at").unwrap_or_default(),
         last_login: text("last_login"),
     })
+}
+
+/// Spend a recovery code: true when it was one of this person's, in which case it is removed from the stored list.
+///
+/// The order matters. The code is found first, then removed, and the account is written once, so a code that is found cannot be
+/// left usable by a failure between the two. Two callers racing with the same code are separated by the live lock the second
+/// factor already uses for spent steps.
+fn spend_recovery(graph: &GraphHandle, user: &User, code: &str) -> bool {
+    if user.mfa_recovery.is_empty() || !recovery::looks_like_one(code) {
+        return false;
+    }
+    let Some(index) = recovery::find(&user.id, code, &user.mfa_recovery) else {
+        return false;
+    };
+    let mut left = user.mfa_recovery.clone();
+    left.remove(index);
+    let written = accounts_of(graph)
+        .update(
+            &user.id,
+            &json!({ "mfa_recovery": left, "updated_at": iso(now()) }),
+        )
+        .is_ok();
+    if written {
+        audit(
+            graph,
+            &user.id,
+            "mfa.recovery_code_used",
+            "User",
+            &user.id,
+            json!({ "remaining": left.len() }),
+        );
+    }
+    written
 }
 
 fn stored_user(graph: &GraphHandle, id: &str) -> Option<User> {
@@ -993,6 +1036,9 @@ async fn verify_mfa_login(
         }
         None => spend_code(&code, &user.id),
     };
+    // A recovery code is accepted where an app code is, and dies the moment it is used: it is the way back in for a phone that
+    // is gone, so it must work, and it is a single-use credential, so it must not work twice.
+    let accepted = accepted || spend_recovery(&graph, &user, &code);
     if !accepted {
         return error(401, "Invalid MFA code");
     }
@@ -1457,12 +1503,17 @@ async fn verify_mfa_setup(
             .insert(user.id.clone(), enrolment);
         return error(400, "Invalid MFA code");
     };
+    // Turning the factor on is also the only moment the recovery codes can be shown: they are stored as hashes, so a second
+    // view is impossible by design. A person who loses the phone that holds this factor has no other way back into their own
+    // account, which is why the codes come with the confirmation rather than behind a menu they might never open.
+    let (codes, held) = recovery::issue(&user_id);
     let _ = accounts_of(&graph).update(
         &user_id,
         &json!({
             "mfa_enabled": true,
             "mfa_method": enrolment.method,
             "mfa_secret": enrolment.secret,
+            "mfa_recovery": held,
             "updated_at": iso(now()),
         }),
     );
@@ -1472,7 +1523,13 @@ async fn verify_mfa_setup(
         .spent_steps
         .insert(user.id.clone(), step);
     audit(&graph, &user_id, "mfa.enabled", "User", &user_id, json!({}));
-    Json(json!({ "ok": true, "message": "MFA enabled successfully" })).into_response()
+    Json(json!({
+        "ok": true,
+        "message": "MFA enabled successfully",
+        "recovery_codes": codes,
+        "recovery_codes_note": "Each of these works once, in place of a code from your app. Keep them somewhere other than the phone that holds the app.",
+    }))
+    .into_response()
 }
 
 async fn disable_mfa(

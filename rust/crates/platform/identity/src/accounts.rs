@@ -246,6 +246,11 @@ pub struct User {
     /// Kept out of `to_json` deliberately: it is the whole second factor, so a reader of the account would hold both
     /// halves of it. Only the checks that verify a code read it.
     pub mfa_secret: Option<String>,
+    /// The recovery codes issued when the second factor was turned on, as hashes and bound to this person.
+    ///
+    /// A lost phone must not be a locked-out account, so the list is the way back in: each code works once, in place of a code
+    /// from the app. Kept out of `to_json` for the same reason as the secret - a reader of the account would hold a way in.
+    pub mfa_recovery: Vec<String>,
     pub password_hash: String,
     pub created_at: String,
     pub updated_at: String,
@@ -441,6 +446,7 @@ pub fn register(
         mfa_enabled: false,
         mfa_method: MfaMethod::Totp,
         mfa_secret: None,
+        mfa_recovery: Vec::new(),
         password_hash,
         created_at: stamp.clone(),
         updated_at: stamp,
@@ -987,6 +993,7 @@ mod username_tests {
             organization_id: None,
             mfa_enabled: false,
             mfa_secret: None,
+            mfa_recovery: Vec::new(),
             mfa_method: MfaMethod::Totp,
             password_hash: String::new(),
             created_at: String::new(),

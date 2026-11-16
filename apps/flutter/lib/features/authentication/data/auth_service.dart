@@ -618,24 +618,33 @@ class AuthService {
     );
   }
 
-  /// Finish an enrolment with a code from the app.
-  Future<bool> confirmSecondFactor(String code) async {
-    return _sendSecondFactor(
+  /// Finish an enrolment with a code from the app, returning the recovery codes the engine hands over once.
+  ///
+  /// The codes come back with the confirmation because that is the only moment they exist in readable form - the engine keeps
+  /// hashes - and they are the way back in when the phone holding the app is gone. `null` means the code was refused, with the
+  /// reason in [lastResetError]; an empty list means the factor is on but the engine offered none.
+  Future<List<String>?> confirmSecondFactor(String code) async {
+    final response = await _postSecondFactor(
       (userId) => '$_baseUrl/identity/users/$userId/mfa/verify',
       code,
     );
+    if (response == null) return null;
+    return (response['recovery_codes'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toList();
   }
 
   /// Turn the second factor off. A code from the app is required, so a borrowed phone is not enough.
   Future<bool> disableSecondFactor(String code) async {
-    return _sendSecondFactor(
-      (userId) => '$_baseUrl/identity/users/$userId/mfa/disable',
-      code,
-    );
+    return await _postSecondFactor(
+          (userId) => '$_baseUrl/identity/users/$userId/mfa/disable',
+          code,
+        ) !=
+        null;
   }
 
   /// The one place a second-factor step is sent: both steps take a code and differ only in their address.
-  Future<bool> _sendSecondFactor(
+  Future<Map<String, dynamic>?> _postSecondFactor(
     String Function(String userId) address,
     String code,
   ) async {
@@ -644,7 +653,7 @@ class AuthService {
     final token = await UserLocalData.getAuthToken();
     if (user == null || token == null) {
       lastResetError = 'Sign in first.';
-      return false;
+      return null;
     }
     final http.Response response;
     try {
@@ -659,15 +668,15 @@ class AuthService {
     } on OfflineException {
       lastResetError =
           'The accounting engine could not be reached. Check that it is running, then try again.';
-      return false;
+      return null;
     }
     if (response.statusCode != 200) {
       lastResetError =
           _engineMessage(response.body) ??
           'The engine did not accept that code. Try the current one.';
-      return false;
+      return null;
     }
-    return true;
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> logout() async {

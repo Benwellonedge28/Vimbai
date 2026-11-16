@@ -412,6 +412,128 @@ async fn changing_someone_elses_password_is_refused() {
 }
 
 #[tokio::test]
+async fn a_recovery_code_is_the_way_back_in_when_the_phone_is_gone() {
+    // A second factor on one device is a real second factor and a real lockout waiting to happen: lose the phone and every code
+    // in the world is the wrong code. The codes handed over at enrolment are the answer, and they have two properties that
+    // matter equally - one works in place of an app code, and none works twice.
+    let graph = Arc::new(MemoryGraph::new());
+    registered_role(graph.clone(), "tariro", "correct horse battery", "admin").await;
+    let session = signed_in(graph.clone(), "tariro", "correct horse battery").await;
+    let token = session["access_token"].as_str().unwrap().to_string();
+    let id = call(graph.clone(), Method::GET, "/users/me", None, Some(&token))
+        .await
+        .1["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/setup"),
+        Some(json!({"method": "totp"})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let secret = body["secret"].as_str().unwrap().to_string();
+
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/verify"),
+        Some(json!({"code": mfa::totp::code_at(&secret, now()).unwrap()})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let codes: Vec<String> = body["recovery_codes"]
+        .as_array()
+        .expect("the codes come with the confirmation, because this is the only time they exist in readable form")
+        .iter()
+        .filter_map(|one| one.as_str().map(str::to_owned))
+        .collect();
+    assert_eq!(codes.len(), 10, "{body}");
+    assert!(
+        body["recovery_codes_note"]
+            .as_str()
+            .is_some_and(|note| !note.is_empty()),
+        "a list of codes with no word about where to keep them is a list that gets lost: {body}"
+    );
+
+    // sign-in stops at the challenge, as it does for anyone with a factor
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({"username": "tariro", "password": "correct horse battery"})),
+        None,
+    )
+    .await;
+    let challenge = body["temp_token"].as_str().unwrap().to_string();
+
+    // a code that is not one of them is refused, and says nothing about how close it was
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": challenge, "code": "AAAAA-AAAAA"})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["detail"], json!("Invalid MFA code"));
+
+    // the first recovery code finishes the sign-in on its own, with no app code at all
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": challenge, "code": codes[0]})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["access_token"]
+            .as_str()
+            .is_some_and(|one| !one.is_empty()),
+        "a recovery code is a way in, not a hint: {body}"
+    );
+
+    // and it is spent: the same code is the wrong code now
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({"username": "tariro", "password": "correct horse battery"})),
+        None,
+    )
+    .await;
+    let again = body["temp_token"].as_str().unwrap().to_string();
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": again, "code": codes[0]})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
+
+    // the next one still works, so using one code does not cost the person the rest of the list
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": again, "code": codes[1]})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+#[tokio::test]
 async fn a_second_factor_is_enrolled_from_an_authenticator_app_and_then_asked_for() {
     let graph = Arc::new(MemoryGraph::new());
     registered_role(graph.clone(), "tariro", "correct horse battery", "admin").await;

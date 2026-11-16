@@ -4,6 +4,17 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Added
+
+- Recovery codes for a second factor, because a lost phone must not be a locked-out account. Turning the factor on hands over
+  ten codes once, shown on the settings screen with a word about keeping them elsewhere; each finishes a sign-in in place of a
+  code from the app and dies the moment it is used. The engine keeps only hashes, bound to the person, so the list is shown
+  once and a stolen store cannot be used to sign in. `vimbai_sso::recovery` holds the rule - Crockford base32 without the
+  letters read as digits, ten characters in two groups, dashed, typed back with any case or spacing - and there is one place
+  that issues, one that hashes and one that finds and spends, so a second recovery path cannot drift from the first. The
+  sign-in code screen takes either kind: a field that accepted only digits could not be given a recovery code, which would have
+  left the whole path unreachable in the app.
+
 ### Fixed
 
 - The second-factor test failed once in thirty CI runs, and the fault was in the test rather than the engine. It asked for

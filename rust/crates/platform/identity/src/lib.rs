@@ -35,6 +35,7 @@ pub mod idp;
 pub mod jose;
 pub mod mfa;
 pub mod password;
+pub mod recovery;
 pub mod saml;
 pub mod session;
 pub mod store;

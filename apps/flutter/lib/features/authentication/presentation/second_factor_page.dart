@@ -64,22 +64,22 @@ class _SecondFactorPageState extends State<SecondFactorPage> {
               Text(
                 widget.authService.secondFactorMethod == null ||
                         widget.authService.secondFactorMethod == 'totp'
-                    ? 'Enter the 6-digit code from your authenticator app.'
+                    ? 'Enter the 6-digit code from your authenticator app. '
+                          'If the phone holding it is gone, enter one of your recovery codes instead.'
                     : 'Enter the code this account asked for.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _codeController,
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.text,
                 autofocus: true,
-                // a code is sorted digits, so only digits are offered; the engine still has the final say
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10),
-                ],
+                // Letters are allowed because a recovery code is letters as well as digits: a field that took only digits
+                // could not be given one, so the way back in from a lost phone was unreachable on the one screen that needed
+                // it. The engine has the final say on what a code is, and it tells the two apart by shape.
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
                 decoration: InputDecoration(
-                  labelText: 'Code',
+                  labelText: 'Code or recovery code',
                   errorText: _errorMessage,
                 ),
                 onSubmitted: (_) => _isLoading ? null : _verify(),

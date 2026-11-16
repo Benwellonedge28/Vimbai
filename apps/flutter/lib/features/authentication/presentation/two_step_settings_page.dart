@@ -31,6 +31,9 @@ class _TwoStepSettingsPageState extends State<TwoStepSettingsPage> {
   String? _error;
   String? _notice;
 
+  /// The recovery codes the engine handed over once, kept on screen until the person leaves this page.
+  List<String> _recoveryCodes = const [];
+
   @override
   void initState() {
     super.initState();
@@ -81,16 +84,20 @@ class _TwoStepSettingsPageState extends State<TwoStepSettingsPage> {
       _error = null;
       _notice = null;
     });
-    final turnedOn = await widget.authService.confirmSecondFactor(code);
+    final codes = await widget.authService.confirmSecondFactor(code);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      if (turnedOn) {
+      if (codes != null) {
         _enabled = true;
         _enrolment = null;
         _codeController.clear();
+        _recoveryCodes = codes;
+        // said plainly, because this is the only moment they can be read: the engine keeps hashes, so a person who leaves
+        // this screen without them has no way back in if the phone holding the app is lost
         _notice =
-            'Two-step sign-in is on. Next time you sign in, your authenticator app makes the six digits.';
+            'Two-step sign-in is on. Next time you sign in, your authenticator app makes the six digits. '
+            'Write the recovery codes below down now - each works once if you lose this phone, and they cannot be shown again.';
       } else {
         _error =
             widget.authService.lastResetError ??
@@ -223,6 +230,29 @@ class _TwoStepSettingsPageState extends State<TwoStepSettingsPage> {
                   if (_notice != null) ...[
                     const SizedBox(height: 16),
                     Text(_notice!),
+                  ],
+                  if (_recoveryCodes.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Recovery codes',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            for (final one in _recoveryCodes)
+                              SelectableText(
+                                one,
+                                style: const TextStyle(fontFamily: 'monospace'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                   if (_error != null) ...[
                     const SizedBox(height: 16),
