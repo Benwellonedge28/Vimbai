@@ -31,6 +31,7 @@ use mfa::accounts::{
     sign_in, AccountError, MfaMethod, Role, SignIn, User, UserStatus, CAPABILITIES,
 };
 use mfa::password;
+use mfa::totp;
 use serde_json::{json, Value};
 use store::{PlatformRecords, RecordKind};
 
@@ -115,7 +116,24 @@ struct Live {
     made: u64,
     /// identifier -> how many sign-ins have just failed for it, and when that count was last added to
     attempts: BTreeMap<String, Attempts>,
+    /// person -> the secret their authenticator app is being enrolled with, until a code confirms it
+    enrolments: BTreeMap<String, Enrolment>,
+    /// person -> the newest code step already spent, so one six-digit code is never a second way in
+    spent_steps: BTreeMap<String, u64>,
 }
+
+/// A second-factor enrolment waiting to be confirmed.
+///
+/// The secret is held here, not on the account, until a code made from it comes back: an enrolment nobody finished must not
+/// leave an account that asks for codes its owner cannot produce.
+struct Enrolment {
+    secret: String,
+    method: String,
+    expires_at: DateTime<Utc>,
+}
+
+/// How long an unfinished enrolment stays open, in minutes.
+const ENROLMENT_MINUTES: i64 = 15;
 
 /// The wrong guesses made against one identifier.
 ///
@@ -334,6 +352,7 @@ fn user_from(record: &Value) -> Option<User> {
             .get("mfa_enabled")
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        mfa_secret: text("mfa_secret"),
         mfa_method: MfaMethod::parse(&text("mfa_method").unwrap_or_default())
             .unwrap_or(MfaMethod::Totp),
         password_hash: text("password_hash").unwrap_or_default(),
@@ -936,7 +955,28 @@ async fn verify_mfa_login(
     if !user.mfa_enabled {
         return error(401, "Invalid MFA code");
     }
-    if !spend_code(&code, &user.id) {
+    let accepted = match user.mfa_secret.as_deref() {
+        Some(secret) => {
+            let at = now().timestamp().max(0) as u64;
+            match totp::verify_at(secret, &code, at, totp::DRIFT_STEPS) {
+                // within its half minute a code is still the same password: a second use must not be a second way in
+                Some(step) => {
+                    let mut held = live().lock().expect("the identity state is never poisoned");
+                    let fresh = held
+                        .spent_steps
+                        .get(&user.id)
+                        .is_none_or(|used| step > *used);
+                    if fresh {
+                        held.spent_steps.insert(user.id.clone(), step);
+                    }
+                    fresh
+                }
+                None => false,
+            }
+        }
+        None => spend_code(&code, &user.id),
+    };
+    if !accepted {
         return error(401, "Invalid MFA code");
     }
     audit(
@@ -1287,8 +1327,40 @@ async fn setup_mfa(
     let sent = fields(None, body.as_deref());
     let method = MfaMethod::parse(&sent.get("method").cloned().unwrap_or_default())
         .unwrap_or(MfaMethod::Totp);
-    // the shipped answer named a TOTP secret only when TOTP was asked for
-    let enrolment = (method == MfaMethod::Totp).then(random_token);
+    if method == MfaMethod::Totp {
+        // An authenticator app is the one delivery channel that needs neither a mail server nor a phone number, so this is
+        // the method that can be finished by a real person on a real device. The secret is handed over once, here, and the
+        // account only starts asking for codes after one made from it comes back.
+        let secret = totp::secret();
+        live()
+            .lock()
+            .expect("the identity state is never poisoned")
+            .enrolments
+            .insert(
+                user.id.clone(),
+                Enrolment {
+                    secret: secret.clone(),
+                    method: method.as_str().to_string(),
+                    expires_at: now() + Duration::minutes(ENROLMENT_MINUTES),
+                },
+            );
+        audit(
+            &graph,
+            &user.id,
+            "mfa.setup",
+            "User",
+            &user.id,
+            json!({ "method": method.as_str() }),
+        );
+        return Json(json!({
+            "mfa_method": method.as_str(),
+            "secret": secret,
+            "provisioning_uri": totp::provisioning_uri(&user.email, &secret),
+            "code_sent": false,
+            "message": "Add this key to your authenticator app, then enter the six digits it shows.",
+        }))
+        .into_response();
+    }
     let code = raise_code(&user.id);
     audit(
         &graph,
@@ -1300,7 +1372,7 @@ async fn setup_mfa(
     );
     Json(json!({
         "mfa_method": method.as_str(),
-        "secret": enrolment,
+        "secret": Value::Null,
         "code_sent": true,
         "message": format!("MFA code sent via {}", method.as_str()),
     }))
@@ -1321,21 +1393,67 @@ async fn verify_mfa_setup(
     };
     let sent = fields(None, body.as_deref());
     let code = sent.get("code").cloned().unwrap_or_default();
-    // the shipped setup took the method from the verifying request, not from the one that raised the code
-    let method = MfaMethod::parse(&sent.get("method").cloned().unwrap_or_default())
-        .unwrap_or(MfaMethod::Totp);
 
-    if !spend_code(&code, &user.id) {
+    // An authenticator enrolment is confirmed against the secret that enrolment holds, not against a code raised into an
+    // audit record: the person has the app, and only a code they can see proves it.
+    let enrolment = {
+        let mut held = live().lock().expect("the identity state is never poisoned");
+        match held.enrolments.get(&user_id) {
+            Some(one) if now() <= one.expires_at => held.enrolments.remove(&user_id),
+            Some(_) => {
+                held.enrolments.remove(&user_id);
+                return error(400, "The enrolment expired. Start again.");
+            }
+            None => None,
+        }
+    };
+    let Some(enrolment) = enrolment else {
+        // no enrolment waiting: this is the raised-code method, whose code was recorded when it was set up
+        let method = MfaMethod::parse(&sent.get("method").cloned().unwrap_or_default())
+            .unwrap_or(user.mfa_method);
+        if !spend_code(&code, &user.id) {
+            return error(400, "Invalid MFA code");
+        }
+        let _ = accounts_of(&graph).update(
+            &user_id,
+            &json!({
+                "mfa_enabled": true,
+                "mfa_method": method.as_str(),
+                "updated_at": iso(now()),
+            }),
+        );
+        audit(&graph, &user_id, "mfa.enabled", "User", &user_id, json!({}));
+        return Json(json!({ "ok": true, "message": "MFA enabled successfully" })).into_response();
+    };
+
+    let Some(step) = totp::verify_at(
+        &enrolment.secret,
+        &code,
+        now().timestamp().max(0) as u64,
+        totp::DRIFT_STEPS,
+    ) else {
+        // the enrolment stays open so a mistyped digit is not a restart, but only for its quarter of an hour
+        live()
+            .lock()
+            .expect("the identity state is never poisoned")
+            .enrolments
+            .insert(user.id.clone(), enrolment);
         return error(400, "Invalid MFA code");
-    }
+    };
     let _ = accounts_of(&graph).update(
         &user_id,
         &json!({
             "mfa_enabled": true,
-            "mfa_method": method.as_str(),
+            "mfa_method": enrolment.method,
+            "mfa_secret": enrolment.secret,
             "updated_at": iso(now()),
         }),
     );
+    live()
+        .lock()
+        .expect("the identity state is never poisoned")
+        .spent_steps
+        .insert(user.id.clone(), step);
     audit(&graph, &user_id, "mfa.enabled", "User", &user_id, json!({}));
     Json(json!({ "ok": true, "message": "MFA enabled successfully" })).into_response()
 }
@@ -1354,7 +1472,18 @@ async fn disable_mfa(
     };
     let sent = fields(None, body.as_deref());
     let code = sent.get("code").cloned().unwrap_or_default();
-    if !spend_code(&code, &user.id) {
+    // Turning the second factor off needs a code from it, or the second factor was never needed: someone holding an unlocked
+    // phone must not be able to take it off and walk through the door with only a password.
+    let from_app = match user.mfa_secret.as_deref() {
+        Some(secret) => totp::verify_at(
+            secret,
+            &code,
+            now().timestamp().max(0) as u64,
+            totp::DRIFT_STEPS,
+        ),
+        None => None,
+    };
+    if from_app.is_none() && !spend_code(&code, &user.id) {
         return error(400, "Invalid MFA code");
     }
     let _ = accounts_of(&graph).update(
@@ -1362,6 +1491,7 @@ async fn disable_mfa(
         &json!({
             "mfa_enabled": false,
             "mfa_method": Value::Null,
+            "mfa_secret": Value::Null,
             "updated_at": iso(now()),
         }),
     );

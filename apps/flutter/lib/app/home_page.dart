@@ -5,6 +5,7 @@ import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/change_password_page.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/two_step_settings_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart'; // NEW
@@ -322,6 +323,15 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const OrganisationPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.shield_outlined),
+            tooltip: 'Two-step sign-in',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TwoStepSettingsPage(authService: _authService),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.lock_reset),

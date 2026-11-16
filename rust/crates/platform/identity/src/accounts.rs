@@ -241,6 +241,11 @@ pub struct User {
     pub permissions: Vec<String>,
     pub mfa_enabled: bool,
     pub mfa_method: MfaMethod,
+    /// The shared secret an authenticator app was enrolled with, when the second factor is one.
+    ///
+    /// Kept out of `to_json` deliberately: it is the whole second factor, so a reader of the account would hold both
+    /// halves of it. Only the checks that verify a code read it.
+    pub mfa_secret: Option<String>,
     pub password_hash: String,
     pub created_at: String,
     pub updated_at: String,
@@ -398,6 +403,7 @@ pub fn register(
         organization_id: wanted.organization_id,
         mfa_enabled: false,
         mfa_method: MfaMethod::Totp,
+        mfa_secret: None,
         password_hash,
         created_at: stamp.clone(),
         updated_at: stamp,

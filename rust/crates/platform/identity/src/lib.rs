@@ -38,6 +38,7 @@ pub mod password;
 pub mod saml;
 pub mod session;
 pub mod store;
+pub mod totp;
 
 #[cfg(test)]
 mod fixtures;

@@ -33,6 +33,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- The second factor was unusable by a real person: the engine raised six digits and had nowhere to send them -
+  they existed only in an audit record - so an account that asked for a code could never be opened. It is now an
+  authenticator app (RFC 6238, SHA-1, six digits, thirty seconds, the parameters every app agrees on), via a new
+  `vimbai_sso::totp` module that also reproduces the RFC's own test vectors. Enrolment hands over the key once as text
+  and as an `otpauth://` address, the account only starts asking for codes after one made from that key comes back, and
+  a code is spent by its step so a second use inside its half minute is refused. Turning the factor off asks for a code
+  too, because an unlocked phone is not proof of anything. The phone gains a shield button on Home; codes the engine
+  raised are still accepted for the other methods.
 - There was no way to change your own password on the phone, though the engine has answered
   `users/{id}/change-password` all along. Home now has a lock button: current password, new password twice, and the
   engine's own reasons for a wrong current password or a missed rule. A completed change ends the session on purpose -

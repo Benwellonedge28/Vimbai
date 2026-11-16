@@ -23,6 +23,19 @@ import 'package:vimbai_mobile_client/core/offline/sync_service.dart'; // For API
 ///        or 200 {mfa_required: true, method, temp_token}
 ///   GET  /identity/users/me        Bearer
 ///     -> the authenticated user's profile
+/// What the engine answers when an enrolment is opened: the key, and the address an app can read.
+class SecondFactorEnrolment {
+  const SecondFactorEnrolment({
+    required this.secret,
+    required this.provisioningUri,
+    required this.message,
+  });
+
+  final String secret;
+  final String provisioningUri;
+  final String message;
+}
+
 class AuthService {
   final ApiClient _client = ApiClient();
 
@@ -535,6 +548,125 @@ class AuthService {
       return false;
     }
     await logout();
+    return true;
+  }
+
+  /// Whether this account currently asks for a second factor.
+  Future<bool> secondFactorEnabled() async {
+    final user = await UserLocalData.getUser();
+    final token = await UserLocalData.getAuthToken();
+    if (user == null || token == null) return false;
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/identity/users/${user.id}'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) return false;
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final record = body['user'] is Map ? body['user'] as Map : body;
+      return record['mfa_enabled'] == true;
+    } on Exception {
+      return false;
+    }
+  }
+
+  /// Open an enrolment and take the key an authenticator app needs.
+  ///
+  /// The engine holds the secret until a code made from it comes back, so an enrolment nobody finishes leaves the account
+  /// exactly as it was.
+  Future<SecondFactorEnrolment?> beginSecondFactor() async {
+    lastResetError = null;
+    final user = await UserLocalData.getUser();
+    final token = await UserLocalData.getAuthToken();
+    if (user == null || token == null) {
+      lastResetError = 'Sign in first.';
+      return null;
+    }
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/users/${user.id}/mfa/setup'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'method': 'totp'}),
+      );
+    } on OfflineException {
+      lastResetError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return null;
+    }
+    if (response.statusCode != 200) {
+      lastResetError =
+          _engineMessage(response.body) ??
+          'The engine would not start an enrolment. Try again.';
+      return null;
+    }
+    final body = json.decode(response.body) as Map<String, dynamic>;
+    final secret = body['secret'] as String?;
+    if (secret == null || secret.isEmpty) {
+      lastResetError = 'The engine did not hand over a key. Try again.';
+      return null;
+    }
+    return SecondFactorEnrolment(
+      secret: secret,
+      provisioningUri: (body['provisioning_uri'] as String?) ?? '',
+      message:
+          (body['message'] as String?) ??
+          'Add this key to your authenticator app, then enter the six digits it shows.',
+    );
+  }
+
+  /// Finish an enrolment with a code from the app.
+  Future<bool> confirmSecondFactor(String code) async {
+    return _sendSecondFactor(
+      (userId) => '$_baseUrl/identity/users/$userId/mfa/verify',
+      code,
+    );
+  }
+
+  /// Turn the second factor off. A code from the app is required, so a borrowed phone is not enough.
+  Future<bool> disableSecondFactor(String code) async {
+    return _sendSecondFactor(
+      (userId) => '$_baseUrl/identity/users/$userId/mfa/disable',
+      code,
+    );
+  }
+
+  /// The one place a second-factor step is sent: both steps take a code and differ only in their address.
+  Future<bool> _sendSecondFactor(
+    String Function(String userId) address,
+    String code,
+  ) async {
+    lastResetError = null;
+    final user = await UserLocalData.getUser();
+    final token = await UserLocalData.getAuthToken();
+    if (user == null || token == null) {
+      lastResetError = 'Sign in first.';
+      return false;
+    }
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse(address(user.id)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'code': code}),
+      );
+    } on OfflineException {
+      lastResetError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+    if (response.statusCode != 200) {
+      lastResetError =
+          _engineMessage(response.body) ??
+          'The engine did not accept that code. Try the current one.';
+      return false;
+    }
     return true;
   }
 

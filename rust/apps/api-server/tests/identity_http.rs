@@ -105,25 +105,6 @@ async fn registered_role(
     body
 }
 
-/// The six digits the last named action raised, read from the audit trail by an administrator. This deployment has no
-/// email or SMS channel, so the raise is recorded rather than sent - which is also how an operator helps someone who
-/// is locked out of their second factor.
-async fn latest_code(graph: Arc<MemoryGraph>, token: &str, action: &str) -> String {
-    let (status, body) = call(
-        graph,
-        Method::GET,
-        &format!("/audit-logs?action={action}&limit=1"),
-        None,
-        Some(token),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    body["logs"][0]["details"]["code"]
-        .as_str()
-        .expect("the raise was recorded with its code")
-        .to_string()
-}
-
 #[tokio::test]
 async fn the_door_opens_on_a_health_check_and_a_new_account_can_sign_in() {
     let graph = Arc::new(MemoryGraph::new());
@@ -431,10 +412,8 @@ async fn changing_someone_elses_password_is_refused() {
 }
 
 #[tokio::test]
-async fn a_second_factor_is_required_before_a_session_is_handed_out() {
+async fn a_second_factor_is_enrolled_from_an_authenticator_app_and_then_asked_for() {
     let graph = Arc::new(MemoryGraph::new());
-    // an administrator, because reading the audit trail is how this deployment hands a code over: there is no
-    // channel to send one on, so the raise is recorded and an operator reads it
     registered_role(graph.clone(), "tariro", "correct horse battery", "admin").await;
     let session = signed_in(graph.clone(), "tariro", "correct horse battery").await;
     let token = session["access_token"].as_str().unwrap().to_string();
@@ -443,7 +422,8 @@ async fn a_second_factor_is_required_before_a_session_is_handed_out() {
         .1;
     let id = me["id"].as_str().unwrap().to_string();
 
-    // turn it on the shipped way: a code is raised, then the code turns it on
+    // Enrolment hands over the key an authenticator app needs and nothing else: no code is raised, because the person is
+    // holding the thing that makes codes.
     let (status, body) = call(
         graph.clone(),
         Method::POST,
@@ -452,18 +432,38 @@ async fn a_second_factor_is_required_before_a_session_is_handed_out() {
         Some(&token),
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["mfa_method"], json!("totp"));
-    assert!(body["secret"]
-        .as_str()
-        .is_some_and(|secret| !secret.is_empty()));
-    let raised = latest_code(graph.clone(), &token, "mfa.setup").await;
+    let secret = body["secret"].as_str().unwrap().to_string();
+    assert!(!secret.is_empty(), "{body}");
+    assert_eq!(body["code_sent"], json!(false));
+    assert!(
+        body["provisioning_uri"]
+            .as_str()
+            .is_some_and(|uri| uri.starts_with("otpauth://totp/") && uri.contains(&secret)),
+        "an app is enrolled by the address, not by retyping the secret: {body}"
+    );
 
+    // a code made from another key is refused, and the enrolment stays open
     let (status, body) = call(
         graph.clone(),
         Method::POST,
         &format!("/users/{id}/mfa/verify"),
-        Some(json!({"code": raised, "method": "totp"})),
+        Some(
+            json!({"code": mfa::totp::code_at("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", now()).unwrap()}),
+        ),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    // the code the app shows is what turns it on
+    let code = mfa::totp::code_at(&secret, now()).unwrap();
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/verify"),
+        Some(json!({"code": code})),
         Some(&token),
     )
     .await;
@@ -499,7 +499,18 @@ async fn a_second_factor_is_required_before_a_session_is_handed_out() {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
-    // a code that was never raised is refused, and so is the access token used as if it were a challenge
+    // the code just spent turning the factor on is not a second way in
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": challenge, "code": code})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
+
+    // a made-up code is refused
     let (status, body) = call(
         graph.clone(),
         Method::POST,
@@ -510,6 +521,76 @@ async fn a_second_factor_is_required_before_a_session_is_handed_out() {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(body["detail"], json!("Invalid MFA code"));
+
+    // the next code the app shows finishes the sign-in, and a real session comes back
+    let later = now() + 31;
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login/verify-mfa",
+        Some(json!({"temp_token": challenge, "code": mfa::totp::code_at(&secret, later).unwrap()})),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["access_token"]
+            .as_str()
+            .is_some_and(|one| !one.is_empty()),
+        "the second factor finishes the sign-in it was asked for: {body}"
+    );
+
+    // turning it off needs a code from it, so an unlocked phone is not enough
+    let token = body["access_token"].as_str().unwrap().to_string();
+    let (status, _) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/disable"),
+        Some(json!({"code": "000000"})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        &format!("/users/{id}/mfa/disable"),
+        Some(json!({"code": mfa::totp::code_at(&secret, now() + 31).unwrap()})),
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({ "username": "tariro", "password": "correct horse battery" })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/users/login",
+        Some(json!({ "username": "tariro", "password": "correct horse battery" })),
+        None,
+    )
+    .await;
+    assert!(
+        body["access_token"]
+            .as_str()
+            .is_some_and(|one| !one.is_empty()),
+        "with the factor off the password alone opens the door: {body}"
+    );
+}
+
+/// Seconds since the epoch, the unit a one-time code is counted in.
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("the clock is after 1970")
+        .as_secs()
 }
 
 #[tokio::test]
