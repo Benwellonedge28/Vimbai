@@ -16,6 +16,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- Opening the first Book while the engine could not be reached failed as a raw socket error: Book calls ran on their own
+  private connection instead of the app's shared client, so an unreachable engine never became the app's offline failure
+  and none of the shared timeout or retry rules applied to them. They go through the shared client now, and a test opens
+  a Book with no engine to prove it reads as offline, plus one holding the engine's own answer including the device
+  registration that follows.
 - The inbox said "No incomplete records. Capture anything..." beside its own "could not load inbox" banner, because a
   failed read leaves the list empty exactly as an empty Book does. It keeps quiet now while a read has failed, matching
   the rule the organisation page already follows, and a local count that cannot be read no longer stops the inbox from

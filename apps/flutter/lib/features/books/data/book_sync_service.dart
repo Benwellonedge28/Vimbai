@@ -23,6 +23,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:pointycastle/export.dart';
 import 'package:sqflite/sqflite.dart';
@@ -42,7 +43,9 @@ class BookSyncService {
     defaultValue: '${AppConfig.apiUrl}/book-sync',
   );
 
-  http.Client _client = http.Client();
+  // Every Book call goes through the app's own client, so an unreachable engine becomes the app's typed offline failure
+  // with the standard timeout rather than a raw socket error from a second, separately-behaved connection.
+  final ApiClient _client = ApiClient();
   String? _authToken;
 
   final Uuid _uuid = const Uuid();
@@ -584,7 +587,7 @@ class BookSyncService {
   }
 
   void dispose() {
-    _client.close();
+    // the connection itself belongs to the app's shared client, which outlives this service
     for (final db in _bookDbs.values) {
       db.close();
     }
