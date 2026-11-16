@@ -405,7 +405,8 @@ void main() {
         return http.Response('{}', 200, headers: json);
       });
       service.setAuthToken('a-token');
-      service.forgetPublishedKey(); // earlier tests in this file already published once
+      service
+          .forgetPublishedKey(); // earlier tests in this file already published once
 
       // a person who has just signed up owns no Book, and still has to be somebody an invitation can reach
       expect(await service.refreshBooksFromServer(), isEmpty);

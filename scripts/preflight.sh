@@ -80,12 +80,15 @@ if [ "$want_rust" = 1 ]; then
 
   # The gateway is Go, and its tests are the gateway's own gate. This script runs them where a toolchain is installed and
   # says so where it is not, because "CI runs them" is only true if CI can fail on them.
+  unchecked="${unchecked:-}"
   if command -v go >/dev/null 2>&1; then
     step "gateway tests"
     (cd gateway/go && go vet ./... && go test ./...) || fail "go test in gateway/go"
   else
     step "gateway tests"
     printf '    skipped: no go on PATH (the core pipeline runs them)\n'
+    unchecked="$unchecked gateway"
+
   fi
 
   # The Flutter app has its own toolchain, and this script does not install one: where flutter is on PATH the app's checks run
@@ -101,6 +104,8 @@ if [ "$want_rust" = 1 ]; then
   else
     step "flutter app checks"
     printf '    skipped: no flutter on PATH (the test-flutter job in ci-main.yml runs them)\n'
+    unchecked="$unchecked app"
+
   fi
 
   step "workspace tests"
@@ -117,7 +122,13 @@ if [ "$want_rust" = 1 ]; then
 fi
 
 if [ "$status" = 0 ]; then
-  printf '\npreflight clean\n'
+  # A skip reads like a pass, and this script has twice been called clean for work the pipeline then rejected on formatting.
+  # Say plainly which checks never ran, so "clean" cannot be mistaken for "everything was checked".
+  if [ -n "${unchecked:-}" ]; then
+    printf '\npreflight clean, except these were not checked (no toolchain on PATH):%s\n' "$unchecked"
+  else
+    printf '\npreflight clean\n'
+  fi
 else
   printf '\npreflight found problems above\n'
 fi
