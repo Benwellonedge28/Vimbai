@@ -442,11 +442,15 @@ class _BooksPageState extends State<BooksPage> {
       await _sync.acceptInvite(book.id);
       await _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Accept failed: $e')));
-      }
+      // a refusal that came with a sentence for a person is shown as it stands; anything else is named as a failure.
+      // Either way the list is reloaded, because an accepted invitation whose key could not be opened is a real
+      // membership on the server - leaving the row looking "invited" would invite a second tap that cannot help.
+      final said = e is BookKeyUnavailableException
+          ? e.message
+          : 'Accept failed: $e';
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(said)));
     }
   }
 

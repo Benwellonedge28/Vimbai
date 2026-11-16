@@ -32,6 +32,17 @@ import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 
+/// An invitation that was accepted but left this phone unable to read the Book.
+///
+/// Its text is a sentence for a person, so a screen can show it as it stands: the difference between "the server said no"
+/// and "you are in, but this device cannot open it" is the whole difference between trying again and asking the owner.
+class BookKeyUnavailableException implements Exception {
+  const BookKeyUnavailableException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class BookSyncService {
   BookSyncService._();
   static final BookSyncService instance = BookSyncService._();
@@ -662,8 +673,42 @@ class BookSyncService {
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     // the key arrives wrapped for this device, so it is opened here and never stored in a form the server could read
     final wrapped = j['wrapped_book_key'] as String? ?? '';
-    final bookKey = wrapped.isEmpty ? '' : await unwrapBookKey(wrapped);
     final meta = await _meta();
+    if (wrapped.isEmpty) {
+      // joined, but nothing to open: the membership is real on the server, so the phone must not stay "invited" and
+      // pretend a second tap will fix it. It says so instead, and the owner has to invite this device again.
+      await meta.update(
+        'registry',
+        {'status': 'active', 'book_key': ''},
+        where: 'book_id = ?',
+        whereArgs: [bookId],
+      );
+      throw const BookKeyUnavailableException(
+        'You joined this Book, but the invitation brought no key for this phone, so nothing in it can be read here. '
+        'Ask whoever shared it to invite you again.',
+      );
+    }
+    final String bookKey;
+    try {
+      bookKey = await unwrapBookKey(wrapped);
+    } catch (failure) {
+      // the key was sealed for another device - an invitation made before this phone had a key, for instance. The
+      // membership is already active, so the Book is recorded as joined-and-unreadable rather than left looking
+      // acceptable, and the person is told the one thing that fixes it.
+      await meta.update(
+        'registry',
+        {'status': 'active', 'book_key': ''},
+        where: 'book_id = ?',
+        whereArgs: [bookId],
+      );
+      print(
+        'Accepting $bookId: the wrapped key could not be opened ($failure).',
+      );
+      throw const BookKeyUnavailableException(
+        'You joined this Book, but its key was sealed for a different device, so nothing in it can be read here. '
+        'Ask whoever shared it to send the invitation again now that this phone has its own key.',
+      );
+    }
     await meta.update(
       'registry',
       {'status': 'active', 'book_key': bookKey},

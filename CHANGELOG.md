@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- Accepting an invitation the phone could not open used to end in silence: the membership became active on the server,
+  the Book key would not unwrap, and the row stayed "invited" as if another tap would help. Accepting now separates the
+  two outcomes that matter - the server refused, or you are in but this device cannot read it - and says the one that
+  fixes the second ("ask whoever shared it to send the invitation again"). The row is recorded as joined-and-unreadable
+  instead of looking acceptable, and no unopenable key is stored as if it had opened. Two app tests, both failing on the
+  old code.
 - An account with a second factor was a dead end on a phone: the app said it could not do this and sent the person to
   another client, though the engine has always accepted the code. There is now a second-step screen: the password opens
   it, the code finishes the sign-in, and the session is kept through the same one path a password-only sign-in uses

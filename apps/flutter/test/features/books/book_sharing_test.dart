@@ -431,4 +431,146 @@ void main() {
       expect(published, 2, reason: 'the second phone tried to publish too');
     },
   );
+
+  /// An invitation the phone cannot open must not look like one it can.
+  ///
+  /// Accepting flips the membership to active on the server, so a key that will not open leaves a real member who can read
+  /// nothing. The row used to stay "invited" with no explanation, which invites a second tap that cannot help and never
+  /// says the one thing that fixes it.
+  test(
+    'an invitation sealed for another device is joined and said to be unreadable',
+    () async {
+      final somebodyElse = _person();
+      final stranger = OAEPEncoding(RSAEngine())
+        ..init(
+          true,
+          PublicKeyParameter<RSAPublicKey>(
+            somebodyElse.publicKey as RSAPublicKey,
+          ),
+        );
+      final wrappedForThem = base64Encode(
+        stranger.process(
+          Uint8List.fromList(
+            utf8.encode('Zm9yLXRlc3Rpbmctb25seS1hZXMtMjU2LWtleS0xMjM0'),
+          ),
+        ),
+      );
+
+      ApiClient.transport = MockClient((request) async {
+        final json = {'content-type': 'application/json'};
+        if (request.url.path.endsWith('/books')) {
+          return http.Response(
+            jsonEncode({
+              'books': [
+                {
+                  'id': 'book-9',
+                  'name': 'Somebody else\'s Books',
+                  'tier': 'business',
+                  'description': '',
+                  'folder': '',
+                  'your_role': 'bookkeeper',
+                  'membership_status': 'invited',
+                },
+              ],
+            }),
+            200,
+            headers: json,
+          );
+        }
+        if (request.url.path.endsWith('/books/book-9/members/accept')) {
+          return http.Response(
+            jsonEncode({'wrapped_book_key': wrappedForThem}),
+            200,
+            headers: json,
+          );
+        }
+        return http.Response('{}', 200, headers: json);
+      });
+      service.setAuthToken('a-token');
+
+      await service.refreshBooksFromServer();
+      await expectLater(
+        service.acceptInvite('book-9'),
+        throwsA(
+          isA<BookKeyUnavailableException>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('different device'),
+              contains('send the invitation again'),
+            ),
+          ),
+        ),
+      );
+
+      final books = await service.localBooks();
+      final joined = books.firstWhere((b) => b.id == 'book-9');
+      expect(
+        joined.membershipStatus,
+        'active',
+        reason:
+            'the membership is real on the server, so the phone must not keep offering Accept',
+      );
+      expect(
+        await service.bookKeyFor('book-9'),
+        isEmpty,
+        reason: 'a key that would not open is not stored as if it had',
+      );
+    },
+  );
+
+  test(
+    'an invitation that brings no key is said so, not stored empty',
+    () async {
+      ApiClient.transport = MockClient((request) async {
+        final json = {'content-type': 'application/json'};
+        if (request.url.path.endsWith('/books')) {
+          return http.Response(
+            jsonEncode({
+              'books': [
+                {
+                  'id': 'book-8',
+                  'name': 'Shared Books',
+                  'tier': 'business',
+                  'description': '',
+                  'folder': '',
+                  'your_role': 'bookkeeper',
+                  'membership_status': 'invited',
+                },
+              ],
+            }),
+            200,
+            headers: json,
+          );
+        }
+        if (request.url.path.endsWith('/books/book-8/members/accept')) {
+          return http.Response(
+            jsonEncode({'wrapped_book_key': ''}),
+            200,
+            headers: json,
+          );
+        }
+        return http.Response('{}', 200, headers: json);
+      });
+      service.setAuthToken('a-token');
+
+      await service.refreshBooksFromServer();
+      await expectLater(
+        service.acceptInvite('book-8'),
+        throwsA(
+          isA<BookKeyUnavailableException>().having(
+            (e) => e.message,
+            'message',
+            contains('invite you again'),
+          ),
+        ),
+      );
+
+      final joined = (await service.localBooks()).firstWhere(
+        (b) => b.id == 'book-8',
+      );
+      expect(joined.membershipStatus, 'active');
+      expect(await service.bookKeyFor('book-8'), isEmpty);
+    },
+  );
 }
