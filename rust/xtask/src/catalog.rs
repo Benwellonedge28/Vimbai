@@ -373,6 +373,12 @@ It is not a deployment plan either. `engine` says where the arithmetic runs, not
 
 /// Write the catalogue, or with `check` only report whether the committed copy is current.
 pub fn write(root: &Path, check: bool) -> Result<(), String> {
+    // Refuse rather than write a catalogue that leaves out every address the retired services published: those are read out
+    // of history, and a shallow clone has none of it.
+    if let Some(reason) = crate::gateway::needs_full_history(root) {
+        return Err(reason);
+    }
+
     let mut expected: Vec<(PathBuf, String)> = vec![
         (
             root.join("catalog/services/catalog.yaml"),

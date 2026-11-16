@@ -113,3 +113,16 @@ fn no_service_is_reported_as_python() {
         "the catalogue reports Python services: {python:?}"
     );
 }
+
+#[test]
+fn the_checkout_carries_the_history_the_catalogue_is_read_from() {
+    // Two tests above compare the committed catalogue against what the tree generates, and part of what they generate is
+    // read out of history: the last published address of each retired service. A shallow clone has no history to read, so
+    // those addresses vanish and the two files disagree - which reads as "the catalogue is stale" and sends the reader
+    // running `cargo run -p xtask -- catalog`, the one thing that must not be done about it. Naming the real requirement
+    // here means the failure says what to change.
+    let root = repo_root();
+    if let Some(reason) = xtask::gateway::needs_full_history(&root) {
+        panic!("{reason}");
+    }
+}

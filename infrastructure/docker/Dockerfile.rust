@@ -28,7 +28,7 @@ ARG BIN
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && apt-get clean
 WORKDIR /app
 # one name inside the image, so the entry point does not have to know which of the three it is
-COPY --from=build /src/target/release/${BIN} /usr/local/bin/app
+COPY --from=build /src/rust/target/release/${BIN} /usr/local/bin/app
 # The engine and the sync server answer /health whether or not a store or a database is configured, so one probe serves
 # both; the worker serves no port, so its compose service turns this probe off.
 ENV HEALTH_PORT=8099

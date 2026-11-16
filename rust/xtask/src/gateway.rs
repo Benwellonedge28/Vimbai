@@ -275,6 +275,27 @@ pub fn last_main(root: &Path, service: &str) -> Option<String> {
     git(root, &["show", &format!("{parent}:{path}")])
 }
 
+/// Whether this checkout is shallow.
+///
+/// It matters because part of what the catalogue reports is read out of history: an address a retired service published is
+/// taken from its last `main.py`, which lives in the commit before the deletion. A shallow clone has neither that commit nor
+/// its parent, so every one of those addresses silently comes back empty and the catalogue is written wrong rather than
+/// failing. A caller that derives anything from history asks this first.
+pub fn shallow(root: &Path) -> bool {
+    git(root, &["rev-parse", "--is-shallow-repository"])
+        .map(|answer| answer.trim() == "true")
+        .unwrap_or(false)
+}
+
+/// The reason a shallow checkout cannot be read for history, in the words of the fix.
+pub fn needs_full_history(root: &Path) -> Option<String> {
+    shallow(root).then(|| {
+        "this checkout is shallow, so the last published addresses of the retired services cannot be read: the catalogue is\
+         \nderived from them. Check out with full history (actions/checkout with fetch-depth: 0) and try again."
+            .to_string()
+    })
+}
+
 fn git(root: &Path, arguments: &[&str]) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")

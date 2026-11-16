@@ -11,6 +11,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- `Calculation Library CI` reached its test step for the first time and the catalogue gate failed: 25 services reported as
+  Python and their addresses missing. The checkout was depth 1, and part of what the catalogue reports - each retired
+  service's last published addresses - is read from the commit before its deletion, so a shallow clone generated a smaller
+  catalogue instead of failing. That job now checks out full history, and the shallow case refuses rather than writes: the
+  catalogue command says what to change, and a test names the requirement so the failure reads as "fetch history" rather
+  than "the catalogue is stale", which is the one wrong fix. Proven in a depth-1 clone, where the guard fires, and a full
+  one, where the eight catalogue tests pass.
+- `docker-publish` then failed all three Rust images at the runtime stage, copying `/src/target/release/<bin>`, because the
+  build now happens in `/src/rust`. The copy follows.
 - `docker-publish` built two of its three Rust images and failed the sync server, which is the first time the workflow has
   run at all. The sync server depends on `vimbai_gateway`, which compiles in `gateway/go/config/services.json`, and the build
   context was `rust/`, which cannot see that file. The context is now the repository root with a `.dockerignore` keeping the

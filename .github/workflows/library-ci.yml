@@ -33,6 +33,11 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The catalogue is partly read out of history: each retired service's last published addresses live in the commit
+          # before its deletion. A depth-1 checkout has neither that commit nor its parent, and the catalogue tests then
+          # compare a full file against an empty one.
+          fetch-depth: 0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
