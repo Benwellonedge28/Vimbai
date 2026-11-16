@@ -16,6 +16,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   model maps those names onto the ones it reads and leaves a payload already in camelCase alone, so a capture queued on
   the phone and a capture read back from the engine both load.
 
+- Book payloads were sealed under a GCM nonce that never changed: every payload a Book ever held used twelve zero bytes,
+  so two entries under one key shared a keystream and the tag became forgeable. Each payload now carries a fresh random
+  nonce in front of the ciphertext under a four-byte mark, an unmarked payload is read the old way so existing Books still
+  open, and the AES core is the constant-time one rather than the deprecated table-driven engine. Five tests hold it: a
+  round trip, the same data sealed twice giving two ciphertexts (it failed on the old code), an old payload still opening,
+  a tampered payload refused, and a payload sealed under another Book key refused.
 - Opening the first Book while the engine could not be reached failed as a raw socket error: Book calls ran on their own
   private connection instead of the app's shared client, so an unreachable engine never became the app's offline failure
   and none of the shared timeout or retry rules applied to them. They go through the shared client now, and a test opens

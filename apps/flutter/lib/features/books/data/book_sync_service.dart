@@ -148,36 +148,73 @@ class BookSyncService {
   Uint8List _aesKey(String bookKeyB64) =>
       Uint8List.fromList(base64Decode(bookKeyB64));
 
-  /// AES-256-GCM encrypt a JSON payload with the Book key.
+  /// The four bytes that mark a payload as carrying its own nonce.
+  ///
+  /// A GCM nonce must never repeat under one key, and the first version of this file used a fixed nonce of twelve zero
+  /// bytes for every payload written under a Book key. Reuse of a GCM nonce is not a weakness that degrades: it hands an
+  /// observer the exclusive-or of two plaintexts and the material to forge the tag, so every payload a Book ever held
+  /// shared one keystream. New payloads carry a fresh random nonce in front of the ciphertext under this marker, and a
+  /// payload without the marker is read the old way so that Books written before the change still open.
+  static const List<int> _nonceEnvelope = [0x56, 0x4D, 0x42, 0x31]; // "VMB1"
+  static const int _nonceBytes = 12;
+
+  /// AES-256-GCM with the constant-time AES core, not the T-table one.
+  ///
+  /// `AESFastEngine` is the table-driven variant and is deprecated upstream because table lookups leak key material to a
+  /// side channel; a Book key lives on a phone with other apps on it, so the slower core is the right trade.
+  GCMBlockCipher _gcm({
+    required bool forEncryption,
+    required String bookKeyB64,
+    required Uint8List nonce,
+  }) => GCMBlockCipher(AESEngine())
+    ..init(
+      forEncryption,
+      AEADParameters(
+        KeyParameter(_aesKey(bookKeyB64)),
+        128,
+        nonce,
+        Uint8List(0),
+      ),
+    );
+
+  Uint8List _freshNonce() => Uint8List.fromList(
+    List<int>.generate(_nonceBytes, (_) => Random.secure().nextInt(256)),
+  );
+
+  /// AES-256-GCM encrypt a JSON payload with the Book key, under a nonce nobody has used before.
   String encryptPayload(String bookKeyB64, Map<String, dynamic> data) {
-    final gcm = GCMBlockCipher(AESFastEngine())
-      ..init(
-        true,
-        AEADParameters(
-          KeyParameter(_aesKey(bookKeyB64)),
-          128,
-          Uint8List(12),
-          Uint8List(0),
-        ),
-      );
+    final nonce = _freshNonce();
     final plain = Uint8List.fromList(utf8.encode(jsonEncode(data)));
-    final out = gcm.process(plain);
-    return base64Encode(out);
+    final sealed = _gcm(
+      forEncryption: true,
+      bookKeyB64: bookKeyB64,
+      nonce: nonce,
+    ).process(plain);
+    return base64Encode([..._nonceEnvelope, ...nonce, ...sealed]);
   }
 
-  /// Decrypt a payload fetched from the sync server.
+  /// Decrypt a payload fetched from the sync server, in either the marked form or the old fixed-nonce one.
   Map<String, dynamic> decryptPayload(String bookKeyB64, String b64) {
-    final gcm = GCMBlockCipher(AESFastEngine())
-      ..init(
-        false,
-        AEADParameters(
-          KeyParameter(_aesKey(bookKeyB64)),
-          128,
-          Uint8List(12),
-          Uint8List(0),
-        ),
-      );
-    final clear = gcm.process(Uint8List.fromList(base64Decode(b64)));
+    final body = Uint8List.fromList(base64Decode(b64));
+    var marked = body.length > _nonceEnvelope.length + _nonceBytes;
+    for (var i = 0; marked && i < _nonceEnvelope.length; i++) {
+      marked = body[i] == _nonceEnvelope[i];
+    }
+    final nonce = marked
+        ? Uint8List.sublistView(
+            body,
+            _nonceEnvelope.length,
+            _nonceEnvelope.length + _nonceBytes,
+          )
+        : Uint8List(_nonceBytes);
+    final sealed = marked
+        ? Uint8List.sublistView(body, _nonceEnvelope.length + _nonceBytes)
+        : body;
+    final clear = _gcm(
+      forEncryption: false,
+      bookKeyB64: bookKeyB64,
+      nonce: Uint8List.fromList(nonce),
+    ).process(Uint8List.fromList(sealed));
     return jsonDecode(utf8.decode(clear)) as Map<String, dynamic>;
   }
 
