@@ -33,6 +33,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- Only a phone that had created a Book had published a key, so a brand-new person could never be invited into anybody's
+  Book: invitations are wrapped for a published key and there was none. Opening the Book list now publishes it once per
+  visit (best effort - an unreachable engine still lists your Books, and the next visit tries again). One app test covers a
+  first visit with no Book of its own, the once-only behaviour, and a publish that fails.
 - The local stores had no seam for tests: both lived in one shared directory, so two test files running at once opened
   the same database and fought over its locks (the Flutter job failed at Test on the key-wrapping commit). The service
   takes a database directory from the caller now, and each test file opens its own temp directory and removes it.

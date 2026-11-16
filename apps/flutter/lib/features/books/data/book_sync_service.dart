@@ -36,6 +36,9 @@ class BookSyncService {
   BookSyncService._();
   static final BookSyncService instance = BookSyncService._();
 
+  /// A second instance over the same engine, for a test that needs two phones. Nothing in the app builds one.
+  BookSyncService.secondPhone();
+
   // Route through the API gateway so the JWT is resolved to X-User-ID.
   static const String _kBaseUrl = String.fromEnvironment(
     'VIMBAI_BOOK_SYNC_URL',
@@ -257,6 +260,9 @@ class BookSyncService {
     if (r.statusCode != 200) {
       throw Exception('Failed to load books: ${r.statusCode}');
     }
+    // opening Books is the moment this phone becomes reachable: without a published key nobody can invite you, and
+    // waiting until you create a Book of your own meant a brand-new person could never be put into anyone's Book.
+    await _publishOnce();
     final books =
         (jsonDecode(r.body) as Map<String, dynamic>)['books'] as List<dynamic>;
     final meta = await _meta();
@@ -435,6 +441,22 @@ class BookSyncService {
   ) {
     final engine = OAEPEncoding(RSAEngine())..init(forEncryption, key);
     return engine.process(input);
+  }
+
+  bool _publishedThisSession = false;
+
+  /// Forget that this key was published, so a test can watch a first visit again. Nothing in the app calls it.
+  void forgetPublishedKey() => _publishedThisSession = false;
+
+  /// Publish the key once per session, quietly. Every phone that opens a Book list should be somebody an invitation can
+  /// reach, not only a phone that happens to own a Book already.
+  Future<void> _publishOnce() async {
+    if (_publishedThisSession) return;
+    try {
+      _publishedThisSession = await publishDevicePublicKey();
+    } catch (_) {
+      // the engine being unreachable must not stop the list from loading; the next visit tries again
+    }
   }
 
   /// Publish this device's public key so another person can wrap a Book key for it.

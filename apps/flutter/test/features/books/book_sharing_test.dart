@@ -377,4 +377,57 @@ void main() {
       );
     },
   );
+
+  test(
+    "loading Books makes this phone reachable, even with no Book of its own",
+    () async {
+      var published = 0;
+      var allowPublish = true;
+      var listings = 0;
+
+      ApiClient.transport = MockClient((request) async {
+        final json = {'content-type': 'application/json'};
+        if (request.url.path.endsWith('/identity/users/me/public-key')) {
+          published++;
+          if (!allowPublish) {
+            return http.Response(
+              '{"detail":"engine unavailable"}',
+              503,
+              headers: json,
+            );
+          }
+          return http.Response('{}', 200, headers: json);
+        }
+        if (request.url.path.endsWith('/books')) {
+          listings++;
+          return http.Response('{"books":[]}', 200, headers: json);
+        }
+        return http.Response('{}', 200, headers: json);
+      });
+      service.setAuthToken('a-token');
+      service.forgetPublishedKey(); // earlier tests in this file already published once
+
+      // a person who has just signed up owns no Book, and still has to be somebody an invitation can reach
+      expect(await service.refreshBooksFromServer(), isEmpty);
+      expect(
+        published,
+        1,
+        reason: 'opening Books publishes the key others wrap for',
+      );
+
+      // once per session is enough; a publish on every refresh would be noise
+      await service.refreshBooksFromServer();
+      expect(published, 1);
+      expect(listings, 2);
+
+      // and a key that could not be published does not stop the list from loading
+      // a second phone is a second service over the same engine, with its own store
+      final other = BookSyncService.secondPhone();
+      other.setAuthToken('another-token');
+      allowPublish = false;
+      final listed = await other.refreshBooksFromServer();
+      expect(listed, isEmpty);
+      expect(published, 2, reason: 'the second phone tried to publish too');
+    },
+  );
 }
