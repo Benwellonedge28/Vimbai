@@ -6,6 +6,19 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- A second person could not have an account on the same engine. Sign-up stores the username a client sends, and a phone's
+  sign-up screen asks for an address and a password rather than a name, so the account was stored nameless - and the
+  *second* such sign-up collided with the first on the empty name and was refused with "Username already taken". An account
+  with no name chosen is now named after its address, numbered when that name is taken, so everyone who arrives has a name.
+
+- Signing in ignored the `identifier` field a client may send. The door read the username and the email and nothing else, so
+  a correct password sent under `identifier` answered "Invalid credentials" - the answer for a wrong password, which cannot
+  be told apart from a request that was never read. All three names are read now.
+
+- Accepting an invitation required the Book to be named in a header. A person accepting a Book is not in it yet, so their
+  phone's active Book is a different one or none at all, and the accept was refused before it began. The accept route takes
+  the Book from its own path and the person from the header.
+
 - A note taken on the phone could never reach the inbox. The capture service asked the engine for `/multimodal/tasks/`,
   and a trailing slash is a different address from the one a parameter route answers, so the queue and the list both came
   back empty; it also demanded a `201` from a create the engine answers with `200`, so a capture that had in fact been

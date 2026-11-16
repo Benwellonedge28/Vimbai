@@ -30,8 +30,14 @@ impl Walk {
     /// A stranger, with no account and no Book.
     fn stranger() -> Self {
         let graph = Arc::new(MemoryGraph::new());
+        Self::on(vimbai_api::records::router(graph))
+    }
+
+    /// A second person at the same engine: two people only meet if they are talking to one store, and a walk that gives
+    /// each of them their own would pass while proving nothing.
+    fn on(router: axum::Router) -> Self {
         Self {
-            router: vimbai_api::records::router(graph),
+            router,
             user: String::new(),
             token: String::new(),
             book: String::new(),
@@ -73,14 +79,20 @@ impl Walk {
     }
 
     async fn register_and_sign_in(&mut self) -> String {
+        self.sign_up("stranger@example.com", "Stan").await
+    }
+
+    /// An account of someone's own, then the session that account uses. The email is the name, because two people at one
+    /// engine are two people with two addresses.
+    async fn sign_up(&mut self, email: &str, first_name: &str) -> String {
         let (status, made) = self
             .call(
                 Method::POST,
                 "/identity/users/register",
                 Some(json!({
-                    "email": "stranger@example.com",
+                    "email": email,
                     "password": "Str0ng-pass-9",
-                    "first_name": "Stan",
+                    "first_name": first_name,
                 })),
             )
             .await;
@@ -91,7 +103,7 @@ impl Walk {
             .call(
                 Method::POST,
                 "/identity/users/login",
-                Some(json!({"identifier": "stranger@example.com", "password": "Str0ng-pass-9"})),
+                Some(json!({"identifier": email, "password": "Str0ng-pass-9"})),
             )
             .await;
         assert_eq!(status, StatusCode::OK, "{signed}");
@@ -322,4 +334,160 @@ async fn a_stranger_sets_up_an_organisation_and_their_book_lands_inside_it() {
         "the sale has to reach the trial balance after the Book moved: {balance}"
     );
     assert_eq!(balance["is_balanced"], json!(true), "{balance}");
+}
+
+/// A second person, joining a Book that is not theirs.
+///
+/// The first run does not end at one person's Book. A Book nobody else can reach is a filing cabinet with one key, so the
+/// walk goes one step further: the owner invites somebody by name, that person sees the invitation, accepts it, and can then
+/// read the same accounts. This is also where the shape of an invitation is proved - a pending membership has to be visible
+/// to the invited person before they accept, or there is nothing to tap.
+#[tokio::test]
+async fn an_invited_person_sees_the_book_and_accepts_it() {
+    let mut owner = Walk::stranger();
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    // a second person, with an account of their own, at the same engine as the first
+    let mut guest = Walk::on(owner.router.clone());
+    guest.sign_up("guest@example.com", "Gwen").await;
+    let guest_id = guest.user.clone();
+
+    // Each phone publishes the key an invitation is sealed for, in the shape the app sends: the two halves of an RSA key
+    // as base64, because a Book key is wrapped with them and a key the engine cannot read is an invitation to nothing.
+    let modulus = base64_of_128_bytes();
+    for walk in [&owner, &guest] {
+        let (status, published) = walk
+            .call(
+                Method::PUT,
+                "/identity/users/me/public-key",
+                Some(json!({"modulus": modulus, "exponent": "AQAB"})),
+            )
+            .await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "a phone has to be reachable: {published}"
+        );
+        assert_eq!(published["modulus"], json!(modulus), "{published}");
+    }
+    let (status, fetched) = owner
+        .call(
+            Method::GET,
+            &format!("/identity/users/{guest_id}/public-key"),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{fetched}");
+    assert_eq!(
+        fetched["modulus"],
+        json!(modulus),
+        "an inviter has to be able to fetch the guest's key: {fetched}"
+    );
+
+    // the guest can be found by name, and has no Book of their own until this one arrives
+    let (status, found) = owner
+        .call(
+            Method::GET,
+            "/identity/users/lookup?username=guest@example.com",
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{found}");
+    assert_eq!(found["id"], json!(guest_id), "{found}");
+
+    let (status, listed) = guest.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(
+        listed["books"].as_array().map(Vec::len),
+        Some(0),
+        "{listed}"
+    );
+
+    // the invitation carries the Book key wrapped for the guest's key; anything else would join them to a Book they cannot read
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(json!({"user_id": guest_id, "role": "bookkeeper", "wrapped_book_key": "sealed-for-the-guest"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+    assert_eq!(invited["status"], json!("invited"));
+
+    // before accepting, the invitation is visible to the guest - and visibly not yet theirs
+    let (status, listed) = guest.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    let pending = listed["books"]
+        .as_array()
+        .expect("books")
+        .iter()
+        .find(|book| book["id"] == json!(owner.book))
+        .expect("the invitation has to be visible before it is accepted");
+    assert_eq!(pending["membership_status"], json!("invited"), "{pending}");
+    assert_eq!(pending["your_role"], json!("bookkeeper"), "{pending}");
+
+    // the owner's own copy of the Book still reads as theirs
+    let (status, owner_books) = owner.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{owner_books}");
+    assert_eq!(
+        owner_books["books"][0]["membership_status"],
+        json!("active"),
+        "{owner_books}"
+    );
+
+    // accepting hands back the key the invitation carried
+    let (status, accepted) = guest
+        .call(
+            Method::POST,
+            &format!("/books/{}/members/accept", owner.book),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+    assert_eq!(accepted["status"], json!("active"), "{accepted}");
+    assert_eq!(
+        accepted["wrapped_book_key"],
+        json!("sealed-for-the-guest"),
+        "the guest has to receive the key that was sealed for them: {accepted}"
+    );
+
+    // The next step in a shared Book - reading its accounts - does not answer yet, and it is not a defect in accepting:
+    // a Book's records are held under the person who wrote them, so a member who joined a moment ago is a member of a
+    // Book that reads empty. Holding them by Book and checking membership on every path is the work that opens them.
+    let (status, listed) = guest.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(
+        listed["books"][0]["membership_status"],
+        json!("active"),
+        "after accepting, the Book reads as joined: {listed}"
+    );
+}
+
+/// A modulus in the shape a phone publishes: base64 of 128 bytes, which is the smallest the engine will seal a Book key for.
+fn base64_of_128_bytes() -> String {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let raw: Vec<u8> = (0..128).map(|byte| byte as u8).collect();
+    let mut out = String::new();
+    for chunk in raw.chunks(3) {
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
+        let packed = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        out.push(ALPHABET[(packed >> 18) as usize & 63] as char);
+        out.push(ALPHABET[(packed >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 {
+            ALPHABET[(packed >> 6) as usize & 63] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            ALPHABET[packed as usize & 63] as char
+        } else {
+            '='
+        });
+    }
+    out
 }

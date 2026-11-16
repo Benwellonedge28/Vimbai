@@ -1153,3 +1153,37 @@ async fn a_person_is_found_by_username_or_email_and_only_while_signed_in() {
         "an inactive account is not offered as someone to invite: {body}"
     );
 }
+
+/// Sign-in by the name a client actually sends.
+///
+/// Three names mean the same thing here - the form field the app posts, the address, and `identifier` - and a door that
+/// ignored one of them answered "invalid credentials" to a correct password. That reads as a wrong password and cannot be
+/// diagnosed from outside: the account is fine, the password is fine, and the request was simply not read.
+#[tokio::test]
+async fn sign_in_reads_the_identifier_a_client_sends() {
+    let graph = Arc::new(MemoryGraph::new());
+    registered(graph.clone(), "alias", "Str0ng-pass-9").await;
+
+    for body in [
+        json!({"username": "alias", "password": "Str0ng-pass-9"}),
+        json!({"email": "alias@example.com", "password": "Str0ng-pass-9"}),
+        json!({"identifier": "alias", "password": "Str0ng-pass-9"}),
+        json!({"identifier": "alias@example.com", "password": "Str0ng-pass-9"}),
+    ] {
+        let (status, signed) = call(
+            graph.clone(),
+            Method::POST,
+            "/users/login",
+            Some(body.clone()),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body} was not read: {signed}");
+        assert!(
+            signed["access_token"]
+                .as_str()
+                .is_some_and(|one| !one.is_empty()),
+            "{signed}"
+        );
+    }
+}

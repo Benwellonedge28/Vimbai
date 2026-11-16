@@ -758,10 +758,17 @@ async fn register(
         _ => Vec::new(),
     };
 
+    let given = text("username");
     let wanted = accounts::NewUser {
         id: made_id("user"),
         email: text("email"),
-        username: text("username"),
+        // a sign-up screen asks for an address, not a username yet; an account stored under an empty name is one the
+        // second person at this engine cannot have, so one is made from the address
+        username: if given.trim().is_empty() {
+            String::new()
+        } else {
+            given
+        },
         first_name: text("first_name"),
         last_name: text("last_name"),
         phone: sent.get("phone").filter(|one| !one.is_empty()).cloned(),
@@ -779,6 +786,12 @@ async fn register(
         .iter()
         .filter_map(user_from)
         .collect();
+
+    // derived against the accounts already here, so the name saved is the name the refusal checks were run against
+    let mut wanted = wanted;
+    if wanted.username.trim().is_empty() {
+        wanted.username = accounts::username_for(&wanted.email, &existing);
+    }
 
     match accounts::register(&existing, &roles, wanted, now()) {
         Ok(user) => {
@@ -841,9 +854,13 @@ async fn login(
     body: Option<axum::body::Bytes>,
 ) -> Response {
     let sent = fields(query.as_deref(), body.as_deref());
+    // Three names for one thing, because three clients call it three things: the form field the app posts, the address
+    // itself, and `identifier`. A door that refuses the usual name by ignoring it answers "invalid credentials" to a
+    // correct password, which reads as a wrong password and is impossible to diagnose from the outside.
     let identifier = sent
         .get("username")
         .or_else(|| sent.get("email"))
+        .or_else(|| sent.get("identifier"))
         .cloned()
         .unwrap_or_default();
     let password = sent.get("password").cloned().unwrap_or_default();

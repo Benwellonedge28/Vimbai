@@ -64,6 +64,39 @@ pub type GraphHandle = Arc<dyn Graph + Send + Sync>;
 /// Both headers are required. A Book-less caller is not handled yet: the Python layer stored a
 /// null book, and answering that case means a second statement shape in the store rather than
 /// quietly treating "no Book" as a Book named nothing.
+/// A scope for a request that names its Book in the path, where the caller may not yet be in that Book.
+///
+/// Accepting an invitation is the one act that happens *before* belonging, so a route that demanded the Book in a header
+/// would ask a person to name a Book they have not joined in order to join it - and a phone whose active Book is a
+/// different one, or none at all, could never accept. The path says which Book, the header says who, and where both are
+/// present the path wins because it is the route's own subject.
+pub(crate) fn scope_in(headers: &HeaderMap, book_id: &str) -> Result<BookScope, Box<Response>> {
+    let user_id = headers
+        .get("x-user-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    let Some(user_id) = user_id else {
+        return Err(Box::new(
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "X-User-Id is required"})),
+            )
+                .into_response(),
+        ));
+    };
+    match headers
+        .get("x-vimbai-after")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(after) => Ok(BookScope::new(user_id, book_id.to_string()).after(after.to_string())),
+        None => Ok(BookScope::new(user_id, book_id.to_string())),
+    }
+}
+
 pub(crate) fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> {
     let header = |name: &str| {
         headers
@@ -14549,7 +14582,8 @@ async fn post_book_member_accept(
     headers: HeaderMap,
     Path(book_id): Path<String>,
 ) -> Response {
-    let scope = match scope_of(&headers) {
+    // the Book comes from the path, because the person accepting it is not in it yet
+    let scope = match scope_in(&headers, &book_id) {
         Ok(scope) => scope,
         Err(response) => return *response,
     };

@@ -359,6 +359,43 @@ pub fn needs_rehash(hash: &str) -> bool {
     crate::password::needs_rehash(hash)
 }
 
+/// The name a new account is given when the person did not choose one.
+///
+/// A phone's sign-up screen asks for an email, a password and a name, because that is all a stranger knows about
+/// themselves at that moment. Without a username of its own an account would be stored nameless, and the *second* such
+/// account at one engine would collide with the first on an empty name: a stranger could create an account, and the person
+/// they invited could not. So the local part of the address stands in, made unique the way any service does it - the base
+/// name, then a number - and it is only a starting point, since a username can be changed once there is a profile screen.
+pub fn username_for(email: &str, users: &[User]) -> String {
+    let local = email.split('@').next().unwrap_or("").trim().to_lowercase();
+    let base: String = local
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '_' || *c == '-')
+        .collect();
+    let base = if base.is_empty() {
+        "account".to_string()
+    } else {
+        base
+    };
+    let taken = |name: &str| {
+        users
+            .iter()
+            .any(|user| user.username.eq_ignore_ascii_case(name))
+    };
+    if !taken(&base) {
+        return base;
+    }
+    // bounded rather than open: a loop that keeps counting must still stop, and a thousand people sharing one address
+    // local part is not a case worth an unbounded search.
+    for suffix in 2..=1000 {
+        let candidate = format!("{base}{suffix}");
+        if !taken(&candidate) {
+            return candidate;
+        }
+    }
+    format!("{base}{}", users.len() + 1)
+}
+
 /// Register an account, refusing the collisions the shipped service refused. Checks run in the shipped order so a
 /// request naming both a taken email and a taken username answers as before.
 pub fn register(
@@ -929,5 +966,58 @@ mod tests {
         );
         assert!(roles.iter().all(|role| role.is_system));
         assert_eq!(roles[0].permissions.len(), CAPABILITIES.len());
+    }
+}
+
+#[cfg(test)]
+mod username_tests {
+    use super::*;
+
+    fn account(id: &str, email: &str, username: &str) -> User {
+        User {
+            id: id.to_string(),
+            email: email.to_string(),
+            username: username.to_string(),
+            first_name: String::new(),
+            last_name: String::new(),
+            phone: None,
+            status: UserStatus::Active,
+            permissions: Vec::new(),
+            role_ids: Vec::new(),
+            organization_id: None,
+            mfa_enabled: false,
+            mfa_secret: None,
+            mfa_method: MfaMethod::Totp,
+            password_hash: String::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+            last_login: None,
+        }
+    }
+
+    #[test]
+    fn a_person_who_chooses_no_username_is_named_after_their_address() {
+        assert_eq!(username_for("Stan@Example.com", &[]), "stan");
+        assert_eq!(
+            username_for("grace.hopper@example.com", &[]),
+            "grace.hopper"
+        );
+    }
+
+    #[test]
+    fn the_second_person_with_the_same_address_name_is_numbered_rather_than_refused() {
+        let held = vec![account("u1", "stan@one.example", "stan")];
+        assert_eq!(username_for("stan@two.example", &held), "stan2");
+        let held = vec![
+            account("u1", "stan@one.example", "stan"),
+            account("u2", "stan@two.example", "stan2"),
+        ];
+        assert_eq!(username_for("stan@three.example", &held), "stan3");
+    }
+
+    #[test]
+    fn an_address_with_nothing_usable_in_it_still_gets_a_name() {
+        assert_eq!(username_for("@example.com", &[]), "account");
+        assert_ne!(username_for("@@@", &[]), "");
     }
 }
