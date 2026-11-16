@@ -249,6 +249,13 @@ pub fn mine(
         };
         let mut answer = record;
         answer["role"] = json!(text(&membership, "role"));
+        // how many Books sit in it, so the page does not say none when the person has already put one there
+        let count = books(graph)
+            .everywhere("organisation_id", &json!(organisation_id.clone()))?
+            .iter()
+            .filter(|book| text(book, "organisation_id") == organisation_id)
+            .count();
+        answer["book_count"] = json!(count);
         found.push(answer);
         if found.len() >= limit {
             break;

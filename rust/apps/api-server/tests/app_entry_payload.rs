@@ -12,6 +12,9 @@ struct Walk {
     router: axum::Router,
     user: String,
     book: String,
+    /// The identity routes read a signed-in session, not a bare user id, so a test that registers an
+    /// organisation has to sign in first and carry the token the way the app does.
+    token: String,
 }
 
 impl Walk {
@@ -20,6 +23,7 @@ impl Walk {
             router: vimbai_api::records::router(Arc::new(MemoryGraph::new())),
             user: String::new(),
             book: String::new(),
+            token: String::new(),
         }
     }
 
@@ -33,6 +37,9 @@ impl Walk {
         }
         if !self.book.is_empty() {
             builder = builder.header("x-book-id", &self.book);
+        }
+        if !self.token.is_empty() {
+            builder = builder.header("authorization", format!("Bearer {}", self.token));
         }
         let body = match body {
             Some(value) => Body::from(value.to_string()),
@@ -463,4 +470,62 @@ async fn a_bank_feed_row_carries_the_names_the_screen_falls_back_to() {
         ],
     );
     assert_eq!(row["bank_connection_id"], json!(connection_id), "{rows}");
+}
+
+/// The organisations page shows how many Books each one holds, so a Book that was moved in is counted.
+#[tokio::test]
+async fn an_organisation_counts_the_books_that_were_put_in_it() {
+    let mut walk = stranger_with_a_posted_entry().await;
+    let (code, session) = walk
+        .call(
+            Method::POST,
+            "/identity/users/login",
+            Some(json!({"email": "reports@example.com", "password": "Str0ng-pass-9"})),
+        )
+        .await;
+    assert!(code.is_success(), "{session}");
+    walk.token = session["access_token"]
+        .as_str()
+        .unwrap_or_else(|| panic!("a session: {session}"))
+        .to_string();
+    let (code, made) = walk
+        .call(
+            Method::POST,
+            "/identity/organizations",
+            Some(json!({"name": "Mhuri Trust", "slug": "mhuri"})),
+        )
+        .await;
+    assert!(code.is_success(), "{made}");
+    let org_id = made["id"]
+        .as_str()
+        .or_else(|| made["organization"]["id"].as_str())
+        .unwrap_or_else(|| panic!("an organisation: {made}"))
+        .to_string();
+
+    let (code, listed) = walk
+        .call(Method::GET, "/identity/organizations", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let mine = listed["organizations"]
+        .as_array()
+        .unwrap_or_else(|| panic!("the page reads `organizations`: {listed}"));
+    assert_eq!(mine[0]["book_count"], json!(0), "{listed}");
+
+    let (code, moved) = walk
+        .call(
+            Method::PUT,
+            &format!("/identity/organizations/{org_id}/books/{}", walk.book),
+            None,
+        )
+        .await;
+    assert!(code.is_success(), "{moved}");
+
+    let (_, listed) = walk
+        .call(Method::GET, "/identity/organizations", None)
+        .await;
+    assert_eq!(
+        listed["organizations"][0]["book_count"],
+        json!(1),
+        "{listed}"
+    );
 }

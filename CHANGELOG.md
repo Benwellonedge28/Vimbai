@@ -11,6 +11,9 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The organisations page always showed zero Books. Each organisation the engine lists now carries a `book_count` of the
+  Books whose `organisation_id` is that organisation, so a Book put in it is counted straight away. A test signs in,
+  registers an organisation, moves the Book in and reads the count back as one.
 - Connecting a bank from the phone was refused twice over: the app sends a bank name and account number with no
   `provider`, and the engine answered "Unknown provider ", then "account_name is required". A connection added by hand is
   the `manual` feed, so an unnamed provider now means manual and the bank's name stands in for an unnamed account. A test
