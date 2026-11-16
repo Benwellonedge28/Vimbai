@@ -1,4 +1,5 @@
 import '../../../core/api/amount.dart';
+
 // Banking models mapped to the real banking-integration-service contract:
 //
 //   BankConnection: POST /connect, GET /connections, DELETE /connections/{id}

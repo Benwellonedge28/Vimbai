@@ -13,8 +13,18 @@ final engineReply = {
   'created_at': '2026-11-15T18:39:11Z',
   'updated_at': '2026-11-15T18:39:11Z',
   'lines': [
-    {'account_number': '1000', 'debit': '250.000000', 'credit': '0.000000', 'description': ''},
-    {'account_number': '4000', 'debit': '0.000000', 'credit': '250.000000', 'description': ''},
+    {
+      'account_number': '1000',
+      'debit': '250.000000',
+      'credit': '0.000000',
+      'description': '',
+    },
+    {
+      'account_number': '4000',
+      'debit': '0.000000',
+      'credit': '250.000000',
+      'description': '',
+    },
   ],
 };
 
@@ -31,18 +41,21 @@ void main() {
       expect(entry.lines.last.credit, 250.0);
     });
 
-    test('a local row parses the same way, because the table column is the same name', () {
-      // database_helper reads each journal_lines row straight into this model
-      final line = JournalLine.fromJson({
-        'account_number': '4000',
-        'debit': 0.0,
-        'credit': 250.0,
-        'description': null,
-      });
+    test(
+      'a local row parses the same way, because the table column is the same name',
+      () {
+        // database_helper reads each journal_lines row straight into this model
+        final line = JournalLine.fromJson({
+          'account_number': '4000',
+          'debit': 0.0,
+          'credit': 250.0,
+          'description': null,
+        });
 
-      expect(line.accountNumber, '4000');
-      expect(line.credit, 250.0);
-    });
+        expect(line.accountNumber, '4000');
+        expect(line.credit, 250.0);
+      },
+    );
 
     test('what is read can be written back out under the same names', () {
       final line = JournalLine(accountNumber: '1000', debit: 250.0);
@@ -56,8 +69,20 @@ void main() {
       final trial = TrialBalance.fromJson({
         'report_date': '2026-12-31T00:00:00.000',
         'accounts': [
-          {'account_number': '1000', 'account_name': 'Cash', 'account_type': 'asset', 'debit': '250.000000', 'credit': '0.000000'},
-          {'account_number': '4000', 'account_name': 'Sales', 'account_type': 'revenue', 'debit': '0.000000', 'credit': '250.000000'},
+          {
+            'account_number': '1000',
+            'account_name': 'Cash',
+            'account_type': 'asset',
+            'debit': '250.000000',
+            'credit': '0.000000',
+          },
+          {
+            'account_number': '4000',
+            'account_name': 'Sales',
+            'account_type': 'revenue',
+            'debit': '0.000000',
+            'credit': '250.000000',
+          },
         ],
         'total_debits': '250.000000',
         'total_credits': '250.000000',

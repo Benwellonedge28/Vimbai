@@ -387,7 +387,9 @@ CashFlowStatement _$CashFlowStatementFromJson(Map<String, dynamic> json) =>
       financingActivities: CashFlowSection.fromJson(
         json['financing_activities'] as Map<String, dynamic>,
       ),
-      netIncreaseDecreaseInCash: amountFromJson(json['net_increase_decrease_in_cash']),
+      netIncreaseDecreaseInCash: amountFromJson(
+        json['net_increase_decrease_in_cash'],
+      ),
       beginningCashBalance: amountFromJson(json['beginning_cash_balance']),
       endingCashBalance: amountFromJson(json['ending_cash_balance']),
       netIncome: amountFromJson(json['net_income']),

@@ -11,23 +11,26 @@ import 'package:http/testing.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/data/personal_finance_service.dart';
 
 void main() {
-  test('debts read from a bare array, which is what the engine answers', () async {
-    PersonalFinanceService.instance.useClient(
-      MockClient((request) async {
-        return http.Response(
-          jsonEncode([
-            {'id': 'd1', 'name': 'Car loan', 'principal': '1000.00'},
-          ]),
-          200,
-        );
-      }),
-    );
+  test(
+    'debts read from a bare array, which is what the engine answers',
+    () async {
+      PersonalFinanceService.instance.useClient(
+        MockClient((request) async {
+          return http.Response(
+            jsonEncode([
+              {'id': 'd1', 'name': 'Car loan', 'principal': '1000.00'},
+            ]),
+            200,
+          );
+        }),
+      );
 
-    final debts = await PersonalFinanceService.instance.listDebts();
+      final debts = await PersonalFinanceService.instance.listDebts();
 
-    expect(debts, hasLength(1));
-    expect(debts.single['name'], 'Car loan');
-  });
+      expect(debts, hasLength(1));
+      expect(debts.single['name'], 'Car loan');
+    },
+  );
 
   test('debts read from a wrapped answer too', () async {
     PersonalFinanceService.instance.useClient(

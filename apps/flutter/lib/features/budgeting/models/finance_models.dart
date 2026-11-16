@@ -1,4 +1,5 @@
 import '../../../core/api/amount.dart';
+
 // mobile-client/lib/models/finance_models.dart
 
 // --- Budget Models ---
@@ -201,8 +202,7 @@ class BudgetVarianceItem {
       budgetedAmount: amountFromJson(json['budgeted_amount']),
       actualAmount: amountFromJson(json['actual_amount']),
       variance: amountFromJson(json['variance']),
-      variancePercentage:
-          amountFromJson(json['variance_percentage']),
+      variancePercentage: amountFromJson(json['variance_percentage']),
     );
   }
 }

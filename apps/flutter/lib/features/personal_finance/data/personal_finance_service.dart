@@ -58,7 +58,10 @@ class PersonalFinanceService {
   // -- Recurring -----------------------------------------------------------
 
   Future<List<Map<String, dynamic>>> listRecurring() async {
-    return _rows(await _client.get(_u('/recurring'), headers: _headers), 'recurring');
+    return _rows(
+      await _client.get(_u('/recurring'), headers: _headers),
+      'recurring',
+    );
   }
 
   Future<void> createRecurring({

@@ -251,8 +251,7 @@ class AccountingApiService {
       operatingActivities: toSection('Operating', json['operating_activities']),
       investingActivities: toSection('Investing', json['investing_activities']),
       financingActivities: toSection('Financing', json['financing_activities']),
-      netIncreaseDecreaseInCash:
-          amountFromJson(json['net_change']),
+      netIncreaseDecreaseInCash: amountFromJson(json['net_change']),
       beginningCashBalance: amountFromJson(json['beginning_cash']),
       endingCashBalance: amountFromJson(json['ending_cash']),
       netIncome: amountFromJson(json['net_operating']),
