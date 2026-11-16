@@ -11,6 +11,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The catalogue gate passed, and the next one up failed on a clean checkout: `docs/ROADMAP.md` cites `web-frontend/` and the
+  two `.db` files as evidence for P0, and a clone does not have them because they were untracked, not deleted - they were on
+  this disk, which is why the check passed here. Evidence is now accepted when git's own ignore rules exclude the path, so
+  "untracked" is cited as the fact it is rather than softened into "deleted". Verified in a fresh clone, where all the
+  repository rules pass.
 - `Calculation Library CI` reached its test step for the first time and the catalogue gate failed: 25 services reported as
   Python and their addresses missing. The checkout was depth 1, and part of what the catalogue reports - each retired
   service's last published addresses - is read from the commit before its deletion, so a shallow clone generated a smaller

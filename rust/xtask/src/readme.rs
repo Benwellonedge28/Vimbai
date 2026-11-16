@@ -324,7 +324,7 @@ fn cited_evidence(root: &Path, label: &str, value: &str) -> Vec<String> {
         let found = bases
             .iter()
             .any(|base| root.join(format!("{base}{candidate}")).exists());
-        if !found && !records_a_removal(value, trimmed) {
+        if !found && !records_absence(root, value, trimmed) {
             problems.push(format!(
                 "docs/ROADMAP.md cites `{trimmed}` as evidence for {label}, and it is not there"
             ));
@@ -371,6 +371,25 @@ fn cited_evidence(root: &Path, label: &str, value: &str) -> Vec<String> {
 }
 
 /// A line recording that something was removed is not citing it as evidence it exists.
+/// Whether the row is citing a path on purpose for not being in the tree.
+///
+/// Two ways that happens, and both are evidence: work that was deleted, and work that was untracked - `web-frontend/` and the
+/// two `.db` files stayed on disk but left the repository, so a checkout does not have them and the citation is still true.
+/// Asking git's own ignore rules is what makes the second case a fact rather than a guess about wording.
+fn records_absence(root: &Path, value: &str, span: &str) -> bool {
+    records_a_removal(value, span) || ignored_by_git(root, span)
+}
+
+fn ignored_by_git(root: &Path, span: &str) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["check-ignore", "-q", "--", span])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
 fn records_a_removal(value: &str, span: &str) -> bool {
     value
         .find(span)
