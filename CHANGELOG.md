@@ -33,6 +33,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   that key, serves it as the accept answer and asserts the key stored afterwards is the one wrapped - the failure that would
   have a member join and read nothing. It fails if accept stores the sealed text instead of opening it, and its engine
   payload uses the listing's real names (`your_role`, `membership_status`). Four sharing tests in that file.
+- Forgetting a password was a dead end on a phone: the engine has answered `password/reset` and
+  `password/reset/confirm` all along, and the app had nothing, so the only way back in was another client. Sign-in now
+  offers "Forgot your password?", which asks the engine for a link and then takes the code from it with a new password.
+  The request step shows the engine's conditional wording as it stands ("If the email exists...") rather than claiming a
+  letter was sent, so the door cannot be used to discover which addresses have accounts; a pasted link is accepted whole
+  and the code inside it is used. Six app tests, two of which fail without the change.
 - Accepting an invitation the phone could not open used to end in silence: the membership became active on the server,
   the Book key would not unwrap, and the row stayed "invited" as if another tap would help. Accepting now separates the
   two outcomes that matter - the server refused, or you are in but this device cannot read it - and says the one that

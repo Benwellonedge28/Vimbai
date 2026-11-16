@@ -236,6 +236,108 @@ class AuthService {
     return _keepSession(data, data['username'] as String? ?? '');
   }
 
+  /// The engine's own sentence about the last reset step, when it had one.
+  ///
+  /// A reset has two halves that fail for different reasons - an address it will not discuss, a link that has expired, a new
+  /// password that misses a rule - and each has one thing the person can do next. The engine already says which; this holds
+  /// it so the screen can read it out instead of composing a guess.
+  String? lastResetError;
+
+  /// What the engine answered when a reset was asked for. Its wording is conditional on purpose ("If the email exists...")
+  /// and is shown as it stands: saying "we sent it" would turn this door into a way of discovering which addresses exist.
+  String? lastResetMessage;
+
+  /// Ask the engine to send a password reset for an address.
+  Future<bool> requestPasswordReset(String email) async {
+    lastResetError = null;
+    lastResetMessage = null;
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/password/reset'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email.trim()}),
+      );
+    } on OfflineException catch (failure) {
+      print('Password reset refused: the engine was not reachable ($failure).');
+      lastResetError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+    if (response.statusCode != 200) {
+      lastResetError =
+          _engineMessage(response.body) ??
+          'That request could not be sent. Try again.';
+      return false;
+    }
+    lastResetMessage =
+        _engineMessage(response.body) ??
+        'If that address is registered, a password reset link has been sent to it.';
+    return true;
+  }
+
+  /// Set a new password with the code from a reset link.
+  ///
+  /// The code is checked by the engine that issued it: one that is wrong, already spent or past its hour is refused there,
+  /// and so is a new password that misses a rule, with its own words. A completed reset signs every other session out, so
+  /// this phone signs in again afterwards rather than pretending it kept its session.
+  Future<bool> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    lastResetError = null;
+    lastResetMessage = null;
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$_baseUrl/identity/password/reset/confirm'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'reset_token': token.trim(),
+          'new_password': newPassword,
+        }),
+      );
+    } on OfflineException catch (failure) {
+      print(
+        'Password reset not confirmed: the engine was not reachable ($failure).',
+      );
+      lastResetError =
+          'The accounting engine could not be reached. Check that it is running, then try again.';
+      return false;
+    }
+    if (response.statusCode != 200) {
+      lastResetError =
+          _engineMessage(response.body) ??
+          'That reset link was not accepted. Ask for a new one.';
+      return false;
+    }
+    return true;
+  }
+
+  /// The code inside a reset link, or the code on its own when that is what was pasted.
+  ///
+  /// A person copies what their mail client gives them, which is a whole address with the code buried in it. Digging it out
+  /// here means the screen asks for one thing (paste the link) instead of asking a person to find the token in it.
+  static String resetTokenFrom(String pasted) {
+    final text = pasted.trim();
+    if (text.isEmpty) return '';
+    final uri = Uri.tryParse(text);
+    if (uri != null && uri.queryParameters.isNotEmpty) {
+      for (final name in const ['token', 'reset_token', 'code']) {
+        final value = uri.queryParameters[name];
+        if (value != null && value.isNotEmpty) return value;
+      }
+      final first = uri.queryParameters.values.first;
+      if (first.isNotEmpty) return first;
+    }
+    // a link with the code as its last path segment, e.g. .../reset/AbC123
+    if (text.contains('/') && !text.contains(' ')) {
+      final last = text.split('/').where((part) => part.isNotEmpty).lastOrNull;
+      if (last != null && !last.contains(':')) return last;
+    }
+    return text;
+  }
+
   /// Store what a completed sign-in came back with: the tokens, when they expire, and who the person is.
   ///
   /// One place, because two doors now lead here - a password alone, and a password plus a code - and a second copy of
@@ -294,7 +396,9 @@ class AuthService {
     try {
       final data = json.decode(body);
       if (data is! Map) return null;
-      final message = data['error'] ?? data['detail'];
+      // `message` is the engine's way of saying something to a person ("If the email exists...", "Password reset
+      // successfully"); `error`/`detail` are its refusals. All three are sentences meant to be read aloud.
+      final message = data['error'] ?? data['detail'] ?? data['message'];
       return message is String && message.isNotEmpty ? message : null;
     } on FormatException {
       return null;

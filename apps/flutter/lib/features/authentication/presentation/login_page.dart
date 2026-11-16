@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/app/home_page.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/password_reset_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/register_page.dart';
 import 'package:vimbai_mobile_client/features/authentication/presentation/second_factor_page.dart';
 
@@ -62,6 +63,22 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  /// A forgotten password is not a dead end any more: the engine sends a reset link, and this screen takes the code back.
+  Future<void> _forgotPassword() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => PasswordResetPage(authService: _authService),
+      ),
+    );
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password changed. Sign in with your new password.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,6 +106,10 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _login,
                       child: const Text('Login'),
                     ),
+              TextButton(
+                onPressed: _forgotPassword,
+                child: const Text('Forgot your password?'),
+              ),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).push(
