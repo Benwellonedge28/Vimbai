@@ -11,6 +11,9 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- The group savings page could not list anything. The engine wraps each list under its own name - `groups`, `members`,
+  `contributions`, `payouts` - while the service cast every reply straight to an array, so the first read threw. Either
+  shape is read now, and a test creates a group through the page's own call and lists it back under the name it reads.
 - The personal finance screens could not read a single list: the engine answers debts, recurring items and
   holdings as bare arrays while the service decoded every reply as an object, so the page threw before showing a
   row. The service now reads either shape, and the page finds its holdings under `investments`.

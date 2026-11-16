@@ -385,3 +385,26 @@ async fn the_personal_finance_lists_answer_rows_the_screens_can_read() {
         "{holdings}"
     );
 }
+
+/// The group savings page reads its lists out of the names the engine wraps them in.
+#[tokio::test]
+async fn the_group_savings_lists_are_wrapped_under_the_names_the_page_reads() {
+    let walk = stranger_with_a_posted_entry().await;
+    let (code, made) = walk
+        .call(
+            Method::POST,
+            "/family-community-group/groups?name=Kitchen%20Club&description=saves&contribution_frequency=monthly&contribution_amount=25",
+            None,
+        )
+        .await;
+    assert!(code.is_success(), "{made}");
+    let (code, listed) = walk
+        .call(Method::GET, "/family-community-group/groups", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let groups = listed["groups"]
+        .as_array()
+        .unwrap_or_else(|| panic!("the page reads `groups`: {listed}"));
+    assert_eq!(groups.len(), 1, "{listed}");
+    assert_eq!(groups[0]["name"], json!("Kitchen Club"), "{listed}");
+}

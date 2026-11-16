@@ -39,8 +39,19 @@ class GroupSavingsService {
   Map<String, dynamic> _decodeMap(http.Response r) =>
       _decode(r) as Map<String, dynamic>;
 
-  List<Map<String, dynamic>> _decodeList(http.Response r) =>
-      (_decode(r) as List).cast<Map<String, dynamic>>();
+  /// The engine wraps each of these lists under its own name - `groups`, `members`,
+  /// `contributions`, `payouts` - so casting the reply straight to a List threw before the
+  /// page could show a row. A bare array is still read as one.
+  List<Map<String, dynamic>> _decodeList(http.Response r) {
+    final decoded = _decode(r);
+    final list = decoded is List
+        ? decoded
+        : (decoded as Map<String, dynamic>).values.firstWhere(
+            (value) => value is List,
+            orElse: () => const <dynamic>[],
+          );
+    return (list as List).cast<Map<String, dynamic>>();
+  }
 
   // -- groups ----------------------------------------------------------
 
