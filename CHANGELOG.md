@@ -11,6 +11,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Fixed
 
+- Connecting a bank from the phone was refused twice over: the app sends a bank name and account number with no
+  `provider`, and the engine answered "Unknown provider ", then "account_name is required". A connection added by hand is
+  the `manual` feed, so an unnamed provider now means manual and the bank's name stands in for an unnamed account. A test
+  connects, imports a transaction and lists it back.
+- A bank feed row could not be read by the screen: rows carry the connection under `bank_connection_id` and the day under
+  `date`, while the model required `connection_id` and `transaction_date`, so the first row threw. The model reads the
+  feed's names, and takes reconciled from `reconciled_at` or a `reconciled` status.
 - The group savings page could not list anything. The engine wraps each list under its own name - `groups`, `members`,
   `contributions`, `payouts` - while the service cast every reply straight to an array, so the first read threw. Either
   shape is read now, and a test creates a group through the page's own call and lists it back under the name it reads.

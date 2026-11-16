@@ -408,3 +408,59 @@ async fn the_group_savings_lists_are_wrapped_under_the_names_the_page_reads() {
     assert_eq!(groups.len(), 1, "{listed}");
     assert_eq!(groups[0]["name"], json!("Kitchen Club"), "{listed}");
 }
+
+/// A bank feed row names the connection `bank_connection_id` and the day `date`; the screen reads both.
+#[tokio::test]
+async fn a_bank_feed_row_carries_the_names_the_screen_falls_back_to() {
+    let walk = stranger_with_a_posted_entry().await;
+    let (code, connection) = walk
+        .call(
+            Method::POST,
+            "/bank-feed/connections?bank_name=Stanbic&account_number=12345&account_type=checking",
+            None,
+        )
+        .await;
+    assert!(code.is_success(), "{connection}");
+    let connection_id = connection["connection"]["id"]
+        .as_str()
+        .or_else(|| connection["id"].as_str())
+        .unwrap_or_else(|| panic!("a connection: {connection}"))
+        .to_string();
+
+    let (code, imported) = walk
+        .call(
+            Method::POST,
+            "/bank-feed/transactions/import",
+            Some(json!({
+                "bank_connection_id": connection_id,
+                "external_id": "txn-1",
+                "date": "2026-11-15",
+                "amount": 250.0,
+                "description": "a sale",
+                "transaction_type": "credit"
+            })),
+        )
+        .await;
+    assert!(code.is_success(), "{imported}");
+
+    let (code, rows) = walk
+        .call(
+            Method::GET,
+            &format!("/bank-feed/transactions?connection_id={connection_id}"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{rows}");
+    let row = &rows[0];
+    holds(
+        row,
+        &[
+            "id",
+            "bank_connection_id",
+            "date",
+            "amount",
+            "transaction_type",
+        ],
+    );
+    assert_eq!(row["bank_connection_id"], json!(connection_id), "{rows}");
+}

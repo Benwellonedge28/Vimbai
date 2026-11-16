@@ -91,11 +91,24 @@ pub fn create_connection(
     payload: &Value,
     organization_id: &str,
 ) -> Result<Value, StoreError> {
-    let provider = text(payload, "provider").to_lowercase();
+    // A connection added by hand, from a bank name and an account number, names no provider. That is the
+    // `manual` feed, not an unknown one; a provider that is named still has to be one we know.
+    let named = text(payload, "provider").to_lowercase();
+    let provider = if named.is_empty() {
+        "manual".to_string()
+    } else {
+        named
+    };
     if !PROVIDERS.contains(&provider.as_str()) {
         return Err(refused(&format!("Unknown provider {provider}")));
     }
-    let account_name = text(payload, "account_name");
+    // A connection added by hand names its bank, not its account; the bank's name stands in until it is named.
+    let named_account = text(payload, "account_name");
+    let account_name = if named_account.is_empty() {
+        text(payload, "bank_name")
+    } else {
+        named_account
+    };
     if account_name.is_empty() {
         return Err(refused("account_name is required"));
     }

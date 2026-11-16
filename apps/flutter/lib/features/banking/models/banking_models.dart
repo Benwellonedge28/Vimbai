@@ -75,16 +75,27 @@ class BankTransaction {
   });
 
   factory BankTransaction.fromJson(Map<String, dynamic> json) {
+    // The feed's rows carry the connection under `bank_connection_id` and the day under `date`;
+    // reading only `connection_id` and `transaction_date` threw on the first row a connection returned.
+    final connection = json['connection_id'] ?? json['bank_connection_id'];
+    final day = json['transaction_date'] ?? json['date'];
+    final status = json['status'] as String?;
     return BankTransaction(
       id: json['id'] as String,
-      connectionId: json['connection_id'] as String,
+      connectionId: (connection as String?) ?? '',
       amount: amountFromJson(json['amount']),
-      transactionType: json['transaction_type'] as String,
+      transactionType: (json['transaction_type'] as String?) ?? 'debit',
       description: (json['description'] as String?) ?? '',
-      transactionDate: DateTime.parse(json['transaction_date'] as String),
+      transactionDate:
+          DateTime.tryParse((day as String?) ?? '') ?? DateTime(1970),
       balanceAfter: amountFromJson(json['balance_after']),
-      reconciled: (json['reconciled'] as bool?) ?? false,
-      reference: (json['reference'] as String?) ?? '',
+      reconciled:
+          (json['reconciled'] as bool?) ??
+          (json['reconciled_at'] != null || status == 'reconciled'),
+      reference:
+          (json['reference'] as String?) ??
+          (json['external_id'] as String?) ??
+          '',
     );
   }
 
