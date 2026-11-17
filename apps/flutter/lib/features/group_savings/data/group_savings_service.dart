@@ -4,6 +4,7 @@
 // API gateway injects X-User-ID from the JWT and X-Book-ID from the
 // active Book context, so every group is scoped to the Book.
 import 'dart:convert';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -68,7 +69,7 @@ class GroupSavingsService {
     required String name,
     String description = '',
     String contributionFrequency = 'monthly',
-    double contributionAmount = 0.0,
+    ExactAmount contributionAmount = ExactAmount.zero,
   }) async {
     // The backend takes scalar POST params as query parameters.
     final r = await _client.post(
@@ -77,7 +78,8 @@ class GroupSavingsService {
           'name': name,
           'description': description,
           'contribution_frequency': contributionFrequency,
-          'contribution_amount': contributionAmount.toString(),
+          // A contribution past fifteen digits sent as a double arrives as "1e+30", which is not a figure at all.
+          'contribution_amount': contributionAmount.toLedgerString(),
         },
       ),
       headers: _headers,
@@ -102,7 +104,7 @@ class GroupSavingsService {
     required String name,
     String email = '',
     String phone = '',
-    double contributionAmount = 0.0,
+    ExactAmount contributionAmount = ExactAmount.zero,
   }) async {
     final r = await _client.post(
       _u('/groups/$groupId/members').replace(
@@ -110,7 +112,8 @@ class GroupSavingsService {
           'name': name,
           'email': email,
           'phone': phone,
-          'contribution_amount': contributionAmount.toString(),
+          // A contribution past fifteen digits sent as a double arrives as "1e+30", which is not a figure at all.
+          'contribution_amount': contributionAmount.toLedgerString(),
         },
       ),
       headers: _headers,
@@ -123,14 +126,14 @@ class GroupSavingsService {
   Future<Map<String, dynamic>> contribute(
     String groupId, {
     required String memberId,
-    required double amount,
+    required ExactAmount amount,
     String notes = '',
   }) async {
     final r = await _client.post(
       _u('/groups/$groupId/contribute').replace(
         queryParameters: {
           'member_id': memberId,
-          'amount': amount.toString(),
+          'amount': amount.toLedgerString(),
           'notes': notes,
         },
       ),

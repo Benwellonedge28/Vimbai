@@ -1,6 +1,7 @@
 // Personal finance client: recurring transactions, debts, investments,
 // tax estimation. The API gateway injects X-User-ID from the JWT.
 import 'dart:convert';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -67,7 +68,7 @@ class PersonalFinanceService {
   Future<void> createRecurring({
     required String kind,
     required String description,
-    required double amount,
+    required ExactAmount amount,
     required String frequency,
     required String nextDue,
   }) async {
@@ -77,7 +78,7 @@ class PersonalFinanceService {
       body: jsonEncode({
         'kind': kind,
         'description': description,
-        'amount': amount,
+        'amount': amount.toLedgerString(),
         'frequency': frequency,
         'next_due': nextDue,
       }),
@@ -98,7 +99,7 @@ class PersonalFinanceService {
 
   Future<void> createDebt({
     required String name,
-    required double principal,
+    required ExactAmount principal,
     required double annualRate,
     required int termMonths,
     required String startedAt,
@@ -108,7 +109,7 @@ class PersonalFinanceService {
       headers: _headers,
       body: jsonEncode({
         'name': name,
-        'principal': principal,
+        'principal': principal.toLedgerString(),
         'annual_rate': annualRate,
         'term_months': termMonths,
         'started_at': startedAt,
@@ -116,12 +117,12 @@ class PersonalFinanceService {
     );
   }
 
-  Future<Map<String, dynamic>> payDebt(String id, double amount) async =>
+  Future<Map<String, dynamic>> payDebt(String id, ExactAmount amount) async =>
       _decode(
         await _client.post(
           _u('/debts/$id/payments'),
           headers: _headers,
-          body: jsonEncode({'amount': amount}),
+          body: jsonEncode({'amount': amount.toLedgerString()}),
         ),
       );
 
@@ -142,7 +143,7 @@ class PersonalFinanceService {
     required String name,
     String assetClass = 'equity',
     double initialUnits = 0,
-    double initialPrice = 0,
+    ExactAmount initialPrice = ExactAmount.zero,
   }) async {
     await _client.post(
       _u('/investments'),
@@ -151,7 +152,7 @@ class PersonalFinanceService {
         'name': name,
         'asset_class': assetClass,
         'initial_units': initialUnits,
-        'initial_price': initialPrice,
+        'initial_price': initialPrice.toLedgerString(),
       }),
     );
   }
@@ -160,19 +161,23 @@ class PersonalFinanceService {
     String id, {
     required String side,
     required double units,
-    required double price,
+    required ExactAmount price,
   }) async {
     await _client.post(
       _u('/investments/$id/trades'),
       headers: _headers,
-      body: jsonEncode({'side': side, 'units': units, 'price': price}),
+      body: jsonEncode({
+        'side': side,
+        'units': units,
+        'price': price.toLedgerString(),
+      }),
     );
   }
 
-  Future<void> updatePrice(String id, double price) async => _client.post(
+  Future<void> updatePrice(String id, ExactAmount price) async => _client.post(
     _u('/investments/$id/price'),
     headers: _headers,
-    body: jsonEncode({'price': price}),
+    body: jsonEncode({'price': price.toLedgerString()}),
   );
 
   // -- Tax -----------------------------------------------------------------
@@ -185,17 +190,17 @@ class PersonalFinanceService {
   }
 
   Future<Map<String, dynamic>> estimateTax({
-    required double annualIncome,
-    double deductions = 0,
-    double payePaid = 0,
+    required ExactAmount annualIncome,
+    ExactAmount deductions = ExactAmount.zero,
+    ExactAmount payePaid = ExactAmount.zero,
   }) async => _decode(
     await _client.post(
       _u('/tax/estimate'),
       headers: _headers,
       body: jsonEncode({
-        'annual_income': annualIncome,
-        'deductions': deductions,
-        'paye_paid': payePaid,
+        'annual_income': annualIncome.toLedgerString(),
+        'deductions': deductions.toLedgerString(),
+        'paye_paid': payePaid.toLedgerString(),
       }),
     ),
   );

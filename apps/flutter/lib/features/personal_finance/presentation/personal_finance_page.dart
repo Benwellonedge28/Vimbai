@@ -1,5 +1,6 @@
 // Personal finance: recurring bills/income, debts, investments and tax.
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/data/personal_finance_service.dart';
 
 class PersonalFinancePage extends StatefulWidget {
@@ -42,6 +43,12 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
       }
     }
     if (mounted) setState(() {});
+  }
+
+  void _say(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -194,11 +201,16 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
+                final typed = ExactAmount.tryParse(amount.text);
+                if (typed == null) {
+                  _say('Amount must be a number, such as 250');
+                  return;
+                }
                 _pf
                     .createRecurring(
                       kind: kind,
                       description: desc.text,
-                      amount: double.tryParse(amount.text) ?? 0,
+                      amount: typed,
                       frequency: freq,
                       nextDue: due.text,
                     )
@@ -252,9 +264,12 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _pf
-                  .payDebt(id, double.tryParse(amount.text) ?? 0)
-                  .then((_) => _reload());
+              final typed = ExactAmount.tryParse(amount.text);
+              if (typed == null) {
+                _say('Amount must be a number, such as 250');
+                return;
+              }
+              _pf.payDebt(id, typed).then((_) => _reload());
             },
             child: const Text('Record'),
           ),
@@ -299,11 +314,16 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         actions: [
           TextButton(
             onPressed: () {
+              final typed = ExactAmount.tryParse(principal.text);
+              if (typed == null) {
+                _say('Principal must be a number, such as 5000');
+                return;
+              }
               Navigator.pop(ctx);
               _pf
                   .createDebt(
                     name: name.text,
-                    principal: double.tryParse(principal.text) ?? 0,
+                    principal: typed,
                     annualRate: double.tryParse(rate.text) ?? 0,
                     termMonths: int.tryParse(term.text) ?? 1,
                     startedAt: DateTime.now().toIso8601String().substring(
@@ -394,12 +414,17 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         actions: [
           TextButton(
             onPressed: () {
+              final typed = ExactAmount.tryParse(price.text);
+              if (typed == null) {
+                _say('Price must be a number, such as 12.50');
+                return;
+              }
               Navigator.pop(ctx);
               _pf
                   .createInvestment(
                     name: name.text,
                     initialUnits: double.tryParse(units.text) ?? 0,
-                    initialPrice: double.tryParse(price.text) ?? 0,
+                    initialPrice: typed,
                   )
                   .then((_) => _reload());
             },
@@ -440,10 +465,22 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
         const SizedBox(height: 12),
         ElevatedButton(
           onPressed: () async {
+            // A blank field means nothing claimed; anything else that is not a number is refused, not counted as nothing.
+            ExactAmount? read(TextEditingController field) =>
+                field.text.trim().isEmpty
+                ? ExactAmount.zero
+                : ExactAmount.tryParse(field.text);
+            final earned = read(income);
+            final claimed = read(deductions);
+            final paid = read(paye);
+            if (earned == null || claimed == null || paid == null) {
+              _say('Income, deductions and PAYE paid must be numbers');
+              return;
+            }
             final j = await _pf.estimateTax(
-              annualIncome: double.tryParse(income.text) ?? 0,
-              deductions: double.tryParse(deductions.text) ?? 0,
-              payePaid: double.tryParse(paye.text) ?? 0,
+              annualIncome: earned,
+              deductions: claimed,
+              payePaid: paid,
             );
             setState(() => _taxResult = j);
           },

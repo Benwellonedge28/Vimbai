@@ -2,6 +2,7 @@
 // members, per-cycle contributions and payout schedules. Backed by
 // family-community-group-service, scoped to the active Book.
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/group_savings/data/group_savings_service.dart';
 
@@ -104,8 +105,11 @@ class _GroupSavingsPageState extends State<GroupSavingsPage> {
       ),
     );
     if (ok != true) return;
-    final amount = double.tryParse(amt.text.trim()) ?? 0;
-    if (name.text.trim().isEmpty || amount <= 0) {
+    final amount = ExactAmount.tryParse(amt.text.trim());
+    if (name.text.trim().isEmpty ||
+        amount == null ||
+        amount.isNegative ||
+        amount.isZero) {
       _toast('Enter a group name and a positive contribution amount');
       return;
     }
@@ -295,7 +299,8 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         widget.groupId,
         name: name.text.trim(),
         phone: phone.text.trim(),
-        contributionAmount: double.tryParse(amt.text.trim()) ?? 0.0,
+        contributionAmount:
+            ExactAmount.tryParse(amt.text.trim()) ?? ExactAmount.zero,
       );
       _toast('Member added');
       _reload();
@@ -362,9 +367,9 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       ),
     );
     if (ok != true) return;
-    final amount = double.tryParse(amt.text.trim()) ?? 0;
+    final amount = ExactAmount.tryParse(amt.text.trim());
     final mid = memberId;
-    if (amount <= 0 || mid == null) {
+    if (amount == null || amount.isNegative || amount.isZero || mid == null) {
       _toast('Enter a positive amount');
       return;
     }

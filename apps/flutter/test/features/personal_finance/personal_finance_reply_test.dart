@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/data/personal_finance_service.dart';
 
 void main() {
@@ -97,7 +98,7 @@ void main() {
 
     await PersonalFinanceService.instance.createDebt(
       name: 'Car loan',
-      principal: 1000,
+      principal: ExactAmount.parse('1000'),
       annualRate: 12,
       termMonths: 12,
       startedAt: '2026-01-01',
