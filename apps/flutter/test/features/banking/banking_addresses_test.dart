@@ -12,6 +12,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/features/banking/data/banking_api_service.dart';
+import 'package:vimbai_mobile_client/features/banking/models/banking_models.dart';
 
 void main() {
   final originalTransport = ApiClient.transport;
@@ -33,8 +34,9 @@ void main() {
       return http.Response(
         jsonEncode({
           'id': 'conn-1',
-          'bank_name': 'CBZ',
-          'account_number': '0123',
+          'provider': 'manual',
+          'account_name': 'CBZ current',
+          'account_number_last4': '0123',
           'account_type': 'checking',
           'status': 'active',
           'created_at': '2026-11-15T09:00:00Z',
@@ -44,28 +46,68 @@ void main() {
     });
 
     final connection = await BankingApiService().connectBank(
-      bankName: 'CBZ',
-      accountNumber: '0123',
-      apiKey: 'k',
+      accountName: 'CBZ current',
+      last4: '0123',
     );
 
     expect(connection.id, 'conn-1');
+    expect(connection.label, 'CBZ current •••• 0123');
     expect(asked.method, 'POST');
     expect(asked.url.path, endsWith('/bank-feed/connections'));
-    expect(asked.url.queryParameters['bank_name'], 'CBZ');
+    final sent = jsonDecode(asked.body) as Map<String, dynamic>;
+    // A hand-added account is the manual feed: no secret is invented for it.
+    expect(sent['provider'], 'manual');
+    expect(sent['account_name'], 'CBZ current');
+    expect(sent['account_number_last4'], '0123');
+    expect(sent.containsKey('api_key'), isFalse);
   });
 
   test('listing connections reads the feed', () async {
     late Uri asked;
     ApiClient.transport = MockClient((request) async {
       asked = request.url;
-      return http.Response('[]', 200);
+      return http.Response(
+        jsonEncode({
+          'total': 1,
+          'connections': [
+            {
+              'id': 'conn-1',
+              'provider': 'manual',
+              'account_name': 'CBZ current',
+              'account_number_last4': '0123',
+              'account_type': 'savings',
+              'status': 'active',
+              'last_sync_status': 'never',
+              'created_at': '2026-11-15T09:00:00Z',
+            },
+          ],
+        }),
+        200,
+      );
     });
 
     final connections = await BankingApiService().getConnections();
 
-    expect(connections, isEmpty);
+    expect(connections, hasLength(1));
+    expect(connections.single.accountName, 'CBZ current');
+    expect(connections.single.last4, '0123');
+    expect(connections.single.accountType, 'savings');
     expect(asked.path, endsWith('/bank-feed/connections'));
+  });
+
+  test('a record the engine answered before is not thrown over', () {
+    // The shape the engine began with named the bank, not the account, and carried no last four.
+    final older = BankConnection.fromJson({
+      'id': 'conn-0',
+      'bank_name': 'CBZ',
+      'account_type': 'checking',
+      'status': 'active',
+      'created_at': '2026-11-01T09:00:00Z',
+    });
+
+    expect(older.label, 'CBZ');
+    expect(older.last4, isEmpty);
+    expect(older.lastSync, isNull);
   });
 
   test('syncing names the connection to the sync door', () async {

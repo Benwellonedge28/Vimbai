@@ -32,23 +32,25 @@ class BankingApiService {
   }
 
   /// Establish a bank connection.
+  /// Record a bank account by hand.
+  ///
+  /// No secret is asked for and none is kept: a hand-added account is the engine's `manual` feed, which holds the
+  /// account's name, its type and at most the last four digits of its number. Nothing here pretends to reach the bank.
   Future<BankConnection> connectBank({
-    required String bankName,
-    required String accountNumber,
-    required String apiKey,
+    required String accountName,
+    String last4 = '',
     String accountType = 'checking',
   }) async {
     final headers = await _getHeaders();
     final response = await _client.post(
-      Uri.parse('$_bankingServiceUrl/connections').replace(
-        queryParameters: {
-          'bank_name': bankName,
-          'account_number': accountNumber,
-          'api_key': apiKey,
-          'account_type': accountType,
-        },
-      ),
+      Uri.parse('$_bankingServiceUrl/connections'),
       headers: headers,
+      body: json.encode({
+        'provider': 'manual',
+        'account_name': accountName,
+        'account_number_last4': last4,
+        'account_type': accountType,
+      }),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -69,13 +71,17 @@ class BankingApiService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> jsonList =
-          json.decode(response.body) as List<dynamic>;
-      return jsonList
+      final body = json.decode(response.body);
+      // The engine names the count and the list together; a bare list is still read so an older shape cannot break
+      // the screen.
+      final rows = body is Map<String, dynamic>
+          ? (body['connections'] as List<dynamic>? ?? const [])
+          : (body as List<dynamic>);
+      return rows
           .map((j) => BankConnection.fromJson(j as Map<String, dynamic>))
           .toList();
     } else {
-      throw Exception('Failed to load bank connections: ${response.body}');
+      throw Exception('Could not read the bank accounts: ${response.body}');
     }
   }
 

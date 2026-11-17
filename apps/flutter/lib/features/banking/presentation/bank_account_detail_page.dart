@@ -108,9 +108,7 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${widget.connection.bankName} ${widget.connection.accountNumber}',
-        ),
+        title: Text(widget.connection.label),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -130,10 +128,11 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bank: ${widget.connection.bankName}',
+              widget.connection.accountName,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            Text('Account Number: ${widget.connection.accountNumber}'),
+            if (widget.connection.last4.isNotEmpty)
+              Text('Account ending ${widget.connection.last4}'),
             Text('Type: ${widget.connection.accountType.toUpperCase()}'),
             Text('Status: ${widget.connection.status.toUpperCase()}'),
             Text(

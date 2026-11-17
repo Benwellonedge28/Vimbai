@@ -8,45 +8,80 @@ import '../../../core/api/amount.dart';
 // The service is Book-scoped (the gateway injects X-Book-ID) and keeps no
 // balance per connection: balance is carried per transaction (balance_after).
 
+/// A bank account whose statement is kept in step with this Book.
+///
+/// The engine records what it was told: the provider (a hand-added account is the `manual` feed), the account's own
+/// name, and at most the last four digits of its number. It never holds a full account number, and a field it did not
+/// receive is read as absent rather than thrown over, so one older record cannot make the whole list unreadable.
 class BankConnection {
   final String id;
-  final String bankName;
-  final String accountNumber;
+  final String provider;
+  final String accountName;
+  final String last4;
   final String accountType;
   final String status;
+  final String lastSyncStatus;
   final DateTime? lastSync;
   final DateTime createdAt;
 
   BankConnection({
     required this.id,
-    required this.bankName,
-    required this.accountNumber,
-    required this.accountType,
-    required this.status,
+    this.provider = 'manual',
+    required this.accountName,
+    this.last4 = '',
+    this.accountType = 'checking',
+    this.status = 'active',
+    this.lastSyncStatus = 'never',
     this.lastSync,
     required this.createdAt,
   });
 
+  /// What the person calls this account: its name, and the last four digits when they were given.
+  String get label => last4.isEmpty ? accountName : '$accountName •••• $last4';
+
+  static String _text(Map<String, dynamic> json, String key) {
+    final held = json[key];
+    return held is String ? held : (held == null ? '' : '$held');
+  }
+
   factory BankConnection.fromJson(Map<String, dynamic> json) {
+    final name = _text(json, 'account_name').isNotEmpty
+        ? _text(json, 'account_name')
+        : _text(json, 'bank_name');
+    final created = _text(json, 'created_at');
+    final synced = _text(json, 'last_sync');
     return BankConnection(
-      id: json['id'] as String,
-      bankName: json['bank_name'] as String,
-      accountNumber: json['account_number'] as String,
-      accountType: (json['account_type'] as String?) ?? 'checking',
-      status: (json['status'] as String?) ?? 'active',
-      lastSync: json['last_sync'] != null
-          ? DateTime.parse(json['last_sync'] as String)
-          : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: _text(json, 'id'),
+      provider: _text(json, 'provider').isEmpty
+          ? 'manual'
+          : _text(json, 'provider'),
+      accountName: name,
+      last4: _text(json, 'account_number_last4').isEmpty
+          ? _text(json, 'account_number')
+          : _text(json, 'account_number_last4'),
+      accountType: _text(json, 'account_type').isEmpty
+          ? 'checking'
+          : _text(json, 'account_type'),
+      status: _text(json, 'status').isEmpty ? 'active' : _text(json, 'status'),
+      lastSyncStatus: _text(json, 'last_sync_status').isEmpty
+          ? 'never'
+          : _text(json, 'last_sync_status'),
+      lastSync: synced.isEmpty ? null : DateTime.tryParse(synced),
+      createdAt: created.isEmpty
+          ? DateTime.fromMillisecondsSinceEpoch(0)
+          : (DateTime.tryParse(created) ??
+                DateTime.fromMillisecondsSinceEpoch(0)),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'bank_name': bankName,
-    'account_number': accountNumber,
+    'provider': provider,
+    'account_name': accountName,
+    'account_number_last4': last4,
     'account_type': accountType,
     'status': status,
+    'last_sync_status': lastSyncStatus,
     'last_sync': lastSync?.toIso8601String(),
     'created_at': createdAt.toIso8601String(),
   };
