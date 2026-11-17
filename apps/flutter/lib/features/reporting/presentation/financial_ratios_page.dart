@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/budgeting/data/finance_api_service.dart';
 import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart';
 import 'package:intl/intl.dart';
 
 class FinancialRatiosPage extends StatefulWidget {
-  const FinancialRatiosPage({super.key});
+  const FinancialRatiosPage({super.key, this.loadRatios});
+
+  /// Where the report comes from. The real service is the default; a test can hand in its own so the page is proven
+  /// on the figures it is given rather than on a network.
+  final Future<FinancialRatiosReport> Function(DateTime start, DateTime end)?
+  loadRatios;
 
   @override
   State<FinancialRatiosPage> createState() => _FinancialRatiosPageState();
@@ -26,10 +32,8 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
 
   Future<void> _fetchRatiosReport() async {
     setState(() {
-      _ratiosReportFuture = _apiService.getFinancialRatios(
-        _startDate,
-        _endDate,
-      );
+      final load = widget.loadRatios ?? _apiService.getFinancialRatios;
+      _ratiosReportFuture = load(_startDate, _endDate);
     });
   }
 
@@ -104,10 +108,10 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
                     ),
                     _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
                     _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
-                    _buildRatioRow(
+                    _buildMoneyRow(
                       'Working Capital',
                       report.liquidity.workingCapital,
-                      isCurrency: true,
+                      report.currency,
                     ),
                   ]),
                   const SizedBox(height: 20),
@@ -181,20 +185,12 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
                     ),
                   ]),
                   const SizedBox(height: 20),
+                  // Only the ratios the engine actually answers for this Book are named here. Per-share figures need a
+                  // share count the engine is never sent, so a row for them could only ever read "N/A".
                   _buildRatioSection('Market Value Ratios', [
-                    _buildRatioRow(
-                      'Earnings Per Share',
-                      report.marketValue.earningsPerShare,
-                      isCurrency: true,
-                    ),
                     _buildRatioRow(
                       'Price-to-Earnings Ratio',
                       report.marketValue.priceToEarningsRatio,
-                    ),
-                    _buildRatioRow(
-                      'Book Value Per Share',
-                      report.marketValue.bookValuePerShare,
-                      isCurrency: true,
                     ),
                   ]),
                 ],
@@ -220,31 +216,45 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
     );
   }
 
-  Widget _buildRatioRow(
-    String label,
-    double? value, {
-    bool percentage = false,
-    bool isCurrency = false,
-  }) {
-    String displayValue = value != null
-        ? (isCurrency
-              ? '\$${value.toStringAsFixed(2)}'
-              : (percentage
-                    ? '${(value * 100).toStringAsFixed(2)}%'
-                    : value.toStringAsFixed(2)))
-        : 'N/A';
+  /// A ratio is a comparison and reads as a decimal; money is not a ratio, so it keeps every digit it arrived with.
+  Widget _buildMoneyRow(String label, ExactAmount? amount, String currency) =>
+      _ratioRow(
+        label,
+        amount == null ? 'N/A' : '$currency ${amount.toString()}',
+      );
+
+  /// One line per reading. A figure with thirty digits is wider than a phone, so the value wraps under the label
+  /// rather than running off the edge where it could not be read.
+  Widget _ratioRow(String label, String displayValue) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Text(
-            displayValue,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 16))),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              displayValue,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildRatioRow(
+    String label,
+    double? value, {
+    bool percentage = false,
+  }) {
+    final displayValue = value == null
+        ? 'N/A'
+        : (percentage
+              ? '${(value * 100).toStringAsFixed(2)}%'
+              : value.toStringAsFixed(2));
+    return _ratioRow(label, displayValue);
   }
 }

@@ -84,10 +84,24 @@ pub fn ratios(payload: &Value) -> Result<Value, String> {
         "cash_ratio",
         round4(divide(cash_and_securities, current_liabilities, 0.0)),
     );
-    entry(
-        &mut liquidity,
-        "working_capital",
-        round2(current_assets - current_liabilities),
+    // Working capital is the one amount in this report, so it is counted as money and sent as its own digits: a
+    // business whose current assets run past a double's reach still gets its own figure back, not a rounded one.
+    let working_capital = vimbai_common::Money::from_json(
+        bs.and_then(|sheet| sheet.get("current_assets"))
+            .unwrap_or(&Value::Null),
+    )
+    .and_then(|assets| {
+        vimbai_common::Money::from_json(
+            bs.and_then(|sheet| sheet.get("current_liabilities"))
+                .unwrap_or(&Value::Null),
+        )
+        .map(|liabilities| assets.minus(&liabilities))
+    })
+    .map(|amount| amount.to_string())
+    .unwrap_or_else(|_| round2(current_assets - current_liabilities).to_string());
+    liquidity.insert(
+        "working_capital".to_string(),
+        Value::String(working_capital),
     );
 
     let mut profitability = Map::new();
@@ -388,6 +402,23 @@ mod tests {
             out["efficiency_ratios"]["days_sales_outstanding"],
             json!(40.15)
         );
+    }
+
+    #[test]
+    fn working_capital_is_counted_as_money_and_sent_as_digits() {
+        // A business whose current assets run past a double's reach still gets its own figure back, digit for digit.
+        let mut huge = payload();
+        huge["balance_sheet"]["current_assets"] = json!("123456789012345678901234567890.000001");
+        huge["balance_sheet"]["current_liabilities"] = json!("0.000001");
+        let out = ratios(&huge).unwrap();
+        assert_eq!(
+            out["liquidity_ratios"]["working_capital"],
+            json!("123456789012345678901234567890.000000")
+        );
+
+        // An ordinary case keeps the shape it was given: whole figures stay whole, so a reader trims nothing.
+        let out = ratios(&payload()).unwrap();
+        assert_eq!(out["liquidity_ratios"]["working_capital"], json!("1000000"));
     }
 
     #[test]

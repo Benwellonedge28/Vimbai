@@ -279,7 +279,10 @@ class LiquidityRatios {
   final double? currentRatio;
   final double? quickRatio;
   final double? cashRatio;
-  final double? workingCapital;
+
+  /// The one amount among the ratios. A working capital figure past a double's reach is still the business's own,
+  /// so it keeps its digits rather than being read as a rounded number.
+  final ExactAmount? workingCapital;
 
   LiquidityRatios({
     this.currentRatio,
@@ -293,7 +296,9 @@ class LiquidityRatios {
       currentRatio: amountFromJson(json['current_ratio']),
       quickRatio: amountFromJson(json['quick_ratio']),
       cashRatio: amountFromJson(json['cash_ratio']),
-      workingCapital: amountFromJson(json['working_capital']),
+      workingCapital: json['working_capital'] == null
+          ? null
+          : ExactAmount.fromJson(json['working_capital']),
     );
   }
 }

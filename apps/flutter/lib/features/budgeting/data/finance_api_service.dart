@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/core/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/app/config.dart';
@@ -8,7 +9,6 @@ import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
-import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 
 /// Finance service client.
@@ -300,6 +300,9 @@ class FinanceApiService {
         currentRatio: d(liquidity['current_ratio']),
         quickRatio: d(liquidity['quick_ratio']),
         cashRatio: d(liquidity['cash_ratio']),
+        workingCapital: liquidity['working_capital'] == null
+            ? null
+            : ExactAmount.fromJson(liquidity['working_capital']),
       ),
       solvency: SolvencyRatios(
         debtToEquityRatio: d(leverage['debt_to_equity']),
