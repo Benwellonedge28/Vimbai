@@ -421,7 +421,7 @@ fn approval_limit(band: &str) -> Option<u64> {
 }
 
 /// The size band an organisation falls into: revenue first, then branches and headcount pushing it up a band.
-fn band_for(annual_revenue: u64, headcount: u64, branches: u64, org_type: &str) -> String {
+fn band_for(annual_revenue: &Money, headcount: u64, branches: u64, org_type: &str) -> String {
     let ladder: &[(&str, u64)] = if ["partnership", "company", "plc"].contains(&org_type) {
         &PARTNERSHIP_BANDS
     } else if org_type == "commercial" {
@@ -430,8 +430,10 @@ fn band_for(annual_revenue: u64, headcount: u64, branches: u64, org_type: &str) 
         &NONPROFIT_BANDS
     };
     let mut band = ladder[0].0;
+    // Compared as exact money, not through a float: a figure past nineteen digits has no whole-number type to fit in,
+    // and rounding it into one is the kind of edit a report should never make.
     for (name, threshold) in ladder {
-        if annual_revenue < *threshold {
+        if annual_revenue < &Money::from_u64(*threshold) {
             band = name;
             break;
         }
@@ -466,13 +468,10 @@ fn rows_of(
     Records::new(graph, kind).list(scope, 2000)
 }
 
-fn revenue_of(org: &Value) -> u64 {
-    decimal(org, "annual_revenue", "0")
-        .split('.')
-        .next()
-        .unwrap_or("0")
-        .parse()
-        .unwrap_or(0)
+/// The organisation's revenue as exact money. Anything unreadable counts as nothing, which is the band a record with no
+/// revenue belongs in rather than a refusal that would strand an organisation with no size.
+fn revenue_of(org: &Value) -> Money {
+    Money::parse(&decimal(org, "annual_revenue", "0")).unwrap_or_default()
 }
 
 /// Recompute an organisation's band from what it now is. The caller has already established that they hold it.
@@ -487,7 +486,7 @@ fn refresh_band(
         .filter(|row| field(row, "org_id") == org_id)
         .count() as u64;
     let band = band_for(
-        revenue_of(org),
+        &revenue_of(org),
         whole(org, "headcount") as u64,
         branches,
         field(org, "org_type"),
@@ -525,7 +524,7 @@ pub fn create_org(
     let revenue = money_or_nothing(payload, "annual_revenue")?;
     let headcount = whole(payload, "headcount");
     let band = band_for(
-        revenue.to_f64_lossy() as u64,
+        &revenue,
         headcount as u64,
         0,
         &org_type,
@@ -891,7 +890,7 @@ pub fn report_creditors(
     }
 
     // largest owed first, the order the report was read in
-    owed.sort_by(|left, right| right.1.to_f64_lossy().total_cmp(&left.1.to_f64_lossy()));
+    owed.sort_by(|left, right| right.1.cmp(&left.1));
     let total = Money::sum(
         &owed
             .iter()
@@ -1351,7 +1350,7 @@ pub fn create_expense(
     let approver2 = optional(payload, "approver2").unwrap_or_default();
     let limit = approval_limit(field(&org, "size_band"));
     let over_limit = match limit {
-        Some(ceiling) => amount.to_f64_lossy() > ceiling as f64,
+        Some(ceiling) => amount > Money::from_u64(ceiling),
         // no limit means the organisation approves alone
         None => false,
     };
@@ -2666,29 +2665,29 @@ mod tests {
 
     #[test]
     fn the_size_band_follows_the_revenue() {
-        assert_eq!(band_for(0, 0, 0, "nonprofit"), "small");
-        assert_eq!(band_for(49_999, 0, 0, "nonprofit"), "small");
-        assert_eq!(band_for(50_000, 0, 0, "nonprofit"), "medium");
-        assert_eq!(band_for(500_000, 0, 0, "nonprofit"), "large");
-        assert_eq!(band_for(5_000_000, 0, 0, "nonprofit"), "extra_large");
+        assert_eq!(band_for(&Money::from_u64(0), 0, 0, "nonprofit"), "small");
+        assert_eq!(band_for(&Money::from_u64(49_999), 0, 0, "nonprofit"), "small");
+        assert_eq!(band_for(&Money::from_u64(50_000), 0, 0, "nonprofit"), "medium");
+        assert_eq!(band_for(&Money::from_u64(500_000), 0, 0, "nonprofit"), "large");
+        assert_eq!(band_for(&Money::from_u64(5_000_000), 0, 0, "nonprofit"), "extra_large");
     }
 
     #[test]
     fn a_company_starts_higher_than_a_non_profit() {
         // 100k is medium for a non-profit but still small for a company
-        assert_eq!(band_for(100_000, 0, 0, "nonprofit"), "medium");
-        assert_eq!(band_for(100_000, 0, 0, "company"), "small");
-        assert_eq!(band_for(600_000, 0, 0, "company"), "medium");
+        assert_eq!(band_for(&Money::from_u64(100_000), 0, 0, "nonprofit"), "medium");
+        assert_eq!(band_for(&Money::from_u64(100_000), 0, 0, "company"), "small");
+        assert_eq!(band_for(&Money::from_u64(600_000), 0, 0, "company"), "medium");
     }
 
     #[test]
     fn branches_or_people_push_an_organisation_up_a_band() {
-        assert_eq!(band_for(0, 0, 6, "nonprofit"), "large");
-        assert_eq!(band_for(0, 51, 0, "nonprofit"), "large");
-        assert_eq!(band_for(0, 600, 0, "nonprofit"), "extra_large");
-        assert_eq!(band_for(0, 0, 26, "nonprofit"), "extra_large");
+        assert_eq!(band_for(&Money::from_u64(0), 0, 6, "nonprofit"), "large");
+        assert_eq!(band_for(&Money::from_u64(0), 51, 0, "nonprofit"), "large");
+        assert_eq!(band_for(&Money::from_u64(0), 600, 0, "nonprofit"), "extra_large");
+        assert_eq!(band_for(&Money::from_u64(0), 0, 26, "nonprofit"), "extra_large");
         // a large organisation is never pushed back down
-        assert_eq!(band_for(5_000_000, 0, 6, "nonprofit"), "extra_large");
+        assert_eq!(band_for(&Money::from_u64(5_000_000), 0, 6, "nonprofit"), "extra_large");
     }
 
     #[test]
@@ -2858,6 +2857,58 @@ mod tests {
             create_branch(&graph, &scope(), "org-1", &json!({"name": "Mutare"})).expect("created");
         assert_eq!(answer["size_band"], json!("large"));
         assert_eq!(props(&graph, 3)["size_band"], json!("large"));
+    }
+
+    #[test]
+    fn creditors_are_ordered_by_exact_money_not_by_a_rounded_figure() {
+        // Two sums that a float cannot tell apart: they differ by one minor unit at thirty digits.
+        let graph = FakeGraph::queue(vec![
+            vec![json!({"id": "org-1", "owner_id": "user-1"})],
+            vec![
+                json!({"id": "v-1", "name": "Fuel"}),
+                json!({"id": "v-2", "name": "Stationery"}),
+            ],
+            vec![
+                json!({"id": "p-1", "org_id": "org-1", "vendor_id": "v-1", "status": "unpaid", "amount": "1000000000000000000000000000000.000000"}),
+                json!({"id": "p-2", "org_id": "org-1", "vendor_id": "v-2", "status": "unpaid", "amount": "1000000000000000000000000000000.000001"}),
+            ],
+        ]);
+        let answer = report_creditors(&graph, &scope(), "org-1").expect("reported");
+
+        let creditors = answer["creditors"].as_array().unwrap();
+        assert_eq!(
+            creditors[0]["vendor"],
+            json!("Stationery"),
+            "the larger sum comes first, even where the two are equal to a float"
+        );
+        assert_eq!(
+            creditors[0]["owed"],
+            json!("1000000000000000000000000000000.000001"),
+            "and it is reported with every digit it was given"
+        );
+        assert_eq!(creditors[1]["owed"], json!("1000000000000000000000000000000.000000"));
+    }
+
+    #[test]
+    fn a_spend_limit_is_compared_exactly() {
+        // A medium organisation approves up to 5,000 alone. One minor unit over is over.
+        let graph = FakeGraph::queue(vec![
+            vec![json!({"id": "org-1", "owner_id": "user-1", "org_type": "nonprofit", "size_band": "medium"})],
+            vec![json!({"id": "expense-1", "status": "pending_dual_approval"})],
+        ]);
+        let answer = create_expense(
+            &graph,
+            &scope(),
+            "org-1",
+            &json!({
+                "amount": "5000.000001",
+                "description": "Generator",
+                "program": "Power",
+                "approver1": "Tendai",
+            }),
+        )
+        .expect("created");
+        assert_eq!(answer["status"], json!("pending_dual_approval"));
     }
 
     #[test]

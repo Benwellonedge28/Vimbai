@@ -9,6 +9,8 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
@@ -19,7 +21,7 @@ class NpoOrg {
   final String name;
   final String orgType; // nonprofit | commercial
   final String sizeBand;
-  final double annualRevenue;
+  final ExactAmount annualRevenue;
   final int headcount;
 
   NpoOrg({
@@ -27,7 +29,7 @@ class NpoOrg {
     required this.name,
     required this.orgType,
     required this.sizeBand,
-    this.annualRevenue = 0,
+    this.annualRevenue = ExactAmount.zero,
     this.headcount = 0,
   });
 
@@ -37,7 +39,7 @@ class NpoOrg {
       name: j['name'] as String? ?? '',
       orgType: j['org_type'] as String? ?? 'nonprofit',
       sizeBand: j['size_band'] as String? ?? 'small',
-      annualRevenue: amountFromJson(j['annual_revenue']),
+      annualRevenue: ExactAmount.fromJson(j['annual_revenue']),
       headcount: (j['headcount'] as num?)?.toInt() ?? 0,
     );
   }
@@ -45,6 +47,11 @@ class NpoOrg {
 
 class NpoScaleService {
   NpoScaleService._();
+
+  /// A constructor a test can stand on: proving what the page sends should not need a running gateway.
+  @visibleForTesting
+  NpoScaleService.forTest();
+
   static final NpoScaleService instance = NpoScaleService._();
 
   // Route through the API gateway so the JWT is resolved to X-User-ID.
@@ -84,7 +91,7 @@ class NpoScaleService {
   Future<Map<String, dynamic>> createOrg(
     String name, {
     String orgType = 'nonprofit',
-    double annualRevenue = 0,
+    ExactAmount annualRevenue = ExactAmount.zero,
     int headcount = 0,
   }) async {
     final r = await _client.post(
@@ -93,7 +100,9 @@ class NpoScaleService {
       body: jsonEncode({
         'name': name,
         'org_type': orgType,
-        'annual_revenue': annualRevenue,
+        // Money travels as its own digits: a figure past fifteen digits sent as a double comes back rewritten, and the
+        // size band would then be read off a number nobody entered.
+        'annual_revenue': annualRevenue.toLedgerString(),
         'headcount': headcount,
       }),
     );
@@ -127,7 +136,7 @@ class NpoScaleService {
   Future<Map<String, dynamic>> addDonation(
     String orgId,
     String donorId,
-    double amount, {
+    ExactAmount amount, {
     String designation = 'general',
   }) async {
     final r = await _client.post(
@@ -135,7 +144,7 @@ class NpoScaleService {
       headers: _headers,
       body: jsonEncode({
         'donor_id': donorId,
-        'amount': amount,
+        'amount': amount.toLedgerString(),
         'designation': designation,
       }),
     );
@@ -161,7 +170,7 @@ class NpoScaleService {
   /// Record business revenue (sale / service) with an automatic receipt.
   Future<Map<String, dynamic>> addRevenue(
     String orgId,
-    double amount, {
+    ExactAmount amount, {
     String source = 'sale',
     String customer = '',
   }) async {
@@ -169,7 +178,7 @@ class NpoScaleService {
       _u('/orgs/$orgId/revenues'),
       headers: _headers,
       body: jsonEncode({
-        'amount': amount,
+        'amount': amount.toLedgerString(),
         'source': source,
         'customer': customer,
       }),
@@ -191,7 +200,7 @@ class NpoScaleService {
     String orgId,
     String vendorId,
     String description,
-    double amount,
+    ExactAmount amount,
   ) async {
     final r = await _client.post(
       _u('/orgs/$orgId/purchases'),
@@ -199,7 +208,7 @@ class NpoScaleService {
       body: jsonEncode({
         'vendor_id': vendorId,
         'description': description,
-        'amount': amount,
+        'amount': amount.toLedgerString(),
       }),
     );
     return (_decode<Map<String, dynamic>>(r))['purchase_id'] as String;

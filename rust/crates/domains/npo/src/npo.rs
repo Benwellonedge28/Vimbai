@@ -689,14 +689,16 @@ pub fn create_volunteer_record(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let hours = payload
+    // Read as exact figures, not through a float: hours can be fractional and a rate can be any size, and a figure
+    // that has already been rounded is not the one the caller typed.
+    let counted = payload
         .get("hours_contributed")
-        .and_then(Value::as_f64)
+        .map(Money::from_json)
+        .transpose()
+        .map_err(|_| refused("hours_contributed must be a number"))?
         .unwrap_or_default();
     // what the hours were worth at the rate the caller gave, which is how the service valued them
     let rate = money_or_nothing(payload, "hourly_rate")?;
-    let counted = Money::parse(&format!("{hours}"))
-        .map_err(|_| refused("hours_contributed must be a number"))?;
     let worth = rate.times(&counted);
     remember_with(
         graph,

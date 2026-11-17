@@ -7,18 +7,22 @@
 // away - the kind of transparency donors and regulators expect.
 
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/npo/data/npo_scale_service.dart';
 
 class NpoPage extends StatefulWidget {
-  const NpoPage({super.key});
+  const NpoPage({super.key, this.service});
+
+  /// The client the page talks to. A test hands it one that records the request instead of sending it.
+  final NpoScaleService? service;
 
   @override
   State<NpoPage> createState() => _NpoPageState();
 }
 
 class _NpoPageState extends State<NpoPage> {
-  final NpoScaleService _npo = NpoScaleService.instance;
+  late final NpoScaleService _npo = widget.service ?? NpoScaleService.instance;
   List<NpoOrg> _orgs = [];
   bool _loading = true;
   String? _error;
@@ -64,53 +68,57 @@ class _NpoPageState extends State<NpoPage> {
         return StatefulBuilder(
           builder: (ctx, setDialog) => AlertDialog(
             title: const Text('New organization'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Organization name',
+            // Five organisation types plus two fields do not fit a short phone screen, so the choices scroll instead
+            // of pushing the Create button out of reach.
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Organization name',
+                    ),
                   ),
-                ),
-                RadioListTile<String>(
-                  value: 'nonprofit',
-                  groupValue: orgType,
-                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
-                  title: const Text('Non-profit'),
-                ),
-                RadioListTile<String>(
-                  value: 'commercial',
-                  groupValue: orgType,
-                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
-                  title: const Text('Business'),
-                ),
-                RadioListTile<String>(
-                  value: 'partnership',
-                  groupValue: orgType,
-                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
-                  title: const Text('Partnership'),
-                ),
-                RadioListTile<String>(
-                  value: 'company',
-                  groupValue: orgType,
-                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
-                  title: const Text('Private company'),
-                ),
-                RadioListTile<String>(
-                  value: 'plc',
-                  groupValue: orgType,
-                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
-                  title: const Text('Public company (PLC)'),
-                ),
-                TextField(
-                  controller: revenueCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Annual revenue (USD, optional)',
+                  RadioListTile<String>(
+                    value: 'nonprofit',
+                    groupValue: orgType,
+                    onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                    title: const Text('Non-profit'),
                   ),
-                ),
-              ],
+                  RadioListTile<String>(
+                    value: 'commercial',
+                    groupValue: orgType,
+                    onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                    title: const Text('Business'),
+                  ),
+                  RadioListTile<String>(
+                    value: 'partnership',
+                    groupValue: orgType,
+                    onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                    title: const Text('Partnership'),
+                  ),
+                  RadioListTile<String>(
+                    value: 'company',
+                    groupValue: orgType,
+                    onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                    title: const Text('Private company'),
+                  ),
+                  RadioListTile<String>(
+                    value: 'plc',
+                    groupValue: orgType,
+                    onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                    title: const Text('Public company (PLC)'),
+                  ),
+                  TextField(
+                    controller: revenueCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Annual revenue (USD, optional)',
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -131,12 +139,25 @@ class _NpoPageState extends State<NpoPage> {
       },
     );
     if (created == null || (created['name'] ?? '').isEmpty) return;
+    final typed = created['revenue']?.toString().trim() ?? '';
+    final revenue = ExactAmount.tryParse(typed);
+    if (typed.isNotEmpty && revenue == null) {
+      // Revenue sets the size band, so a figure that is not a number is refused here rather than saved as nothing
+      // and quietly shrinking the organisation.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Annual revenue must be a number, such as 50000'),
+          ),
+        );
+      }
+      return;
+    }
     try {
-      final revenue = double.tryParse(created['revenue'] ?? '') ?? 0;
       await _npo.createOrg(
         created['name']!,
         orgType: created['org_type'] ?? 'nonprofit',
-        annualRevenue: revenue,
+        annualRevenue: revenue ?? ExactAmount.zero,
       );
       await _load();
     } catch (e) {
@@ -185,8 +206,8 @@ class _NpoPageState extends State<NpoPage> {
       ),
     );
     if (result == null) return;
-    final amount = double.tryParse(result['amount'] ?? '') ?? 0;
-    if (amount <= 0) return;
+    final amount = ExactAmount.tryParse(result['amount']?.toString() ?? '');
+    if (amount == null || amount.isNegative || amount.isZero) return;
     try {
       final resp = await _npo.addRevenue(
         org.id,
@@ -250,8 +271,13 @@ class _NpoPageState extends State<NpoPage> {
       ),
     );
     if (result == null) return;
-    final amount = double.tryParse(result['amount'] ?? '') ?? 0;
-    if ((result['vendor'] ?? '').isEmpty || amount <= 0) return;
+    final amount = ExactAmount.tryParse(result['amount']?.toString() ?? '');
+    if ((result['vendor'] ?? '').isEmpty ||
+        amount == null ||
+        amount.isNegative ||
+        amount.isZero) {
+      return;
+    }
     try {
       final vendorId = await _npo.addVendor(org.id, result['vendor']!);
       await _npo.recordPurchase(org.id, vendorId, result['desc'] ?? '', amount);
@@ -395,8 +421,13 @@ class _NpoPageState extends State<NpoPage> {
       ),
     );
     if (result == null) return;
-    final amount = double.tryParse(result['amount'] ?? '') ?? 0;
-    if ((result['donor'] ?? '').isEmpty || amount <= 0) return;
+    final amount = ExactAmount.tryParse(result['amount']?.toString() ?? '');
+    if ((result['donor'] ?? '').isEmpty ||
+        amount == null ||
+        amount.isNegative ||
+        amount.isZero) {
+      return;
+    }
     try {
       final donorId = await _npo.addDonor(
         org.id,
@@ -491,10 +522,11 @@ class _NpoPageState extends State<NpoPage> {
       appBar: AppBar(
         title: const Text('Non-profit organizations'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'New organization',
+          // A bare plus tells a first-time user nothing; this is where an organisation starts.
+          TextButton.icon(
             onPressed: _createOrg,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('New organization'),
           ),
         ],
       ),
@@ -540,7 +572,7 @@ class _NpoPageState extends State<NpoPage> {
                                   subtitle: Text(
                                     '${_bandLabels[org.sizeBand] ?? org.sizeBand}'
                                     ' (${_typeLabels[org.orgType] ?? org.orgType})'
-                                    ' - revenue ${org.annualRevenue.toStringAsFixed(0)} USD',
+                                    ' - revenue ${org.annualRevenue.toDecimalString()} USD',
                                   ),
                                   trailing: PopupMenuButton<String>(
                                     onSelected: (v) {
