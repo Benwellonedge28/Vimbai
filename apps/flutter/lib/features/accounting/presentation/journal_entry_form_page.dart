@@ -4,9 +4,13 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:connectivity_plus/connectivity_plus.dart'; // NEW
 import 'package:uuid/uuid.dart'; // NEW for local UUID
+import 'package:vimbai_mobile_client/features/accounting/presentation/account_picker_sheet.dart';
 
 class JournalEntryFormPage extends StatefulWidget {
-  const JournalEntryFormPage({super.key});
+  const JournalEntryFormPage({super.key, this.service});
+
+  /// The engine the form talks to. A test hands it one that answers without a phone.
+  final AccountingApiService? service;
 
   @override
   State<JournalEntryFormPage> createState() => _JournalEntryFormPageState();
@@ -19,7 +23,13 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
       TextEditingController();
 
   List<JournalLine> _journalLines = [];
-  final AccountingApiService _apiService = AccountingApiService();
+  late final AccountingApiService _apiService =
+      widget.service ?? AccountingApiService();
+
+  /// The Book's chart, so a line can be given an account by name instead of by remembered number. An empty list is not
+  /// a fault to report here: typing a number stays possible, and the cashier's flow must not stall because a chart read
+  /// failed.
+  List<Account> _accounts = const [];
   final Uuid _uuid = Uuid(); // NEW
 
   ConnectivityResult _connectivityResult = ConnectivityResult.none; // NEW
@@ -28,6 +38,7 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
   void initState() {
     super.initState();
     _checkConnectivity(); // NEW
+    _loadChart();
     Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> results,
     ) {
@@ -47,6 +58,38 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
         ? ConnectivityResult.none
         : results.last;
     setState(() {});
+  }
+
+  Future<void> _loadChart() async {
+    try {
+      final accounts = await _apiService.getAllAccounts();
+      if (mounted) setState(() => _accounts = accounts);
+    } catch (_) {
+      // the field stays free text
+    }
+  }
+
+  /// The name of the account a line names, when the chart knows it - the number alone does not tell a person whether
+  /// they chose the bank or the bank loan.
+  String? _nameOf(String number) {
+    for (final account in _accounts) {
+      if (account.accountNumber == number.trim()) return account.accountName;
+    }
+    return null;
+  }
+
+  Future<void> _chooseAccount(int index) async {
+    final line = _journalLines[index];
+    final chosen = await showAccountPicker(context, accounts: _accounts);
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _journalLines[index] = JournalLine(
+        accountNumber: chosen.accountNumber,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      );
+    });
   }
 
   void _addJournalLine() {
@@ -214,9 +257,16 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
                     child: Column(
                       children: [
                         TextFormField(
+                          key: ValueKey('account-$idx-${line.accountNumber}'),
                           initialValue: line.accountNumber,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Account Number',
+                            helperText: _nameOf(line.accountNumber),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.list_alt),
+                              tooltip: 'Choose an account',
+                              onPressed: () => _chooseAccount(idx),
+                            ),
                           ),
                           onChanged: (value) {
                             setState(() {
