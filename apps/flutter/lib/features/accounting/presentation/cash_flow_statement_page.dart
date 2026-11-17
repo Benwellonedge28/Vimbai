@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:intl/intl.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 
 class CashFlowStatementPage extends StatefulWidget {
   const CashFlowStatementPage({super.key});
@@ -75,7 +76,13 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return CouldNotRead(
+              what: 'The cash flow statement',
+              error: snapshot.error,
+              onRetry: () {
+                setState(() => _fetchCashFlowStatement());
+              },
+            );
           } else if (!snapshot.hasData) {
             return const Center(
               child: Text('No data for Cash Flow Statement.'),

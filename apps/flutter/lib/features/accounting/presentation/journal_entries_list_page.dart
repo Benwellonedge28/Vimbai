@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
@@ -106,37 +107,6 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
 
   /// A read that failed is reported as a failed read, in the engine's own words, and never as an empty Book: a person
   /// who has posted entries and is shown none would think their work was lost.
-  Widget _couldNotRead(Object? error) {
-    final reason = (error ?? 'no reason given').toString().replaceFirst(
-      'Exception: ',
-      '',
-    );
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            const Text(
-              'The entries could not be read just now.',
-              style: TextStyle(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(reason, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _refreshJournalEntries,
-              child: const Text('Try again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// The first-run moment: a Book that has just been made has a chart of accounts and nothing in it. An empty list on
   /// its own reads as a dead end, so the page says what an entry is and offers the one step that follows.
   Widget _nothingPostedYet() {
@@ -206,13 +176,15 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return _couldNotRead(snapshot.error);
+            return CouldNotRead(
+              what: 'The entries',
+              error: snapshot.error,
+              onRetry: _refreshJournalEntries,
+            );
           } else if (!snapshot.hasData) {
             // A read that came back empty-handed is not a Book with no entries, and saying so would be a lie about
             // somebody's books.
-            return const Center(
-              child: Text('The entries could not be read just now.'),
-            );
+            return const CouldNotRead(what: 'The entries');
           } else if (snapshot.data!.isEmpty) {
             return _nothingPostedYet();
           } else {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -135,33 +136,30 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Error: ${snapshot.error}',
-                            textAlign: TextAlign.center,
-                          ),
-                          if (_connectivityResult == ConnectivityResult.none)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 8),
-                              child: Text('Showing cached data while offline.'),
-                            ),
-                        ],
+                  // The chart is what every entry needs, so a failed read says which list is missing and offers the
+                  // read again rather than leaving the person on a page of nothing.
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CouldNotRead(
+                        what: 'The chart of accounts',
+                        error: snapshot.error,
+                        onRetry: () => _loadAccounts(forceRemote: true),
                       ),
-                    ),
+                      if (_connectivityResult == ConnectivityResult.none)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 16.0),
+                          child: Text('Showing cached data while offline.'),
+                        ),
+                    ],
                   );
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No accounts found.'));
+                  return const Center(
+                    child: Text(
+                      'No accounts found. A Book is created with its chart in place, so this list should not be empty; '
+                      'reopen the Book to fetch it again.',
+                    ),
+                  );
                 } else {
                   final accounts = snapshot.data!;
                   final groupedAccounts = <String, List<Account>>{};

@@ -3,6 +3,7 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:intl/intl.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 
 class IncomeStatementPage extends StatefulWidget {
   const IncomeStatementPage({super.key});
@@ -76,7 +77,13 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return CouldNotRead(
+              what: 'The income statement',
+              error: snapshot.error,
+              onRetry: () {
+                setState(() => _fetchIncomeStatement());
+              },
+            );
           } else if (!snapshot.hasData) {
             return const Center(child: Text('No data for Income Statement.'));
           } else {

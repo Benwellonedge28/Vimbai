@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 
 class TrialBalancePage extends StatefulWidget {
   const TrialBalancePage({super.key});
@@ -29,7 +30,13 @@ class _TrialBalancePageState extends State<TrialBalancePage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return CouldNotRead(
+              what: 'The trial balance',
+              error: snapshot.error,
+              onRetry: () => setState(
+                () => _trialBalanceFuture = _apiService.getTrialBalance(),
+              ),
+            );
           } else if (!snapshot.hasData) {
             return const Center(child: Text('No data for Trial Balance.'));
           } else {

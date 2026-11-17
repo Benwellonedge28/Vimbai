@@ -3,6 +3,7 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:intl/intl.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 
 class BalanceSheetPage extends StatefulWidget {
   const BalanceSheetPage({super.key});
@@ -62,7 +63,13 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return CouldNotRead(
+              what: 'The balance sheet',
+              error: snapshot.error,
+              onRetry: () {
+                setState(() => _fetchBalanceSheet());
+              },
+            );
           } else if (!snapshot.hasData) {
             return const Center(child: Text('No data for Balance Sheet.'));
           } else {
