@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/features/authentication/models/user.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
+import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'package:vimbai_mobile_client/core/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/core/offline/sync_service.dart'; // For API URL
@@ -57,7 +58,9 @@ class AuthService {
 
   /// Auth token for outgoing API requests (null when logged out).
   Future<String?> getToken() async {
-    return await UserLocalData.getAuthToken();
+    final token = await UserLocalData.getAuthToken();
+    SessionToken.set(token);
+    return token;
   }
 
   Future<bool> register(
@@ -365,6 +368,7 @@ class AuthService {
     }
     lastError = null;
     await UserLocalData.saveAuthToken(token);
+    SessionToken.set(token);
     final refresh = data['refresh_token'] as String?;
     if (refresh != null && refresh.isNotEmpty) {
       await UserLocalData.saveRefreshToken(refresh);
@@ -485,6 +489,7 @@ class AuthService {
     }
     if (response.statusCode != 200) {
       await UserLocalData.clearUserData();
+      SessionToken.clear();
       SyncService.instance.stop();
       onSessionEnded?.call();
       return false;
@@ -493,6 +498,7 @@ class AuthService {
     final token = data['access_token'] as String?;
     if (token == null) return false;
     await UserLocalData.saveAuthToken(token);
+    SessionToken.set(token);
     final renewed = data['refresh_token'] as String?;
     if (renewed != null && renewed.isNotEmpty) {
       await UserLocalData.saveRefreshToken(renewed);
@@ -681,6 +687,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    SessionToken.clear();
     await UserLocalData.clearUserData();
     SyncService.instance.stop(); // halt the offline outbox until next login
   }

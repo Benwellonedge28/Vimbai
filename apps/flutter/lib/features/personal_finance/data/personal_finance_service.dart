@@ -1,5 +1,6 @@
 // Personal finance client: recurring transactions, debts, investments,
 // tax estimation. The API gateway injects X-User-ID from the JWT.
+import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'dart:convert';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 
@@ -23,7 +24,8 @@ class PersonalFinanceService {
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
-    if (_token != null) 'Authorization': 'Bearer $_token',
+    if (SessionToken.or(_token) != null)
+      'Authorization': 'Bearer ${SessionToken.or(_token)}',
     ...BookContext.instance.headers(),
   };
 

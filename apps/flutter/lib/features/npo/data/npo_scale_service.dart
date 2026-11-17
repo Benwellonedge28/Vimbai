@@ -7,6 +7,7 @@
 // features progressively (donor CRM -> budgets -> branches ->
 // dual approval -> federation consolidation).
 
+import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -65,11 +66,16 @@ class NpoScaleService {
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
-    if (_token != null) 'Authorization': 'Bearer $_token',
+    if (SessionToken.or(_token) != null)
+      'Authorization': 'Bearer ${SessionToken.or(_token)}',
     ...BookContext.instance.headers(),
   };
 
   http.Client _client = http.Client();
+
+  /// A test calls the service against a transport it controls. Nothing in the app sets this.
+  @visibleForTesting
+  void useClient(http.Client client) => _client = client;
 
   Uri _u(String p) => Uri.parse('$_kBaseUrl$p');
 

@@ -3,6 +3,7 @@
 // Groups, members, per-cycle contributions and payout schedules. The
 // API gateway injects X-User-ID from the JWT and X-Book-ID from the
 // active Book context, so every group is scoped to the Book.
+import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'dart:convert';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 
@@ -25,7 +26,8 @@ class GroupSavingsService {
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
-    if (_token != null) 'Authorization': 'Bearer $_token',
+    if (SessionToken.or(_token) != null)
+      'Authorization': 'Bearer ${SessionToken.or(_token)}',
     ...BookContext.instance.headers(),
   };
 

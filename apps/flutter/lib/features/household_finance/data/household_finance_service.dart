@@ -1,6 +1,7 @@
 // Household finance client: period analysis of household incomes,
 // expenses, assets and liabilities. The API gateway injects X-User-ID
 // from the JWT and X-Book-ID from the active Book context.
+import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -29,11 +30,17 @@ class HouseholdFinanceService {
 
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
-    if (_token != null) 'Authorization': 'Bearer $_token',
+    if (SessionToken.or(_token) != null)
+      'Authorization': 'Bearer ${SessionToken.or(_token)}',
     ...BookContext.instance.headers(),
   };
 
-  final http.Client _client = http.Client();
+  http.Client _client = http.Client();
+
+  /// A test calls the service against a transport it controls, so what the screen sends and reads back is proven without
+  /// a server. Nothing in the app sets this.
+  @visibleForTesting
+  void useClient(http.Client client) => _client = client;
 
   Uri _u(String p) => Uri.parse('$_kBaseUrl$p');
 
