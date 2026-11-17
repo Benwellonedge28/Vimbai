@@ -243,6 +243,53 @@ void main() {
   });
 
   test(
+    'taking somebody out of a Book revokes them rather than demoting them',
+    () async {
+      // Revoking and demoting are different things and the app has to ask for the right one: a demoted person is still in the
+      // Book and can still read it, so an owner who meant to end someone's access would find the Book open to them.
+      final requests = <String, String>{};
+      ApiClient.transport = MockClient((request) async {
+        final headers = {'content-type': 'application/json'};
+        requests[request.method] = '${request.url.path} ${request.body}';
+        return http.Response('{}', 200, headers: headers);
+      });
+
+      await BookSyncService.instance.updateMember(
+        'book-1',
+        'user-2',
+        status: 'revoked',
+      );
+      expect(
+        requests['PUT'],
+        contains('/books/book-1/members/user-2'),
+        reason: 'the member is named on the address',
+      );
+      expect(
+        requests['PUT'],
+        contains('"status":"revoked"'),
+        reason: 'ending access is a status, not a role',
+      );
+      expect(
+        requests['PUT'],
+        isNot(contains('"role"')),
+        reason: 'a revocation must not also rewrite the role',
+      );
+
+      await BookSyncService.instance.updateMember(
+        'book-1',
+        'user-2',
+        role: 'viewer',
+      );
+      expect(requests['PUT'], contains('"role":"viewer"'));
+      expect(
+        requests['PUT'],
+        isNot(contains('"status"')),
+        reason: 'a role change must not touch standing',
+      );
+    },
+  );
+
+  test(
     'an invitation carries the Book key made openable for that person',
     () async {
       final invitee = _person();

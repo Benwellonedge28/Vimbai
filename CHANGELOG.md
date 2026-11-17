@@ -6,6 +6,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- Sharing is now reversible, which it was not: the engine could change a member's role or revoke them, and nothing in the app
+  could reach either, so an owner who brought in the wrong person had no way to take them out. A member row in Book settings
+  now offers the three roles and "take out of this Book"; a revocation is sent as a status rather than a role, so ending access
+  never quietly demotes somebody who is still in the Book. The owner's own row is not offered, because the engine refuses to
+  touch it and a Book must not be able to orphan itself. A walk proves a revoked member is refused both the read and the posting
+  and that the statements are untouched by the refusal.
+
+### Added
+
 - A way out of a Book a phone joined but cannot read. Inviting somebody already in the Book used to be refused as a conflict and
   accepting a second time was refused as "not an invitation", so the advice the app gave - "ask whoever shared it to invite you
   again" - was impossible to follow and that person was stuck in a Book they could never open. An invitation for an existing

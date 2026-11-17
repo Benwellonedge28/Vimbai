@@ -783,6 +783,31 @@ class BookSyncService {
     }
   }
 
+  /// Change a member's role, or take them out of the Book, and say what changed.
+  ///
+  /// Revoking is how sharing is undone: the person keeps whatever they already pulled, but the Book stops answering them and
+  /// nothing they post lands in it. The engine refuses to touch the owner by this door, so a Book cannot be left with nobody
+  /// who can administer it.
+  Future<void> updateMember(
+    String bookId,
+    String userId, {
+    String? role,
+    String? status,
+  }) async {
+    final body = <String, dynamic>{};
+    if (role != null) body['role'] = role;
+    if (status != null) body['status'] = status;
+    if (body.isEmpty) return;
+    final r = await _client.put(
+      _u('/books/$bookId/members/$userId'),
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    if (r.statusCode != 200) {
+      throw Exception('Change member failed: ${r.statusCode} ${r.body}');
+    }
+  }
+
   Future<List<BookMember>> members(String bookId) async {
     final r = await _client.get(
       _u('/books/$bookId/members'),

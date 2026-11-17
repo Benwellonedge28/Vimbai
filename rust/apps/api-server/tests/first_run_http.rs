@@ -194,6 +194,25 @@ impl Walk {
         made
     }
 
+    /// A posting whose refusal is expected: `post_entry` insists on success, which is right everywhere except in a test about
+    /// somebody who is not allowed to post.
+    async fn post_try(&self, status: &str, amount: &str) -> (StatusCode, Value) {
+        self.call(
+            Method::POST,
+            "/accounting/journal-entries",
+            Some(json!({
+                "entry_date": "2026-11-15",
+                "description": "not allowed",
+                "status": status,
+                "lines": [
+                    {"account_number": "1000", "debit": amount, "credit": "0"},
+                    {"account_number": "4000", "debit": "0", "credit": amount},
+                ],
+            })),
+        )
+        .await
+    }
+
     async fn trial_balance(&self) -> Value {
         let (status, answered) = self
             .call(Method::GET, "/accounting/trial-balance", None)
@@ -695,6 +714,86 @@ async fn a_member_whose_phone_cannot_read_the_book_can_be_given_the_key_again() 
         status,
         StatusCode::FORBIDDEN,
         "the key door opens for members: {refused}"
+    );
+}
+
+#[tokio::test]
+async fn somebody_taken_out_of_a_book_cannot_read_or_post_to_it() {
+    // Sharing has to be reversible or it is a one-way door: an owner who brings in the wrong person, or a bookkeeper who stops
+    // working for them, needs the access to stop. Revoking is the engine's word for that, and what has to be true afterwards is
+    // simple - the Book answers them with a refusal, and nothing they post lands in it.
+    let mut owner = Walk::stranger();
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    let mut guest = Walk::on(owner.router.clone());
+    guest.sign_up("guest@example.com", "Gus").await;
+    let guest_id = guest.user.clone();
+
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(json!({"user_id": guest_id, "role": "bookkeeper", "wrapped_book_key": "sealed-for-the-guest"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+    let (status, _) = guest
+        .call(
+            Method::POST,
+            &format!("/books/{}/members/accept", owner.book),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    guest.book = owner.book.clone();
+    guest.post_entry("posted", "80.00").await;
+    let before = owner.trial_balance().await;
+
+    // the owner takes them out
+    let (status, revoked) = owner
+        .call(
+            Method::PUT,
+            &format!("/books/{}/members/{guest_id}", owner.book),
+            Some(json!({"status": "revoked"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{revoked}");
+
+    // the Book is closed to them: the chart, the statements they were reading a moment ago, and the posting they might try
+    let (status, refused) = guest.call(Method::GET, "/accounting/accounts", None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a revoked member is not a member: {refused}"
+    );
+    let (status, refused) = guest.post_try("posted", "999.00").await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a revoked member cannot post into the Book: {refused}"
+    );
+
+    // and nothing changed for the people still in it
+    let after = owner.trial_balance().await;
+    assert_eq!(
+        after["total_debits"], before["total_debits"],
+        "a refused posting leaves the statements alone: {after}"
+    );
+
+    // the owner's own membership cannot be revoked by way of this door, which is what stops a Book being orphaned
+    let owner_id = owner.user.clone();
+    let (status, refused) = owner
+        .call(
+            Method::PUT,
+            &format!("/books/{}/members/{owner_id}", owner.book),
+            Some(json!({"status": "revoked"})),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the owner of a Book is not removed from it: {refused}"
     );
 }
 

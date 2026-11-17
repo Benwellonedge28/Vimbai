@@ -249,6 +249,56 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     }
   }
 
+  /// Change what a member may do, or take them out of the Book.
+  Future<void> _manageMember(BookMember member) async {
+    final who = member.displayName.isEmpty ? member.userId : member.displayName;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(who),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('viewer'),
+            child: const Text('Change to viewer (can read)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('bookkeeper'),
+            child: const Text('Change to bookkeeper (can post)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('admin'),
+            child: const Text('Change to admin (can invite others)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('revoked'),
+            child: const Text('Take out of this Book'),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final taking_out = choice == 'revoked';
+    try {
+      await _sync.updateMember(
+        _book.id,
+        member.userId,
+        role: taking_out ? null : choice,
+        status: taking_out ? 'revoked' : null,
+      );
+      if (!mounted) return;
+      // say what happened in the words of the thing that happened: taking somebody out is not a role change
+      _toast(
+        taking_out
+            ? '$who can no longer open this Book'
+            : '$who is now a $choice',
+      );
+      await _loadMembers();
+    } catch (e) {
+      if (!mounted) return;
+      _toast('Could not change $who: $e');
+    }
+  }
+
   Future<void> _invite() async {
     final nameCtrl = TextEditingController();
     String role = 'bookkeeper';
@@ -493,6 +543,14 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
                   leading: const Icon(Icons.person_outline),
                   title: Text(m.displayName.isEmpty ? m.userId : m.displayName),
                   subtitle: Text('${m.role} - ${m.status}'),
+                  // the owner's own row is not editable through the engine, and a sheet that offered it would only produce
+                  // a refusal; the same goes for a Book this person cannot administer
+                  trailing: m.role == 'owner' || !_canManage
+                      ? null
+                      : const Icon(Icons.more_vert),
+                  onTap: m.role == 'owner' || !_canManage
+                      ? null
+                      : () => _manageMember(m),
                 ),
               ),
             ListTile(
