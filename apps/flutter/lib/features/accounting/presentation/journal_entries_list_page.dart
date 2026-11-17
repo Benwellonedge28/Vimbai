@@ -5,7 +5,10 @@ import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_dr
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entry_detail_page.dart'; // NEW import
 
 class JournalEntriesListPage extends StatefulWidget {
-  const JournalEntriesListPage({super.key});
+  const JournalEntriesListPage({super.key, this.service});
+
+  /// The engine the page talks to. A test hands it one that answers without a phone.
+  final AccountingApiService? service;
 
   @override
   State<JournalEntriesListPage> createState() => _JournalEntriesListPageState();
@@ -13,7 +16,8 @@ class JournalEntriesListPage extends StatefulWidget {
 
 class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
   late Future<List<JournalEntry>> _journalEntriesFuture;
-  final AccountingApiService _apiService = AccountingApiService();
+  late final AccountingApiService _apiService =
+      widget.service ?? AccountingApiService();
 
   @override
   void initState() {

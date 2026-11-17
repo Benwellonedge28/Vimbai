@@ -16,6 +16,7 @@ pub mod gateway;
 pub mod images;
 pub mod makefile;
 pub mod manifests;
+pub mod offline_schema;
 pub mod openapi;
 pub mod owners;
 pub mod preflight;
