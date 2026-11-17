@@ -43,13 +43,22 @@ jobs:
             BEFORE_SHA=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "HEAD~1")
           fi
 
-          # Detect changed Go services
-          GO_CHANGED=$(git diff --name-only "$BEFORE_SHA" ${{ github.sha }} 2>/dev/null | grep '\.go$' | cut -d/ -f1 | sort -u | grep -v '^\.' || true)
-          if [ -z "$GO_CHANGED" ]; then
-            GO_SERVICES="[]"
-          else
-            GO_SERVICES=$(echo "$GO_CHANGED" | jq -R -s -c 'split("\n")[:-1]')
-          fi
+          # Detect the changed Go modules by walking up from each changed file to the directory holding its go.mod.
+          # Taking the first path segment instead named a folder rather than a module: a change to gateway/go/jwt.go
+          # yielded "gateway", and the job then ran `go mod download` where no go.mod exists, so the gateway's own
+          # tests never ran at all - the pipeline reported a failure about a missing module, which looked like a code
+          # problem and was not.
+          GO_SERVICES=$(
+            git diff --name-only "$BEFORE_SHA" ${{ github.sha }} -- '*.go' '*/go.mod' 2>/dev/null \
+            | while IFS= read -r file; do
+                dir=$(dirname "$file")
+                while [ "$dir" != "." ] && [ "$dir" != "/" ] && [ ! -f "$dir/go.mod" ]; do
+                  dir=$(dirname "$dir")
+                done
+                [ -f "$dir/go.mod" ] && printf '%s\n' "$dir"
+              done | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )
+          if [ -z "$GO_SERVICES" ]; then GO_SERVICES="[]"; fi
           echo "go_services=$GO_SERVICES" >> $GITHUB_OUTPUT
 
   test-go:
