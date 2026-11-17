@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:intl/intl.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 class BalanceSheetPage extends StatefulWidget {
   const BalanceSheetPage({super.key});
@@ -85,8 +86,10 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
                   const SizedBox(height: 10),
                   _buildSection('Equity', statement.equity),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Total Assets',
@@ -96,7 +99,7 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
                         ),
                       ),
                       Text(
-                        '\$${statement.totalAssets.toStringAsFixed(2)}',
+                        '\$${statement.totalAssets.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -105,8 +108,10 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Total Liabilities & Equity',
@@ -116,7 +121,7 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
                         ),
                       ),
                       Text(
-                        '\$${statement.totalLiabilitiesEquity.toStringAsFixed(2)}',
+                        '\$${statement.totalLiabilitiesEquity.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -148,7 +153,7 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
   }
 
   Widget _buildSection(String title, List<BalanceSheetItem> items) {
-    double total = items.fold(0.0, (sum, item) => sum + item.amount);
+    final total = ExactAmount.sum(items.map((i) => i.amount));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -159,11 +164,13 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
         ...items.map(
           (item) => Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 24,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(item.category),
-                Text('\$${item.amount.toStringAsFixed(2)}'),
+                Text('\$${item.amount.toDecimalString()}'),
               ],
             ),
           ),
@@ -171,15 +178,17 @@ class _BalanceSheetPageState extends State<BalanceSheetPage> {
         const Divider(),
         Padding(
           padding: const EdgeInsets.only(left: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 24,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Total $title',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                '\$${total.toStringAsFixed(2)}',
+                '\$${total.toDecimalString()}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],

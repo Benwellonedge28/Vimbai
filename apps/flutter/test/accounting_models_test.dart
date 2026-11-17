@@ -95,8 +95,10 @@ void main() {
 
       expect(trial.entries, hasLength(2));
       expect(trial.entries.first.accountNumber, '1000');
-      expect(trial.entries.last.creditTotal, 250.0);
-      expect(trial.totalDebits, 250.0);
+      // money comes back exactly: the digits the engine wrote, not a double that happened to hold them
+      expect(trial.entries.last.creditTotal, ExactAmount.parse('250.000000'));
+      expect(trial.totalDebits, ExactAmount.parse('250.000000'));
+      expect(trial.totalDebits, trial.totalCredits);
       expect(trial.isBalanced, isTrue);
     });
   });

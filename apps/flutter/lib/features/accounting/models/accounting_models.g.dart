@@ -113,7 +113,7 @@ AccountCreate _$AccountCreateFromJson(Map<String, dynamic> json) =>
       accountNumber: json['accountNumber'] as String,
       accountName: json['accountName'] as String,
       accountType: json['accountType'] as String,
-      currentBalance: amountFromJson(json['currentBalance']),
+      currentBalance: exactAmountFromJson(json['currentBalance']),
       description: json['description'] as String?,
     );
 
@@ -122,7 +122,7 @@ Map<String, dynamic> _$AccountCreateToJson(AccountCreate instance) =>
       'accountNumber': instance.accountNumber,
       'accountName': instance.accountName,
       'accountType': instance.accountType,
-      'currentBalance': instance.currentBalance,
+      'currentBalance': exactAmountToJson(instance.currentBalance),
       'description': instance.description,
     };
 
@@ -130,7 +130,7 @@ AccountUpdate _$AccountUpdateFromJson(Map<String, dynamic> json) =>
     AccountUpdate(
       accountName: json['accountName'] as String?,
       accountType: json['accountType'] as String?,
-      currentBalance: amountFromJson(json['currentBalance']),
+      currentBalance: exactAmountFromJsonNullable(json['currentBalance']),
       description: json['description'] as String?,
     );
 
@@ -138,7 +138,7 @@ Map<String, dynamic> _$AccountUpdateToJson(AccountUpdate instance) =>
     <String, dynamic>{
       'accountName': instance.accountName,
       'accountType': instance.accountType,
-      'currentBalance': instance.currentBalance,
+      'currentBalance': exactAmountToJsonNullable(instance.currentBalance),
       'description': instance.description,
     };
 
@@ -147,7 +147,7 @@ AccountInDB _$AccountInDBFromJson(Map<String, dynamic> json) => AccountInDB(
   accountNumber: json['accountNumber'] as String,
   accountName: json['accountName'] as String,
   accountType: json['accountType'] as String,
-  currentBalance: amountFromJson(json['currentBalance']),
+  currentBalance: exactAmountFromJson(json['currentBalance']),
   description: json['description'] as String?,
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
@@ -159,7 +159,7 @@ Map<String, dynamic> _$AccountInDBToJson(AccountInDB instance) =>
       'accountNumber': instance.accountNumber,
       'accountName': instance.accountName,
       'accountType': instance.accountType,
-      'currentBalance': instance.currentBalance,
+      'currentBalance': exactAmountToJson(instance.currentBalance),
       'description': instance.description,
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
@@ -250,10 +250,12 @@ TrialBalanceEntry _$TrialBalanceEntryFromJson(Map<String, dynamic> json) =>
       accountNumber: json['account_number'] as String,
       accountName: json['account_name'] as String,
       accountType: json['account_type'] as String,
-      debitTotal: json['debit'] == null ? 0.0 : amountFromJson(json['debit']),
+      debitTotal: json['debit'] == null
+          ? ExactAmount.zero
+          : exactAmountFromJson(json['debit']),
       creditTotal: json['credit'] == null
-          ? 0.0
-          : amountFromJson(json['credit']),
+          ? ExactAmount.zero
+          : exactAmountFromJson(json['credit']),
     );
 
 Map<String, dynamic> _$TrialBalanceEntryToJson(TrialBalanceEntry instance) =>
@@ -261,8 +263,8 @@ Map<String, dynamic> _$TrialBalanceEntryToJson(TrialBalanceEntry instance) =>
       'account_number': instance.accountNumber,
       'account_name': instance.accountName,
       'account_type': instance.accountType,
-      'debit': instance.debitTotal,
-      'credit': instance.creditTotal,
+      'debit': exactAmountToJson(instance.debitTotal),
+      'credit': exactAmountToJson(instance.creditTotal),
     };
 
 TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
@@ -271,11 +273,11 @@ TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
       .map((e) => TrialBalanceEntry.fromJson(e as Map<String, dynamic>))
       .toList(),
   totalDebits: json['total_debits'] == null
-      ? 0.0
-      : amountFromJson(json['total_debits']),
+      ? ExactAmount.zero
+      : exactAmountFromJson(json['total_debits']),
   totalCredits: json['total_credits'] == null
-      ? 0.0
-      : amountFromJson(json['total_credits']),
+      ? ExactAmount.zero
+      : exactAmountFromJson(json['total_credits']),
   isBalanced: json['is_balanced'] as bool? ?? false,
 );
 
@@ -283,22 +285,22 @@ Map<String, dynamic> _$TrialBalanceToJson(TrialBalance instance) =>
     <String, dynamic>{
       'report_date': instance.reportDate.toIso8601String(),
       'accounts': instance.entries.map((e) => e.toJson()).toList(),
-      'total_debits': instance.totalDebits,
-      'total_credits': instance.totalCredits,
+      'total_debits': exactAmountToJson(instance.totalDebits),
+      'total_credits': exactAmountToJson(instance.totalCredits),
       'is_balanced': instance.isBalanced,
     };
 
 IncomeStatementItem _$IncomeStatementItemFromJson(Map<String, dynamic> json) =>
     IncomeStatementItem(
       category: json['category'] as String,
-      amount: amountFromJson(json['amount']),
+      amount: exactAmountFromJson(json['amount']),
     );
 
 Map<String, dynamic> _$IncomeStatementItemToJson(
   IncomeStatementItem instance,
 ) => <String, dynamic>{
   'category': instance.category,
-  'amount': instance.amount,
+  'amount': exactAmountToJson(instance.amount),
 };
 
 IncomeStatement _$IncomeStatementFromJson(Map<String, dynamic> json) =>
@@ -311,7 +313,7 @@ IncomeStatement _$IncomeStatementFromJson(Map<String, dynamic> json) =>
       expenses: (json['expenses'] as List<dynamic>)
           .map((e) => IncomeStatementItem.fromJson(e as Map<String, dynamic>))
           .toList(),
-      netIncome: amountFromJson(json['net_income']),
+      netIncome: exactAmountFromJson(json['net_income']),
     );
 
 Map<String, dynamic> _$IncomeStatementToJson(IncomeStatement instance) =>
@@ -320,17 +322,20 @@ Map<String, dynamic> _$IncomeStatementToJson(IncomeStatement instance) =>
       'end_date': instance.endDate.toIso8601String(),
       'revenues': instance.revenues.map((e) => e.toJson()).toList(),
       'expenses': instance.expenses.map((e) => e.toJson()).toList(),
-      'net_income': instance.netIncome,
+      'net_income': exactAmountToJson(instance.netIncome),
     };
 
 BalanceSheetItem _$BalanceSheetItemFromJson(Map<String, dynamic> json) =>
     BalanceSheetItem(
       category: json['category'] as String,
-      amount: amountFromJson(json['amount']),
+      amount: exactAmountFromJson(json['amount']),
     );
 
 Map<String, dynamic> _$BalanceSheetItemToJson(BalanceSheetItem instance) =>
-    <String, dynamic>{'category': instance.category, 'amount': instance.amount};
+    <String, dynamic>{
+      'category': instance.category,
+      'amount': exactAmountToJson(instance.amount),
+    };
 
 BalanceSheet _$BalanceSheetFromJson(Map<String, dynamic> json) => BalanceSheet(
   asOfDate: DateTime.parse(json['as_of_date'] as String),
@@ -343,8 +348,8 @@ BalanceSheet _$BalanceSheetFromJson(Map<String, dynamic> json) => BalanceSheet(
   equity: (json['equity'] as List<dynamic>)
       .map((e) => BalanceSheetItem.fromJson(e as Map<String, dynamic>))
       .toList(),
-  totalAssets: amountFromJson(json['total_assets']),
-  totalLiabilitiesEquity: amountFromJson(json['total_liabilities_equity']),
+  totalAssets: exactAmountFromJson(json['total_assets']),
+  totalLiabilitiesEquity: exactAmountFromJson(json['total_liabilities_equity']),
 );
 
 Map<String, dynamic> _$BalanceSheetToJson(BalanceSheet instance) =>
@@ -353,20 +358,22 @@ Map<String, dynamic> _$BalanceSheetToJson(BalanceSheet instance) =>
       'assets': instance.assets.map((e) => e.toJson()).toList(),
       'liabilities': instance.liabilities.map((e) => e.toJson()).toList(),
       'equity': instance.equity.map((e) => e.toJson()).toList(),
-      'total_assets': instance.totalAssets,
-      'total_liabilities_equity': instance.totalLiabilitiesEquity,
+      'total_assets': exactAmountToJson(instance.totalAssets),
+      'total_liabilities_equity': exactAmountToJson(
+        instance.totalLiabilitiesEquity,
+      ),
     };
 
 CashFlowActivity _$CashFlowActivityFromJson(Map<String, dynamic> json) =>
     CashFlowActivity(
       description: json['description'] as String,
-      amount: amountFromJson(json['amount']),
+      amount: exactAmountFromJson(json['amount']),
     );
 
 Map<String, dynamic> _$CashFlowActivityToJson(CashFlowActivity instance) =>
     <String, dynamic>{
       'description': instance.description,
-      'amount': instance.amount,
+      'amount': exactAmountToJson(instance.amount),
     };
 
 CashFlowSection _$CashFlowSectionFromJson(Map<String, dynamic> json) =>
@@ -397,27 +404,30 @@ CashFlowStatement _$CashFlowStatementFromJson(Map<String, dynamic> json) =>
       financingActivities: CashFlowSection.fromJson(
         json['financing_activities'] as Map<String, dynamic>,
       ),
-      netIncreaseDecreaseInCash: amountFromJson(
+      netIncreaseDecreaseInCash: exactAmountFromJson(
         json['net_increase_decrease_in_cash'],
       ),
-      beginningCashBalance: amountFromJson(json['beginning_cash_balance']),
-      endingCashBalance: amountFromJson(json['ending_cash_balance']),
-      netIncome: amountFromJson(json['net_income']),
+      beginningCashBalance: exactAmountFromJson(json['beginning_cash_balance']),
+      endingCashBalance: exactAmountFromJson(json['ending_cash_balance']),
+      netIncome: exactAmountFromJson(json['net_income']),
     );
 
-Map<String, dynamic> _$CashFlowStatementToJson(CashFlowStatement instance) =>
-    <String, dynamic>{
-      'start_date': instance.startDate.toIso8601String(),
-      'end_date': instance.endDate.toIso8601String(),
-      'report_date': instance.reportDate.toIso8601String(),
-      'operating_activities': instance.operatingActivities.toJson(),
-      'investing_activities': instance.investingActivities.toJson(),
-      'financing_activities': instance.financingActivities.toJson(),
-      'net_increase_decrease_in_cash': instance.netIncreaseDecreaseInCash,
-      'beginning_cash_balance': instance.beginningCashBalance,
-      'ending_cash_balance': instance.endingCashBalance,
-      'net_income': instance.netIncome,
-    };
+Map<String, dynamic> _$CashFlowStatementToJson(
+  CashFlowStatement instance,
+) => <String, dynamic>{
+  'start_date': instance.startDate.toIso8601String(),
+  'end_date': instance.endDate.toIso8601String(),
+  'report_date': instance.reportDate.toIso8601String(),
+  'operating_activities': instance.operatingActivities.toJson(),
+  'investing_activities': instance.investingActivities.toJson(),
+  'financing_activities': instance.financingActivities.toJson(),
+  'net_increase_decrease_in_cash': exactAmountToJson(
+    instance.netIncreaseDecreaseInCash,
+  ),
+  'beginning_cash_balance': exactAmountToJson(instance.beginningCashBalance),
+  'ending_cash_balance': exactAmountToJson(instance.endingCashBalance),
+  'net_income': exactAmountToJson(instance.netIncome),
+};
 
 LedgerAccountBalance _$LedgerAccountBalanceFromJson(
   Map<String, dynamic> json,
@@ -426,7 +436,7 @@ LedgerAccountBalance _$LedgerAccountBalanceFromJson(
   accountName: json['account_name'] as String,
   accountType: json['account_type'] as String? ?? 'unknown',
   normalBalance: json['normal_balance'] as String,
-  currentBalance: amountFromJson(json['end_balance']),
+  currentBalance: exactAmountFromJson(json['end_balance']),
 );
 
 Map<String, dynamic> _$LedgerAccountBalanceToJson(
@@ -436,5 +446,5 @@ Map<String, dynamic> _$LedgerAccountBalanceToJson(
   'account_name': instance.accountName,
   'account_type': instance.accountType,
   'normal_balance': instance.normalBalance,
-  'end_balance': instance.currentBalance,
+  'end_balance': exactAmountToJson(instance.currentBalance),
 };

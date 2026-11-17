@@ -134,8 +134,8 @@ class AccountCreate {
   final String accountNumber;
   final String accountName;
   final String accountType;
-  @JsonKey(fromJson: amountFromJson)
-  final double currentBalance;
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount currentBalance;
   final String? description;
 
   AccountCreate({
@@ -155,8 +155,11 @@ class AccountCreate {
 class AccountUpdate {
   final String? accountName;
   final String? accountType;
-  @JsonKey(fromJson: amountFromJson)
-  final double? currentBalance;
+  @JsonKey(
+    fromJson: exactAmountFromJsonNullable,
+    toJson: exactAmountToJsonNullable,
+  )
+  final ExactAmount? currentBalance;
   final String? description;
 
   AccountUpdate({
@@ -177,8 +180,8 @@ class AccountInDB {
   final String accountNumber;
   final String accountName;
   final String accountType;
-  @JsonKey(fromJson: amountFromJson)
-  final double currentBalance;
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount currentBalance;
   final String? description;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -313,17 +316,25 @@ class TrialBalanceEntry {
   final String accountName;
   @JsonKey(name: 'account_type')
   final String accountType;
-  @JsonKey(name: 'debit', fromJson: amountFromJson)
-  final double debitTotal;
-  @JsonKey(name: 'credit', fromJson: amountFromJson)
-  final double creditTotal;
+  @JsonKey(
+    name: 'debit',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount debitTotal;
+  @JsonKey(
+    name: 'credit',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount creditTotal;
 
   TrialBalanceEntry({
     required this.accountNumber,
     required this.accountName,
     required this.accountType,
-    this.debitTotal = 0.0,
-    this.creditTotal = 0.0,
+    this.debitTotal = ExactAmount.zero,
+    this.creditTotal = ExactAmount.zero,
   });
 
   factory TrialBalanceEntry.fromJson(Map<String, dynamic> json) =>
@@ -339,18 +350,26 @@ class TrialBalance {
   // the engine answers the rows under `accounts`; reading `entries` left the screen empty
   @JsonKey(name: 'accounts')
   final List<TrialBalanceEntry> entries;
-  @JsonKey(name: 'total_debits', fromJson: amountFromJson)
-  final double totalDebits;
-  @JsonKey(name: 'total_credits', fromJson: amountFromJson)
-  final double totalCredits;
+  @JsonKey(
+    name: 'total_debits',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalDebits;
+  @JsonKey(
+    name: 'total_credits',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalCredits;
   @JsonKey(name: 'is_balanced')
   final bool isBalanced;
 
   TrialBalance({
     required this.reportDate,
     required this.entries,
-    this.totalDebits = 0.0,
-    this.totalCredits = 0.0,
+    this.totalDebits = ExactAmount.zero,
+    this.totalCredits = ExactAmount.zero,
     this.isBalanced = false,
   });
 
@@ -363,8 +382,8 @@ class TrialBalance {
 @JsonSerializable()
 class IncomeStatementItem {
   final String category;
-  @JsonKey(fromJson: amountFromJson)
-  final double amount;
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount amount;
 
   IncomeStatementItem({required this.category, required this.amount});
 
@@ -381,8 +400,12 @@ class IncomeStatement {
   final DateTime endDate;
   final List<IncomeStatementItem> revenues;
   final List<IncomeStatementItem> expenses;
-  @JsonKey(name: 'net_income', fromJson: amountFromJson)
-  final double netIncome;
+  @JsonKey(
+    name: 'net_income',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount netIncome;
 
   IncomeStatement({
     required this.startDate,
@@ -401,8 +424,8 @@ class IncomeStatement {
 @JsonSerializable()
 class BalanceSheetItem {
   final String category;
-  @JsonKey(fromJson: amountFromJson)
-  final double amount;
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount amount;
 
   BalanceSheetItem({required this.category, required this.amount});
 
@@ -418,10 +441,18 @@ class BalanceSheet {
   final List<BalanceSheetItem> assets;
   final List<BalanceSheetItem> liabilities;
   final List<BalanceSheetItem> equity;
-  @JsonKey(name: 'total_assets', fromJson: amountFromJson)
-  final double totalAssets;
-  @JsonKey(name: 'total_liabilities_equity', fromJson: amountFromJson)
-  final double totalLiabilitiesEquity;
+  @JsonKey(
+    name: 'total_assets',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalAssets;
+  @JsonKey(
+    name: 'total_liabilities_equity',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalLiabilitiesEquity;
 
   BalanceSheet({
     required this.asOfDate,
@@ -441,8 +472,8 @@ class BalanceSheet {
 @JsonSerializable()
 class CashFlowActivity {
   final String description;
-  @JsonKey(fromJson: amountFromJson)
-  final double amount;
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount amount;
 
   CashFlowActivity({required this.description, required this.amount});
 
@@ -456,9 +487,8 @@ class CashFlowSection {
   final String title;
   final List<CashFlowActivity> activities;
 
-  /// Net cash effect of this section (sum of activity amounts).
-  double get netCash =>
-      activities.fold(0.0, (sum, activity) => sum + activity.amount);
+  /// Net cash effect of this section (sum of activity amounts), counted exactly.
+  ExactAmount get netCash => ExactAmount.sum(activities.map((a) => a.amount));
 
   CashFlowSection({required this.title, required this.activities});
 
@@ -481,14 +511,30 @@ class CashFlowStatement {
   final CashFlowSection investingActivities;
   @JsonKey(name: 'financing_activities')
   final CashFlowSection financingActivities;
-  @JsonKey(name: 'net_increase_decrease_in_cash', fromJson: amountFromJson)
-  final double netIncreaseDecreaseInCash;
-  @JsonKey(name: 'beginning_cash_balance', fromJson: amountFromJson)
-  final double beginningCashBalance;
-  @JsonKey(name: 'ending_cash_balance', fromJson: amountFromJson)
-  final double endingCashBalance;
-  @JsonKey(name: 'net_income', fromJson: amountFromJson)
-  final double netIncome;
+  @JsonKey(
+    name: 'net_increase_decrease_in_cash',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount netIncreaseDecreaseInCash;
+  @JsonKey(
+    name: 'beginning_cash_balance',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount beginningCashBalance;
+  @JsonKey(
+    name: 'ending_cash_balance',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount endingCashBalance;
+  @JsonKey(
+    name: 'net_income',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount netIncome;
 
   CashFlowStatement({
     required this.startDate,
@@ -519,8 +565,12 @@ class LedgerAccountBalance {
   final String accountType;
   @JsonKey(name: 'normal_balance')
   final String normalBalance;
-  @JsonKey(name: 'end_balance', fromJson: amountFromJson)
-  final double currentBalance;
+  @JsonKey(
+    name: 'end_balance',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount currentBalance;
 
   LedgerAccountBalance({
     required this.accountNumber,

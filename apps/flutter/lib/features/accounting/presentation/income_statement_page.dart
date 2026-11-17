@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:intl/intl.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 class IncomeStatementPage extends StatefulWidget {
   const IncomeStatementPage({super.key});
@@ -105,8 +106,10 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
                     isRevenue: false,
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Net Income',
@@ -116,7 +119,7 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
                         ),
                       ),
                       Text(
-                        '\$${statement.netIncome.toStringAsFixed(2)}',
+                        '\$${statement.netIncome.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -138,7 +141,7 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
     List<IncomeStatementItem> items, {
     required bool isRevenue,
   }) {
-    double total = items.fold(0.0, (sum, item) => sum + item.amount);
+    final total = ExactAmount.sum(items.map((i) => i.amount));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -149,11 +152,13 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
         ...items.map(
           (item) => Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 24,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(item.category),
-                Text('\$${item.amount.toStringAsFixed(2)}'),
+                Text('\$${item.amount.toDecimalString()}'),
               ],
             ),
           ),
@@ -161,15 +166,17 @@ class _IncomeStatementPageState extends State<IncomeStatementPage> {
         const Divider(),
         Padding(
           padding: const EdgeInsets.only(left: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 24,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Total $title',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                '\$${total.toStringAsFixed(2)}',
+                '\$${total.toDecimalString()}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],

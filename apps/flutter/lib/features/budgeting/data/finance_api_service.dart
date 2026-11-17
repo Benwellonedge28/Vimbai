@@ -8,6 +8,7 @@ import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 
 /// Finance service client.
@@ -174,19 +175,16 @@ class FinanceApiService {
       endDate,
     );
 
+    // Summed exactly first, and only then turned into the floating-point figure the ratio engine counts in.
     double sumWhere(List<BalanceSheetItem> items, List<String> keywords) {
-      double total = 0;
-      for (final item in items) {
-        final c = item.category.toLowerCase();
-        if (keywords.any((k) => c.contains(k))) {
-          total += item.amount;
-        }
-      }
-      return total;
+      final c = items.where(
+        (i) => keywords.any((k) => i.category.toLowerCase().contains(k)),
+      );
+      return ExactAmount.sum(c.map((i) => i.amount)).toDoubleLossy();
     }
 
     double sumAll(List<IncomeStatementItem> items) =>
-        items.fold(0.0, (sum, item) => sum + item.amount);
+        ExactAmount.sum(items.map((i) => i.amount)).toDoubleLossy();
 
     final revenue = sumAll(incomeStatement.revenues);
     final cogs = incomeStatement.expenses
@@ -195,7 +193,9 @@ class FinanceApiService {
               e.category.toLowerCase().contains('cost of goods') ||
               e.category.toLowerCase().contains('cogs'),
         )
-        .fold(0.0, (sum, e) => sum + e.amount);
+        .map((e) => e.amount)
+        .fold(ExactAmount.zero, (sum, e) => sum + e)
+        .toDoubleLossy();
 
     final headers = await _getHeaders();
     final response = await _client.post(
@@ -209,11 +209,10 @@ class FinanceApiService {
           'current_liabilities': sumWhere(balanceSheet.liabilities, const [
             'current',
           ]),
-          'total_assets': balanceSheet.totalAssets,
-          'total_debt': balanceSheet.liabilities.fold(
-            0.0,
-            (sum, item) => sum + item.amount,
-          ),
+          'total_assets': balanceSheet.totalAssets.toDoubleLossy(),
+          'total_debt': ExactAmount.sum(
+            balanceSheet.liabilities.map((i) => i.amount),
+          ).toDoubleLossy(),
           'total_equity': _equityTotal(balanceSheet),
           'inventory': sumWhere(balanceSheet.assets, const ['inventory']),
           'cash': sumWhere(balanceSheet.assets, const ['cash']),
@@ -230,11 +229,13 @@ class FinanceApiService {
         },
         'income_statement': {
           'revenue': revenue,
-          'net_income': incomeStatement.netIncome,
+          'net_income': incomeStatement.netIncome.toDoubleLossy(),
           'cogs': cogs,
           'interest_expense': incomeStatement.expenses
               .where((e) => e.category.toLowerCase().contains('interest'))
-              .fold(0.0, (sum, e) => sum + e.amount),
+              .map((e) => e.amount)
+              .fold(ExactAmount.zero, (sum, e) => sum + e)
+              .toDoubleLossy(),
         },
         'cash_flow': <String, double>{},
       }),
@@ -254,7 +255,7 @@ class FinanceApiService {
   }
 
   static double _equityTotal(BalanceSheet bs) =>
-      bs.equity.fold(0.0, (sum, item) => sum + item.amount);
+      ExactAmount.sum(bs.equity.map((i) => i.amount)).toDoubleLossy();
 
   FinancialRatiosReport _mapRatiosResponse(
     Map<String, dynamic> j,

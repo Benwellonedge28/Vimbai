@@ -103,8 +103,10 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
                   _buildSection(statement.investingActivities),
                   _buildSection(statement.financingActivities),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Net Increase (Decrease) in Cash',
@@ -114,7 +116,7 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
                         ),
                       ),
                       Text(
-                        '\$${statement.netIncreaseDecreaseInCash.toStringAsFixed(2)}',
+                        '\$${statement.netIncreaseDecreaseInCash.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -122,21 +124,25 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Beginning Cash Balance',
                         style: TextStyle(fontSize: 16),
                       ),
                       Text(
-                        '\$${statement.beginningCashBalance.toStringAsFixed(2)}',
+                        '\$${statement.beginningCashBalance.toDecimalString()}',
                         style: const TextStyle(fontSize: 16),
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 24,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Ending Cash Balance',
@@ -146,7 +152,7 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
                         ),
                       ),
                       Text(
-                        '\$${statement.endingCashBalance.toStringAsFixed(2)}',
+                        '\$${statement.endingCashBalance.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -156,7 +162,7 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Net Income: \$${statement.netIncome.toStringAsFixed(2)}',
+                    'Net Income: \$${statement.netIncome.toDecimalString()}',
                     style: const TextStyle(
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
@@ -185,11 +191,13 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
         ...section.activities.map(
           (activity) => Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 24,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(activity.description),
-                Text('\$${activity.amount.toStringAsFixed(2)}'),
+                Text('\$${activity.amount.toDecimalString()}'),
               ],
             ),
           ),
@@ -197,15 +205,17 @@ class _CashFlowStatementPageState extends State<CashFlowStatementPage> {
         const Divider(),
         Padding(
           padding: const EdgeInsets.only(left: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 24,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Net Cash from ${section.title.split(' ')[2]}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                '\$${section.netCash.toStringAsFixed(2)}',
+                '\$${section.netCash.toDecimalString()}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],

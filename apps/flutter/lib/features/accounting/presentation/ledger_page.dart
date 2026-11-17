@@ -104,7 +104,7 @@ class _LedgerPageState extends State<LedgerPage> {
                       Text('Type: ${_ledgerBalance!.accountType}'),
                       Text('Normal Balance: ${_ledgerBalance!.normalBalance}'),
                       Text(
-                        'Current Balance: \$${_ledgerBalance!.currentBalance.toStringAsFixed(2)}',
+                        'Current Balance: \$${_ledgerBalance!.currentBalance.toDecimalString()}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

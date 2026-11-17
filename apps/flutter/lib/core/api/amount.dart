@@ -110,6 +110,13 @@ class ExactAmount implements Comparable<ExactAmount> {
     return zero;
   }
 
+  /// This amount as a `double`, for a caller that counts in floating point on purpose - a ratio, a percentage, a chart
+  /// axis. Digits past the fifteenth significant one are lost here; nothing that must add up is ever sent through it.
+  double toDoubleLossy() {
+    final value = double.tryParse(toDecimalString()) ?? 0.0;
+    return value;
+  }
+
   /// This amount as a plain decimal figure, the way a person writes money.
   @override
   String toString() => toDecimalString();
@@ -270,5 +277,13 @@ class ExactAmount implements Comparable<ExactAmount> {
 /// Reads an amount from JSON that the engine sent as a decimal string.
 ExactAmount exactAmountFromJson(Object? value) => ExactAmount.fromJson(value);
 
+/// The same, for a field the engine may leave out: absent is absent, not zero.
+ExactAmount? exactAmountFromJsonNullable(Object? value) =>
+    value == null ? null : ExactAmount.fromJson(value);
+
 /// Writes an amount as the decimal string the ledger stores, so no digit is lost on the way out.
 String exactAmountToJson(ExactAmount amount) => amount.toLedgerString();
+
+/// The same, for a field that may be absent.
+String? exactAmountToJsonNullable(ExactAmount? amount) =>
+    amount?.toLedgerString();

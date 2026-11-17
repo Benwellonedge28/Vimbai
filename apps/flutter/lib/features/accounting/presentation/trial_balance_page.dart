@@ -34,58 +34,62 @@ class _TrialBalancePageState extends State<TrialBalancePage> {
             return const Center(child: Text('No data for Trial Balance.'));
           } else {
             final trialBalance = snapshot.data!;
-            return Padding(
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(8.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Report Date: ${trialBalance.reportDate.toLocal().toString().split(' ')[0]}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  DataTable(
-                    columnSpacing: 10,
-                    horizontalMargin: 10,
-                    columns: const [
-                      DataColumn(
-                        label: Text(
-                          'Account',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Text(
-                          'Debit',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        numeric: true,
-                      ),
-                      DataColumn(
-                        label: Text(
-                          'Credit',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        numeric: true,
-                      ),
-                    ],
-                    rows: trialBalance.entries
-                        .map(
-                          (entry) => DataRow(
-                            cells: [
-                              DataCell(
-                                Text(
-                                  '${entry.accountNumber} ${entry.accountName}',
-                                ),
-                              ),
-                              DataCell(
-                                Text(entry.debitTotal.toStringAsFixed(2)),
-                              ),
-                              DataCell(
-                                Text(entry.creditTotal.toStringAsFixed(2)),
-                              ),
-                            ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columnSpacing: 10,
+                      horizontalMargin: 10,
+                      columns: const [
+                        DataColumn(
+                          label: Text(
+                            'Account',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        )
-                        .toList(),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Debit',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          numeric: true,
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Credit',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          numeric: true,
+                        ),
+                      ],
+                      rows: trialBalance.entries
+                          .map(
+                            (entry) => DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    '${entry.accountNumber} ${entry.accountName}',
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(entry.debitTotal.toDecimalString()),
+                                ),
+                                DataCell(
+                                  Text(entry.creditTotal.toDecimalString()),
+                                ),
+                              ],
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
                   const Divider(),
                   Padding(
@@ -93,8 +97,10 @@ class _TrialBalancePageState extends State<TrialBalancePage> {
                       horizontal: 10.0,
                       vertical: 5.0,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Wrap(
+                      spacing: 24,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Text(
                           'TOTALS',
@@ -104,14 +110,14 @@ class _TrialBalancePageState extends State<TrialBalancePage> {
                           ),
                         ),
                         Text(
-                          trialBalance.totalDebits.toStringAsFixed(2),
+                          trialBalance.totalDebits.toDecimalString(),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
                         ),
                         Text(
-                          trialBalance.totalCredits.toStringAsFixed(2),
+                          trialBalance.totalCredits.toDecimalString(),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,

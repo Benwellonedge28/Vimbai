@@ -263,7 +263,7 @@ class AccountingApiService {
             .map(
               (l) => CashFlowActivity(
                 description: l['description'] ?? '',
-                amount: amountFromJson(l['amount']),
+                amount: ExactAmount.fromJson(l['amount']),
               ),
             )
             .toList(),
@@ -278,10 +278,10 @@ class AccountingApiService {
       operatingActivities: toSection('Operating', json['operating_activities']),
       investingActivities: toSection('Investing', json['investing_activities']),
       financingActivities: toSection('Financing', json['financing_activities']),
-      netIncreaseDecreaseInCash: amountFromJson(json['net_change']),
-      beginningCashBalance: amountFromJson(json['beginning_cash']),
-      endingCashBalance: amountFromJson(json['ending_cash']),
-      netIncome: amountFromJson(json['net_operating']),
+      netIncreaseDecreaseInCash: ExactAmount.fromJson(json['net_change']),
+      beginningCashBalance: ExactAmount.fromJson(json['beginning_cash']),
+      endingCashBalance: ExactAmount.fromJson(json['ending_cash']),
+      netIncome: ExactAmount.fromJson(json['net_operating']),
     );
   }
 
@@ -348,7 +348,7 @@ class AccountingApiService {
           accountNumber: account.accountNumber,
           accountName: account.accountName,
           accountType: account.accountType,
-          currentBalance: 0,
+          currentBalance: ExactAmount.zero,
           description: account.description,
         ).toJson(),
       ),
