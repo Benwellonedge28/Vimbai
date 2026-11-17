@@ -1,10 +1,38 @@
 // Personal finance: recurring bills/income, debts, investments and tax.
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/data/personal_finance_service.dart';
 
+/// What this page reads, so a test can drive its loading, failed and empty states without a server. The real thing is
+/// the engine, through the service; nothing else about the page changes when it is swapped.
+abstract class PersonalFinanceReads {
+  Future<List<Map<String, dynamic>>> recurring();
+  Future<List<Map<String, dynamic>>> debts();
+  Future<Map<String, dynamic>> portfolio();
+}
+
+class _EnginePersonalFinance implements PersonalFinanceReads {
+  final _pf = PersonalFinanceService.instance;
+
+  @override
+  Future<List<Map<String, dynamic>>> recurring() => _pf.listRecurring();
+
+  @override
+  Future<List<Map<String, dynamic>>> debts() => _pf.listDebts();
+
+  @override
+  Future<Map<String, dynamic>> portfolio() => _pf.portfolio();
+}
+
+final PersonalFinanceReads _enginePersonalFinance = _EnginePersonalFinance();
+
 class PersonalFinancePage extends StatefulWidget {
-  const PersonalFinancePage({super.key});
+  const PersonalFinancePage({super.key, this.reads});
+
+  /// Left out in the app; a test passes its own so a failed read can be watched.
+  final PersonalFinanceReads? reads;
 
   @override
   State<PersonalFinancePage> createState() => _PersonalFinancePageState();
@@ -19,30 +47,53 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
   Map<String, dynamic> _portfolio = {};
   Map<String, dynamic>? _taxResult;
 
+  /// A read that failed is its own state, not an empty list: showing "no debts yet" after a failed read tells a person
+  /// their work is gone when it is merely unread, and a snackbar slides away while they are still reading it.
+  bool _loading = true;
+  Object? _error;
+
   @override
   void initState() {
     super.initState();
     _reload();
   }
 
+  PersonalFinanceReads get _reads => widget.reads ?? _enginePersonalFinance;
+
   Future<void> _reload() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       if (_section == 0) {
-        _recurring = await _pf.listRecurring();
+        _recurring = await _reads.recurring();
       } else if (_section == 1) {
-        _debts = await _pf.listDebts();
+        _debts = await _reads.debts();
       } else if (_section == 2) {
-        final j = await _pf.portfolio();
+        final j = await _reads.portfolio();
         _portfolio = j;
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Load failed: $e')));
-      }
+      _error = e;
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  /// Loading, then what went wrong, then the list: in that order, because an empty list means something different once a
+  /// read has answered.
+  Widget _read(String what, Widget whenEmpty, Widget Function() whenRead) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return CouldNotRead(what: what, error: _error, onRetry: _reload);
+    }
+    return whenRead();
   }
 
   void _say(String message) {
@@ -105,6 +156,14 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
   }
 
   Widget _recurringView() {
+    return _read(
+      'Your recurring transactions',
+      const Center(child: Text('No recurring transactions yet.')),
+      _recurringList,
+    );
+  }
+
+  Widget _recurringList() {
     if (_recurring.isEmpty) {
       return const Center(child: Text('No recurring transactions yet.'));
     }
@@ -225,6 +284,14 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
   }
 
   Widget _debtsView() {
+    return _read(
+      'Your debts',
+      const Center(child: Text('No debts tracked yet.')),
+      _debtsList,
+    );
+  }
+
+  Widget _debtsList() {
     if (_debts.isEmpty) {
       return const Center(child: Text('No debts tracked yet.'));
     }
@@ -341,6 +408,14 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
   }
 
   Widget _investmentsView() {
+    return _read(
+      'Your investments',
+      const Center(child: Text('No investments yet.')),
+      _investmentsList,
+    );
+  }
+
+  Widget _investmentsList() {
     final invs = (_portfolio['investments'] as List? ?? [])
         .cast<Map<String, dynamic>>();
     final p = _portfolio['portfolio'] as Map<String, dynamic>? ?? {};
