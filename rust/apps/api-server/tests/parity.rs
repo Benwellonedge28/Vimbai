@@ -8,6 +8,10 @@
 //! Floats are compared with a tolerance rather than exactly, because Python and Rust agree to
 //! about fifteen significant digits and no further; a figure that moves by more than that is a
 //! real difference, not a printing one.
+//!
+//! An amount may travel as text rather than as a JSON number, because text is the only shape that
+//! keeps every digit of a figure past a double's reach. A text amount is still read and compared
+//! against the captured figure, so moving a field to text never turns its check off.
 
 #![forbid(unsafe_code)]
 
@@ -19,6 +23,16 @@ fn close(expected: f64, actual: f64) -> bool {
     }
     let scale = expected.abs().max(actual.abs()).max(1.0);
     (expected - actual).abs() <= 1e-9 * scale
+}
+
+/// A figure that arrived as text, read for comparison. `None` when the text is not a number at all,
+/// in which case the two answers genuinely differ.
+fn as_number(value: &Value) -> Option<f64> {
+    match value {
+        Value::Number(number) => number.as_f64(),
+        Value::String(text) => text.trim().parse::<f64>().ok(),
+        _ => None,
+    }
 }
 
 fn compare(
@@ -84,6 +98,14 @@ fn compare(
             }
         }
         (a, b) => {
+            if let (Some(expected_number), Some(actual_number)) = (as_number(a), as_number(b)) {
+                if !close(expected_number, actual_number) {
+                    problems.push(format!(
+                        "{path}: python {expected_number} != rust {actual_number}"
+                    ));
+                }
+                return;
+            }
             if a != b {
                 problems.push(format!("{path}: python {a} != rust {b}"));
             }
@@ -142,4 +164,20 @@ fn every_capture_is_reproduced() {
         "parity broken:\n{}",
         problems.join("\n")
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::as_number;
+    use serde_json::json;
+
+    #[test]
+    fn an_amount_as_text_is_still_a_figure_to_compare() {
+        // Text is how a figure past a double's reach travels, so it must not slip past the comparison.
+        let read = |value| as_number(&value).map(|number| (number * 1000.0).round() as i64);
+        assert_eq!(read(json!("1000000.00")), Some(1_000_000_000));
+        assert_eq!(read(json!(-12.5)), Some(-12_500));
+        assert_eq!(as_number(&json!("not an amount")), None);
+        assert_eq!(as_number(&json!(null)), None);
+    }
 }
