@@ -13,6 +13,8 @@ type Claims struct {
 	Username    string   `json:"username"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
+	// Type is what the identity door issued this for. An access token may act; a refresh token may only be exchanged.
+	Type string `json:"type"`
 	jwt.RegisteredClaims
 }
 
@@ -34,6 +36,20 @@ func ValidateToken(tokenString string, jwtSecret string) (*Claims, error) {
 	// Check expiration
 	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
 		return nil, errors.New("token expired")
+	}
+
+	// Who the token is about. The engine writes the person in `sub`, the way JWT defines the subject; the retired identity
+	// service wrote it in its own `user_id` claim. Reading only `user_id` left the caller unnamed for every token the engine
+	// issues, so the header handed downstream was empty and the engine refused the request for a missing user - which is the
+	// seam between the gateway and the engine, not a client problem.
+	if claims.UserID == "" {
+		claims.UserID = claims.Subject
+	}
+	if claims.UserID == "" {
+		return nil, errors.New("token names no user")
+	}
+	if claims.Type == "refresh" {
+		return nil, errors.New("a refresh token is not an access token")
 	}
 
 	return claims, nil
