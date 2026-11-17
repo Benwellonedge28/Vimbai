@@ -1,25 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/banking/data/banking_api_service.dart';
 import 'package:vimbai_mobile_client/features/banking/models/banking_models.dart';
 import 'package:intl/intl.dart';
 
 class BankAccountDetailPage extends StatefulWidget {
   final BankConnection connection;
-  const BankAccountDetailPage({super.key, required this.connection});
+
+  /// The engine this screen talks to. A test hands in its own so the screen can be read without a phone.
+  final BankingApiService? service;
+
+  const BankAccountDetailPage({
+    super.key,
+    required this.connection,
+    this.service,
+  });
 
   @override
   State<BankAccountDetailPage> createState() => _BankAccountDetailPageState();
 }
 
 class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
-  late Future<List<BankTransaction>> _transactionsFuture;
-  final BankingApiService _apiService = BankingApiService();
+  late final BankingApiService _apiService =
+      widget.service ?? BankingApiService();
   bool _isSyncing = false;
+
+  List<BankTransaction> _transactions = const [];
+  bool _loading = true;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
-    _transactionsFuture = _apiService.getTransactions(widget.connection.id);
+    _refreshTransactions();
   }
 
   Future<void> _syncTransactions() async {
@@ -29,8 +42,14 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
     try {
       await _apiService.syncTransactions(widget.connection.id);
       if (mounted) {
+        // A hand-added account has no provider behind it, so saying "completed" would claim rows it never fetched.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction sync completed.')),
+          const SnackBar(
+            content: Text(
+              'A sync was asked for. This account was added by hand, so no bank sends rows here; '
+              'they arrive when a statement is brought in.',
+            ),
+          ),
         );
       }
       _refreshTransactions();
@@ -38,7 +57,9 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error syncing transactions: ${e.toString()}'),
+            content: Text(
+              'The sync was not started: ${CouldNotRead.reasonOf(e)}',
+            ),
           ),
         );
       }
@@ -49,10 +70,35 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
     }
   }
 
-  void _refreshTransactions() {
+  /// Read this account's rows again, holding the result as state so a read that fails at once reaches the error branch.
+  Future<void> _refreshTransactions() async {
     setState(() {
-      _transactionsFuture = _apiService.getTransactions(widget.connection.id);
+      _loading = true;
+      _error = null;
     });
+    try {
+      final rows = await _apiService.getTransactions(widget.connection.id);
+      if (mounted) setState(() => _transactions = rows);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// What this account's list shows when nothing has been brought in yet.
+  Widget _noTransactionsYet() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'No rows from this account yet. Rows appear when a statement is brought in and matched with the entries '
+          'you post; a hand-added account is not read from the bank by itself.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+    );
   }
 
   Future<void> _reconcile(BankTransaction transaction) async {
@@ -144,72 +190,67 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            Expanded(
-              child: FutureBuilder<List<BankTransaction>>(
-                future: _transactionsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting ||
-                      _isSyncing) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Text('No transactions found for this account.'),
-                    );
-                  } else {
-                    return ListView.builder(
-                      itemCount: snapshot.data!.length,
-                      itemBuilder: (context, index) {
-                        final transaction = snapshot.data![index];
-                        final isCredit =
-                            transaction.transactionType == 'credit';
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          child: ListTile(
-                            title: Text(
-                              transaction.description.isEmpty
-                                  ? (transaction.reference.isEmpty
-                                        ? 'Transaction'
-                                        : transaction.reference)
-                                  : transaction.description,
-                            ),
-                            subtitle: Text(
-                              '${DateFormat.yMd().format(transaction.transactionDate)}'
-                              '${transaction.reconciled ? ' | Reconciled' : ' | Unreconciled'}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  // Every digit, in full: a large posting is not rounded to two places on the way out.
-                                  '${isCredit ? '+' : '-'}${transaction.amount}',
-                                  style: TextStyle(
-                                    color: isCredit ? Colors.green : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (!transaction.reconciled)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.check_circle_outline,
-                                    ),
-                                    tooltip: 'Reconcile',
-                                    onPressed: () => _reconcile(transaction),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                },
-              ),
-            ),
+            Expanded(child: _rows()),
           ],
         ),
       ),
+    );
+  }
+
+  /// The rows, or the reason there are none to show.
+  Widget _rows() {
+    if (_loading || _isSyncing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return CouldNotRead(
+        what: 'The rows from this account',
+        error: _error,
+        onRetry: _refreshTransactions,
+      );
+    }
+    if (_transactions.isEmpty) return _noTransactionsYet();
+    return ListView.builder(
+      itemCount: _transactions.length,
+      itemBuilder: (context, index) {
+        final transaction = _transactions[index];
+        final isCredit = transaction.transactionType == 'credit';
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: ListTile(
+            title: Text(
+              transaction.description.isEmpty
+                  ? (transaction.reference.isEmpty
+                        ? 'Transaction'
+                        : transaction.reference)
+                  : transaction.description,
+            ),
+            subtitle: Text(
+              '${DateFormat.yMd().format(transaction.transactionDate)}'
+              '${transaction.reconciled ? ' | Reconciled' : ' | Unreconciled'}',
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  // Every digit, in full: a large posting is not rounded to two places on the way out.
+                  '${isCredit ? '+' : '-'}${transaction.amount}',
+                  style: TextStyle(
+                    color: isCredit ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (!transaction.reconciled)
+                  IconButton(
+                    icon: const Icon(Icons.check_circle_outline),
+                    tooltip: 'Reconcile',
+                    onPressed: () => _reconcile(transaction),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
