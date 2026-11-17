@@ -783,6 +783,21 @@ class BookSyncService {
     }
   }
 
+  /// What has happened in a Book, newest first, as the engine recorded it.
+  ///
+  /// A shared Book is kept by more than one person, and "who changed this" is the question an owner asks the moment the
+  /// numbers move in a way they did not expect. The engine has kept this record all along - invitations, acceptances, devices,
+  /// pushed batches - and nothing surfaced it.
+  Future<List<Map<String, dynamic>>> activity(String bookId) async {
+    final r = await _client.get(_u('/books/$bookId/audit'), headers: _headers);
+    if (r.statusCode != 200) {
+      throw Exception('Activity failed: ${r.statusCode}');
+    }
+    final rows =
+        (jsonDecode(r.body) as Map<String, dynamic>)['audit'] as List<dynamic>;
+    return rows.cast<Map<String, dynamic>>();
+  }
+
   /// Change a member's role, or take them out of the Book, and say what changed.
   ///
   /// Revoking is how sharing is undone: the person keeps whatever they already pulled, but the Book stops answering them and

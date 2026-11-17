@@ -6,6 +6,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A shared Book can now say who changed it. The engine records every invitation, acceptance, role change, revocation, device and
+  pushed batch against the person who did it, and nothing in the app surfaced it, so an owner looking at numbers they did not
+  expect had no way to find out what moved them. Book settings has "What happened in this Book": each row names the person and
+  says what they did in plain words, newest first. A read that fails says so rather than saying the Book has no history.
+
+### Added
+
 - Sharing is now reversible, which it was not: the engine could change a member's role or revoke them, and nothing in the app
   could reach either, so an owner who brought in the wrong person had no way to take them out. A member row in Book settings
   now offers the three roles and "take out of this Book"; a revocation is sent as a status rather than a role, so ending access

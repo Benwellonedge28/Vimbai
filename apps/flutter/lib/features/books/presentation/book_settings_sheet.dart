@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
+import 'package:vimbai_mobile_client/features/books/presentation/book_activity_sheet.dart';
 import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
 import 'package:vimbai_mobile_client/features/organisations/models/organisation_models.dart';
 import 'package:vimbai_mobile_client/features/organisations/presentation/put_book_in_organisation_sheet.dart';
@@ -557,6 +558,16 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
               leading: const Icon(Icons.person_add_alt),
               title: const Text('Invite member'),
               onTap: _invite,
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('What happened in this Book'),
+              subtitle: const Text('Who changed what, and when'),
+              onTap: () => BookActivitySheet.show(
+                context,
+                bookId: _book.id,
+                bookName: _book.name,
+              ),
             ),
           ],
           const SizedBox(height: 12),
