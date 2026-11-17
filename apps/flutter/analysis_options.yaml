@@ -1,0 +1,20 @@
+# Rules for the app's own code.
+#
+# Generated files are excluded from *reporting*, which is different from being ignored: the analyzer still resolves them
+# and still type-checks everything that imports them, so a model whose generated code disagrees with it is caught. What
+# stops is the generator's own plumbing being reported as this repository's problem - `ci-main.yml` runs
+# `flutter analyze`, which exits non-zero on a warning, so one unused helper left inside a `.g.dart` file (written by a
+# different json_serializable version than the one installed here) failed the build over code no person wrote or edited.
+#
+# Nothing here is allowed to hide a problem in a file a person maintains: keep this list to generated output only.
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**

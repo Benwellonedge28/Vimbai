@@ -9,16 +9,16 @@ part of 'accounting_models.dart';
 JournalLineCreate _$JournalLineCreateFromJson(Map<String, dynamic> json) =>
     JournalLineCreate(
       accountNumber: json['accountNumber'] as String,
-      debit: amountFromJson(json['debit']),
-      credit: amountFromJson(json['credit']),
+      debit: exactAmountFromJson(json['debit']),
+      credit: exactAmountFromJson(json['credit']),
       description: json['description'] as String?,
     );
 
 Map<String, dynamic> _$JournalLineCreateToJson(JournalLineCreate instance) =>
     <String, dynamic>{
       'accountNumber': instance.accountNumber,
-      'debit': instance.debit,
-      'credit': instance.credit,
+      'debit': exactAmountToJson(instance.debit),
+      'credit': exactAmountToJson(instance.credit),
       'description': instance.description,
     };
 
@@ -94,8 +94,8 @@ JournalLineInDB _$JournalLineInDBFromJson(Map<String, dynamic> json) =>
     JournalLineInDB(
       id: json['id'] as String,
       accountNumber: json['accountNumber'] as String,
-      debit: amountFromJson(json['debit']),
-      credit: amountFromJson(json['credit']),
+      debit: exactAmountFromJson(json['debit']),
+      credit: exactAmountFromJson(json['credit']),
       description: json['description'] as String?,
     );
 
@@ -103,8 +103,8 @@ Map<String, dynamic> _$JournalLineInDBToJson(JournalLineInDB instance) =>
     <String, dynamic>{
       'id': instance.id,
       'accountNumber': instance.accountNumber,
-      'debit': instance.debit,
-      'credit': instance.credit,
+      'debit': exactAmountToJson(instance.debit),
+      'credit': exactAmountToJson(instance.credit),
       'description': instance.description,
     };
 
@@ -168,16 +168,20 @@ Map<String, dynamic> _$AccountInDBToJson(AccountInDB instance) =>
 JournalLine _$JournalLineFromJson(Map<String, dynamic> json) => JournalLine(
   accountNumber: json['account_number'] as String,
   description: json['description'] as String?,
-  debit: amountFromJson(json['debit']),
-  credit: amountFromJson(json['credit']),
+  debit: json['debit'] == null
+      ? ExactAmount.zero
+      : exactAmountFromJson(json['debit']),
+  credit: json['credit'] == null
+      ? ExactAmount.zero
+      : exactAmountFromJson(json['credit']),
 );
 
 Map<String, dynamic> _$JournalLineToJson(JournalLine instance) =>
     <String, dynamic>{
       'account_number': instance.accountNumber,
       'description': instance.description,
-      'debit': instance.debit,
-      'credit': instance.credit,
+      'debit': exactAmountToJson(instance.debit),
+      'credit': exactAmountToJson(instance.credit),
     };
 
 JournalEntry _$JournalEntryFromJson(Map<String, dynamic> json) => JournalEntry(
@@ -196,7 +200,7 @@ JournalEntry _$JournalEntryFromJson(Map<String, dynamic> json) => JournalEntry(
   updatedAt: json['updated_at'] == null
       ? null
       : DateTime.parse(json['updated_at'] as String),
-  isSynced: json['is_synced'] as bool?,
+  isSynced: flagFromJson(json['is_synced']),
 );
 
 Map<String, dynamic> _$JournalEntryToJson(JournalEntry instance) =>
@@ -246,8 +250,10 @@ TrialBalanceEntry _$TrialBalanceEntryFromJson(Map<String, dynamic> json) =>
       accountNumber: json['account_number'] as String,
       accountName: json['account_name'] as String,
       accountType: json['account_type'] as String,
-      debitTotal: amountFromJson(json['debit']),
-      creditTotal: amountFromJson(json['credit']),
+      debitTotal: json['debit'] == null ? 0.0 : amountFromJson(json['debit']),
+      creditTotal: json['credit'] == null
+          ? 0.0
+          : amountFromJson(json['credit']),
     );
 
 Map<String, dynamic> _$TrialBalanceEntryToJson(TrialBalanceEntry instance) =>
@@ -264,8 +270,12 @@ TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
   entries: (json['accounts'] as List<dynamic>)
       .map((e) => TrialBalanceEntry.fromJson(e as Map<String, dynamic>))
       .toList(),
-  totalDebits: amountFromJson(json['total_debits']),
-  totalCredits: amountFromJson(json['total_credits']),
+  totalDebits: json['total_debits'] == null
+      ? 0.0
+      : amountFromJson(json['total_debits']),
+  totalCredits: json['total_credits'] == null
+      ? 0.0
+      : amountFromJson(json['total_credits']),
   isBalanced: json['is_balanced'] as bool? ?? false,
 );
 

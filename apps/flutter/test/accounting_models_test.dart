@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 
 /// An entry exactly as the engine answers one: money as a decimal string, lines keyed `account_number`.
@@ -37,8 +38,8 @@ void main() {
       expect(entry.status, 'draft');
       expect(entry.lines, hasLength(2));
       expect(entry.lines.first.accountNumber, '1000');
-      expect(entry.lines.first.debit, 250.0);
-      expect(entry.lines.last.credit, 250.0);
+      expect(entry.lines.first.debit, ExactAmount.parse('250'));
+      expect(entry.lines.last.credit, ExactAmount.parse('250'));
     });
 
     test(
@@ -53,12 +54,15 @@ void main() {
         });
 
         expect(line.accountNumber, '4000');
-        expect(line.credit, 250.0);
+        expect(line.credit, ExactAmount.parse('250'));
       },
     );
 
     test('what is read can be written back out under the same names', () {
-      final line = JournalLine(accountNumber: '1000', debit: 250.0);
+      final line = JournalLine(
+        accountNumber: '1000',
+        debit: ExactAmount.parse('250.00'),
+      );
       expect(line.toJson()['account_number'], '1000');
       expect(line.toJson().containsKey('accountNumber'), isFalse);
     });

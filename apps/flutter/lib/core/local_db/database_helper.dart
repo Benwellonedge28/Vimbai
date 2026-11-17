@@ -36,7 +36,7 @@ class DatabaseHelper {
     return await openDatabase(
       path,
       version:
-          4, // v4: book-scoped offline stores + unsynced accounts + KV cache
+          5, // v5: journal line amounts kept as text, so a figure survives the queue to the engine
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -81,8 +81,10 @@ class DatabaseHelper {
             id TEXT PRIMARY KEY,
             journal_entry_id TEXT,
             account_number TEXT,
-            debit REAL,
-            credit REAL,
+            -- TEXT, not REAL: a REAL column quietly turns a thirty-digit amount into a double, and this row is what an
+            -- unsynced entry is sent to the engine from. The amount is money, so it is kept as the digits it is.
+            debit TEXT,
+            credit TEXT,
             description TEXT,
             FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE
           )
@@ -180,6 +182,30 @@ class DatabaseHelper {
             )
           ''');
     }
+    if (oldVersion < 5) {
+      // v4 -> v5: money is kept exactly. A REAL column rounds whatever is written into it, so a balance typed with more
+      // digits than a double holds came back different from what the person entered - and an unsynced entry is pushed to
+      // the engine from these rows. SQLite cannot change a column type in place, so the table is rebuilt and its rows
+      // carried across (they were numbers, and read back as the same figures).
+      await db.execute('ALTER TABLE journal_lines RENAME TO journal_lines_old');
+      await db.execute('''
+            CREATE TABLE journal_lines(
+              id TEXT PRIMARY KEY,
+              journal_entry_id TEXT,
+              account_number TEXT,
+              debit TEXT,
+              credit TEXT,
+              description TEXT,
+              FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE
+            )
+          ''');
+      await db.execute('''
+            INSERT INTO journal_lines(id, journal_entry_id, account_number, debit, credit, description)
+            SELECT id, journal_entry_id, account_number, CAST(debit AS TEXT), CAST(credit AS TEXT), description
+            FROM journal_lines_old
+          ''');
+      await db.execute('DROP TABLE journal_lines_old');
+    }
     // Add future migrations here
   }
 
@@ -253,8 +279,9 @@ class DatabaseHelper {
         'id': uuid.v4(), // Unique ID for each line
         'journal_entry_id': entryId,
         'account_number': line.accountNumber,
-        'debit': line.debit,
-        'credit': line.credit,
+        // six decimal places, exactly, so the engine is handed the figure the person typed
+        'debit': line.debit.toLedgerString(),
+        'credit': line.credit.toLedgerString(),
         'description': line.description,
       });
     }

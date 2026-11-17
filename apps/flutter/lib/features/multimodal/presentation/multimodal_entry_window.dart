@@ -6,6 +6,7 @@ import 'package:vimbai_mobile_client/features/multimodal/models/multimodal_model
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/multimodal/data/multimodal_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/local_db/local_database.dart';
 import 'package:vimbai_mobile_client/core/offline/sync_service.dart';
 import 'package:uuid/uuid.dart'; // For generating unique IDs
@@ -206,12 +207,11 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
     final entryDate = DateTime.parse(
       _controllers['date']?.text ?? _task!.suggestedJournalEntry!['date'],
     );
+    // Exactly, from the typed figure first and the suggestion second: a scanned receipt's amount is money, and a double
+    // would round the cents off it.
     final amount =
-        double.tryParse(_controllers['total_amount']?.text ?? '') ??
-        double.tryParse(
-          _task!.suggestedJournalEntry!['amount']?.toString() ?? '',
-        ) ??
-        0.0;
+        ExactAmount.tryParse(_controllers['total_amount']?.text ?? '') ??
+        ExactAmount.fromJson(_task!.suggestedJournalEntry!['amount']);
     final description =
         _controllers['description']?.text ??
         _task!.suggestedJournalEntry!['description'];
@@ -226,12 +226,10 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
         JournalLine(
           accountNumber: '5000-Groceries',
           debit: amount,
-          credit: 0.0,
           description: description,
         ),
         JournalLine(
           accountNumber: '1010-Cash',
-          debit: 0.0,
           credit: amount,
           description: description,
         ),

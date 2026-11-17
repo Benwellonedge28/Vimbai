@@ -2,6 +2,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 import '../../../core/api/amount.dart';
+import '../../../core/api/json_values.dart';
 
 part 'accounting_models.g.dart'; // Generated file for json_serializable
 
@@ -9,8 +10,14 @@ part 'accounting_models.g.dart'; // Generated file for json_serializable
 @JsonSerializable(explicitToJson: true)
 class JournalLineCreate {
   final String accountNumber;
-  final double debit;
-  final double credit;
+
+  /// Counted exactly: the ledger holds six decimal places and as many whole digits as the figure has, and this is the
+  /// shape it is written in, so nothing is rounded between the keyboard and the book.
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount debit;
+
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount credit;
   final String? description;
 
   JournalLineCreate({
@@ -100,8 +107,12 @@ class JournalEntryInDB {
 class JournalLineInDB {
   final String id;
   final String accountNumber;
-  final double debit;
-  final double credit;
+
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount debit;
+
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount credit;
   final String? description;
 
   JournalLineInDB({
@@ -123,6 +134,7 @@ class AccountCreate {
   final String accountNumber;
   final String accountName;
   final String accountType;
+  @JsonKey(fromJson: amountFromJson)
   final double currentBalance;
   final String? description;
 
@@ -143,6 +155,7 @@ class AccountCreate {
 class AccountUpdate {
   final String? accountName;
   final String? accountType;
+  @JsonKey(fromJson: amountFromJson)
   final double? currentBalance;
   final String? description;
 
@@ -164,6 +177,7 @@ class AccountInDB {
   final String accountNumber;
   final String accountName;
   final String accountType;
+  @JsonKey(fromJson: amountFromJson)
   final double currentBalance;
   final String? description;
   final DateTime createdAt;
@@ -194,14 +208,20 @@ class JournalLine {
   @JsonKey(name: 'account_number')
   final String accountNumber;
   final String? description;
-  final double debit;
-  final double credit;
+
+  /// Held exactly, in the ledger's own unit. A double would have made a thirty-digit balance unreadable and would have
+  /// let a pair of lines that differ by one millionth look balanced.
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount debit;
+
+  @JsonKey(fromJson: exactAmountFromJson, toJson: exactAmountToJson)
+  final ExactAmount credit;
 
   JournalLine({
     required this.accountNumber,
     this.description,
-    this.debit = 0.0,
-    this.credit = 0.0,
+    this.debit = ExactAmount.zero,
+    this.credit = ExactAmount.zero,
   });
 
   factory JournalLine.fromJson(Map<String, dynamic> json) =>
@@ -225,7 +245,8 @@ class JournalEntry {
   final DateTime? createdAt;
   @JsonKey(name: 'updated_at')
   final DateTime? updatedAt;
-  @JsonKey(name: 'is_synced', includeIfNull: false)
+  // the local tables keep this as 1/0 and the engine as true/false, so both are read rather than one cast at
+  @JsonKey(name: 'is_synced', includeIfNull: false, fromJson: flagFromJson)
   final bool? isSynced;
 
   JournalEntry({
@@ -292,9 +313,9 @@ class TrialBalanceEntry {
   final String accountName;
   @JsonKey(name: 'account_type')
   final String accountType;
-  @JsonKey(name: 'debit')
+  @JsonKey(name: 'debit', fromJson: amountFromJson)
   final double debitTotal;
-  @JsonKey(name: 'credit')
+  @JsonKey(name: 'credit', fromJson: amountFromJson)
   final double creditTotal;
 
   TrialBalanceEntry({
@@ -318,9 +339,9 @@ class TrialBalance {
   // the engine answers the rows under `accounts`; reading `entries` left the screen empty
   @JsonKey(name: 'accounts')
   final List<TrialBalanceEntry> entries;
-  @JsonKey(name: 'total_debits')
+  @JsonKey(name: 'total_debits', fromJson: amountFromJson)
   final double totalDebits;
-  @JsonKey(name: 'total_credits')
+  @JsonKey(name: 'total_credits', fromJson: amountFromJson)
   final double totalCredits;
   @JsonKey(name: 'is_balanced')
   final bool isBalanced;
@@ -342,6 +363,7 @@ class TrialBalance {
 @JsonSerializable()
 class IncomeStatementItem {
   final String category;
+  @JsonKey(fromJson: amountFromJson)
   final double amount;
 
   IncomeStatementItem({required this.category, required this.amount});
@@ -359,7 +381,7 @@ class IncomeStatement {
   final DateTime endDate;
   final List<IncomeStatementItem> revenues;
   final List<IncomeStatementItem> expenses;
-  @JsonKey(name: 'net_income')
+  @JsonKey(name: 'net_income', fromJson: amountFromJson)
   final double netIncome;
 
   IncomeStatement({
@@ -379,6 +401,7 @@ class IncomeStatement {
 @JsonSerializable()
 class BalanceSheetItem {
   final String category;
+  @JsonKey(fromJson: amountFromJson)
   final double amount;
 
   BalanceSheetItem({required this.category, required this.amount});
@@ -395,9 +418,9 @@ class BalanceSheet {
   final List<BalanceSheetItem> assets;
   final List<BalanceSheetItem> liabilities;
   final List<BalanceSheetItem> equity;
-  @JsonKey(name: 'total_assets')
+  @JsonKey(name: 'total_assets', fromJson: amountFromJson)
   final double totalAssets;
-  @JsonKey(name: 'total_liabilities_equity')
+  @JsonKey(name: 'total_liabilities_equity', fromJson: amountFromJson)
   final double totalLiabilitiesEquity;
 
   BalanceSheet({
@@ -418,6 +441,7 @@ class BalanceSheet {
 @JsonSerializable()
 class CashFlowActivity {
   final String description;
+  @JsonKey(fromJson: amountFromJson)
   final double amount;
 
   CashFlowActivity({required this.description, required this.amount});
@@ -457,13 +481,13 @@ class CashFlowStatement {
   final CashFlowSection investingActivities;
   @JsonKey(name: 'financing_activities')
   final CashFlowSection financingActivities;
-  @JsonKey(name: 'net_increase_decrease_in_cash')
+  @JsonKey(name: 'net_increase_decrease_in_cash', fromJson: amountFromJson)
   final double netIncreaseDecreaseInCash;
-  @JsonKey(name: 'beginning_cash_balance')
+  @JsonKey(name: 'beginning_cash_balance', fromJson: amountFromJson)
   final double beginningCashBalance;
-  @JsonKey(name: 'ending_cash_balance')
+  @JsonKey(name: 'ending_cash_balance', fromJson: amountFromJson)
   final double endingCashBalance;
-  @JsonKey(name: 'net_income')
+  @JsonKey(name: 'net_income', fromJson: amountFromJson)
   final double netIncome;
 
   CashFlowStatement({
@@ -495,7 +519,7 @@ class LedgerAccountBalance {
   final String accountType;
   @JsonKey(name: 'normal_balance')
   final String normalBalance;
-  @JsonKey(name: 'end_balance')
+  @JsonKey(name: 'end_balance', fromJson: amountFromJson)
   final double currentBalance;
 
   LedgerAccountBalance({

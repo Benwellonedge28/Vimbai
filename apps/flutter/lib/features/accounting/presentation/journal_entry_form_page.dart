@@ -3,6 +3,7 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:uuid/uuid.dart'; // NEW for local UUID
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/account_picker_sheet.dart';
 
@@ -80,9 +81,7 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
 
   void _addJournalLine() {
     setState(() {
-      _journalLines.add(
-        JournalLine(accountNumber: '', debit: 0.0, credit: 0.0),
-      );
+      _journalLines.add(JournalLine(accountNumber: ''));
     });
   }
 
@@ -92,17 +91,24 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
     });
   }
 
-  double _calculateTotalDebits() {
-    return _journalLines.fold(0.0, (sum, line) => sum + line.debit);
+  /// A blank amount is nothing; anything else has to be a figure the ledger can hold, exactly.
+  String? _amountValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+    if (ExactAmount.tryParse(text) == null) {
+      return 'Enter an amount, like 250.00';
+    }
+    return null;
   }
 
-  double _calculateTotalCredits() {
-    return _journalLines.fold(0.0, (sum, line) => sum + line.credit);
-  }
+  /// Totals are exact, because a total that has been rounded is a total that can agree with a wrong figure.
+  ExactAmount _totalDebits() =>
+      ExactAmount.sum(_journalLines.map((line) => line.debit));
 
-  bool _isBalanced() {
-    return _calculateTotalDebits() == _calculateTotalCredits();
-  }
+  ExactAmount _totalCredits() =>
+      ExactAmount.sum(_journalLines.map((line) => line.credit));
+
+  bool _isBalanced() => _totalDebits() == _totalCredits();
 
   /// Keep this entry as a draft: it is held, and the statements do not count it until it is posted.
   ///
@@ -266,33 +272,45 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
                           },
                         ),
                         TextFormField(
-                          initialValue: line.debit.toStringAsFixed(2),
+                          initialValue: line.debit == ExactAmount.zero
+                              ? ''
+                              : line.debit.toDecimalString(),
                           decoration: const InputDecoration(labelText: 'Debit'),
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          validator: _amountValidator,
                           onChanged: (value) {
-                            final debit = double.tryParse(value) ?? 0.0;
+                            // Typing something that is not an amount is not a posting of zero: the field says so and the
+                            // entry cannot leave until it is a figure the ledger can hold.
+                            final debit =
+                                ExactAmount.tryParse(value) ?? ExactAmount.zero;
                             setState(() {
                               _journalLines[idx] = JournalLine(
                                 accountNumber: line.accountNumber,
                                 debit: debit,
-                                credit: 0.0,
                                 description: line.description,
                               );
                             });
                           },
                         ),
                         TextFormField(
-                          initialValue: line.credit.toStringAsFixed(2),
+                          initialValue: line.credit == ExactAmount.zero
+                              ? ''
+                              : line.credit.toDecimalString(),
                           decoration: const InputDecoration(
                             labelText: 'Credit',
                           ),
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          validator: _amountValidator,
                           onChanged: (value) {
-                            final credit = double.tryParse(value) ?? 0.0;
+                            final credit =
+                                ExactAmount.tryParse(value) ?? ExactAmount.zero;
                             setState(() {
                               _journalLines[idx] = JournalLine(
                                 accountNumber: line.accountNumber,
-                                debit: 0.0,
                                 credit: credit,
                                 description: line.description,
                               );
@@ -336,12 +354,8 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Total Debits: ${_calculateTotalDebits().toStringAsFixed(2)}',
-                  ),
-                  Text(
-                    'Total Credits: ${_calculateTotalCredits().toStringAsFixed(2)}',
-                  ),
+                  Text('Total Debits: ${_totalDebits().toDecimalString()}'),
+                  Text('Total Credits: ${_totalCredits().toDecimalString()}'),
                 ],
               ),
               const SizedBox(height: 10),

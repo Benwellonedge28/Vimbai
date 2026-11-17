@@ -1,9 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 
-JournalLine line(String account, double debit, double credit) =>
-    JournalLine(accountNumber: account, debit: debit, credit: credit);
+JournalLine line(String account, int debit, int credit) => JournalLine(
+  accountNumber: account,
+  debit: ExactAmount.units(debit),
+  credit: ExactAmount.units(credit),
+);
 
 void main() {
   final lines = [line('1001', 25, 0), line('4000', 0, 25)];

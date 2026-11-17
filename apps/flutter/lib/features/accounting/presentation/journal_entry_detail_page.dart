@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 
 class JournalEntryDetailPage extends StatelessWidget {
@@ -8,14 +9,8 @@ class JournalEntryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double totalDebit = entry.lines.fold(
-      0.0,
-      (sum, line) => sum + line.debit.toDouble(),
-    );
-    double totalCredit = entry.lines.fold(
-      0.0,
-      (sum, line) => sum + line.credit.toDouble(),
-    );
+    final totalDebit = ExactAmount.sum(entry.lines.map((line) => line.debit));
+    final totalCredit = ExactAmount.sum(entry.lines.map((line) => line.credit));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Journal Entry Details')),
@@ -135,7 +130,7 @@ class JournalEntryDetailPage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '\$${line.debit.toDouble().toStringAsFixed(2)}',
+                                  '\$${line.debit.toDecimalString()}',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -155,7 +150,7 @@ class JournalEntryDetailPage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '\$${line.credit.toDouble().toStringAsFixed(2)}',
+                                  '\$${line.credit.toDecimalString()}',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -189,7 +184,7 @@ class JournalEntryDetailPage extends StatelessWidget {
                           style: TextStyle(fontSize: 12),
                         ),
                         Text(
-                          '\$${totalDebit.toStringAsFixed(2)}',
+                          '\$${totalDebit.toDecimalString()}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -205,7 +200,7 @@ class JournalEntryDetailPage extends StatelessWidget {
                           style: TextStyle(fontSize: 12),
                         ),
                         Text(
-                          '\$${totalCredit.toStringAsFixed(2)}',
+                          '\$${totalCredit.toDecimalString()}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
