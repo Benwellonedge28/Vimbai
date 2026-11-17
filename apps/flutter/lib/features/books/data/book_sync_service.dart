@@ -783,6 +783,21 @@ class BookSyncService {
     }
   }
 
+  /// Stop being in somebody else's Book.
+  ///
+  /// The engine needs to know - it is what closes the Book to this person and takes it out of their list - and so does this
+  /// phone: a Book that stayed in the registry would keep appearing, and opening it would only produce refusals. The entries
+  /// already pulled are left alone rather than deleted: they are this person's own records of work they did, and nobody asked
+  /// for them to be destroyed.
+  Future<void> leaveBook(String bookId) async {
+    final r = await _client.post(_u('/books/$bookId/leave'), headers: _headers);
+    if (r.statusCode != 200) {
+      throw Exception('Leaving the Book failed: ${r.statusCode} ${r.body}');
+    }
+    final meta = await _meta();
+    await meta.delete('registry', where: 'book_id = ?', whereArgs: [bookId]);
+  }
+
   /// What has happened in a Book, newest first, as the engine recorded it.
   ///
   /// A shared Book is kept by more than one person, and "who changed this" is the question an owner asks the moment the

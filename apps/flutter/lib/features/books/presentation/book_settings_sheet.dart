@@ -250,6 +250,40 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     }
   }
 
+  /// Leave a Book somebody else owns, after asking once.
+  Future<void> _leave() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Leave "${_book.name}"?'),
+        content: const Text(
+          'You will stop seeing this Book, and nothing you post will reach it. '
+          'What is already on this phone can stay.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    try {
+      await _sync.leaveBook(_book.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _toast('You left "${_book.name}"');
+    } catch (e) {
+      if (!mounted) return;
+      _toast('Could not leave the Book: $e');
+    }
+  }
+
   /// Change what a member may do, or take them out of the Book.
   Future<void> _manageMember(BookMember member) async {
     final who = member.displayName.isEmpty ? member.userId : member.displayName;
@@ -569,6 +603,24 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
                 bookName: _book.name,
               ),
             ),
+            // the person's own way out: being taken out is the owner's side of it, and waiting for them is not always
+            // possible when the reason for leaving is the owner
+            if (_book.yourRole != 'owner' &&
+                _book.membershipStatus != 'revoked')
+              ListTile(
+                leading: Icon(
+                  Icons.logout,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Leave this Book',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                subtitle: const Text(
+                  'Stop being in it. Entries already on this phone are kept.',
+                ),
+                onTap: _leave,
+              ),
           ],
           const SizedBox(height: 12),
         ],

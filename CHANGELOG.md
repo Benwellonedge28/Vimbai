@@ -6,6 +6,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A member can leave a Book. Revoking was the owner's side of access ending, and the person whose access should end had no way
+  to end it themselves - not much use when the reason for leaving is the owner. `POST /books/{id}/leave` marks their own
+  membership revoked (the same fact the revoke door records, so the gate, the store and the Books list need nothing new), it
+  shows in the Book's history as "member.left", and the phone drops the Book from its list while keeping the entries already
+  pulled. The owner cannot leave their own Book: a Book with no owner has nobody to invite, revoke or hand it on.
+- Book settings therefore offers "Leave this Book" to anybody in a Book they do not own.
+
+### Added
+
 - A shared Book can now say who changed it. The engine records every invitation, acceptance, role change, revocation, device and
   pushed batch against the person who did it, and nothing in the app surfaced it, so an owner looking at numbers they did not
   expect had no way to find out what moved them. Book settings has "What happened in this Book": each row names the person and

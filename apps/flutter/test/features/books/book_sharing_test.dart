@@ -289,6 +289,70 @@ void main() {
     },
   );
 
+  test('leaving a Book asks the engine and takes the Book off this phone', () async {
+    // Being taken out is the owner's side of access ending; leaving is the person's, and it has two halves: the engine has to
+    // record it, and this phone has to stop showing the Book, or every open of it would produce a refusal.
+    var left = '';
+    ApiClient.transport = MockClient((request) async {
+      final headers = {'content-type': 'application/json'};
+      if (request.url.path.endsWith('/books/book-3/leave')) {
+        left = request.url.path;
+        return http.Response(
+          jsonEncode({'status': 'left'}),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books')) {
+        return http.Response(
+          jsonEncode({
+            'books': [
+              {
+                'id': 'book-3',
+                'name': 'Somebody Elses Book',
+                'tier': 'small_business',
+                'description': '',
+                'folder': '',
+                'your_role': 'bookkeeper',
+                'membership_status': 'active',
+                'seq': 0,
+              },
+            ],
+          }),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books/book-3/key')) {
+        return http.Response(
+          jsonEncode({'wrapped_book_key': ''}),
+          200,
+          headers: headers,
+        );
+      }
+      return http.Response('{}', 200, headers: headers);
+    });
+    await BookSyncService.instance.refreshBooksFromServer();
+    expect(
+      (await BookSyncService.instance.localBooks()).any(
+        (b) => b.id == 'book-3',
+      ),
+      isTrue,
+      reason: 'the Book is in the list before leaving',
+    );
+
+    await BookSyncService.instance.leaveBook('book-3');
+    expect(left, endsWith('/books/book-3/leave'));
+    expect(
+      (await BookSyncService.instance.localBooks()).any(
+        (b) => b.id == 'book-3',
+      ),
+      isFalse,
+      reason:
+          'a Book this person left must not stay on the phone as one of theirs',
+    );
+  });
+
   test(
     'an invitation carries the Book key made openable for that person',
     () async {

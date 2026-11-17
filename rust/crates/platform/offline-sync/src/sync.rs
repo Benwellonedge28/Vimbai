@@ -514,6 +514,42 @@ pub fn update_member(
     Ok(json!({"service": "book-sync-service", "status": "updated"}))
 }
 
+/// `POST /books/{id}/leave`: leave a Book somebody else owns.
+///
+/// Access given has to be access that can be given back. An owner taking somebody out is one direction of it; a person who no
+/// longer wants to be in a Book, or who stops working for the business it belongs to, should not need the owner's agreement to
+/// stop. Leaving is the same fact as being revoked - the membership stops being active - so nothing new has to be understood by
+/// the store, the gate or the Books list.
+///
+/// The owner cannot leave: a Book with no owner has nobody who can invite, revoke or hand it on, and the way out for them is a
+/// decision about the Book, not an exit from it.
+pub fn leave_book(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    book_id: &str,
+) -> Result<Value, StoreError> {
+    let membership = member_of(graph, book_id, &scope.user_id, None)?;
+    if text(&membership, "role") == OWNER {
+        return Err(refused(
+            "the owner of a book cannot leave it: the book would have nobody to administer it",
+        ));
+    }
+    held(graph, MEMBERSHIP).update(
+        book_id,
+        &text(&membership, "id"),
+        &json!({"status": "revoked"}),
+    )?;
+    append_audit(
+        graph,
+        book_id,
+        &scope.user_id,
+        "member.left",
+        &text(&membership, "role"),
+        &Value::Null,
+    )?;
+    Ok(json!({"service": "book-sync-service", "status": "left"}))
+}
+
 /// `POST /books/{id}/members/accept`: take up an invitation, and receive the Book key wrapped for the caller.
 pub fn accept_invite(
     graph: &(impl Graph + ?Sized),

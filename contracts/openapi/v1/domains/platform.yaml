@@ -206,6 +206,12 @@ paths:
     get:
       operationId: getBooksKey
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /books/{}/leave:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBooksLeave
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /books/{}/members:
     parameters:
       - $ref: "#/components/parameters/BookId"

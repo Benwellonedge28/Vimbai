@@ -14594,6 +14594,23 @@ async fn post_book_member_accept(
     ))
 }
 
+/// `POST /books/{id}/leave`: stop being in somebody else's Book.
+async fn post_book_leave(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_in(&headers, &book_id) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::leave_book(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
 /// `GET /books/{id}/key`: this member's own copy of the Book key, again.
 ///
 /// The address exists because the alternative was a dead end: a member who joined with nothing to open, or who moved to a new
@@ -17891,6 +17908,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/books/:id/audit", get(get_book_audit))
         .route("/books/:id/membership", get(get_book_membership))
         .route("/books/:id/key", get(get_book_key))
+        .route("/books/:id/leave", post(post_book_leave))
 
         // MFA: the second factor a person carries, self-service only
         .route("/mfa/setup", post(post_mfa_setup))

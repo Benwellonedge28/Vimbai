@@ -797,6 +797,71 @@ async fn somebody_taken_out_of_a_book_cannot_read_or_post_to_it() {
     );
 }
 
+#[tokio::test]
+async fn a_member_can_leave_a_book_and_the_owner_cannot_leave_their_own() {
+    // Access that was given has to be able to be handed back. Being taken out is the owner's side of it; this is the person's -
+    // they stop working for the business, they joined the wrong Book, they changed their mind - and none of that should need
+    // somebody else's agreement.
+    let mut owner = Walk::stranger();
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    let mut guest = Walk::on(owner.router.clone());
+    guest.sign_up("guest@example.com", "Gus").await;
+    let guest_id = guest.user.clone();
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(json!({"user_id": guest_id, "role": "bookkeeper", "wrapped_book_key": "sealed-for-the-guest"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+    let (status, _) = guest
+        .call(
+            Method::POST,
+            &format!("/books/{}/members/accept", owner.book),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    guest.book = owner.book.clone();
+    assert!(!guest.chart().await.is_empty(), "a member reads the Book");
+
+    // they leave
+    let (status, left) = guest
+        .call(Method::POST, &format!("/books/{}/leave", owner.book), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{left}");
+    assert_eq!(left["status"], json!("left"), "{left}");
+
+    // the Book stops answering them, and stops being one of theirs
+    let (status, refused) = guest.call(Method::GET, "/accounting/accounts", None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a Book left is a Book closed: {refused}"
+    );
+    let (status, listed) = guest.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(
+        listed["books"].as_array().map(Vec::len),
+        Some(0),
+        "a Book somebody left is not one of their Books: {listed}"
+    );
+
+    // the owner still holds it, and cannot leave the one they own: a Book with no owner has nobody to administer it
+    assert!(!owner.chart().await.is_empty());
+    let (status, refused) = owner
+        .call(Method::POST, &format!("/books/{}/leave", owner.book), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the owner cannot leave their own Book: {refused}"
+    );
+}
+
 /// A modulus in the shape a phone publishes: base64 of 128 bytes, which is the smallest the engine will seal a Book key for.
 fn base64_of_128_bytes() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
