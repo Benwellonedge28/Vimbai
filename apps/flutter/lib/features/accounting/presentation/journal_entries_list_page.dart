@@ -3,6 +3,7 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entry_detail_page.dart'; // NEW import
+import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entry_form_page.dart';
 
 class JournalEntriesListPage extends StatefulWidget {
   const JournalEntriesListPage({super.key, this.service});
@@ -103,6 +104,84 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
     }
   }
 
+  /// A read that failed is reported as a failed read, in the engine's own words, and never as an empty Book: a person
+  /// who has posted entries and is shown none would think their work was lost.
+  Widget _couldNotRead(Object? error) {
+    final reason = (error ?? 'no reason given').toString().replaceFirst(
+      'Exception: ',
+      '',
+    );
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off, size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'The entries could not be read just now.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(reason, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: _refreshJournalEntries,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The first-run moment: a Book that has just been made has a chart of accounts and nothing in it. An empty list on
+  /// its own reads as a dead end, so the page says what an entry is and offers the one step that follows.
+  Widget _nothingPostedYet() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.receipt_long_outlined, size: 56),
+            const SizedBox(height: 12),
+            const Text(
+              'Nothing posted in this Book yet',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'An entry is what moves the numbers: what came in or went out, and which '
+              'accounts it touches. This Book already has its chart of accounts, so you '
+              'can pick them by name instead of remembering numbers.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _writeTheFirstEntry,
+              icon: const Icon(Icons.add),
+              label: const Text('Write the first entry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _writeTheFirstEntry() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JournalEntryFormPage(service: _apiService),
+      ),
+    );
+    // Whatever the form did, the list is asked again rather than assumed: a note saved there is a row here.
+    if (mounted) _refreshJournalEntries();
+  }
+
   void _refreshJournalEntries() {
     setState(() {
       _journalEntriesFuture = _apiService.getJournalEntries();
@@ -127,9 +206,15 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No journal entries found.'));
+            return _couldNotRead(snapshot.error);
+          } else if (!snapshot.hasData) {
+            // A read that came back empty-handed is not a Book with no entries, and saying so would be a lie about
+            // somebody's books.
+            return const Center(
+              child: Text('The entries could not be read just now.'),
+            );
+          } else if (snapshot.data!.isEmpty) {
+            return _nothingPostedYet();
           } else {
             return ListView.builder(
               itemCount: snapshot.data!.length,

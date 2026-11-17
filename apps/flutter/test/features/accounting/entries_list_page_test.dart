@@ -27,6 +27,13 @@ class _ScriptedService extends AccountingApiService {
   }
 }
 
+/// An engine that cannot be reached, so the page has to say the read failed rather than that the Book is empty.
+class _UnreachableService extends AccountingApiService {
+  @override
+  Future<List<JournalEntry>> getJournalEntries() async =>
+      throw Exception('connection refused');
+}
+
 /// An engine that really throws a note away, so the list after the tap is the one the engine would answer with.
 class _DiscardingService extends AccountingApiService {
   _DiscardingService({required this.rows, this.refusal});
@@ -169,5 +176,36 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Rent paid'), findsOneWidget);
+  });
+
+  testWidgets('an empty Book says what an entry is and offers the first step', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JournalEntriesListPage(
+          service: _ScriptedService(entries: () => const []),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nothing posted in this Book yet'), findsOneWidget);
+    // the offer is a real next step, named in the person's words
+    expect(find.text('Write the first entry'), findsOneWidget);
+    // and it never claims the books are empty when the read merely failed
+    expect(find.textContaining('could not be read'), findsNothing);
+  });
+
+  testWidgets('a read that failed says so instead of showing an empty Book', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: JournalEntriesListPage(service: _UnreachableService())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('could not be read'), findsOneWidget);
+    expect(find.text('Nothing posted in this Book yet'), findsNothing);
   });
 }
