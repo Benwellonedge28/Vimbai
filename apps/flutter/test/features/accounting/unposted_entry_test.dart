@@ -39,11 +39,6 @@ void _tallPhone(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
-Future<void> _tapButton(WidgetTester tester, String label) async {
-  await tester.tap(find.widgetWithText(ElevatedButton, label));
-  await tester.pumpAndSettle();
-}
-
 Future<void> _fillBalanced(WidgetTester tester) async {
   await tester.tap(find.widgetWithText(ElevatedButton, 'Add Journal Line'));
   await tester.pumpAndSettle();
