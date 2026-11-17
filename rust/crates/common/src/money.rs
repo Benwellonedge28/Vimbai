@@ -456,8 +456,14 @@ mod tests {
             Ok(big.into()),
             "a decimal string keeps all thirty-six digits"
         );
-        assert_eq!(Money::from_json(&serde_json::json!(0.1)).map(|m| m.to_fixed(1)), Ok("0.1".into()));
-        assert_eq!(Money::from_json(&serde_json::Value::Null).map(|m| m.to_fixed(2)), Ok("0.00".into()));
+        assert_eq!(
+            Money::from_json(&serde_json::json!(0.1)).map(|m| m.to_fixed(1)),
+            Ok("0.1".into())
+        );
+        assert_eq!(
+            Money::from_json(&serde_json::Value::Null).map(|m| m.to_fixed(2)),
+            Ok("0.00".into())
+        );
         assert!(Money::from_json(&serde_json::json!("not money")).is_err());
         assert!(Money::from_json(&serde_json::json!(true)).is_err());
     }
