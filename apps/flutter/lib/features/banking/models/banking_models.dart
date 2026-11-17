@@ -55,11 +55,11 @@ class BankConnection {
 class BankTransaction {
   final String id;
   final String connectionId;
-  final double amount;
+  final ExactAmount amount;
   final String transactionType; // credit, debit
   final String description;
   final DateTime transactionDate;
-  final double balanceAfter;
+  final ExactAmount balanceAfter;
   final bool reconciled;
   final String reference;
 
@@ -84,12 +84,12 @@ class BankTransaction {
     return BankTransaction(
       id: json['id'] as String,
       connectionId: (connection as String?) ?? '',
-      amount: amountFromJson(json['amount']),
+      amount: ExactAmount.fromJson(json['amount']),
       transactionType: (json['transaction_type'] as String?) ?? 'debit',
       description: (json['description'] as String?) ?? '',
       transactionDate:
           DateTime.tryParse((day as String?) ?? '') ?? DateTime(1970),
-      balanceAfter: amountFromJson(json['balance_after']),
+      balanceAfter: ExactAmount.fromJson(json['balance_after']),
       reconciled:
           (json['reconciled'] as bool?) ??
           (json['reconciled_at'] != null || status == 'reconciled'),
@@ -103,11 +103,11 @@ class BankTransaction {
   Map<String, dynamic> toJson() => {
     'id': id,
     'connection_id': connectionId,
-    'amount': amount,
+    'amount': amount.toLedgerString(),
     'transaction_type': transactionType,
     'description': description,
     'transaction_date': transactionDate.toIso8601String(),
-    'balance_after': balanceAfter,
+    'balance_after': balanceAfter.toLedgerString(),
     'reconciled': reconciled,
     'reference': reference,
   };

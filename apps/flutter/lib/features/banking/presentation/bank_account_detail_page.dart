@@ -183,7 +183,8 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '${isCredit ? '+' : '-'}${transaction.amount.toStringAsFixed(2)}',
+                                  // Every digit, in full: a large posting is not rounded to two places on the way out.
+                                  '${isCredit ? '+' : '-'}${transaction.amount}',
                                   style: TextStyle(
                                     color: isCredit ? Colors.green : Colors.red,
                                     fontWeight: FontWeight.bold,
