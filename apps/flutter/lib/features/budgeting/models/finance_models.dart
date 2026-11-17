@@ -425,6 +425,35 @@ class FinancialRatiosReport {
     this.currency = 'USD',
   });
 
+  /// Every reading the report can carry, in one place, so "nothing came back" has one definition rather than a
+  /// list repeated by whoever asks.
+  List<Object?> get readings => [
+    liquidity.currentRatio,
+    liquidity.quickRatio,
+    liquidity.cashRatio,
+    liquidity.workingCapital,
+    solvency.debtToEquityRatio,
+    solvency.debtToAssetRatio,
+    solvency.equityMultiplier,
+    solvency.timesInterestEarned,
+    profitability.grossProfitMargin,
+    profitability.operatingProfitMargin,
+    profitability.netProfitMargin,
+    profitability.returnOnAssets,
+    profitability.returnOnEquity,
+    efficiency.inventoryTurnover,
+    efficiency.accountsReceivableTurnover,
+    efficiency.accountsPayableTurnover,
+    efficiency.assetTurnover,
+    efficiency.daySalesOutstanding,
+    marketValue.earningsPerShare,
+    marketValue.priceToEarningsRatio,
+    marketValue.bookValuePerShare,
+  ];
+
+  /// True when the engine answered but had nothing to work a single ratio from.
+  bool get hasNoReadings => readings.every((reading) => reading == null);
+
   factory FinancialRatiosReport.fromJson(Map<String, dynamic> json) {
     return FinancialRatiosReport(
       reportDate: json['report_date'] != null

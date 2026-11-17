@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/budgeting/data/finance_api_service.dart';
 import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart';
 import 'package:intl/intl.dart';
@@ -20,7 +21,9 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
   final FinanceApiService _apiService = FinanceApiService();
   late DateTime _startDate;
   late DateTime _endDate;
-  Future<FinancialRatiosReport>? _ratiosReportFuture;
+  FinancialRatiosReport? _report;
+  bool _loading = true;
+  Object? _error;
 
   @override
   void initState() {
@@ -30,11 +33,21 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
     _fetchRatiosReport();
   }
 
+  /// Read the report again, holding the result as state so a read that fails at once still reaches the error branch.
   Future<void> _fetchRatiosReport() async {
     setState(() {
-      final load = widget.loadRatios ?? _apiService.getFinancialRatios;
-      _ratiosReportFuture = load(_startDate, _endDate);
+      _loading = true;
+      _error = null;
     });
+    try {
+      final load = widget.loadRatios ?? _apiService.getFinancialRatios;
+      final report = await load(_startDate, _endDate);
+      if (mounted) setState(() => _report = report);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -74,130 +87,134 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
           ),
         ],
       ),
-      body: FutureBuilder<FinancialRatiosReport>(
-        future: _ratiosReportFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData) {
-            return const Center(child: Text('No financial ratios data found.'));
-          } else {
-            final report = snapshot.data!;
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Report Date: ${DateFormat.yMMMd().format(report.reportDate)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Period: ${DateFormat.yMMMd().format(report.startDate)} - ${DateFormat.yMMMd().format(report.endDate)}',
-                  ),
-                  const SizedBox(height: 20),
-                  _buildRatioSection('Liquidity Ratios', [
-                    _buildRatioRow(
-                      'Current Ratio',
-                      report.liquidity.currentRatio,
-                    ),
-                    _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
-                    _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
-                    _buildMoneyRow(
-                      'Working Capital',
-                      report.liquidity.workingCapital,
-                      report.currency,
-                    ),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildRatioSection('Solvency Ratios', [
-                    _buildRatioRow(
-                      'Debt-to-Equity Ratio',
-                      report.solvency.debtToEquityRatio,
-                    ),
-                    _buildRatioRow(
-                      'Debt-to-Asset Ratio',
-                      report.solvency.debtToAssetRatio,
-                    ),
-                    _buildRatioRow(
-                      'Equity Multiplier',
-                      report.solvency.equityMultiplier,
-                    ),
-                    _buildRatioRow(
-                      'Times Interest Earned',
-                      report.solvency.timesInterestEarned,
-                    ),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildRatioSection('Profitability Ratios', [
-                    _buildRatioRow(
-                      'Gross Profit Margin',
-                      report.profitability.grossProfitMargin,
-                      percentage: true,
-                    ),
-                    _buildRatioRow(
-                      'Operating Profit Margin',
-                      report.profitability.operatingProfitMargin,
-                      percentage: true,
-                    ),
-                    _buildRatioRow(
-                      'Net Profit Margin',
-                      report.profitability.netProfitMargin,
-                      percentage: true,
-                    ),
-                    _buildRatioRow(
-                      'Return on Assets',
-                      report.profitability.returnOnAssets,
-                      percentage: true,
-                    ),
-                    _buildRatioRow(
-                      'Return on Equity',
-                      report.profitability.returnOnEquity,
-                      percentage: true,
-                    ),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildRatioSection('Efficiency Ratios', [
-                    _buildRatioRow(
-                      'Inventory Turnover',
-                      report.efficiency.inventoryTurnover,
-                    ),
-                    _buildRatioRow(
-                      'Accounts Receivable Turnover',
-                      report.efficiency.accountsReceivableTurnover,
-                    ),
-                    _buildRatioRow(
-                      'Accounts Payable Turnover',
-                      report.efficiency.accountsPayableTurnover,
-                    ),
-                    _buildRatioRow(
-                      'Asset Turnover',
-                      report.efficiency.assetTurnover,
-                    ),
-                    _buildRatioRow(
-                      'Day Sales Outstanding',
-                      report.efficiency.daySalesOutstanding,
-                    ),
-                  ]),
-                  const SizedBox(height: 20),
-                  // Only the ratios the engine actually answers for this Book are named here. Per-share figures need a
-                  // share count the engine is never sent, so a row for them could only ever read "N/A".
-                  _buildRatioSection('Market Value Ratios', [
-                    _buildRatioRow(
-                      'Price-to-Earnings Ratio',
-                      report.marketValue.priceToEarningsRatio,
-                    ),
-                  ]),
-                ],
-              ),
-            );
-          }
-        },
+      body: _body(),
+    );
+  }
+
+  /// The report, or the reason there is none to show.
+  Widget _body() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return CouldNotRead(
+        what: 'The financial ratios',
+        error: _error,
+        onRetry: _fetchRatiosReport,
+      );
+    }
+    final report = _report;
+    if (report == null || report.hasNoReadings) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No ratios can be worked out for this period yet. They are read from what is recorded in the Book, so '
+            'they appear once entries have been posted and the accounts they name are filled.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Report Date: ${DateFormat.yMMMd().format(report.reportDate)}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            'Period: ${DateFormat.yMMMd().format(report.startDate)} - ${DateFormat.yMMMd().format(report.endDate)}',
+          ),
+          const SizedBox(height: 20),
+          _buildRatioSection('Liquidity Ratios', [
+            _buildRatioRow('Current Ratio', report.liquidity.currentRatio),
+            _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
+            _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
+            _buildMoneyRow(
+              'Working Capital',
+              report.liquidity.workingCapital,
+              report.currency,
+            ),
+          ]),
+          const SizedBox(height: 20),
+          _buildRatioSection('Solvency Ratios', [
+            _buildRatioRow(
+              'Debt-to-Equity Ratio',
+              report.solvency.debtToEquityRatio,
+            ),
+            _buildRatioRow(
+              'Debt-to-Asset Ratio',
+              report.solvency.debtToAssetRatio,
+            ),
+            _buildRatioRow(
+              'Equity Multiplier',
+              report.solvency.equityMultiplier,
+            ),
+            _buildRatioRow(
+              'Times Interest Earned',
+              report.solvency.timesInterestEarned,
+            ),
+          ]),
+          const SizedBox(height: 20),
+          _buildRatioSection('Profitability Ratios', [
+            _buildRatioRow(
+              'Gross Profit Margin',
+              report.profitability.grossProfitMargin,
+              percentage: true,
+            ),
+            _buildRatioRow(
+              'Operating Profit Margin',
+              report.profitability.operatingProfitMargin,
+              percentage: true,
+            ),
+            _buildRatioRow(
+              'Net Profit Margin',
+              report.profitability.netProfitMargin,
+              percentage: true,
+            ),
+            _buildRatioRow(
+              'Return on Assets',
+              report.profitability.returnOnAssets,
+              percentage: true,
+            ),
+            _buildRatioRow(
+              'Return on Equity',
+              report.profitability.returnOnEquity,
+              percentage: true,
+            ),
+          ]),
+          const SizedBox(height: 20),
+          _buildRatioSection('Efficiency Ratios', [
+            _buildRatioRow(
+              'Inventory Turnover',
+              report.efficiency.inventoryTurnover,
+            ),
+            _buildRatioRow(
+              'Accounts Receivable Turnover',
+              report.efficiency.accountsReceivableTurnover,
+            ),
+            _buildRatioRow(
+              'Accounts Payable Turnover',
+              report.efficiency.accountsPayableTurnover,
+            ),
+            _buildRatioRow('Asset Turnover', report.efficiency.assetTurnover),
+            _buildRatioRow(
+              'Day Sales Outstanding',
+              report.efficiency.daySalesOutstanding,
+            ),
+          ]),
+          const SizedBox(height: 20),
+          // Only the ratios the engine actually answers for this Book are named here. Per-share figures need a
+          // share count the engine is never sent, so a row for them could only ever read "N/A".
+          _buildRatioSection('Market Value Ratios', [
+            _buildRatioRow(
+              'Price-to-Earnings Ratio',
+              report.marketValue.priceToEarningsRatio,
+            ),
+          ]),
+        ],
       ),
     );
   }
