@@ -6,16 +6,25 @@ import 'package:vimbai_mobile_client/features/authentication/presentation/regist
 import 'package:vimbai_mobile_client/features/authentication/presentation/second_factor_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialUsername, this.authService});
+
+  /// The name to start from. Registration hands it over, so the person types only the password they just chose rather
+  /// than remembering the exact spelling of a name they made up a minute ago.
+  final String? initialUsername;
+
+  /// Who signs people in. A test hands this one an engine that answers without a phone.
+  final AuthService? authService;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
+  late final TextEditingController _usernameController = TextEditingController(
+    text: widget.initialUsername ?? '',
+  );
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
+  late final AuthService _authService = widget.authService ?? AuthService();
   bool _isLoading = false;
   String? _errorMessage;
 

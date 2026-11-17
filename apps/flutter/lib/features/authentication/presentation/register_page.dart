@@ -3,7 +3,10 @@ import 'package:vimbai_mobile_client/features/authentication/data/auth_service.d
 import 'package:vimbai_mobile_client/features/authentication/presentation/login_page.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({super.key, this.authService});
+
+  /// Who makes the account. A test hands this one an engine that answers without a phone.
+  final AuthService? authService;
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -13,7 +16,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
+  late final AuthService _authService = widget.authService ?? AuthService();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -50,18 +53,21 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     if (success && mounted) {
+      // An account is not a session: the engine answers with the account and no token, so signing in is the next step
+      // and not something to skip. The name is carried over so the person types only the password they just chose.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration successful! Please login.')),
+        const SnackBar(
+          content: Text('Account created. Sign in to open your Books.'),
+        ),
       );
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
+        MaterialPageRoute(
+          builder: (context) => LoginPage(initialUsername: username),
+        ),
       );
     } else if (mounted) {
       _errorMessage =
           _authService.lastError ?? 'Registration failed. Please try again.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
     }
   }
 
@@ -104,6 +110,19 @@ class _RegisterPageState extends State<RegisterPage> {
                       onPressed: _register,
                       child: const Text('Register'),
                     ),
+              // A refusal has to be visible where the person is looking. It used to be set and never shown for the one
+              // check this page makes itself, so a short password answered a tap with nothing at all.
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    _errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
