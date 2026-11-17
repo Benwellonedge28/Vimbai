@@ -90,6 +90,38 @@ func TestAClientCannotNameItsOwnUser(t *testing.T) {
 	}
 }
 
+// A route that needs no token still must not let a caller name itself: the engine believes the header, so one passed
+// through unaudited is a way to act as somebody else on the one path that asks for no password.
+func TestAnOpenRouteStillDropsTheCallersOwnName(t *testing.T) {
+	cfg := &config.Config{
+		JwtSecret: authTestSecret,
+		Routes:    []config.Route{{Path: "/identity", AuthRequired: false}},
+	}
+	var seen http.Header
+	e := echo.New()
+	e.Use(AuthMiddleware(cfg))
+	e.GET("/identity/health", func(c echo.Context) error {
+		seen = c.Request().Header.Clone()
+		return c.String(http.StatusOK, "ok")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/identity/health", nil)
+	req.Header.Set("X-User-ID", "user-someone-else")
+	req.Header.Set("X-User-Role", "admin")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("an open route must answer, got %d", rec.Code)
+	}
+	if got := seen.Get("X-User-ID"); got != "" {
+		t.Fatalf("a name the client sent must not reach the engine, got %q", got)
+	}
+	if got := seen.Get("X-User-Role"); got != "" {
+		t.Fatalf("a role the client sent must not reach the engine, got %q", got)
+	}
+}
+
 // Signing in is how a caller becomes somebody, so the identity door has to answer before there is a token.
 func TestTheIdentityDoorAnswersWithoutAToken(t *testing.T) {
 	cfg := &config.Config{
