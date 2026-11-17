@@ -36,7 +36,18 @@ const Map<String, String> _profileFeatures = {
 };
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.readBooks, this.backgroundWork = true});
+
+  /// Whether the page reads the phone's own state on open: the machine's profile, the saved sort, the offline sync cycle
+  /// and the connection. A test turns this off - it is checking the Book list, not the phone, and Flutter refuses to end a
+  /// test while a periodic timer or an in-flight request is still pending.
+
+  /// How this phone's Books are fetched, overridable so a test can drive the list without an engine or a local store.
+  /// The app builds the page without it.
+  final Future<List<VBook>> Function()? readBooks;
+
+  /// See [_HomePageState]: on for the app, off in a test.
+  final bool backgroundWork;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -52,6 +63,7 @@ class _HomePageState extends State<HomePage> {
 
   // Your Books on the home screen: searchable, sortable list.
   List<VBook> _books = [];
+  bool _booksUnread = false;
   String _searchQuery = '';
   String _sortMode = 'nameAz';
   static const Map<String, String> _sortLabels = {
@@ -76,13 +88,15 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _readProfile();
-    SyncService.instance.start(); // offline outbox + cache refresh cycle
     _hydrateBookContext();
-    _loadSortMode();
+    if (widget.backgroundWork) {
+      _readProfile();
+      _loadSortMode();
+      SyncService.instance.start(); // offline outbox + cache refresh cycle
+    }
     _loadBooks();
     BookContext.instance.addListener(() => _contextTicker.value++);
-    _checkConnectivity();
+    if (widget.backgroundWork) _checkConnectivity();
     Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> results,
     ) {
@@ -134,14 +148,40 @@ class _HomePageState extends State<HomePage> {
 
   /// Hydrate the app-wide Book context from the persisted active book so
   /// service clients send X-Book-ID from the moment the app opens.
+  /// Read this phone's Books, and say so when the engine could not be asked.
+  ///
+  /// The fall-back to the local store is deliberate - a phone offline should still show the Books it holds - but a failed
+  /// read is not an empty account: the screen says the list may be short rather than claiming there are no Books.
   Future<void> _loadBooks() async {
+    final read = widget.readBooks;
+    if (read != null) {
+      try {
+        final books = await read();
+        if (mounted) {
+          setState(() {
+            _books = books;
+            _booksUnread = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _booksUnread = true);
+      }
+      return;
+    }
     List<VBook> books;
+    var unread = false;
     try {
       books = await _bookSync.refreshBooksFromServer();
     } catch (_) {
+      unread = true;
       books = await _bookSync.localBooks();
     }
-    if (mounted) setState(() => _books = books);
+    if (mounted) {
+      setState(() {
+        _books = books;
+        _booksUnread = unread;
+      });
+    }
   }
 
   Future<void> _loadSortMode() async {
@@ -468,12 +508,33 @@ class _HomePageState extends State<HomePage> {
                   if (_books.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        _searchQuery.trim().isEmpty
-                            ? 'No books yet - start your first one'
-                            : 'No books match your search',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      child: _searchQuery.trim().isNotEmpty
+                          ? Text(
+                              'No books match your search',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            )
+                          : _booksUnread
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Your Books could not be read just now, so this list may be short. They are kept on the server, not lost.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 4),
+                                TextButton(
+                                  onPressed: _loadBooks,
+                                  child: const Text('Try again'),
+                                ),
+                              ],
+                            )
+                          : TextButton.icon(
+                              onPressed: _openBooksPage,
+                              icon: const Icon(Icons.add),
+                              label: const Text(
+                                'No Books yet - create your first',
+                              ),
+                            ),
                     )
                   else
                     ..._filteredBooks().map((b) {
