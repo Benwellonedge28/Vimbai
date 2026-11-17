@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
 import 'package:vimbai_mobile_client/features/organisations/models/organisation_models.dart';
 
@@ -92,7 +94,8 @@ class _PutBookInOrganisationSheetState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Could not reach the server. $e';
+          _error =
+              'Your organisations could not be read: ${CouldNotRead.reasonOf(e)}';
           _loading = false;
         });
       }
@@ -120,7 +123,8 @@ class _PutBookInOrganisationSheetState
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Could not reach the server. $e';
+          _error =
+              'Your organisations could not be read: ${CouldNotRead.reasonOf(e)}';
         });
       }
     }
@@ -145,7 +149,8 @@ class _PutBookInOrganisationSheetState
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Could not reach the server. $e';
+          _error =
+              'Your organisations could not be read: ${CouldNotRead.reasonOf(e)}';
         });
       }
     }

@@ -7,6 +7,8 @@
 // away - the kind of transparency donors and regulators expect.
 
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/npo/data/npo_scale_service.dart';
@@ -162,9 +164,11 @@ class _NpoPageState extends State<NpoPage> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Create failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('That was not created: ${CouldNotRead.reasonOf(e)}'),
+          ),
+        );
       }
     }
   }
@@ -221,9 +225,13 @@ class _NpoPageState extends State<NpoPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sale failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That sale was not recorded: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -290,9 +298,13 @@ class _NpoPageState extends State<NpoPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That purchase was not recorded: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -331,9 +343,13 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Creditors failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'The creditors could not be read just now: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -377,9 +393,13 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Shareholders failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'The shareholders could not be read just now: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -443,9 +463,13 @@ class _NpoPageState extends State<NpoPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Donation failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That donation was not recorded: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -493,9 +517,13 @@ class _NpoPageState extends State<NpoPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Reports failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'The reports could not be read just now: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }

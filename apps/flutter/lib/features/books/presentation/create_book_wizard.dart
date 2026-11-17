@@ -7,6 +7,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
 import 'package:vimbai_mobile_client/features/organisations/data/organisation_service.dart';
@@ -139,7 +141,7 @@ class _CreateBookWizardPageState extends State<CreateBookWizardPage> {
         setState(() {
           _creating = false;
           _step = 2;
-          _error = 'Could not create the Book: $e';
+          _error = 'The Book was not created: ${CouldNotRead.reasonOf(e)}';
         });
       }
     }

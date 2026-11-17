@@ -1,6 +1,8 @@
 // Household finance: analyze a household's incomes, expenses, assets
 // and liabilities for a period (household-finance-service).
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/household_finance/data/household_finance_service.dart';
@@ -28,7 +30,7 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
 
   Map<String, dynamic>? _result;
   bool _busy = false;
-  String? _error;
+  Object? _error;
 
   static const _expenseCategories = [
     'housing',
@@ -59,7 +61,7 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       );
       if (mounted) setState(() => _result = r);
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = e);
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -378,7 +380,7 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  _error!,
+                  'The household figures were not worked out: ${CouldNotRead.reasonOf(_error)}',
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),

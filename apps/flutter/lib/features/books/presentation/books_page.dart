@@ -6,6 +6,8 @@
 // stored locally and scopes the rest of the client.
 
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
@@ -269,9 +271,13 @@ class _BooksPageState extends State<BooksPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Move failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That Book was not moved: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -348,9 +354,13 @@ class _BooksPageState extends State<BooksPage> {
           await _load();
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Could not unfile: $e')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'That Book was not taken out of its folder: ${CouldNotRead.reasonOf(e)}',
+                ),
+              ),
+            );
           }
         }
     }
@@ -431,9 +441,11 @@ class _BooksPageState extends State<BooksPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Invite failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nobody was invited: ${CouldNotRead.reasonOf(e)}'),
+          ),
+        );
       }
     }
   }
@@ -448,7 +460,7 @@ class _BooksPageState extends State<BooksPage> {
       // membership on the server - leaving the row looking "invited" would invite a second tap that cannot help.
       final said = e is BookKeyUnavailableException
           ? e.message
-          : 'Accept failed: $e';
+          : 'That invitation was not accepted: ${CouldNotRead.reasonOf(e)}';
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(said)));
@@ -471,9 +483,11 @@ class _BooksPageState extends State<BooksPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('The sync did not run: ${CouldNotRead.reasonOf(e)}'),
+          ),
+        );
       }
     }
   }

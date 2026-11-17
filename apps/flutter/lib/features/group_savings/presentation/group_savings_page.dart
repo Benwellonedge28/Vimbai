@@ -2,6 +2,8 @@
 // members, per-cycle contributions and payout schedules. Backed by
 // family-community-group-service, scoped to the active Book.
 import 'package:flutter/material.dart';
+
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/group_savings/data/group_savings_service.dart';
@@ -18,7 +20,10 @@ class _GroupSavingsPageState extends State<GroupSavingsPage> {
 
   List<Map<String, dynamic>> _groups = [];
   bool _loading = true;
-  String? _error;
+
+  /// Held as the exception itself so the reason can be shown without the 'Exception: ' wrapper, and so a failed read
+  /// is never mistaken for an empty list.
+  Object? _error;
 
   @override
   void initState() {
@@ -35,7 +40,7 @@ class _GroupSavingsPageState extends State<GroupSavingsPage> {
       final groups = await _gs.listGroups();
       if (mounted) setState(() => _groups = groups);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load groups: $e');
+      if (mounted) setState(() => _error = e);
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -123,7 +128,7 @@ class _GroupSavingsPageState extends State<GroupSavingsPage> {
       _toast('Group created');
       _reload();
     } catch (e) {
-      _toast('Create failed: $e');
+      _toast('The group was not created: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -141,15 +146,10 @@ class _GroupSavingsPageState extends State<GroupSavingsPage> {
           : RefreshIndicator(
               onRefresh: _reload,
               child: _error != null
-                  ? ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text(_error!),
-                        TextButton(
-                          onPressed: _reload,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+                  ? CouldNotRead(
+                      what: 'Your savings groups',
+                      error: _error,
+                      onRetry: _reload,
                     )
                   : _groups.isEmpty
                   ? ListView(
@@ -210,7 +210,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
   List<Map<String, dynamic>> _members = [];
   List<Map<String, dynamic>> _contributions = [];
   List<Map<String, dynamic>> _payouts = [];
-  String? _error;
+  Object? _error;
 
   @override
   void initState() {
@@ -240,7 +240,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = e);
     }
   }
 
@@ -305,7 +305,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       _toast('Member added');
       _reload();
     } catch (e) {
-      _toast('Add failed: $e');
+      _toast('That member was not added: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -383,7 +383,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       _toast('Contribution recorded');
       _reload();
     } catch (e) {
-      _toast('Record failed: $e');
+      _toast('That contribution was not recorded: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -415,7 +415,7 @@ class _GroupDetailPageState extends State<GroupDetailPage>
       _toast('Now in cycle ${r['current_cycle']}');
       _reload();
     } catch (e) {
-      _toast('Advance failed: $e');
+      _toast('That payout was not made: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -442,7 +442,11 @@ class _GroupDetailPageState extends State<GroupDetailPage>
             : const SizedBox.shrink(),
       ),
       body: _error != null
-          ? Center(child: Text(_error!))
+          ? CouldNotRead(
+              what: 'This savings group',
+              error: _error,
+              onRetry: _reload,
+            )
           : g == null
           ? const Center(child: CircularProgressIndicator())
           : Column(
