@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
@@ -141,9 +142,13 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not keep the draft: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not keep the draft: ${CouldNotRead.reasonOf(e)}',
+          ),
+        ),
+      );
     }
   }
 
@@ -183,7 +188,8 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
       } catch (e) {
         if (mounted) {
           setState(() {
-            _submitError = 'The entry was not posted: ${e.toString()}';
+            _submitError =
+                'The entry was not posted: ${CouldNotRead.reasonOf(e)}';
           });
         }
       }

@@ -5,6 +5,7 @@
 // sync. Two pages (home list + Books page) share this sheet.
 
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
@@ -246,7 +247,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      _toast('Sync failed: $e');
+      _toast('Not synced just now: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -280,7 +281,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       _toast('Deleted "${_book.name}"');
     } catch (e) {
       if (!mounted) return;
-      _toast('$e');
+      _toast('${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -314,7 +315,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       _toast('You left "${_book.name}"');
     } catch (e) {
       if (!mounted) return;
-      _toast('Could not leave the Book: $e');
+      _toast('Could not leave the Book: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -364,7 +365,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       await _loadMembers();
     } catch (e) {
       if (!mounted) return;
-      _toast('Could not change $who: $e');
+      _toast('Could not change $who: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -436,7 +437,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       _loadMembers();
     } catch (e) {
       if (!mounted) return;
-      _toast('Invite failed: $e');
+      _toast('Could not invite them: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -449,7 +450,7 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      _toast('Could not save: $e');
+      _toast('Could not save: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
