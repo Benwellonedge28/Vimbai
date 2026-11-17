@@ -37,6 +37,14 @@ impl Walk {
         Self::on(vimbai_api::routed(Some(graph)))
     }
 
+    /// The same app over the store an on-device install boots: a Book shared between two people has to work on a file, not
+    /// only in the in-memory double the other walks use.
+    fn on_disk(path: &std::path::Path) -> Self {
+        let graph: vimbai_api::records::GraphHandle =
+            Arc::new(store::file::FileGraph::open(path).expect("a file store"));
+        Self::on(vimbai_api::routed(Some(graph)))
+    }
+
     /// A second person at the same engine: two people only meet if they are talking to one store, and a walk that gives
     /// each of them their own would pass while proving nothing.
     fn on(router: axum::Router) -> Self {
@@ -533,6 +541,79 @@ async fn an_invited_person_sees_the_book_and_accepts_it() {
         json!("active"),
         "after accepting, the Book reads as joined: {listed}"
     );
+}
+
+#[tokio::test]
+async fn a_book_shared_on_disk_takes_everybodys_postings_and_keeps_them() {
+    // The in-memory double is what most walks run against, and it was stricter than the stores the product uses - it answered
+    // a Book read as a personal read - so a shared Book's postings were invisible to the test and right in the product. This
+    // walk runs on the store an on-device install boots, and reopens it, so the claim is about the file and not about a fake.
+    let dir = std::env::temp_dir().join(format!("vimbai-shared-book-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("a scratch directory");
+    let path = dir.join("book.json");
+
+    let mut owner = Walk::on_disk(&path);
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    let mut guest = Walk::on(owner.router.clone());
+    // sign_up answers the session it signed in with; the invitation names the person, so the id is read from the walk
+    guest.sign_up("guest@example.com", "Gus").await;
+    let guest_id = guest.user.clone();
+    let (status, _) = guest
+        .call(
+            Method::PUT,
+            "/identity/users/me/public-key",
+            Some(json!({"modulus": base64_of_128_bytes(), "exponent": "AQAB"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(json!({"user_id": guest_id, "role": "bookkeeper", "wrapped_book_key": "sealed-for-the-guest"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+    let (status, accepted) = guest
+        .call(
+            Method::POST,
+            &format!("/books/{}/members/accept", owner.book),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+
+    // the member posts, and the owner's statements move: this is the half of sharing a member actually needs
+    guest.book = owner.book.clone();
+    guest.post_entry("posted", "240.00").await;
+    let owner_balance = owner.trial_balance().await;
+    assert_ne!(
+        owner_balance["total_debits"],
+        json!("0.000000"),
+        "a member's posting has to land in the Book they were invited to: {owner_balance}"
+    );
+
+    // and it is on the file: a second engine opened on the same path reads the same statements
+    drop(guest);
+    let reopened = Walk::on_disk(&path);
+    let mut reader = Walk {
+        router: reopened.router.clone(),
+        user: owner.user.clone(),
+        token: owner.token.clone(),
+        book: owner.book.clone(),
+    };
+    let after = reader.trial_balance().await;
+    assert_eq!(
+        after["total_debits"], owner_balance["total_debits"],
+        "a shared Book's postings survive the store being opened again: {after}"
+    );
+    reader.book.clear();
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// A modulus in the shape a phone publishes: base64 of 128 bytes, which is the smallest the engine will seal a Book key for.

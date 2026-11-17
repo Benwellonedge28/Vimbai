@@ -12,6 +12,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   rows only. The real stores scope by Book and were already right. The walk now proves the other half of sharing - a bookkeeper
   posts into the shared Book, the owner's trial balance moves, and a stranger who names the Book is refused both the read and
   the posting, with nothing left behind by the refusal.
+- The same walk now runs on the file store an on-device install boots, and reopens the file afterwards, so sharing is proven
+  where a phone keeps its Books rather than only in the in-memory double. Beside it, `shared_rows_on_disk` covers the rows a
+  Book holds on that store: read back by the name they carry, bounded to their own Book, found across Books for "the Books I
+  belong to", and still there after the store is written out.
 
 ### Added
 
