@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart'; // Import accounting models
@@ -36,7 +37,7 @@ class DatabaseHelper {
     return await openDatabase(
       path,
       version:
-          5, // v5: journal line amounts kept as text, so a figure survives the queue to the engine
+          6, // v6: budget amounts kept as text too, so a large budget is not rounded
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -112,7 +113,7 @@ class DatabaseHelper {
             budget_id TEXT,
             category TEXT,
             account_number TEXT,
-            budgeted_amount REAL,
+            budgeted_amount TEXT, -- the figure itself, so a large budget is not rounded by the column
             budget_type TEXT,
             created_at TEXT,
             updated_at TEXT,
@@ -206,8 +207,43 @@ class DatabaseHelper {
           ''');
       await db.execute('DROP TABLE journal_lines_old');
     }
+    if (oldVersion < 6) {
+      // v5 -> v6: budget amounts are money too. A REAL column rounds whatever is written into it, so a budget line of
+      // 1234567890123.000001 came back rounded - the same fault journal lines had at v5. SQLite cannot change a column
+      // type in place, so the table is rebuilt and its rows carried across; the old numbers read back as the figures
+      // they held.
+      await db.execute('ALTER TABLE budget_items RENAME TO budget_items_old');
+      await db.execute('''
+            CREATE TABLE budget_items(
+              id TEXT PRIMARY KEY,
+              budget_id TEXT,
+              category TEXT,
+              account_number TEXT,
+              budgeted_amount TEXT,
+              budget_type TEXT,
+              created_at TEXT,
+              updated_at TEXT,
+              FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
+            )
+          ''');
+      await db.execute('''
+            INSERT INTO budget_items(id, budget_id, category, account_number, budgeted_amount, budget_type, created_at, updated_at)
+            SELECT id, budget_id, category, account_number, CAST(budgeted_amount AS TEXT), budget_type, created_at, updated_at
+            FROM budget_items_old
+          ''');
+      await db.execute('DROP TABLE budget_items_old');
+    }
     // Add future migrations here
   }
+
+  /// Applies the upgrade steps to [db] as if it had been opened at [oldVersion].
+  ///
+  /// A test cannot reach the private upgrade path, and an upgrade nothing runs
+  /// is an upgrade nobody has proved: a phone that already holds budgets only
+  /// ever takes this path, never the create path.
+  @visibleForTesting
+  Future<void> upgradeForTest(Database db, int oldVersion) =>
+      _onUpgrade(db, oldVersion, 6);
 
   // --- Account CRUD ---
   Future<int> insertAccount(Account account, {bool isSynced = true}) async {
@@ -486,7 +522,7 @@ class DatabaseHelper {
       'budget_id': budgetId,
       'category': item.category,
       'account_number': item.accountNumber,
-      'budgeted_amount': item.budgetedAmount,
+      'budgeted_amount': item.budgetedAmount.toDecimalString(),
       'budget_type': item.budgetType,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
@@ -512,7 +548,7 @@ class DatabaseHelper {
       {
         'category': item.category,
         'account_number': item.accountNumber,
-        'budgeted_amount': item.budgetedAmount,
+        'budgeted_amount': item.budgetedAmount.toDecimalString(),
         'budget_type': item.budgetType,
         'updated_at': DateTime.now().toIso8601String(),
       },

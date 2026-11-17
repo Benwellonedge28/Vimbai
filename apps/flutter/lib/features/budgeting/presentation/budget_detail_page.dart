@@ -122,7 +122,7 @@ class BudgetDetailPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Budgeted Amount: ${budget.currency} ${item.budgetedAmount.toStringAsFixed(2)}',
+                              'Budgeted Amount: ${budget.currency} ${item.budgetedAmount.toDecimalString()}',
                               style: const TextStyle(fontSize: 14),
                             ),
                             if (item.accountNumber.isNotEmpty) ...[

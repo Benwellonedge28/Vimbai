@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/budgeting/data/finance_api_service.dart';
 import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart';
 import 'package:intl/intl.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 class BudgetFormPage extends StatefulWidget {
-  const BudgetFormPage({super.key});
+  const BudgetFormPage({super.key, this.apiService});
+
+  /// The service the page saves through. Supplied by a test so the form can be
+  /// walked where a person taps it; a phone runs the real one.
+  final FinanceApiService? apiService;
 
   @override
   State<BudgetFormPage> createState() => _BudgetFormPageState();
@@ -22,7 +27,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   DateTime _endDate = DateTime.now().add(const Duration(days: 365));
 
   List<BudgetItemFormData> _budgetItems = [];
-  final FinanceApiService _apiService = FinanceApiService();
+  late final FinanceApiService _apiService =
+      widget.apiService ?? FinanceApiService();
 
   void _addBudgetItem() {
     setState(() {
@@ -76,6 +82,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         return;
       }
       try {
+        // The lines the person just filled in travel with the budget. Sending
+        // only the header saved an empty shell - the screen said it worked
+        // while the categories and figures it had collected were thrown away.
         await _apiService.createBudget(
           BudgetCreate(
             name: _nameController.text,
@@ -86,6 +95,15 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 ? null
                 : _descriptionController.text,
           ),
+          items: [
+            for (final item in _budgetItems)
+              BudgetItemCreate(
+                category: item.category,
+                accountNumber: item.accountNumber,
+                budgetedAmount: item.budgetedAmount,
+                budgetType: item.budgetType,
+              ),
+          ],
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -223,16 +241,20 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                           ),
                           keyboardType: TextInputType.number,
                           onChanged: (value) {
+                            final parsed = ExactAmount.tryParse(value);
+                            if (parsed == null) return;
                             setState(() {
-                              _budgetItems[idx].budgetedAmount =
-                                  double.tryParse(value) ?? 0.0;
+                              _budgetItems[idx].budgetedAmount = parsed;
                             });
                           },
                           validator: (value) {
-                            if (value == null ||
-                                double.tryParse(value) == null ||
-                                double.parse(value) < 0) {
-                              return 'Enter a valid amount';
+                            // A budget is money, so the figure is read exactly
+                            // and anything that is not a plain figure is
+                            // refused instead of becoming a zero.
+                            final parsed = ExactAmount.tryParse(value ?? '');
+                            if (parsed == null) return 'Enter a valid amount';
+                            if (parsed.negative) {
+                              return 'An amount cannot be below zero';
                             }
                             return null;
                           },
@@ -302,13 +324,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
 
 class BudgetItemFormData {
   String category;
-  double budgetedAmount;
+  ExactAmount budgetedAmount;
   String accountNumber;
   String budgetType;
 
   BudgetItemFormData({
     this.category = '',
-    this.budgetedAmount = 0.0,
+    this.budgetedAmount = ExactAmount.zero,
     this.accountNumber = '',
     this.budgetType = 'expense',
   });

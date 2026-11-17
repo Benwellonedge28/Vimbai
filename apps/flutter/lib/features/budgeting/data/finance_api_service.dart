@@ -39,45 +39,58 @@ class FinanceApiService {
   }
 
   // --- Budget CRUD (local store; offline-first by design) ---
+  /// Saves a budget with its lines.
+  ///
+  /// A budget with no lines is an empty shell: the form collects a figure for
+  /// each category, so the lines travel in the same call and are written
+  /// before the caller is answered. Both the header and every line go through
+  /// one path, offline or not - the local store is the source of truth for
+  /// budgets (the /budget family only exposes calculators), and [isOffline]
+  /// only says whether a replay will come back for these rows.
   Future<Budget> createBudget(
     BudgetCreate budgetCreate, {
+    List<BudgetItemCreate> items = const [],
     bool isOffline = false,
   }) async {
     final connectivity = await (Connectivity().checkConnectivity());
     final isOfflineNow =
         connectivity.isEmpty || connectivity.contains(ConnectivityResult.none);
-    if (isOffline || isOfflineNow) {
-      final localBudget = Budget(
-        id: budgetCreate.id ?? const Uuid().v4(),
-        name: budgetCreate.name,
-        startDate: budgetCreate.startDate,
-        endDate: budgetCreate.endDate,
-        currency: budgetCreate.currency,
-        description: budgetCreate.description,
-        items: [],
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await _dbHelper.insertBudget(localBudget, isSynced: false);
-      print('Stored budget locally: ${localBudget.name}');
-      return localBudget;
-    }
+    final offline = isOffline || isOfflineNow;
+    final now = DateTime.now();
+    final budgetId = budgetCreate.id ?? const Uuid().v4();
 
-    // Online: budgets still have no remote store, so the local copy is the
-    // source of truth (marked synced so it is not re-queued).
-    final localBudget = Budget(
-      id: budgetCreate.id ?? const Uuid().v4(),
+    final budget = Budget(
+      id: budgetId,
       name: budgetCreate.name,
       startDate: budgetCreate.startDate,
       endDate: budgetCreate.endDate,
       currency: budgetCreate.currency,
       description: budgetCreate.description,
-      items: [],
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      // Every line is named by the budget it belongs to and given an id here,
+      // once, so a line can never be written under one budget and read back
+      // under another.
+      items: [
+        for (final item in items)
+          BudgetItem(
+            id: item.id ?? const Uuid().v4(),
+            budgetId: budgetId,
+            category: item.category,
+            accountNumber: item.accountNumber,
+            budgetedAmount: item.budgetedAmount,
+            budgetType: item.budgetType,
+            createdAt: now,
+            updatedAt: now,
+          ),
+      ],
+      createdAt: now,
+      updatedAt: now,
     );
-    await _dbHelper.insertBudget(localBudget, isSynced: true);
-    return localBudget;
+
+    await _dbHelper.insertBudget(budget, isSynced: !offline);
+    print(
+      'Stored budget locally: ${budget.name} (${budget.items.length} lines)',
+    );
+    return budget;
   }
 
   Future<List<Budget>> getBudgets({bool forceRemote = false}) async {
@@ -141,7 +154,7 @@ class FinanceApiService {
               (item) => {
                 'account_id': item.accountNumber,
                 'description': item.category,
-                'budget': item.budgetedAmount,
+                'budget': item.budgetedAmount.toDecimalString(),
                 'actual': actuals[item.id] ?? 0.0,
               },
             )

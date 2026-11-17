@@ -1,4 +1,5 @@
 import '../../../core/api/amount.dart';
+import '../../../core/api/json_values.dart';
 
 // mobile-client/lib/models/finance_models.dart
 
@@ -9,7 +10,10 @@ class BudgetItem {
   final String? budgetId;
   final String category;
   final String accountNumber;
-  final double budgetedAmount;
+
+  /// The figure, held exactly: a budget is money too, and a REAL column
+  /// rounds whatever is written into it.
+  final ExactAmount budgetedAmount;
   final String? budgetType;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -31,7 +35,7 @@ class BudgetItem {
       budgetId: json['budget_id'],
       category: json['category'] ?? '',
       accountNumber: json['account_number'] ?? '',
-      budgetedAmount: amountFromJson(json['budgeted_amount']),
+      budgetedAmount: ExactAmount.fromJson(json['budgeted_amount']),
       budgetType: json['budget_type'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -48,7 +52,7 @@ class BudgetItem {
       'budget_id': budgetId,
       'category': category,
       'account_number': accountNumber,
-      'budgeted_amount': budgetedAmount,
+      'budgeted_amount': budgetedAmount.toDecimalString(),
       'budget_type': budgetType,
     };
   }
@@ -80,12 +84,19 @@ class Budget {
   });
 
   factory Budget.fromJson(Map<String, dynamic> json) {
-    List<BudgetItem> itemsList = [];
-    if (json['items'] != null) {
-      itemsList = (json['items'] as List)
-          .map((item) => BudgetItem.fromJson(item))
-          .toList();
-    }
+    // Lines arrive two ways: rows from the store are turned into BudgetItem
+    // before they get here, while a payload still carries them as maps. Reading
+    // only maps threw the moment a budget actually had lines - which could not
+    // happen while the save dropped them.
+    final raw = json['items'];
+    final itemsList = <BudgetItem>[
+      if (raw is List)
+        for (final item in raw)
+          if (item is BudgetItem)
+            item
+          else if (item is Map)
+            BudgetItem.fromJson(Map<String, dynamic>.from(item)),
+    ];
 
     return Budget(
       id: json['id'],
@@ -99,7 +110,8 @@ class Budget {
       currency: json['currency'] ?? 'USD',
       description: json['description'],
       items: itemsList,
-      isSynced: json['is_synced'] ?? false,
+      // The store keeps this flag as 1 or 0, so reading it as a bool threw.
+      isSynced: flagFromJson(json['is_synced']) ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -155,7 +167,7 @@ class BudgetItemCreate {
   final String? id;
   final String category;
   final String accountNumber;
-  final double budgetedAmount;
+  final ExactAmount budgetedAmount;
   final String? budgetType;
 
   BudgetItemCreate({
@@ -170,7 +182,7 @@ class BudgetItemCreate {
     return {
       'category': category,
       'account_number': accountNumber,
-      'budgeted_amount': budgetedAmount,
+      'budgeted_amount': budgetedAmount.toDecimalString(),
       'budget_type': budgetType,
     };
   }
