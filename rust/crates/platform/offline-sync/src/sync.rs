@@ -34,7 +34,7 @@ use vimbai_common::ids::service_id;
 use crate::conflict::{self, Claim};
 use vimbai_store::read::{flag, number, refused, text};
 use vimbai_store::shared::SharedRecords;
-use vimbai_store::{BookScope, Graph, RecordKind, StoreError};
+use vimbai_store::{BookScope, Graph, RecordKind, StoreError, JOURNAL_ENTRY};
 
 /// A shared Book and its sync sequence.
 pub const BOOK: RecordKind = RecordKind::new("SyncBook", "OWNS_SYNC_BOOK");
@@ -512,6 +512,63 @@ pub fn update_member(
         &now,
     )?;
     Ok(json!({"service": "book-sync-service", "status": "updated"}))
+}
+
+/// `DELETE /books/{id}`: take away a Book that was made by mistake.
+///
+/// Everything else about a Book is reversible - a name, a member, a role, an entry (with a reversal) - and the one thing that
+/// is not is the Book itself, so somebody who made one by accident, or picked the wrong tier, was stuck with it forever.
+///
+/// It is refused once the Book means anything: a Book that has been posted into holds records that are never deleted, and a Book
+/// somebody else is still in is theirs as much as the owner's. Both refusals say which of the two it is and what to do, rather
+/// than making the person guess why the button did nothing.
+pub fn delete_book(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    book_id: &str,
+) -> Result<Value, StoreError> {
+    member_of(graph, book_id, &scope.user_id, Some(&[OWNER]))?;
+
+    // what a posted Book holds: journal entries, and the encrypted batches a phone pushed. A fresh Book holds neither, and its
+    // seeded chart of accounts is not a posting, so it is still a Book somebody may take away
+    let posted = held(graph, JOURNAL_ENTRY)
+        .where_eq(book_id, "book_id", &json!(book_id))?
+        .len()
+        + held(graph, ENTRY)
+            .where_eq(book_id, "book_id", &json!(book_id))?
+            .len();
+    if posted > 0 {
+        return Err(refused(&format!(
+            "this book has been posted into ({posted} entries); entries are never deleted, so a book with postings stays"
+        )));
+    }
+    let others = held(graph, MEMBERSHIP)
+        .where_eq(book_id, "book_id", &json!(book_id))?
+        .into_iter()
+        .filter(|row| {
+            text(row, "member_user_id") != scope.user_id && text(row, "status") != "revoked"
+        })
+        .count();
+    if others > 0 {
+        return Err(refused(&format!(
+            "there are {others} other people in this book; take them out first, so it is empty before it goes"
+        )));
+    }
+
+    // the Book, who was in it, and its record: all of it scoped to this Book and none of it reachable once the Book is gone
+    for row in held(graph, AUDIT).where_eq(book_id, "book_id", &json!(book_id))? {
+        held(graph, AUDIT).delete(book_id, &text(&row, "id"))?;
+    }
+    for row in held(graph, DEVICE).where_eq(book_id, "book_id", &json!(book_id))? {
+        held(graph, DEVICE).delete(book_id, &text(&row, "id"))?;
+    }
+    for row in held(graph, MEMBERSHIP).where_eq(book_id, "book_id", &json!(book_id))? {
+        held(graph, MEMBERSHIP).delete(book_id, &text(&row, "id"))?;
+    }
+    for row in held(graph, BOOK).where_eq(book_id, "book_id", &json!(book_id))? {
+        held(graph, BOOK).delete(book_id, &text(&row, "id"))?;
+    }
+    Ok(json!({"service": "book-sync-service", "status": "deleted"}))
 }
 
 /// `POST /books/{id}/leave`: leave a Book somebody else owns.

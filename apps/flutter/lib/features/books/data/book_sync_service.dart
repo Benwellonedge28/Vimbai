@@ -43,6 +43,20 @@ class BookKeyUnavailableException implements Exception {
   String toString() => message;
 }
 
+/// A refusal from the engine, carrying its own words.
+///
+/// The engine explains itself ("this book has been posted into (3 entries)...") and that explanation is the useful part; a bare
+/// status code would leave the person guessing why a button did nothing.
+class BookSyncException implements Exception {
+  BookSyncException(this.message, {this.status = 0});
+
+  final String message;
+  final int status;
+
+  @override
+  String toString() => message;
+}
+
 class BookSyncService {
   BookSyncService._();
   static final BookSyncService instance = BookSyncService._();
@@ -781,6 +795,27 @@ class BookSyncService {
     if (r.statusCode != 200) {
       throw Exception('Invite failed: ${r.statusCode} ${r.body}');
     }
+  }
+
+  /// Take away a Book that was made by mistake.
+  ///
+  /// The engine refuses once the Book means anything - it has been posted into, or somebody else is in it - and its own words
+  /// are carried out to the person rather than a bare status code, because "why did the button do nothing" is exactly the
+  /// question the wording answers.
+  Future<void> deleteBook(String bookId) async {
+    final r = await _client.delete(_u('/books/$bookId'), headers: _headers);
+    if (r.statusCode != 200) {
+      String said = '${r.statusCode}';
+      try {
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        said = j['error'] as String? ?? said;
+      } catch (_) {
+        // the body was not the engine's error envelope; the status is all there is to say
+      }
+      throw BookSyncException(said, status: r.statusCode);
+    }
+    final meta = await _meta();
+    await meta.delete('registry', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
   /// Stop being in somebody else's Book.

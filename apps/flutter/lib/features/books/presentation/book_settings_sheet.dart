@@ -250,6 +250,40 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
     }
   }
 
+  /// Delete a Book that was made by mistake, after asking once, and carrying the engine's own reason if it refuses.
+  Future<void> _delete() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${_book.name}"?'),
+        content: const Text(
+          'This cannot be undone. A Book with postings, or with other people '
+          'in it, will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    try {
+      await _sync.deleteBook(_book.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _toast('Deleted "${_book.name}"');
+    } catch (e) {
+      if (!mounted) return;
+      _toast('$e');
+    }
+  }
+
   /// Leave a Book somebody else owns, after asking once.
   Future<void> _leave() async {
     final sure = await showDialog<bool>(
@@ -603,6 +637,23 @@ class _BookSettingsSheetState extends State<_BookSettingsSheet> {
                 bookName: _book.name,
               ),
             ),
+            // a Book made by mistake, or made at the wrong tier, has nowhere else to go: every other setting here can be
+            // changed and the Book itself could not be taken away
+            if (_book.yourRole == 'owner')
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Delete this Book',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                subtitle: const Text(
+                  'Only an empty Book can go. Once it has postings, it stays.',
+                ),
+                onTap: _delete,
+              ),
             // the person's own way out: being taken out is the owner's side of it, and waiting for them is not always
             // possible when the reason for leaving is the owner
             if (_book.yourRole != 'owner' &&

@@ -6,6 +6,11 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ### Added
 
+- A Book made by mistake can be taken away. Every other part of a Book is reversible - its name, its members, its roles, an
+  entry through a reversal - and the Book itself was not, so somebody who made one by accident or picked the wrong tier kept it
+  forever. `DELETE /books/{id}` removes it, and refuses once the Book means anything: a Book that has been posted into holds
+  records that are never deleted, and a Book somebody else is still in is theirs as much as the owner's. Both refusals say which
+  it is and what to do. Book settings offers "Delete this Book" to the owner, carrying the engine's own reason when it refuses.
 - A member can leave a Book. Revoking was the owner's side of access ending, and the person whose access should end had no way
   to end it themselves - not much use when the reason for leaving is the owner. `POST /books/{id}/leave` marks their own
   membership revoked (the same fact the revoke door records, so the gate, the store and the Books list need nothing new), it

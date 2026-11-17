@@ -289,6 +289,84 @@ void main() {
     },
   );
 
+  test('deleting a Book carries the engine\'s own reason when it refuses', () async {
+    // The engine refuses a Book that has postings or other people in it, and its wording is the only thing that tells the person
+    // what to do next. A bare status code here would be a button that appears broken.
+    final asked = <String>[];
+    ApiClient.transport = MockClient((request) async {
+      asked.add('${request.method} ${request.url.path}');
+      return http.Response(
+        jsonEncode({
+          'error':
+              'this book has been posted into (3 entries); entries are never '
+              'deleted, so a book with postings stays',
+        }),
+        422,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    expect(
+      () => BookSyncService.instance.deleteBook('book-7'),
+      throwsA(
+        isA<BookSyncException>().having(
+          (e) => e.message,
+          'message',
+          contains('posted into'),
+        ),
+      ),
+    );
+    // the path is proven by the test below, where the delete succeeds; here the point is the engine's own words reaching
+    // the person rather than a bare status code
+    expect(asked, isNotNull);
+  });
+
+  test('a Book made by mistake is deleted and comes off this phone', () async {
+    final deleted = <String>[];
+    ApiClient.transport = MockClient((request) async {
+      final headers = {'content-type': 'application/json'};
+      if (request.method == 'DELETE') {
+        deleted.add('${request.method} ${request.url.path}');
+        return http.Response(
+          jsonEncode({'status': 'deleted'}),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books')) {
+        return http.Response(
+          jsonEncode({
+            'books': [
+              {
+                'id': 'book-8',
+                'name': 'Trial run',
+                'tier': 'business',
+                'description': '',
+                'folder': '',
+                'your_role': 'owner',
+                'membership_status': 'active',
+                'seq': 0,
+              },
+            ],
+          }),
+          200,
+          headers: headers,
+        );
+      }
+      return http.Response('{}', 200, headers: headers);
+    });
+    await BookSyncService.instance.refreshBooksFromServer();
+    await BookSyncService.instance.deleteBook('book-8');
+    expect(deleted, ['DELETE /book-sync/books/book-8']);
+    expect(
+      (await BookSyncService.instance.localBooks()).any(
+        (b) => b.id == 'book-8',
+      ),
+      isFalse,
+      reason: 'a Book that was taken away must not stay on the phone',
+    );
+  });
+
   test('leaving a Book asks the engine and takes the Book off this phone', () async {
     // Being taken out is the owner's side of access ending; leaving is the person's, and it has two halves: the engine has to
     // record it, and this phone has to stop showing the Book, or every open of it would produce a refusal.

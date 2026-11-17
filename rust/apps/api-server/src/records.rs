@@ -14594,6 +14594,23 @@ async fn post_book_member_accept(
     ))
 }
 
+/// `DELETE /books/{id}`: take away a Book that was made by mistake.
+async fn delete_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_in(&headers, &book_id) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::delete_book(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
 /// `POST /books/{id}/leave`: stop being in somebody else's Book.
 async fn post_book_leave(
     State(graph): GraphState,
@@ -17909,6 +17926,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/books/:id/membership", get(get_book_membership))
         .route("/books/:id/key", get(get_book_key))
         .route("/books/:id/leave", post(post_book_leave))
+        .route("/books/:id", delete(delete_book))
 
         // MFA: the second factor a person carries, self-service only
         .route("/mfa/setup", post(post_mfa_setup))

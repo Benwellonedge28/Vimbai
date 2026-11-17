@@ -798,6 +798,100 @@ async fn somebody_taken_out_of_a_book_cannot_read_or_post_to_it() {
 }
 
 #[tokio::test]
+async fn a_book_made_by_mistake_can_be_taken_away_until_it_means_something() {
+    // Everything else about a Book is reversible, and the Book itself was not: somebody who made one by accident, or picked the
+    // wrong tier, kept it forever. It is refused the moment it means anything - a posting, or another person's access.
+    let mut owner = Walk::stranger();
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    // a second Book, made by mistake, with nobody in it and nothing posted
+    let (status, made) = owner
+        .call(
+            Method::POST,
+            "/books",
+            Some(json!({"name": "Trial run", "tier": "business"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{made}");
+    let mistake = made["book"]["id"].as_str().unwrap().to_string();
+
+    let (status, gone) = owner
+        .call(Method::DELETE, &format!("/books/{mistake}"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{gone}");
+    assert_eq!(gone["status"], json!("deleted"), "{gone}");
+
+    let (status, listed) = owner.call(Method::GET, "/books", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    let names: Vec<&str> = listed["books"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|b| b["name"].as_str())
+        .collect();
+    assert_eq!(
+        names.len(),
+        1,
+        "the Book made by mistake is gone and the real one is not: {listed}"
+    );
+    assert!(
+        !names.contains(&"Trial run"),
+        "the Book that was taken away is off the list: {listed}"
+    );
+
+    // the Book that has been posted into is a record, not a mistake, and says so
+    owner.post_entry("posted", "250.00").await;
+    let (status, refused) = owner
+        .call(Method::DELETE, &format!("/books/{}", owner.book), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a Book with postings is not a mistake: {refused}"
+    );
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("posted into"),
+        "the refusal says why: {refused}"
+    );
+
+    // and a Book somebody else is in is theirs too, so it is not the owner's to remove
+    let mut guest = Walk::on(owner.router.clone());
+    guest.sign_up("interloper@example.com", "Gus").await;
+    let (status, empty) = owner
+        .call(
+            Method::POST,
+            "/books",
+            Some(json!({"name": "Empty for now", "tier": "household"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{empty}");
+    let shared = empty["book"]["id"].as_str().unwrap().to_string();
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{shared}/members"),
+            Some(json!({"user_id": guest.user, "role": "viewer", "wrapped_book_key": "sealed-for-the-guest"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+    let (status, refused) = owner
+        .call(Method::DELETE, &format!("/books/{shared}"), None)
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("other people"),
+        "the refusal says somebody else is in it: {refused}"
+    );
+}
+
+#[tokio::test]
 async fn a_member_can_leave_a_book_and_the_owner_cannot_leave_their_own() {
     // Access that was given has to be able to be handed back. Being taken out is the owner's side of it; this is the person's -
     // they stop working for the business, they joined the wrong Book, they changed their mind - and none of that should need
