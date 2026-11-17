@@ -523,12 +523,7 @@ pub fn create_org(
     }
     let revenue = money_or_nothing(payload, "annual_revenue")?;
     let headcount = whole(payload, "headcount");
-    let band = band_for(
-        &revenue,
-        headcount as u64,
-        0,
-        &org_type,
-    );
+    let band = band_for(&revenue, headcount as u64, 0, &org_type);
 
     let mut recorded = json!({
         "owner_id": scope.user_id,
@@ -2666,28 +2661,58 @@ mod tests {
     #[test]
     fn the_size_band_follows_the_revenue() {
         assert_eq!(band_for(&Money::from_u64(0), 0, 0, "nonprofit"), "small");
-        assert_eq!(band_for(&Money::from_u64(49_999), 0, 0, "nonprofit"), "small");
-        assert_eq!(band_for(&Money::from_u64(50_000), 0, 0, "nonprofit"), "medium");
-        assert_eq!(band_for(&Money::from_u64(500_000), 0, 0, "nonprofit"), "large");
-        assert_eq!(band_for(&Money::from_u64(5_000_000), 0, 0, "nonprofit"), "extra_large");
+        assert_eq!(
+            band_for(&Money::from_u64(49_999), 0, 0, "nonprofit"),
+            "small"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(50_000), 0, 0, "nonprofit"),
+            "medium"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(500_000), 0, 0, "nonprofit"),
+            "large"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(5_000_000), 0, 0, "nonprofit"),
+            "extra_large"
+        );
     }
 
     #[test]
     fn a_company_starts_higher_than_a_non_profit() {
         // 100k is medium for a non-profit but still small for a company
-        assert_eq!(band_for(&Money::from_u64(100_000), 0, 0, "nonprofit"), "medium");
-        assert_eq!(band_for(&Money::from_u64(100_000), 0, 0, "company"), "small");
-        assert_eq!(band_for(&Money::from_u64(600_000), 0, 0, "company"), "medium");
+        assert_eq!(
+            band_for(&Money::from_u64(100_000), 0, 0, "nonprofit"),
+            "medium"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(100_000), 0, 0, "company"),
+            "small"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(600_000), 0, 0, "company"),
+            "medium"
+        );
     }
 
     #[test]
     fn branches_or_people_push_an_organisation_up_a_band() {
         assert_eq!(band_for(&Money::from_u64(0), 0, 6, "nonprofit"), "large");
         assert_eq!(band_for(&Money::from_u64(0), 51, 0, "nonprofit"), "large");
-        assert_eq!(band_for(&Money::from_u64(0), 600, 0, "nonprofit"), "extra_large");
-        assert_eq!(band_for(&Money::from_u64(0), 0, 26, "nonprofit"), "extra_large");
+        assert_eq!(
+            band_for(&Money::from_u64(0), 600, 0, "nonprofit"),
+            "extra_large"
+        );
+        assert_eq!(
+            band_for(&Money::from_u64(0), 0, 26, "nonprofit"),
+            "extra_large"
+        );
         // a large organisation is never pushed back down
-        assert_eq!(band_for(&Money::from_u64(5_000_000), 0, 6, "nonprofit"), "extra_large");
+        assert_eq!(
+            band_for(&Money::from_u64(5_000_000), 0, 6, "nonprofit"),
+            "extra_large"
+        );
     }
 
     #[test]
@@ -2886,14 +2911,19 @@ mod tests {
             json!("1000000000000000000000000000000.000001"),
             "and it is reported with every digit it was given"
         );
-        assert_eq!(creditors[1]["owed"], json!("1000000000000000000000000000000.000000"));
+        assert_eq!(
+            creditors[1]["owed"],
+            json!("1000000000000000000000000000000.000000")
+        );
     }
 
     #[test]
     fn a_spend_limit_is_compared_exactly() {
         // A medium organisation approves up to 5,000 alone. One minor unit over is over.
         let graph = FakeGraph::queue(vec![
-            vec![json!({"id": "org-1", "owner_id": "user-1", "org_type": "nonprofit", "size_band": "medium"})],
+            vec![
+                json!({"id": "org-1", "owner_id": "user-1", "org_type": "nonprofit", "size_band": "medium"}),
+            ],
             vec![json!({"id": "expense-1", "status": "pending_dual_approval"})],
         ]);
         let answer = create_expense(
