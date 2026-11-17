@@ -49,8 +49,8 @@ use vimbai_store::amounts::wire;
 use vimbai_store::read::money_or_nothing;
 use vimbai_store::read::{field, optional, or_default, refused, text};
 use vimbai_store::{
-    created_record, BookScope, Graph, Records, StoreError, JOURNAL_ENTRY, JOURNAL_LINE,
-    LEDGER_ACCOUNT,
+    created_record, BookScope, Graph, Records, StoreError, JOURNAL_DRAFT, JOURNAL_DRAFT_LINE,
+    JOURNAL_ENTRY, JOURNAL_LINE, LEDGER_ACCOUNT,
 };
 
 /// The source modules whose reference numbers the service keeps unique.
@@ -457,6 +457,22 @@ pub fn create_entry<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a draft is a note, not a posting: it is kept outside the journal until somebody posts it
+    if or_default(payload, "status", "draft") == "draft" {
+        return save_draft(graph, scope, payload);
+    }
+    write_posting(graph, scope, payload, None)
+}
+
+/// Write the posting itself. `reusing` is the id the entry will carry, which only the post-a-note path supplies: the note
+/// and the posting it becomes are the same thing at the same address, so following a link to the note still works after
+/// it is posted. A client naming its own id is not honoured, because an entry's id is not a field it gets to choose.
+fn write_posting<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+    reusing: Option<&str>,
+) -> Result<Value, StoreError> {
     let lines = validated_lines(payload)?;
     // every line must name an account this Book owns
     for line in &lines {
@@ -482,7 +498,12 @@ pub fn create_entry<G: Graph + ?Sized>(
         }
     }
 
+    // the id comes first, because the stamp has to be taken over the id the entry will actually carry
+    let entry_id = reusing
+        .map(str::to_owned)
+        .unwrap_or_else(|| vimbai_store::minted_id(&scope.book_id));
     let body = json!({
+        "id": entry_id,
         "entry_date": text(payload, "entry_date"),
         "description": text(payload, "description"),
         "reference_number": reference,
@@ -507,21 +528,19 @@ pub fn create_entry<G: Graph + ?Sized>(
         })
         .unwrap_or_else(|| GENESIS_HASH.to_string());
 
-    // the entry's id is assigned by the store, so the stamp is taken over the body without one: the
-    // kernel's payload carries the entry id, and the store's id is stable once written
-    let held = body.clone();
-    let stamp = compute_entry_hash(&prev_hash, &entry_payload("", &held))
+    // the lines are children of the entry, not fields on it, so they are put back for the stamp: the chain has to vouch
+    // for what the entry says, and what it says is its lines
+    let mut stamping = body.clone();
+    if let Some(object) = stamping.as_object_mut() {
+        object.insert("lines".into(), Value::Array(lines.clone()));
+    }
+    let stamp = compute_entry_hash(&prev_hash, &entry_payload(&entry_id, &stamping))
         .map_err(|reason| refused(&format!("cannot stamp the entry: {reason}")))?;
 
     let mut stored_body = body.clone();
     stored_body["entry_hash"] = json!(stamp);
     stored_body["prev_hash"] = json!(prev_hash);
     // each line is stamped with the entry it belongs to, so it can be found by account without reading the entries
-    let entry_id = stored_body
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
     let mut held: Vec<Value> = Vec::with_capacity(lines.len());
     for (index, line) in lines.iter().enumerate() {
         let mut line = line.clone();
@@ -547,6 +566,158 @@ pub fn create_entry<G: Graph + ?Sized>(
         object.insert("lines".into(), Value::Array(lines));
     }
     Ok(answer)
+}
+
+// --- drafts: the notes that are not postings ---
+
+/// The drafts in this Book, each with its lines, newest business date first.
+fn drafts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Vec<Value>, StoreError> {
+    Records::new(graph, JOURNAL_DRAFT).list_with_children(scope, 4000, JOURNAL_DRAFT_LINE)
+}
+
+fn find_draft<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    draft_id: &str,
+) -> Result<Option<Value>, StoreError> {
+    Ok(drafts(graph, scope)?
+        .into_iter()
+        .find(|draft| field(draft, "id") == draft_id))
+}
+
+/// `POST /journal-entries/` with a status of `draft`: validated exactly as a posting is, then kept as a note.
+///
+/// The same rules apply because a draft that could not be posted later would be a record of nothing. What it does not
+/// get is a place in the journal: no hash, no link, nothing for the chain to vouch for, which is what lets it be edited
+/// and thrown away without damaging the books.
+fn save_draft<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let lines = validated_lines(payload)?;
+    for line in &lines {
+        let number = field(line, "account_number");
+        if account_by_number(graph, scope, number)?.is_none() {
+            return Err(refused(&format!(
+                "Account number {number} not found or does not belong to user."
+            )));
+        }
+    }
+    let reference = text(payload, "reference_number");
+    let body = json!({
+        "entry_date": text(payload, "entry_date"),
+        "description": text(payload, "description"),
+        "reference_number": reference,
+        "source_module": or_default(payload, "source_module", "Manual"),
+        "status": "draft",
+        "created_at": text(payload, "created_at"),
+        "updated_at": text(payload, "updated_at"),
+    });
+    let held: Vec<Value> = lines
+        .iter()
+        .enumerate()
+        .map(|(index, line)| {
+            let mut line = line.clone();
+            if let Some(object) = line.as_object_mut() {
+                object.insert("line_no".into(), json!(index + 1));
+            }
+            line
+        })
+        .collect();
+    let saved = Records::new(graph, JOURNAL_DRAFT).create_with_children(
+        scope,
+        &body,
+        JOURNAL_DRAFT_LINE,
+        &held,
+        "draft_id",
+    )?;
+    let mut answer = merge(body, &saved);
+    if let Some(object) = answer.as_object_mut() {
+        object.insert("lines".into(), Value::Array(lines));
+    }
+    Ok(answer)
+}
+
+/// `PUT /journal-entries/{id}` on a note: the header may change, the lines may not.
+///
+/// Rewriting a note's lines would be rewriting the note, and the honest way to do that is to throw it away and write it
+/// again. What a person does need is to fix the date, the description or the reference of work still in progress.
+fn edit_draft<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    draft_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let Some(draft) = find_draft(graph, scope, draft_id)? else {
+        return Err(refused(&format!(
+            "No journal entry {draft_id} in this Book."
+        )));
+    };
+    if let Some(lines) = payload.get("lines").and_then(Value::as_array) {
+        if !lines.is_empty() {
+            return Err(refused(
+                "A draft's lines are not edited in place; delete the draft and write it again.",
+            ));
+        }
+    }
+    let mut fields = serde_json::Map::new();
+    for key in [
+        "entry_date",
+        "description",
+        "reference_number",
+        "source_module",
+    ] {
+        if let Some(value) = payload.get(key) {
+            if value != draft.get(key).unwrap_or(&Value::Null) {
+                fields.insert(key.into(), value.clone());
+            }
+        }
+    }
+    if fields.is_empty() {
+        return Ok(draft);
+    }
+    let edited =
+        Records::new(graph, JOURNAL_DRAFT).update(scope, draft_id, &Value::Object(fields))?;
+    let mut answer = merge(draft, &edited);
+    if let Some(object) = answer.as_object_mut() {
+        object.insert("status".into(), json!("draft"));
+    }
+    Ok(answer)
+}
+
+/// `POST /journal-entries/{id}/post`: turn a note into the posting it describes.
+///
+/// The posting is written by the ordinary door, so it is validated and stamped like any other entry, and only then is
+/// the note removed: a draft that failed to post stays exactly where it was rather than being lost.
+pub fn post_draft<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    draft_id: &str,
+) -> Result<Value, StoreError> {
+    let Some(draft) = find_draft(graph, scope, draft_id)? else {
+        if Records::new(graph, JOURNAL_ENTRY)
+            .get(scope, draft_id)
+            .is_ok()
+        {
+            return Err(refused(
+                "That entry is already posted; a posted entry is not edited, it is corrected with a reversing entry.",
+            ));
+        }
+        return Err(refused(&format!("No draft {draft_id} in this Book.")));
+    };
+    let posting = json!({
+        "entry_date": field(&draft, "entry_date"),
+        "description": field(&draft, "description"),
+        "reference_number": field(&draft, "reference_number"),
+        "source_module": field(&draft, "source_module"),
+        "status": "posted",
+        "created_at": field(&draft, "created_at"),
+        "lines": entry_lines(&draft),
+    });
+    let posted = write_posting(graph, scope, &posting, Some(draft_id))?;
+    Records::new(graph, JOURNAL_DRAFT).delete(scope, draft_id)?;
+    Ok(posted)
 }
 
 /// `GET /accounts/{number}/postings`: the lines that moved one account, fetched through the ledger's own edges.
@@ -598,7 +769,12 @@ pub fn get_entry<G: Graph + ?Sized>(
     scope: &BookScope,
     entry_id: &str,
 ) -> Result<Value, StoreError> {
-    Records::new(graph, JOURNAL_ENTRY).get_with_children(scope, entry_id, JOURNAL_LINE)
+    match Records::new(graph, JOURNAL_ENTRY).get_with_children(scope, entry_id, JOURNAL_LINE) {
+        Ok(entry) => Ok(entry),
+        // a draft is not in the journal, so the same address answers for it out of the notes
+        Err(_) => find_draft(graph, scope, entry_id)?
+            .ok_or_else(|| refused(&format!("No journal entry {entry_id} in this Book."))),
+    }
 }
 
 /// `GET /journal-entries/`, newest business date first.
@@ -609,7 +785,11 @@ pub fn list_entries<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let from = optional(query, "start_date");
     let until = optional(query, "end_date");
-    let rows: Vec<Value> = entries(graph, scope)?
+    // the notes come too: a person looking at their entries expects the one they have not posted yet to be there,
+    // carrying its own status so the list can say it is not in the statements
+    let mut all = entries(graph, scope)?;
+    all.extend(drafts(graph, scope)?);
+    let rows: Vec<Value> = all
         .into_iter()
         .filter(|entry| {
             from.as_deref()
@@ -636,7 +816,10 @@ pub fn update_entry<G: Graph + ?Sized>(
     entry_id: &str,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let existing = Records::new(graph, JOURNAL_ENTRY).get(scope, entry_id)?;
+    let existing = match Records::new(graph, JOURNAL_ENTRY).get(scope, entry_id) {
+        Ok(entry) => entry,
+        Err(_) => return edit_draft(graph, scope, entry_id, payload),
+    };
     if field(&existing, "status") == "posted" {
         return Err(refused(
             "A posted journal entry cannot be edited; correct it with a reversing entry.",
@@ -668,7 +851,19 @@ pub fn delete_entry<G: Graph + ?Sized>(
     scope: &BookScope,
     entry_id: &str,
 ) -> Result<Value, StoreError> {
-    let existing = Records::new(graph, JOURNAL_ENTRY).get(scope, entry_id)?;
+    let existing = match Records::new(graph, JOURNAL_ENTRY).get(scope, entry_id) {
+        Ok(entry) => entry,
+        Err(_) => {
+            // throwing a note away touches no stamp and no link, because a note was never in the chain
+            if find_draft(graph, scope, entry_id)?.is_none() {
+                return Err(refused(&format!(
+                    "No journal entry {entry_id} in this Book."
+                )));
+            }
+            Records::new(graph, JOURNAL_DRAFT).delete(scope, entry_id)?;
+            return Ok(json!({ "ok": true }));
+        }
+    };
     if field(&existing, "status") == "posted" {
         return Err(refused(
             "A posted journal entry cannot be deleted; correct it with a reversing entry.",
@@ -1463,7 +1658,7 @@ mod tests {
             &graph,
             &scope(),
             &json!({"entry_date": "2026-03-15", "reference_number": "INV-1",
-                    "source_module": "Invoicing",
+                    "source_module": "Invoicing", "status": "posted",
                     "lines": [{"account_number": "1000", "debit": "10.00"},
                               {"account_number": "4000", "credit": "10.00"}]}),
         );

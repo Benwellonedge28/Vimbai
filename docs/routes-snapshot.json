@@ -74,6 +74,7 @@
         "POST /accounting/cash-receipts-journal",
         "POST /accounting/control-accounts",
         "POST /accounting/journal-entries",
+        "POST /accounting/journal-entries/{}/post",
         "POST /accounting/petty-cash-entries",
         "POST /accounting/petty-cash-funds",
         "POST /accounting/profit-estimations",

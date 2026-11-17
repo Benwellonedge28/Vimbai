@@ -21,6 +21,33 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
     _journalEntriesFuture = _apiService.getJournalEntries();
   }
 
+  /// Which draft is being posted, so its row shows work in progress and cannot be posted twice at once.
+  String? _posting;
+
+  Future<void> _post(JournalEntry entry) async {
+    setState(() => _posting = entry.id);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _apiService.postJournalEntry(entry.id);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Posted "${entry.description}"')),
+      );
+      _refreshJournalEntries();
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not post it: ${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _posting = null);
+    }
+  }
+
   void _refreshJournalEntries() {
     setState(() {
       _journalEntriesFuture = _apiService.getJournalEntries();
@@ -62,13 +89,34 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
                     title: Text(entry.description),
                     // A draft sits in this list looking exactly like a posting unless it says so. The statements leave
                     // drafts out, so the row has to admit that or the person believes the books have moved.
+                    // A draft can be posted from here, because posting it is the whole point of keeping it: the note
+                    // becomes the entry, and the row that said "Draft" says nothing once the books have moved.
                     trailing: isHeldAsDraft(entry)
-                        ? const Text(
-                            'Draft',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Draft',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _posting == entry.id
+                                    ? null
+                                    : () => _post(entry),
+                                child: _posting == entry.id
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Post'),
+                              ),
+                            ],
                           )
                         : null,
                     subtitle: Text(

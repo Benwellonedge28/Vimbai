@@ -393,6 +393,15 @@ pub const VENDOR_BILL: RecordKind = RecordKind::new("VendorBill", "OWNS_VENDOR_B
 pub const LEDGER_ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_LEDGER_ACCOUNT");
 pub const JOURNAL_ENTRY: RecordKind = RecordKind::new("JournalEntry", "OWNS_JOURNAL_ENTRY");
 
+/// An entry somebody is still writing: a bookkeeper's note, not a posting.
+///
+/// A draft lives outside the journal on purpose. An entry in the journal is stamped into a hash chain that vouches for
+/// its business fields, so a "draft" in that chain can never become a posting (its stamp covers its status) and can
+/// never be thrown away once a later entry exists (the later entry's link would point at nothing). A note that is not a
+/// posting belongs in its own record set, where it can be edited freely, and where posting it means writing the journal
+/// entry it describes.
+pub const JOURNAL_DRAFT: RecordKind = RecordKind::new("JournalDraft", "OWNS_JOURNAL_DRAFT");
+
 /// The records accounting-standards-service owns.
 pub const STANDARDS_CONFIG: RecordKind =
     RecordKind::new("StandardsConfig", "OWNS_STANDARDS_CONFIG");
@@ -673,6 +682,9 @@ pub const REPORT_SUBSCRIPTION: RecordKind =
 /// account it moves without reading every entry first. Written and read with its entry in a single statement, because
 /// a line that exists without the entry it belongs to is a fragment of a posting.
 pub const JOURNAL_LINE: RecordKind = RecordKind::new("JournalLine", "HAS_LINE");
+
+/// One line of a draft: found with its draft, never with a posting's lines.
+pub const JOURNAL_DRAFT_LINE: RecordKind = RecordKind::new("JournalDraftLine", "HAS_DRAFT_LINE");
 
 pub const DISTRIBUTION_LOG: RecordKind =
     RecordKind::new("DistributionLog", "OWNS_DISTRIBUTION_LOG");
@@ -1884,6 +1896,15 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         self.graph
             .store_update_platform(self.kind, id, Value::Object(patch))
     }
+}
+
+/// The id a new record of this Book is about to carry.
+///
+/// Handed to a caller that has to stamp something over the record's own id before writing it - a hash chain vouches for
+/// the id it was taken over, so an entry stamped over a placeholder and then given a different id by the store verifies as
+/// tampered. One rule for the id, here, rather than a second one beside it.
+pub fn minted_id(book_id: &str) -> String {
+    uuid_like(book_id, 0)
 }
 
 fn uuid_like(book_id: &str, salt: usize) -> String {

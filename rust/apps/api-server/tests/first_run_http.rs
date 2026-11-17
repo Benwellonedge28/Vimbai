@@ -310,6 +310,127 @@ async fn a_draft_entry_is_kept_and_kept_out_of_the_statements() {
 }
 
 #[tokio::test]
+async fn a_note_becomes_a_posting_when_the_person_says_so() {
+    // The half-finished entry: written on the phone, kept, and not in anybody's statements until it is posted. The note
+    // lives outside the journal, which is what makes posting it possible at all - an entry inside the hash chain can
+    // never have its status changed, because its stamp covers the status.
+    let mut walk = Walk::stranger();
+    walk.register_and_sign_in().await;
+    walk.open_book().await;
+    let draft = walk.post_entry("draft", "99.00").await;
+    assert_eq!(draft["status"], json!("draft"), "{draft}");
+    let draft_id = draft["id"].as_str().expect("a draft id").to_owned();
+    // its lines travelled with it, so posting needs nothing from the person but the decision
+    assert_eq!(draft["lines"].as_array().map(Vec::len), Some(2), "{draft}");
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("0.000000"), "{balance}");
+
+    // it is in the person's list of entries, and it says what it is
+    let (code, listed) = walk
+        .call(Method::GET, "/accounting/journal-entries", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let rows = listed.as_array().expect("a list").clone();
+    assert_eq!(rows.len(), 1, "{listed}");
+    assert_eq!(rows[0]["status"], json!("draft"), "{listed}");
+
+    // the header can be fixed while it is still a note
+    let (code, edited) = walk
+        .call(
+            Method::PUT,
+            &format!("/accounting/journal-entries/{draft_id}"),
+            Some(json!({"description": "first sale, corrected"})),
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{edited}");
+    assert_eq!(edited["description"], json!("first sale, corrected"));
+
+    // posting it is one call, and afterwards the books have moved
+    let (code, posted) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{draft_id}/post"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{posted}");
+    assert_eq!(posted["status"], json!("posted"), "{posted}");
+    assert_eq!(
+        posted["description"],
+        json!("first sale, corrected"),
+        "the posting is the note, as last edited"
+    );
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("99.000000"), "{balance}");
+    assert_eq!(balance["total_credits"], json!("99.000000"), "{balance}");
+
+    // the note is gone rather than left beside its posting, and the list holds the posting alone
+    let (code, listed) = walk
+        .call(Method::GET, "/accounting/journal-entries", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let rows = listed.as_array().expect("a list").clone();
+    assert_eq!(rows.len(), 1, "{listed}");
+    assert_eq!(rows[0]["status"], json!("posted"), "{listed}");
+
+    // posting it a second time is refused, because it is a posting now, and the refusal says what to do instead
+    let (code, refused) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{draft_id}/post"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let reason = refused["error"].as_str().unwrap_or_default();
+    assert!(
+        reason.contains("already posted"),
+        "the refusal has to say the note became a posting: {refused}"
+    );
+
+    // and the chain vouches for exactly one entry
+    let (code, integrity) = walk
+        .call(Method::GET, "/accounting/ledger/integrity", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{integrity}");
+    assert_eq!(integrity["valid"], json!(true), "{integrity}");
+    assert_eq!(integrity["entries_checked"], json!(1), "{integrity}");
+}
+
+#[tokio::test]
+async fn a_note_thrown_away_afterwards_leaves_the_books_intact() {
+    // A note is not in the chain, so it can be thrown away after other entries have been posted. An entry inside the
+    // chain could not be: the next entry's link points at its stamp, so deleting it would report a broken chain - which
+    // is precisely why drafts stopped being journal entries.
+    let mut walk = Walk::stranger();
+    walk.register_and_sign_in().await;
+    walk.open_book().await;
+    let draft = walk.post_entry("draft", "10.00").await;
+    let draft_id = draft["id"].as_str().expect("a draft id").to_owned();
+    // a posting arrives after the note was written
+    walk.post_entry("posted", "99.00").await;
+
+    let (code, thrown) = walk
+        .call(
+            Method::DELETE,
+            &format!("/accounting/journal-entries/{draft_id}"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{thrown}");
+
+    let (code, integrity) = walk
+        .call(Method::GET, "/accounting/ledger/integrity", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{integrity}");
+    assert_eq!(integrity["valid"], json!(true), "{integrity}");
+    assert_eq!(integrity["entries_checked"], json!(1), "{integrity}");
+    // the remaining books are the posting alone
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("99.000000"), "{balance}");
+}
+
+#[tokio::test]
 async fn a_stranger_sets_up_an_organisation_and_their_book_lands_inside_it() {
     // The last step of the first run, and the one with no other way back: a Book opened before there is an organisation
     // belongs to nobody, so it can never be shared, and the person has no way to ask for one later. The walk ends here

@@ -70,7 +70,8 @@ class DatabaseHelper {
             source_module TEXT,
             is_synced INTEGER DEFAULT 0,
             created_at TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            book_id TEXT
           )
         ''');
 
@@ -226,6 +227,14 @@ class DatabaseHelper {
   }) async {
     final db = await database;
     final entryId = entry.id;
+    // Saving an entry that is already cached replaces it: posting a draft gives the entry a new status at the same id,
+    // and a plain insert would fail on it and report the post as failed after the engine had already made the posting.
+    await db.delete(
+      'journal_lines',
+      where: 'journal_entry_id = ?',
+      whereArgs: [entryId],
+    );
+    await db.delete('journal_entries', where: 'id = ?', whereArgs: [entryId]);
     final result = await db.insert('journal_entries', {
       'id': entryId,
       'book_id': BookContext.instance.current?.id,

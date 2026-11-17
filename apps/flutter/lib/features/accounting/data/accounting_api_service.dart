@@ -110,6 +110,25 @@ class AccountingApiService {
     }
   }
 
+  /// Posts a draft: one call on the engine turns the note into the entry it describes.
+  ///
+  /// Not offered offline. A note lives on the engine rather than in this app's local table, and posting it is the moment
+  /// the books move, so it waits for the engine to say it happened rather than being queued and reported as done.
+  Future<JournalEntry> postJournalEntry(String entryId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/journal-entries/$entryId/post'),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode == 200) {
+      final posted = JournalEntry.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+      await _localDb.insertJournalEntry(posted, isSynced: true);
+      return posted;
+    }
+    throw Exception('Failed to post journal entry: ${response.body}');
+  }
+
   /// Network-first list of journal entries with offline cache fallback.
   Future<List<JournalEntry>> getJournalEntries() async {
     try {

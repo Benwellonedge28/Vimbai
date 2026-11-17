@@ -184,6 +184,19 @@ async fn delete_entry(
     answer(book::delete_entry(graph.as_ref(), &scope, &entry_id))
 }
 
+/// `POST /journal-entries/{id}/post`: the note becomes the posting it describes.
+async fn post_draft(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(entry_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book::post_draft(graph.as_ref(), &scope, &entry_id))
+}
+
 async fn integrity(State(graph): GraphState, headers: HeaderMap) -> Response {
     let scope = match scope_of(&headers) {
         Ok(scope) => scope,
@@ -836,6 +849,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/journal-entries/:entry_id"),
                 get(get_entry).put(update_entry).delete(delete_entry),
+            )
+            // a note becomes the posting it describes: one door, because posting is not editing
+            .route(
+                &format!("{prefix}/journal-entries/:entry_id/post"),
+                post(post_draft),
             )
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
             .route(&format!("{prefix}/ledgers/:account_number"), get(ledger))
