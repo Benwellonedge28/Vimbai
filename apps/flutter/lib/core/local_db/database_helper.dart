@@ -288,6 +288,20 @@ class DatabaseHelper {
     return result;
   }
 
+  /// Drops a cached entry and its lines.
+  ///
+  /// A note thrown away is gone from the engine, so leaving it here would show a row that cannot be posted, corrected or
+  /// opened again. The lines go first because they point at the entry.
+  Future<void> deleteJournalEntry(String id) async {
+    final db = await database;
+    await db.delete(
+      'journal_lines',
+      where: 'journal_entry_id = ?',
+      whereArgs: [id],
+    );
+    await db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<List<JournalEntry>> getUnsyncedJournalEntries() async {
     final db = await database;
     final List<Map<String, dynamic>> entryMaps = await db.query(

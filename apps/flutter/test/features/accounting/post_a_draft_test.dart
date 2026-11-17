@@ -88,4 +88,49 @@ void main() {
       );
     },
   );
+
+  test(
+    'throwing a note away is one call at the entry\'s own address, and the engine answers with a body',
+    () async {
+      // The engine answers every door the same way, with a 200 and a body, not the empty 204 a delete often gets. Reading
+      // only 204 reported a discard that had already happened as a failure, leaving a note on screen that no longer
+      // existed on the engine.
+      final calls = <String>[];
+      ApiClient.transport = MockClient((request) async {
+        calls.add('${request.method} ${request.url.path}');
+        return http.Response(
+          jsonEncode({'ok': true}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      await AccountingApiService().deleteJournalEntry('e-7');
+
+      expect(calls, ['DELETE /accounting/journal-entries/e-7']);
+    },
+  );
+
+  test('a refused discard carries the engine\'s reason', () async {
+    ApiClient.transport = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'error':
+              'A posted journal entry cannot be deleted; correct it with a reversing entry.',
+        }),
+        422,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    await expectLater(
+      AccountingApiService().deleteJournalEntry('e-7'),
+      throwsA(
+        predicate(
+          (error) => error.toString().contains('reversing entry'),
+          'carries the reason',
+        ),
+      ),
+    );
+  });
 }

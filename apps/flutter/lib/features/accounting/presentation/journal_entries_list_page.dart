@@ -28,6 +28,57 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
   /// Which draft is being posted, so its row shows work in progress and cannot be posted twice at once.
   String? _posting;
 
+  /// Which draft is being thrown away, for the same reason: one row, one piece of work.
+  String? _discarding;
+
+  /// Throws a note away after asking. A note never became an entry, so nothing in the books moves; a row that stays is a
+  /// wrong figure waiting to be posted by mistake.
+  Future<void> _discard(JournalEntry entry) async {
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Throw this note away?'),
+        content: Text(
+          '"${entry.description}" was saved as a note and never posted, so nothing in the statements moves. Throwing it '
+          'away cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('Throw it away'),
+          ),
+        ],
+      ),
+    );
+    if (agreed != true || !mounted) return;
+
+    setState(() => _discarding = entry.id);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _apiService.deleteJournalEntry(entry.id);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Threw away "${entry.description}"')),
+      );
+      _refreshJournalEntries();
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not throw it away: ${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _discarding = null);
+    }
+  }
+
   Future<void> _post(JournalEntry entry) async {
     setState(() => _posting = entry.id);
     final messenger = ScaffoldMessenger.of(context);
@@ -119,6 +170,20 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
                                         ),
                                       )
                                     : const Text('Post'),
+                              ),
+                              TextButton(
+                                onPressed: _discarding == entry.id
+                                    ? null
+                                    : () => _discard(entry),
+                                child: _discarding == entry.id
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Discard'),
                               ),
                             ],
                           )

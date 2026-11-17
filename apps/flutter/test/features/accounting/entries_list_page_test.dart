@@ -27,6 +27,25 @@ class _ScriptedService extends AccountingApiService {
   }
 }
 
+/// An engine that really throws a note away, so the list after the tap is the one the engine would answer with.
+class _DiscardingService extends AccountingApiService {
+  _DiscardingService({required this.rows, this.refusal});
+
+  final List<JournalEntry> rows;
+  final String? refusal;
+  final discarded = <String>[];
+
+  @override
+  Future<List<JournalEntry>> getJournalEntries() async => List.of(rows);
+
+  @override
+  Future<void> deleteJournalEntry(String entryId) async {
+    if (refusal != null) throw Exception(refusal);
+    discarded.add(entryId);
+    rows.removeWhere((row) => row.id == entryId);
+  }
+}
+
 JournalEntry _entry(String id, String description, String? status) =>
     JournalEntry(
       id: id,
@@ -89,5 +108,66 @@ void main() {
     expect(find.textContaining('already posted'), findsWidgets);
     // the row is still a draft: a refusal must not look like the books moved
     expect(find.text('Draft'), findsOneWidget);
+  });
+
+  testWidgets('a note can be thrown away after asking, and the row goes', (
+    tester,
+  ) async {
+    // Save as draft was a one-way door: a note saved by mistake could only be posted by mistake. Discarding it moves
+    // nothing in the statements, so the row leaves the list rather than sitting there waiting to be posted.
+    final service = _DiscardingService(
+      rows: [
+        _entry('e-1', 'Consulting income', 'draft'),
+        _entry('e-2', 'Rent paid', 'posted'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: JournalEntriesListPage(service: service)),
+    );
+    await tester.pumpAndSettle();
+
+    // nothing leaves the list until the person agrees
+    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.pumpAndSettle();
+    expect(service.discarded, isEmpty);
+    expect(find.textContaining('never posted'), findsOneWidget);
+
+    await tester.tap(find.text('Throw it away'));
+    await tester.pumpAndSettle();
+
+    expect(service.discarded, [
+      'e-1',
+    ], reason: 'the tap has to reach the engine');
+    expect(find.text('Consulting income'), findsNothing);
+    expect(find.text('Rent paid'), findsOneWidget);
+    // the posted entry beside it is never offered a discard: it is corrected instead
+    expect(find.widgetWithText(TextButton, 'Discard'), findsNothing);
+  });
+
+  testWidgets('a refused discard keeps the note and says why', (tester) async {
+    // A posted entry is corrected, never deleted. If the engine refuses, the row must stay: a row that vanished while
+    // the posting still stood would tell the person their books had changed when they had not.
+    final service = _DiscardingService(
+      rows: [_entry('e-3', 'Rent paid', 'draft')],
+      refusal:
+          'A posted journal entry cannot be deleted; correct it with a reversing entry.',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: JournalEntriesListPage(service: service)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Throw it away'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Could not throw it away'), findsOneWidget);
+    expect(
+      find.textContaining('correct it with a reversing entry'),
+      findsOneWidget,
+    );
+    expect(find.text('Rent paid'), findsOneWidget);
   });
 }

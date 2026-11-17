@@ -187,14 +187,20 @@ class AccountingApiService {
     throw Exception('Failed to update journal entry: ${response.body}');
   }
 
+  /// Throws a note away: the draft never became an entry, so nothing in the books moves.
+  ///
+  /// The engine answers a discard with the body it answers everything else with, a 200, not the empty 204 a delete often
+  /// gets. Reading only 204 would report a success as a failure and leave the row on screen. A posted entry is refused
+  /// with the reason to correct it instead, and that reason is carried back rather than swallowed.
   Future<void> deleteJournalEntry(String entryId) async {
     final response = await _client.delete(
       Uri.parse('$_baseUrl/journal-entries/$entryId'),
       headers: await _getHeaders(),
     );
-    if (response.statusCode != 204) {
+    if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete journal entry: ${response.body}');
     }
+    await _localDb.deleteJournalEntry(entryId);
   }
 
   Future<void> _refreshLocalJournalCache(List<JournalEntry> entries) async {
