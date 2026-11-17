@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; // NEW
 import 'package:uuid/uuid.dart'; // NEW for local UUID
+import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/account_picker_sheet.dart';
 
 class JournalEntryFormPage extends StatefulWidget {
@@ -30,35 +30,21 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
   /// a fault to report here: typing a number stays possible, and the cashier's flow must not stall because a chart read
   /// failed.
   List<Account> _accounts = const [];
-  final Uuid _uuid = Uuid(); // NEW
 
-  ConnectivityResult _connectivityResult = ConnectivityResult.none; // NEW
+  /// Why the last attempt to post did not post. Kept on the page rather than in a snackbar: an entry that never reached
+  /// the ledger is something the person has to deal with, so the sentence stays where they are looking.
+  String? _submitError;
+  final Uuid _uuid = Uuid(); // NEW
 
   @override
   void initState() {
     super.initState();
-    _checkConnectivity(); // NEW
     _loadChart();
-    Connectivity().onConnectivityChanged.listen((
-      List<ConnectivityResult> results,
-    ) {
-      // NEW
-      setState(() {
-        _connectivityResult = results.isEmpty
-            ? ConnectivityResult.none
-            : results.last;
-      });
-    });
   }
 
-  Future<void> _checkConnectivity() async {
-    // NEW
-    final results = await Connectivity().checkConnectivity();
-    _connectivityResult = results.isEmpty
-        ? ConnectivityResult.none
-        : results.last;
-    setState(() {});
-  }
+  // No connectivity check decides anything here any more. The engine runs on the device it is asked from, so "no
+  // network" was never the same question as "can this be recorded", and the old answer sent a reachable entry into a
+  // local copy no engine had posted.
 
   Future<void> _loadChart() async {
     try {
@@ -169,36 +155,30 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
       );
 
       try {
-        if (_connectivityResult == ConnectivityResult.none) {
-          // NEW: Handle offline
-          await _apiService.createJournalEntry(newEntry, isOffline: true);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Journal Entry saved offline. Will sync when online!',
-                ),
-              ),
-            );
-            Navigator.of(context).pop();
-          }
-        } else {
-          // Online
-          await _apiService.createJournalEntry(newEntry);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Journal Entry created successfully!'),
-              ),
-            );
-            Navigator.of(context).pop();
-          }
+        await _apiService.createJournalEntry(newEntry);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Journal Entry created successfully!'),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } on OfflineException {
+        // The engine could not be asked, so nothing was posted and nothing was written down anywhere. Saying so is the
+        // honest answer, and the lines stay on the form so the work is not lost.
+        if (mounted) {
+          setState(() {
+            _submitError =
+                'The accounting engine could not be reached, so this entry was not posted. '
+                'Nothing has been recorded; your lines are still here.';
+          });
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating entry: ${e.toString()}')),
-          );
+          setState(() {
+            _submitError = 'The entry was not posted: ${e.toString()}';
+          });
         }
       }
     } else {
@@ -374,22 +354,25 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _submitForm,
-                child: Text(
-                  _connectivityResult == ConnectivityResult.none
-                      ? 'Save Offline'
-                      : 'Submit Journal Entry',
-                ), // NEW label
+                child: const Text('Submit Journal Entry'),
               ),
               // An entry that is not ready to post still deserves to be kept: the engine holds a draft and keeps it out of
               // the statements until it is posted, so half-finished work no longer means starting again from a blank form.
-              if (_connectivityResult != ConnectivityResult.none)
-                TextButton(
-                  onPressed: _saveAsDraft,
-                  child: const Text('Save as draft'),
+              TextButton(
+                onPressed: _saveAsDraft,
+                child: const Text('Save as draft'),
+              ),
+              if (_submitError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    _submitError!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
-              Text(
-                'Connectivity: ${_connectivityResult == ConnectivityResult.none ? 'Offline' : 'Online'}',
-              ), // NEW status indicator
             ],
           ),
         ),

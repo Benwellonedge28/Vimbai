@@ -36,53 +36,30 @@ class AccountingApiService {
   // Journal Entries
   // ------------------------------------------------------------------
 
-  /// Creates a journal entry. When offline (or [isOffline] is forced by the
-  /// caller after a connectivity check), the entry is stored locally for
-  /// later sync instead of being rejected.
+  /// Creates a journal entry, in the engine and nowhere else.
+  ///
+  /// A phone that cannot reach the engine gets the reason, not a copy of its own entry: writing the lines into the local
+  /// journal and calling it saved is how an entry that no engine ever posted appears in a phone's statements. An entry
+  /// the ledger does not hold is not an entry, and a draft is what exists for work not yet posted.
   /// Offline-created entries get a client-generated reference number so a
   /// replayed push is idempotent: the server dedups on reference and the
   /// retry turns into a 409 the client treats as already-synced.
-  JournalEntry _withClientReference(JournalEntry entry) {
-    if ((entry.referenceNumber ?? '').isNotEmpty) return entry;
-    return JournalEntry(
-      id: entry.id,
-      entryDate: entry.entryDate,
-      description: entry.description,
-      referenceNumber: 'MOB-${entry.id}',
-      sourceModule: entry.sourceModule,
-      lines: entry.lines,
+  Future<JournalEntry> createJournalEntry(JournalEntry entry) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/journal-entries'),
+      headers: await _getHeaders(),
+      body: json.encode(entry.toJson()),
     );
-  }
-
-  Future<JournalEntry> createJournalEntry(
-    JournalEntry entry, {
-    bool isOffline = false,
-  }) async {
-    if (isOffline) {
-      entry = _withClientReference(entry);
-      await _localDb.insertJournalEntry(entry, isSynced: false);
-      return entry;
-    }
-    try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/journal-entries'),
-        headers: await _getHeaders(),
-        body: json.encode(entry.toJson()),
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      final saved = JournalEntry.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
       );
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final saved = JournalEntry.fromJson(
-          json.decode(response.body) as Map<String, dynamic>,
-        );
-        await _localDb.insertJournalEntry(saved, isSynced: true);
-        return saved;
-      }
-      throw Exception('Failed to create journal entry: ${response.body}');
-    } on OfflineException {
-      // Network dropped mid-flight: keep the entry locally for later sync.
-      entry = _withClientReference(entry);
-      await _localDb.insertJournalEntry(entry, isSynced: false);
-      return entry;
+      await _localDb.insertJournalEntry(saved, isSynced: true);
+      return saved;
     }
+    throw Exception('Failed to create journal entry: ${response.body}');
+    // OfflineException is deliberately not caught anywhere on this path: the caller is the one that can tell the person
+    // the entry was not posted, and a swallowed one here would look like success.
   }
 
   /// Pushes a locally-created (unsynced) entry to the server. Used by
