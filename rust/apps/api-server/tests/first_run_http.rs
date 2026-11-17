@@ -310,6 +310,127 @@ async fn a_draft_entry_is_kept_and_kept_out_of_the_statements() {
 }
 
 #[tokio::test]
+async fn a_mistake_is_undone_by_the_entry_that_says_the_opposite() {
+    // A posted entry is not edited, and until now nothing could write its correction: the engine told a person to use a
+    // reversing entry and left them to type the mirror by hand, thirty digits at a time. One door does it for them, and
+    // the books have to come back to where they started.
+    let mut walk = Walk::stranger();
+    walk.register_and_sign_in().await;
+    walk.open_book().await;
+    let original = walk.post_entry("posted", "250.00").await;
+    let original_id = original["id"].as_str().expect("an id").to_owned();
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("250.000000"), "{balance}");
+
+    let (code, correction) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{original_id}/reverse"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{correction}");
+    assert_eq!(correction["status"], json!("posted"), "{correction}");
+    assert_eq!(correction["reverses_entry_id"], json!(original_id));
+    assert_eq!(
+        correction["entry_date"],
+        json!("2026-11-15"),
+        "left to itself the correction falls on the original's date, not on whatever day the server thinks it is"
+    );
+    assert_eq!(
+        correction["description"],
+        json!("Reversal of first sale"),
+        "{correction}"
+    );
+
+    // the lines are the original's, with the sides swapped and the amounts carried across untouched
+    let lines = correction["lines"].as_array().expect("lines").clone();
+    assert_eq!(lines.len(), 2, "{correction}");
+    let cash = lines
+        .iter()
+        .find(|line| line["account_number"] == json!("1000"))
+        .expect("the cash line");
+    assert_eq!(cash["credit"], json!("250.000000"), "{cash}");
+    assert_eq!(cash["debit"], json!("0.000000"), "{cash}");
+
+    // and the books are back to nothing moved: the balance nets each account, so a posting and its correction leave it
+    // where it started rather than doubling the columns
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("0.000000"), "{balance}");
+    assert_eq!(balance["total_credits"], json!("0.000000"), "{balance}");
+    let (code, cash_account) = walk
+        .call(Method::GET, "/accounting/ledgers/1000", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{cash_account}");
+    assert_eq!(
+        cash_account["end_balance"],
+        json!("0.000000"),
+        "a reversed posting leaves the account where it found it: {cash_account}"
+    );
+
+    // both entries are in the chain, and it still verifies
+    let (code, integrity) = walk
+        .call(Method::GET, "/accounting/ledger/integrity", None)
+        .await;
+    assert_eq!(code, StatusCode::OK, "{integrity}");
+    assert_eq!(integrity["valid"], json!(true), "{integrity}");
+    assert_eq!(integrity["entries_checked"], json!(2), "{integrity}");
+
+    // one mistake, one correction: a second attempt is refused and says which entry already did it
+    let (code, refused) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{original_id}/reverse"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let reason = refused["error"].as_str().unwrap_or_default();
+    assert!(
+        reason.contains("already been reversed"),
+        "the refusal has to say the correction exists: {refused}"
+    );
+
+    // a correction can be dated where it belongs instead
+    let second = walk.post_entry("posted", "10.00").await;
+    let second_id = second["id"].as_str().expect("an id").to_owned();
+    let (code, dated) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{second_id}/reverse"),
+            Some(json!({"entry_date": "2026-12-01"})),
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK, "{dated}");
+    assert_eq!(dated["entry_date"], json!("2026-12-01"), "{dated}");
+}
+
+#[tokio::test]
+async fn a_note_is_not_reversed_it_is_thrown_away() {
+    // Reversing something that was never posted would post it backwards into the books, which is a way to move a
+    // balance with a note. A draft is edited or discarded instead, and the refusal says so.
+    let mut walk = Walk::stranger();
+    walk.register_and_sign_in().await;
+    walk.open_book().await;
+    let draft = walk.post_entry("draft", "5.00").await;
+    let draft_id = draft["id"].as_str().expect("an id").to_owned();
+    let (code, refused) = walk
+        .call(
+            Method::POST,
+            &format!("/accounting/journal-entries/{draft_id}/reverse"),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let reason = refused["error"].as_str().unwrap_or_default();
+    assert!(reason.contains("draft"), "{refused}");
+
+    // and the books did not move
+    let balance = walk.trial_balance().await;
+    assert_eq!(balance["total_debits"], json!("0.000000"), "{balance}");
+}
+
+#[tokio::test]
 async fn a_note_becomes_a_posting_when_the_person_says_so() {
     // The half-finished entry: written on the phone, kept, and not in anybody's statements until it is posted. The note
     // lives outside the journal, which is what makes posting it possible at all - an entry inside the hash chain can

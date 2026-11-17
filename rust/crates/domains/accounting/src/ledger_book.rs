@@ -397,7 +397,7 @@ fn entry_payload(entry_id: &str, entry: &Value) -> Value {
             })
         })
         .collect();
-    json!({
+    let mut payload = json!({
         "entry_id": entry_id,
         "entry_date": field(entry, "entry_date"),
         "description": field(entry, "description"),
@@ -405,7 +405,17 @@ fn entry_payload(entry_id: &str, entry: &Value) -> Value {
         "source_module": field(entry, "source_module"),
         "status": field(entry, "status"),
         "lines": lines,
-    })
+    });
+    // which entry this one corrects is part of what it says, so it is inside the stamp. Only added when there is one:
+    // an entry posted before corrections existed was stamped over a payload without this key, and adding it there
+    // would fail every one of those hashes for a fact they never carried.
+    let corrects = field(entry, "reverses_entry_id");
+    if !corrects.is_empty() {
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("reverses_entry_id".into(), json!(corrects));
+        }
+    }
+    payload
 }
 
 /// The same payload as the service stamped it before this port: amounts as floating-point numbers.
@@ -514,6 +524,12 @@ fn write_posting<G: Graph + ?Sized>(
         "created_at": text(payload, "created_at"),
         "updated_at": text(payload, "updated_at"),
     });
+
+    let mut body = body;
+    let corrects = text(payload, "reverses_entry_id");
+    if !corrects.is_empty() {
+        body["reverses_entry_id"] = json!(corrects);
+    }
 
     let chain = in_creation_order(entries(graph, scope)?);
     let prev_hash = chain
@@ -843,6 +859,95 @@ pub fn update_entry<G: Graph + ?Sized>(
         ));
     }
     Ok(existing)
+}
+
+/// `POST /journal-entries/{id}/reverse`: the correcting entry for one that was already posted.
+///
+/// A posted entry is never edited, so a mistake is answered with an entry that says the opposite. The engine reads the
+/// original's own lines and swaps their sides, copying each amount exactly as it stands: no arithmetic is done on the
+/// money, so a correction of a thirty-digit figure cannot come back a unit out, and a balanced original reverses to a
+/// balanced correction by construction rather than by re-adding.
+///
+/// `corrected` becomes the entry's date when the caller gives one, and the original's date otherwise - not today's,
+/// because this crate has no clock and a correction silently dated on the machine's day would land in whatever period
+/// the machine thinks it is. The correction refers back to its original in `reverses_entry_id`, which is how a second
+/// attempt is refused: one mistake has exactly one correction, or the books would drift from the truth by the same
+/// amount twice.
+pub fn reverse_entry<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    entry_id: &str,
+    corrected: Option<&str>,
+) -> Result<Value, StoreError> {
+    let held = entries(graph, scope)?;
+    let Some(original) = held
+        .iter()
+        .find(|entry| field(entry, "id") == entry_id)
+        .cloned()
+    else {
+        if Records::new(graph, JOURNAL_DRAFT)
+            .get(scope, entry_id)
+            .is_ok()
+        {
+            return Err(refused(
+                "That entry is a draft: a draft is edited or thrown away, not reversed.",
+            ));
+        }
+        return Err(refused(&format!(
+            "No posted journal entry {entry_id} in this Book."
+        )));
+    };
+
+    if let Some(already) = held
+        .iter()
+        .find(|entry| field(entry, "reverses_entry_id") == entry_id)
+    {
+        return Err(refused(&format!(
+            "That entry has already been reversed by {}. A correction is made once; reversing it again would count the same mistake twice.",
+            field(already, "id")
+        )));
+    }
+
+    let mut lines = Vec::new();
+    for line in entry_lines(&original) {
+        // the sides swap and the amounts travel untouched; the stored side is what says which column is the money, so
+        // the correction's side is simply the other one and no amount is parsed to find out
+        let (debit, credit) = (field(&line, "credit"), field(&line, "debit"));
+        let moves_debit = field(&line, "side") == "credit";
+        lines.push(json!({
+            "account_number": field(&line, "account_number"),
+            "debit": debit,
+            "credit": credit,
+            "description": field(&line, "description"),
+            "side": if moves_debit { "debit" } else { "credit" },
+        }));
+    }
+
+    let description = field(&original, "description");
+    let reference = field(&original, "reference_number");
+    let posting = json!({
+        "entry_date": corrected
+            .map(str::to_owned)
+            .filter(|date| !date.is_empty())
+            .unwrap_or_else(|| field(&original, "entry_date").to_string()),
+        "description": if description.is_empty() {
+            "Reversal".to_string()
+        } else {
+            format!("Reversal of {description}")
+        },
+        // suffixed so the correction cannot collide with the reference the original took; the uniqueness rule only
+        // sees the same reference twice within one source module, and this is a different string
+        "reference_number": if reference.is_empty() {
+            String::new()
+        } else {
+            format!("{reference}-R")
+        },
+        "source_module": "Manual",
+        "status": "posted",
+        "reverses_entry_id": entry_id,
+        "lines": lines,
+    });
+    write_posting(graph, scope, &posting, None)
 }
 
 /// `DELETE /journal-entries/{id}`: a draft can go, a posted entry cannot.

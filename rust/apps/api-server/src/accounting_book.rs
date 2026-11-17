@@ -197,6 +197,33 @@ async fn post_draft(
     answer(book::post_draft(graph.as_ref(), &scope, &entry_id))
 }
 
+/// `POST /journal-entries/{id}/reverse`: the correcting entry for one already posted.
+///
+/// The date the correction carries can be given as `entry_date`; left out, the correction falls on the original's date
+/// rather than on whatever day the server believes it is.
+async fn reverse_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(entry_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let corrected = payload
+        .as_ref()
+        .and_then(|Json(body)| body.get("entry_date"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    answer(book::reverse_entry(
+        graph.as_ref(),
+        &scope,
+        &entry_id,
+        corrected.as_deref(),
+    ))
+}
+
 async fn integrity(State(graph): GraphState, headers: HeaderMap) -> Response {
     let scope = match scope_of(&headers) {
         Ok(scope) => scope,
@@ -854,6 +881,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/journal-entries/:entry_id/post"),
                 post(post_draft),
+            )
+            // a posted entry is not edited, so a mistake is answered by the entry that undoes it
+            .route(
+                &format!("{prefix}/journal-entries/:entry_id/reverse"),
+                post(reverse_entry),
             )
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
             .route(&format!("{prefix}/ledgers/:account_number"), get(ledger))
