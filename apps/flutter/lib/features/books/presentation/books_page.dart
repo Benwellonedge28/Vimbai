@@ -13,6 +13,7 @@ import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/book_inbox_page.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/create_book_wizard.dart';
+import 'package:vimbai_mobile_client/features/books/presentation/no_books_yet.dart';
 import 'package:vimbai_mobile_client/features/books/presentation/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/features/npo/data/npo_scale_service.dart';
 
@@ -511,6 +512,12 @@ class _BooksPageState extends State<BooksPage> {
                         ),
                       ),
                     ),
+                  // Nothing to list and nothing went wrong: this is a first run, so say what a Book is and offer the door.
+                  if (_books.isEmpty &&
+                      _orgBooks.isEmpty &&
+                      _error == null &&
+                      !_loading)
+                    NoBooksYet(onCreate: _createBook),
                   ..._folders(_books).entries.expand((entry) {
                     final folder = entry.key;
                     final books = entry.value;
