@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/budgeting/data/finance_api_service.dart';
 import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart';
 
@@ -32,7 +33,7 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
     });
   }
 
-  Widget _buildTotalRow(String label, double value, {Color? color}) {
+  Widget _buildTotalRow(String label, ExactAmount value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -40,7 +41,7 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
         children: [
           Text(label, style: const TextStyle(fontSize: 16)),
           Text(
-            value.toStringAsFixed(2),
+            value.toDecimalString(),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -118,13 +119,15 @@ class _BudgetVarianceReportPageState extends State<BudgetVarianceReportPage> {
                             : '${item.description} (${item.accountId})',
                       ),
                       subtitle: Text(
-                        'Budget: ${item.budget.toStringAsFixed(2)} | Actual: ${item.actual.toStringAsFixed(2)}',
+                        'Budget: ${item.budget.toDecimalString()} | Actual: ${item.actual.toDecimalString()}',
                       ),
                       trailing: Text(
-                        '${item.variance.toStringAsFixed(2)} (${item.variancePct.toStringAsFixed(1)}%)',
+                        '${item.variance.toDecimalString()} (${item.variancePct.toStringAsFixed(1)}%)',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: item.variance < 0 ? Colors.green : Colors.red,
+                          color: item.variance.negative
+                              ? Colors.green
+                              : Colors.red,
                         ),
                       ),
                     ),

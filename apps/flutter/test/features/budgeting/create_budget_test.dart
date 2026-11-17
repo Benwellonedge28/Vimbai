@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
@@ -30,12 +35,15 @@ class _SavingService extends FinanceApiService {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late final http.Client originalTransport;
 
   setUpAll(() {
+    originalTransport = ApiClient.transport;
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    // connectivity_plus is a plugin, so a test has to answer for it: the save
-    // asks whether the phone is online, and an unanswered channel throws.
+    // The two plugins this path touches have to be answered for: the save asks
+    // whether the phone is online, and the variance call reads the saved token.
+    SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('dev.fluttercommunity.plus/connectivity'),
@@ -48,6 +56,8 @@ void main() {
       ),
     );
   });
+
+  tearDown(() => ApiClient.transport = originalTransport);
 
   BudgetCreate header(String name) => BudgetCreate(
     name: name,
@@ -264,4 +274,72 @@ void main() {
     expect(saved, isEmpty);
     expect(find.text('Enter a valid amount'), findsOneWidget);
   });
+
+  test(
+    'a large budget reaches the variance engine and comes back exact',
+    () async {
+      // The variance figures are money too, so they travel as text: a budget of a
+      // hundred billion with a variance of one millionth must be reported as the
+      // figure it is, not as the nearest number a double could hold.
+      const bigBudget = '100000000000.000001';
+      var sentBody = '';
+      ApiClient.transport = MockClient((request) async {
+        sentBody = request.body;
+        return http.Response(
+          json.encode({
+            'budget_id': 'b-variance',
+            'total_variance': '0.000001',
+            'favorable_variance': '0.000001',
+            'unfavorable_variance': '0',
+            'items_outside_tolerance': [
+              {
+                'account_id': '6100',
+                'description': 'Rent',
+                'budget': bigBudget,
+                'actual': '100000000000.000002',
+                'variance': '0.000001',
+                'variance_pct': 1.0,
+              },
+            ],
+            'root_causes': <String, String>{},
+            'corrective_actions': <String>[],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final service = FinanceApiService();
+      final budget = await service.createBudget(
+        header('Large variance'),
+        items: [
+          BudgetItemCreate(
+            category: 'Rent',
+            accountNumber: '6100',
+            budgetedAmount: ExactAmount.parse(bigBudget),
+          ),
+        ],
+        isOffline: true,
+      );
+
+      final report = await service.getBudgetVarianceAnalysis(
+        budget.id!,
+        actuals: {
+          budget.items.single.id!: ExactAmount.parse('100000000000.000002'),
+        },
+      );
+
+      final sent = json.decode(sentBody) as Map<String, dynamic>;
+      final line =
+          (sent['actual_results'] as List).single as Map<String, dynamic>;
+      expect(line['budget'], bigBudget);
+      expect(line['actual'], '100000000000.000002');
+
+      expect(report.totalVariance, ExactAmount.parse('0.000001'));
+      final item = report.itemsOutsideTolerance.single;
+      expect(item.budget, ExactAmount.parse(bigBudget));
+      expect(item.actual, ExactAmount.parse('100000000000.000002'));
+      expect(item.variance, ExactAmount.parse('0.000001'));
+    },
+  );
 }

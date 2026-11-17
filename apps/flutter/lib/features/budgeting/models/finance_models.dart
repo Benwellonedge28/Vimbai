@@ -455,9 +455,14 @@ class FinancialRatiosReport {
 class VarianceOutsideToleranceItem {
   final String accountId;
   final String description;
-  final double budget;
-  final double actual;
-  final double variance;
+
+  /// Money, counted exactly: a variance that has been rounded can agree with a
+  /// wrong figure, and a large one is rewritten outright by a double.
+  final ExactAmount budget;
+  final ExactAmount actual;
+  final ExactAmount variance;
+
+  /// A share, not money, so it stays a figure for display.
   final double variancePct;
 
   VarianceOutsideToleranceItem({
@@ -473,9 +478,9 @@ class VarianceOutsideToleranceItem {
     return VarianceOutsideToleranceItem(
       accountId: (json['account_id'] as String?) ?? '',
       description: (json['description'] as String?) ?? '',
-      budget: amountFromJson(json['budget']),
-      actual: amountFromJson(json['actual']),
-      variance: amountFromJson(json['variance']),
+      budget: ExactAmount.fromJson(json['budget']),
+      actual: ExactAmount.fromJson(json['actual']),
+      variance: ExactAmount.fromJson(json['variance']),
       variancePct: amountFromJson(json['variance_pct']),
     );
   }
@@ -484,9 +489,9 @@ class VarianceOutsideToleranceItem {
 class VarianceAnalysisResult {
   final String budgetId;
   final String budgetName;
-  final double totalVariance;
-  final double favorableVariance;
-  final double unfavorableVariance;
+  final ExactAmount totalVariance;
+  final ExactAmount favorableVariance;
+  final ExactAmount unfavorableVariance;
   final List<VarianceOutsideToleranceItem> itemsOutsideTolerance;
   final Map<String, String> rootCauses;
   final List<String> correctiveActions;
@@ -521,9 +526,9 @@ class VarianceAnalysisResult {
     return VarianceAnalysisResult(
       budgetId: (json['budget_id'] as String?) ?? budgetId,
       budgetName: budgetName,
-      totalVariance: amountFromJson(json['total_variance']),
-      favorableVariance: amountFromJson(json['favorable_variance']),
-      unfavorableVariance: amountFromJson(json['unfavorable_variance']),
+      totalVariance: ExactAmount.fromJson(json['total_variance']),
+      favorableVariance: ExactAmount.fromJson(json['favorable_variance']),
+      unfavorableVariance: ExactAmount.fromJson(json['unfavorable_variance']),
       itemsOutsideTolerance: outside,
       rootCauses: causes,
       correctiveActions:

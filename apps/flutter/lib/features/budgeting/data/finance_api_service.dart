@@ -133,7 +133,7 @@ class FinanceApiService {
   /// without an entry contribute an actual of 0.
   Future<VarianceAnalysisResult> getBudgetVarianceAnalysis(
     String budgetId, {
-    Map<String, double> actuals = const {},
+    Map<String, ExactAmount> actuals = const {},
     double tolerancePercentage = 5.0,
   }) async {
     final budget = await _dbHelper.getBudget(budgetId);
@@ -155,7 +155,8 @@ class FinanceApiService {
                 'account_id': item.accountNumber,
                 'description': item.category,
                 'budget': item.budgetedAmount.toDecimalString(),
-                'actual': actuals[item.id] ?? 0.0,
+                'actual': (actuals[item.id] ?? ExactAmount.zero)
+                    .toDecimalString(),
               },
             )
             .toList(),
