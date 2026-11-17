@@ -352,24 +352,49 @@ pub fn invite_member(
     if invited.is_empty() {
         return Err(refused("user_id is required"));
     }
-    if membership_for(graph, book_id, &invited)?.is_some() {
-        return Err(StoreError::Conflict(
-            "user already invited or a member".to_string(),
-        ));
-    }
+    // Somebody already in the Book is not a conflict to refuse: their device may have joined without a usable key, or been
+    // replaced since, and this is the only way the key reaches them again. The invitation is re-issued rather than re-made -
+    // an active member keeps the role they already have, so re-sending a key cannot quietly promote or demote anybody - and
+    // the key row is upserted for that person, which is what their phone collects next.
     let now = payload.get("now").cloned().unwrap_or(Value::Null);
-    held(graph, MEMBERSHIP).create(
-        book_id,
-        &json!({
-            "id": service_id(),
-            "member_user_id": invited,
-            "role": role,
-            "display_name": text(payload, "display_name"),
-            "status": "invited",
-            "invited_by": scope.user_id,
-            "created_at": now,
-        }),
-    )?;
+    let (status, held_role) = match membership_for(graph, book_id, &invited)? {
+        Some(membership) => {
+            let status = text(&membership, "status");
+            let held_role = text(&membership, "role");
+            // an invitation not yet taken up is rewritten, so a corrected role or name reaches the person
+            if status == "invited" {
+                held(graph, MEMBERSHIP).update(
+                    book_id,
+                    &text(&membership, "id"),
+                    &json!({
+                        "role": role,
+                        "display_name": text(payload, "display_name"),
+                        "invited_by": scope.user_id,
+                    }),
+                )?;
+                (status, role)
+            } else {
+                // a member already in the Book keeps their role: this call is a new key for their phone, not a change of
+                // standing
+                (status, held_role)
+            }
+        }
+        None => {
+            held(graph, MEMBERSHIP).create(
+                book_id,
+                &json!({
+                    "id": service_id(),
+                    "member_user_id": invited,
+                    "role": role,
+                    "display_name": text(payload, "display_name"),
+                    "status": "invited",
+                    "invited_by": scope.user_id,
+                    "created_at": now,
+                }),
+            )?;
+            ("invited".to_string(), role.clone())
+        }
+    };
     store_metadata(
         graph,
         book_id,
@@ -383,10 +408,30 @@ pub fn invite_member(
         book_id,
         &scope.user_id,
         "member.invited",
-        &format!("{invited}:{role}"),
+        &format!("{invited}:{held_role}"),
         &now,
     )?;
-    Ok(json!({"service": "book-sync-service", "status": "invited", "role": role}))
+    Ok(json!({"service": "book-sync-service", "status": status, "role": held_role}))
+}
+
+/// `GET /books/{id}/key`: the caller's own copy of the Book key, wrapped for a device of theirs.
+///
+/// A member who joined while their key could not be opened, or who replaced their phone, has a working membership and nothing
+/// to read it with. The key is theirs already - they are in the Book - so the door that hands it over is theirs to use, and it
+/// is the half of an invitation that a person can ask for again instead of waiting to be sent one.
+pub fn wrapped_key_of(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    book_id: &str,
+) -> Result<Value, StoreError> {
+    member_of(graph, book_id, &scope.user_id, None)?;
+    let wrapped = held(graph, METADATA)
+        .where_eq(book_id, "key", &json!(wrapped_key_for(&scope.user_id)))?
+        .into_iter()
+        .next()
+        .map(|row| text(&row, "value"))
+        .unwrap_or_default();
+    Ok(json!({"service": "book-sync-service", "wrapped_book_key": wrapped}))
 }
 
 /// `GET /books/{id}/members`: everyone in the Book.
@@ -1043,14 +1088,23 @@ mod tests {
                     "now": 1001.0}),
         )
         .expect("an invitation");
-        // the same person is not invited twice
+        // inviting the same person again rewrites the pending invitation instead of making a second membership or refusing:
+        // the person is one member of this Book, and a corrected role has to be able to reach them
         let twice = invite_member(
             &graph,
             &as_user("user-1"),
             &book_id,
-            &json!({"user_id": "user-2", "role": "viewer", "wrapped_book_key": "k"}),
+            &json!({"user_id": "user-2", "role": "viewer", "wrapped_book_key": "wrapped-again"}),
+        )
+        .expect("a re-issued invitation");
+        assert_eq!(twice["status"], json!("invited"));
+        assert_eq!(twice["role"], json!("viewer"));
+        let members = book_members(&graph, &as_user("user-1"), &book_id).expect("members");
+        assert_eq!(
+            members["members"].as_array().map(Vec::len),
+            Some(2),
+            "one membership per person: {members}"
         );
-        assert!(matches!(twice, Err(StoreError::Conflict(_))));
 
         // the Book shows in the invited person's list as pending, and they cannot read it yet
         let pending = list_books(&graph, &as_user("user-2")).expect("books");
@@ -1059,7 +1113,8 @@ mod tests {
 
         let accepted = accept_invite(&graph, &as_user("user-2"), &book_id).expect("an acceptance");
         assert_eq!(accepted["status"], json!("active"));
-        assert_eq!(accepted["wrapped_book_key"], json!("wrapped-for-user-2"));
+        // the key that arrives is the newest one re-issued, not the first: a second invitation is a new key for the phone
+        assert_eq!(accepted["wrapped_book_key"], json!("wrapped-again"));
         let now = list_books(&graph, &as_user("user-2")).expect("books");
         assert_eq!(now["books"][0]["membership_status"], json!("active"));
         assert!(get_book(&graph, &as_user("user-2"), &book_id).is_ok());

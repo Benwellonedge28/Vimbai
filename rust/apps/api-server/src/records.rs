@@ -14594,6 +14594,27 @@ async fn post_book_member_accept(
     ))
 }
 
+/// `GET /books/{id}/key`: this member's own copy of the Book key, again.
+///
+/// The address exists because the alternative was a dead end: a member who joined with nothing to open, or who moved to a new
+/// phone, held a working membership and no way to ask for the key a second time, and the advice they were given - "ask whoever
+/// shared it to invite you again" - needed somebody else to act. Asking is theirs to do.
+async fn get_book_key(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_in(&headers, &book_id) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::wrapped_key_of(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
 async fn put_book_member(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -17869,6 +17890,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/books/:id/metadata", get(get_book_metadata).post(post_book_metadata))
         .route("/books/:id/audit", get(get_book_audit))
         .route("/books/:id/membership", get(get_book_membership))
+        .route("/books/:id/key", get(get_book_key))
 
         // MFA: the second factor a person carries, self-service only
         .route("/mfa/setup", post(post_mfa_setup))

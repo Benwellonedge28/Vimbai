@@ -139,6 +139,109 @@ void main() {
     expect(joined.membershipStatus, 'active');
   });
 
+  test('a joined Book with no key on this phone asks for one', () async {
+    // The half of sharing that used to be a dead end: a person joins on a phone the key was not sealed for, or replaces the
+    // phone later. The membership is real and the key is theirs, but there is nothing here to open. Asking for it is the only
+    // move this phone can make on its own, and without it the Book stayed joined-and-unreadable until somebody else acted.
+    const bookKey = 'the-key-of-a-book-i-am-already-in';
+    final wrapped = await BookSyncService.instance.wrapBookKeyForSelf(bookKey);
+    var asked = false;
+
+    ApiClient.transport = MockClient((request) async {
+      final headers = {'content-type': 'application/json'};
+      if (request.url.path.endsWith('/identity/users/me/public-key')) {
+        return http.Response('{}', 200, headers: headers);
+      }
+      if (request.url.path.endsWith('/books/book-9/key')) {
+        asked = true;
+        return http.Response(
+          jsonEncode({'wrapped_book_key': wrapped}),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books')) {
+        return http.Response(
+          jsonEncode({
+            'books': [
+              {
+                'id': 'book-9',
+                'name': 'Joined But Unreadable',
+                'tier': 'small_business',
+                'description': '',
+                'folder': '',
+                'your_role': 'bookkeeper',
+                'membership_status': 'active',
+                'seq': 0,
+              },
+            ],
+          }),
+          200,
+          headers: headers,
+        );
+      }
+      return http.Response('{}', 404, headers: headers);
+    });
+
+    await BookSyncService.instance.refreshBooksFromServer();
+    expect(
+      asked,
+      isTrue,
+      reason: 'the phone has to ask for the key it is missing',
+    );
+    expect(
+      await BookSyncService.instance.bookKeyFor('book-9'),
+      bookKey,
+      reason: 'the key that arrives is stored, so the Book can be opened',
+    );
+  });
+
+  test('a key that will not open is not kept as if it worked', () async {
+    // The engine can only hand back what somebody wrapped. If what comes back was sealed for another device it opens nothing,
+    // and storing the wrapper as though it were the key would make every entry in the Book fail to decrypt with no clue why.
+    ApiClient.transport = MockClient((request) async {
+      final headers = {'content-type': 'application/json'};
+      if (request.url.path.endsWith('/identity/users/me/public-key')) {
+        return http.Response('{}', 200, headers: headers);
+      }
+      if (request.url.path.endsWith('/books/book-8/key')) {
+        return http.Response(
+          jsonEncode({'wrapped_book_key': 'not-a-key-for-this-device'}),
+          200,
+          headers: headers,
+        );
+      }
+      if (request.url.path.endsWith('/books')) {
+        return http.Response(
+          jsonEncode({
+            'books': [
+              {
+                'id': 'book-8',
+                'name': 'Sealed For Somebody Else',
+                'tier': 'small_business',
+                'description': '',
+                'folder': '',
+                'your_role': 'viewer',
+                'membership_status': 'active',
+                'seq': 0,
+              },
+            ],
+          }),
+          200,
+          headers: headers,
+        );
+      }
+      return http.Response('{}', 404, headers: headers);
+    });
+
+    await BookSyncService.instance.refreshBooksFromServer();
+    expect(
+      await BookSyncService.instance.bookKeyFor('book-8'),
+      '',
+      reason: 'a wrapper that does not open is not a key',
+    );
+  });
+
   test(
     'an invitation carries the Book key made openable for that person',
     () async {

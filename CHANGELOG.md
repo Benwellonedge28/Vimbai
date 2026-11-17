@@ -4,6 +4,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Added
+
+- A way out of a Book a phone joined but cannot read. Inviting somebody already in the Book used to be refused as a conflict and
+  accepting a second time was refused as "not an invitation", so the advice the app gave - "ask whoever shared it to invite you
+  again" - was impossible to follow and that person was stuck in a Book they could never open. An invitation for an existing
+  member now re-issues the key instead of failing (keeping their role: a key is not a promotion), `GET /books/{id}/key` hands a
+  member their own wrapped copy without needing a second acceptance, and the app collects it quietly on refresh when a joined
+  Book has no key on the phone. A wrapper that does not open is not stored as though it were a key.
+
 ### Fixed
 
 - A journal entry posted by an invited member was invisible to the Book's owner in every test, and the cause was in the test

@@ -200,6 +200,12 @@ paths:
     post:
       operationId: postBooksEntriesPush
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /books/{}/key:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getBooksKey
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /books/{}/members:
     parameters:
       - $ref: "#/components/parameters/BookId"

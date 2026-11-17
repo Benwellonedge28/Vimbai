@@ -292,7 +292,46 @@ class BookSyncService {
       }, conflictAlgorithm: ConflictAlgorithm.replace);
       result.add(book);
     }
+    // A Book this phone joined but cannot open is worth one quiet attempt to repair: the key is already this person's - they
+    // are in the Book - and asking for it is the only thing that turns a membership into something readable. Without this the
+    // phone would show a joined Book that stays empty until somebody else sends a new invitation.
+    for (final book in result) {
+      if (book.membershipStatus == 'active') {
+        await _collectKeyIfMissing(book.id);
+      }
+    }
     return result;
+  }
+
+  /// Ask the engine for this person's copy of a Book key, and keep it if it opens.
+  ///
+  /// Silent by design: a Book that still cannot be opened is a Book this person was told about already, and a refresh is not
+  /// the moment to raise it again. The one thing that must not happen is a wrong key being stored as if it worked.
+  Future<bool> _collectKeyIfMissing(String bookId) async {
+    final held = await bookKeyFor(bookId);
+    if (held.isNotEmpty) return true;
+    try {
+      final r = await _client.get(_u('/books/$bookId/key'), headers: _headers);
+      if (r.statusCode != 200) return false;
+      final wrapped =
+          (jsonDecode(r.body) as Map<String, dynamic>)['wrapped_book_key']
+              as String? ??
+          '';
+      if (wrapped.isEmpty) return false;
+      final bookKey = await unwrapBookKey(wrapped);
+      if (bookKey.isEmpty) return false;
+      final meta = await _meta();
+      await meta.update(
+        'registry',
+        {'book_key': bookKey},
+        where: 'book_id = ?',
+        whereArgs: [bookId],
+      );
+      return true;
+    } catch (_) {
+      // a key that will not open is not stored, and not reported here: the Book list already says the Book is joined
+      return false;
+    }
   }
 
   Future<List<VBook>> localBooks() async {

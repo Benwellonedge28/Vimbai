@@ -616,6 +616,88 @@ async fn a_book_shared_on_disk_takes_everybodys_postings_and_keeps_them() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[tokio::test]
+async fn a_member_whose_phone_cannot_read_the_book_can_be_given_the_key_again() {
+    // The failure this covers is the one a person actually meets: they accept an invitation on a phone whose key the invitation
+    // was not sealed for, or they replace the phone a month later. The membership is real and the key is theirs, but there is
+    // nothing on their device to open. The advice the app gives is "ask whoever shared it to invite you again" - which used to be
+    // impossible to follow, because inviting somebody already in the Book was refused as a conflict and accepting a second time
+    // was refused as not an invitation. Both halves have to work, or the sentence is a dead end.
+    let mut owner = Walk::stranger();
+    owner.register_and_sign_in().await;
+    owner.open_book().await;
+
+    let mut guest = Walk::on(owner.router.clone());
+    guest.sign_up("guest@example.com", "Gus").await;
+    let guest_id = guest.user.clone();
+
+    let (status, invited) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(
+                json!({"user_id": guest_id, "role": "bookkeeper", "wrapped_book_key": "first-key"}),
+            ),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{invited}");
+
+    let (status, accepted) = guest
+        .call(
+            Method::POST,
+            &format!("/books/{}/members/accept", owner.book),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+    assert_eq!(
+        accepted["wrapped_book_key"],
+        json!("first-key"),
+        "{accepted}"
+    );
+
+    // the owner sends the key again, for the new phone. The invitation is re-issued rather than refused, and the person's
+    // standing in the Book is untouched: a key is not a promotion.
+    let (status, again) = owner
+        .call(
+            Method::POST,
+            &format!("/books/{}/members", owner.book),
+            Some(json!({"user_id": guest_id, "role": "viewer", "wrapped_book_key": "second-key"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again["status"], json!("active"), "{again}");
+    assert_eq!(
+        again["role"],
+        json!("bookkeeper"),
+        "a member already in the Book keeps the role they hold: {again}"
+    );
+
+    // and the member collects it themselves, without needing a second invitation accepted
+    let (status, key) = guest
+        .call(Method::GET, &format!("/books/{}/key", owner.book), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{key}");
+    assert_eq!(
+        key["wrapped_book_key"],
+        json!("second-key"),
+        "the member asks for the key that is theirs and gets the newest one: {key}"
+    );
+
+    // a Book's key is not something a stranger can ask for by naming the Book
+    let mut gatecrasher = Walk::on(owner.router.clone());
+    gatecrasher.sign_up("gatecrasher@example.com", "Gwen").await;
+    gatecrasher.book = owner.book.clone();
+    let (status, refused) = gatecrasher
+        .call(Method::GET, &format!("/books/{}/key", owner.book), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "the key door opens for members: {refused}"
+    );
+}
+
 /// A modulus in the shape a phone publishes: base64 of 128 bytes, which is the smallest the engine will seal a Book key for.
 fn base64_of_128_bytes() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
