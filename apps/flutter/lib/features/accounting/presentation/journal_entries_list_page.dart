@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entry_detail_page.dart'; // NEW import
 
 class JournalEntriesListPage extends StatefulWidget {
@@ -59,8 +60,20 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
                   ),
                   child: ListTile(
                     title: Text(entry.description),
+                    // A draft sits in this list looking exactly like a posting unless it says so. The statements leave
+                    // drafts out, so the row has to admit that or the person believes the books have moved.
+                    trailing: isHeldAsDraft(entry)
+                        ? const Text(
+                            'Draft',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        : null,
                     subtitle: Text(
-                      'Ref: ${entry.referenceNumber ?? 'N/A'} | Date: ${entry.entryDate.toLocal().toString().split(' ')[0]}',
+                      'Ref: ${entry.referenceNumber ?? 'N/A'} | Date: ${entry.entryDate.toLocal().toString().split(' ')[0]}'
+                      '${isHeldAsDraft(entry) ? ' | not in the statements yet' : ''}',
                     ),
                     onTap: () {
                       Navigator.of(context).push(

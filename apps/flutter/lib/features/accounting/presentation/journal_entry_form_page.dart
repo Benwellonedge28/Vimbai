@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:connectivity_plus/connectivity_plus.dart'; // NEW
 import 'package:uuid/uuid.dart'; // NEW for local UUID
 
@@ -74,19 +75,54 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
     return _calculateTotalDebits() == _calculateTotalCredits();
   }
 
+  /// Keep this entry as a draft: it is held, and the statements do not count it until it is posted.
+  ///
+  /// The same rules apply as posting - two lines that balance - because a draft that could not be posted later would be a
+  /// record of nothing. What changes is that it is out of the statements until somebody posts it.
+  Future<void> _saveAsDraft() async {
+    if (!(_formKey.currentState!.validate() &&
+        _journalLines.length >= 2 &&
+        _isBalanced())) {
+      return;
+    }
+    final draft = buildJournalEntry(
+      id: _uuid.v4(),
+      entryDate: DateTime.now(),
+      description: _descriptionController.text,
+      referenceNumber: _referenceNumberController.text,
+      lines: _journalLines,
+      intent: JournalEntryIntent.keepAsDraft,
+    );
+    try {
+      await _apiService.createJournalEntry(draft);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Kept as a draft. It counts in the statements once posted.',
+          ),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not keep the draft: $e')));
+    }
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate() &&
         _journalLines.length >= 2 &&
         _isBalanced()) {
-      final newEntry = JournalEntry(
+      final newEntry = buildJournalEntry(
         id: _uuid.v4(), // NEW: Assign a local UUID
         entryDate: DateTime.now(),
         description: _descriptionController.text,
-        referenceNumber: _referenceNumberController.text.isEmpty
-            ? null
-            : _referenceNumberController.text,
-        sourceModule: 'MobileApp',
+        referenceNumber: _referenceNumberController.text,
         lines: _journalLines,
+        intent: JournalEntryIntent.post,
       );
 
       try {
@@ -294,6 +330,13 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
                       : 'Submit Journal Entry',
                 ), // NEW label
               ),
+              // An entry that is not ready to post still deserves to be kept: the engine holds a draft and keeps it out of
+              // the statements until it is posted, so half-finished work no longer means starting again from a blank form.
+              if (_connectivityResult != ConnectivityResult.none)
+                TextButton(
+                  onPressed: _saveAsDraft,
+                  child: const Text('Save as draft'),
+                ),
               Text(
                 'Connectivity: ${_connectivityResult == ConnectivityResult.none ? 'Offline' : 'Online'}',
               ), // NEW status indicator
