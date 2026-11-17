@@ -4,6 +4,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
 
 ## [Unreleased]
 
+### Fixed
+
+- A journal entry posted by an invited member was invisible to the Book's owner in every test, and the cause was in the test
+  double rather than the engine: the in-memory store decided whether a read was Book-wide or personal from whether the
+  parameters mentioned a person, and they always do, so a collected read (entries with their lines) answered the caller's own
+  rows only. The real stores scope by Book and were already right. The walk now proves the other half of sharing - a bookkeeper
+  posts into the shared Book, the owner's trial balance moves, and a stranger who names the Book is refused both the read and
+  the posting, with nothing left behind by the refusal.
+
 ### Added
 
 - Recovery codes for a second factor, because a lost phone must not be a locked-out account. Turning the factor on hands over

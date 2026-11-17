@@ -475,7 +475,11 @@ impl Graph for MemoryGraph {
         if cypher.contains("collect(l)") {
             let label = matched_label(cypher)
                 .ok_or_else(|| StoreError::Graph(format!("unreadable statement: {cypher}")))?;
-            let shared = params.get("user_id").is_none();
+            // The same rule as a plain read, and for the same reason: a statement that walks no edge off a person is a read
+            // of the Book, whose rows belong to the Book and are handed out by membership above the store. Deciding this from
+            // whether the parameters mention a person got it wrong for every collected read - the parameters always name the
+            // caller - so a member's journal entry was answered to the member who wrote it and to nobody else in the Book.
+            let shared = !cypher.contains("->(x:");
             let user_id = stated(&params, "user_id");
             let book_id = stated(&params, "book_id");
             let id = stated(&params, "id");

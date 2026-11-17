@@ -468,8 +468,26 @@ async fn an_invited_person_sees_the_book_and_accepts_it() {
         "a joined member reads the same chart as the owner"
     );
 
+    // Reading is half of being in a Book. The guest was invited as a bookkeeper, so their posting has to land in the same
+    // Book the owner reads - one set of books, two people keeping it. A Book that answered its members with the owner's
+    // records but filed their postings somewhere else would look right on both screens and never add up.
+    let posted = guest.post_entry("posted", "125.00").await;
+    assert_eq!(posted["status"], json!("posted"), "{posted}");
+    let owner_balance = owner.trial_balance().await;
+    let guest_balance = guest.trial_balance().await;
+    assert_eq!(
+        owner_balance["total_debits"], guest_balance["total_debits"],
+        "the owner and the member are reading one Book: {owner_balance} / {guest_balance}"
+    );
+    assert_ne!(
+        owner_balance["total_debits"],
+        json!("0.00"),
+        "the member's posting moved the owner's statements: {owner_balance}"
+    );
+
     // A Book id is not a secret, so naming one is not the same as being allowed in: somebody who never joined is refused
-    // rather than shown an empty chart, which would be a lie about what the Book holds.
+    // rather than shown an empty chart, which would be a lie about what the Book holds. The same goes for writing: a stranger
+    // who could post into a Book would be able to change somebody's statements without ever being let in.
     let mut gatecrasher = Walk::on(owner.router.clone());
     gatecrasher.sign_up("gatecrasher@example.com", "Gwen").await;
     gatecrasher.book = owner.book.clone();
@@ -480,6 +498,32 @@ async fn an_invited_person_sees_the_book_and_accepts_it() {
         status,
         StatusCode::FORBIDDEN,
         "a Book opens for its members and nobody else: {refused}"
+    );
+    let (status, refused) = gatecrasher
+        .call(
+            Method::POST,
+            "/accounting/journal-entries",
+            Some(json!({
+                "entry_date": "2026-11-15",
+                "description": "not mine to write",
+                "status": "posted",
+                "lines": [
+                    {"account_number": "1000", "debit": "5.00", "credit": "0"},
+                    {"account_number": "4000", "debit": "0", "credit": "5.00"},
+                ],
+            })),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a Book takes entries from its members and nobody else: {refused}"
+    );
+    // and the refusal left nothing behind
+    let after = owner.trial_balance().await;
+    assert_eq!(
+        after["total_debits"], owner_balance["total_debits"],
+        "a refused posting must not move the statements: {after}"
     );
 
     let (status, listed) = guest.call(Method::GET, "/books", None).await;
