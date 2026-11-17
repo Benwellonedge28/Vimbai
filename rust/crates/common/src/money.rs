@@ -70,6 +70,28 @@ impl Money {
         Money::parse(&format!("{value}"))
     }
 
+    /// Read a money figure as it arrives on the wire, exactly.
+    ///
+    /// A decimal string keeps every digit it carries, which is the only way a
+    /// figure beyond a double's reach survives the trip. A JSON number is taken
+    /// at the value it already holds (it became a float before it arrived, so a
+    /// caller that cares about its digits must send text). Null is nothing owed.
+    ///
+    /// This lives here, once, because every calculator that reads an amount from
+    /// a request needs the same three rules: a copy per module drifts.
+    pub fn from_json(value: &serde_json::Value) -> Result<Self, String> {
+        use serde_json::Value;
+        match value {
+            Value::String(text) => Money::parse(text).map_err(|e| e.0),
+            Value::Number(number) => {
+                let lossy = number.as_f64().unwrap_or(0.0);
+                Money::from_f64_shortest(lossy).map_err(|e| format!("{number}: {e}"))
+            }
+            Value::Null => Ok(Money::zero()),
+            other => Err(format!("expected an amount, found {other}")),
+        }
+    }
+
     /// The underlying decimal, for callers that need bigdecimal directly.
     pub fn as_decimal(&self) -> &BigDecimal {
         &self.0
@@ -424,6 +446,20 @@ mod tests {
 
     fn m(text: &str) -> Money {
         Money::parse(text).expect("valid amount")
+    }
+
+    #[test]
+    fn reads_text_exactly_and_numbers_at_the_value_they_carry() {
+        let big = "123456789012345678901234567890.123456";
+        assert_eq!(
+            Money::from_json(&serde_json::json!(big)).map(|m| m.to_fixed(6)),
+            Ok(big.into()),
+            "a decimal string keeps all thirty-six digits"
+        );
+        assert_eq!(Money::from_json(&serde_json::json!(0.1)).map(|m| m.to_fixed(1)), Ok("0.1".into()));
+        assert_eq!(Money::from_json(&serde_json::Value::Null).map(|m| m.to_fixed(2)), Ok("0.00".into()));
+        assert!(Money::from_json(&serde_json::json!("not money")).is_err());
+        assert!(Money::from_json(&serde_json::json!(true)).is_err());
     }
 
     #[test]

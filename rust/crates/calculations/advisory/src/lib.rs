@@ -13,14 +13,32 @@ pub mod substantive_testing;
 pub mod treasury;
 
 use serde_json::Value;
-use vimbai_common::py_round2;
+use vimbai_common::{py_round2, Money};
 
 // The payload reader is shared vocabulary, not storage: this crate used to depend on the database
 // adapter to read one string out of a request.
 pub use vimbai_common::normal::payload_text as text;
 
+/// A figure read off the wire as a float, accepting decimal text as well as a JSON number.
+///
+/// Used for rates and counts, where a float is the right type. An amount that needs its digits kept goes through
+/// [`money_of`] instead: this one converts to a double and therefore forgets anything past about fifteen digits.
 pub fn num(v: &Value, key: &str) -> f64 {
-    v.get(key).and_then(Value::as_f64).unwrap_or(0.0)
+    match v.get(key) {
+        Some(Value::String(text)) => Money::parse(text).map(|m| m.to_f64_lossy()).unwrap_or(0.0),
+        other => other.and_then(Value::as_f64).unwrap_or(0.0),
+    }
+}
+
+/// A money figure read exactly, with the workspace's one set of rules for a wire amount.
+///
+/// An unreadable figure counts as nothing rather than refusing the whole analysis, which is what these endpoints did
+/// before: they answer a report, they do not post to a ledger, and a missing amount is not a reason to leave somebody
+/// with no report at all.
+pub fn money_of(v: &Value, key: &str) -> Money {
+    v.get(key)
+        .and_then(|raw| Money::from_json(raw).ok())
+        .unwrap_or_else(Money::zero)
 }
 
 pub fn rows<'a>(v: &'a Value, key: &str) -> &'a [Value] {

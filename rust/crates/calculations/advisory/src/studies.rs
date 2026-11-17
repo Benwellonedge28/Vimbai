@@ -21,8 +21,9 @@
 //! * Household savings rate reads excellent at 20%, good at 10%, fair at 0%,
 //!   and expenses bucket by category in arrival order.
 
-use crate::{div, flag_on, num, r2, rows, text};
+use crate::{div, flag_on, money_of, num, r2, rows, text};
 use serde_json::{json, Map, Value};
+use vimbai_common::Money;
 
 pub fn analyze_profitability_index(request: &Value) -> Value {
     let rate = num(request, "discount_rate");
@@ -303,30 +304,60 @@ pub fn analyze_events_after_reporting(request: &Value) -> Value {
 pub fn analyze_household(request: &Value) -> Value {
     let incomes = rows(request, "incomes");
     let expenses = rows(request, "expenses");
-    let income: f64 = incomes.iter().map(|i| num(i, "amount")).sum();
-    let expense_total: f64 = expenses.iter().map(|e| num(e, "amount")).sum();
-    let surplus = income - expense_total;
-    let savings_rate = div(surplus, income) * 100.0;
+    // Counted exactly: a household's figures are money, and summing them in doubles would rewrite the digits of a
+    // large one. Totals leave as decimal text so nothing downstream rounds them on the way back to a reader.
+    let income = Money::sum(
+        incomes
+            .iter()
+            .map(|i| money_of(i, "amount"))
+            .collect::<Vec<_>>()
+            .iter(),
+    );
+    let expense_total = Money::sum(
+        expenses
+            .iter()
+            .map(|e| money_of(e, "amount"))
+            .collect::<Vec<_>>()
+            .iter(),
+    );
+    let surplus = income.minus(&expense_total);
+    // A percentage is the one place a float is honest: it is a ratio, not a figure anybody pays.
+    let savings_rate = if income.is_zero() {
+        0.0
+    } else {
+        surplus.to_f64_lossy() / income.to_f64_lossy() * 100.0
+    };
 
     let mut by_category: Map<String, Value> = Map::new();
+    // Ordered so two runs of the same request answer the same way, which a hash map does not promise.
+    let mut exact_by_category: std::collections::BTreeMap<String, Money> =
+        std::collections::BTreeMap::new();
     for expense in expenses {
         let key = text(expense, "category");
-        let running = by_category.get(&key).and_then(Value::as_f64).unwrap_or(0.0);
-        by_category.insert(key, json!(running + num(expense, "amount")));
+        let running = exact_by_category
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(Money::zero);
+        exact_by_category.insert(key, running.plus(&money_of(expense, "amount")));
     }
-    let expense_by_category: Map<String, Value> = by_category
-        .into_iter()
-        .map(|(k, v)| (k, json!(r2(v.as_f64().unwrap_or(0.0)))))
-        .collect();
+    for (key, total) in exact_by_category {
+        by_category.insert(key, json!(total.to_fixed(2)));
+    }
 
-    let assets: f64 = rows(request, "assets")
-        .iter()
-        .map(|a| num(a, "value"))
-        .sum();
-    let liabilities: f64 = rows(request, "liabilities")
-        .iter()
-        .map(|l| num(l, "amount"))
-        .sum();
+    let assets = Money::sum(
+        rows(request, "assets")
+            .iter()
+            .map(|a| money_of(a, "value"))
+            .collect::<Vec<_>>()
+            .iter(),
+    );
+    let liabilities = Money::sum(
+        rows(request, "liabilities")
+            .iter()
+            .map(|l| money_of(l, "amount"))
+            .collect::<Vec<_>>()
+            .iter(),
+    );
 
     let health = if savings_rate >= 20.0 {
         "excellent"
@@ -341,12 +372,12 @@ pub fn analyze_household(request: &Value) -> Value {
     json!({
         "household_id": text(request, "household_id"),
         "period": text(request, "period"),
-        "total_income": r2(income),
-        "total_expenses": r2(expense_total),
-        "surplus_deficit": r2(surplus),
+        "total_income": income.to_fixed(2),
+        "total_expenses": expense_total.to_fixed(2),
+        "surplus_deficit": surplus.to_fixed(2),
         "savings_rate": vimbai_common::py_round(savings_rate, 1),
-        "net_worth": r2(assets - liabilities),
-        "expense_by_category": expense_by_category,
+        "net_worth": assets.minus(&liabilities).to_fixed(2),
+        "expense_by_category": by_category,
         "budget_health": health,
     })
 }
@@ -510,6 +541,8 @@ mod tests {
         assert_parity(analyze_events_after_reporting(&request), expected);
     }
 
+    // Totals leave as decimal text now, not floats: the figures are money, and a double cannot carry a large one.
+    // The arithmetic for a normal household is unchanged, which is what this fixture still pins.
     #[test]
     fn household_finance_matches_the_service() {
         let request = json!({"household_id": "H1", "period": "2026-10",
@@ -522,12 +555,12 @@ mod tests {
         let expected = r#"{
             "household_id": "H1",
             "period": "2026-10",
-            "total_income": 2500.0,
-            "total_expenses": 1400.0,
-            "surplus_deficit": 1100.0,
+            "total_income": "2500.00",
+            "total_expenses": "1400.00",
+            "surplus_deficit": "1100.00",
             "savings_rate": 44.0,
-            "net_worth": 6000.0,
-            "expense_by_category": {"housing": 1000.0, "food": 400.0},
+            "net_worth": "6000.00",
+            "expense_by_category": {"food": "400.00", "housing": "1000.00"},
             "budget_health": "excellent"
         }"#;
         assert_parity(analyze_household(&request), expected);
@@ -540,6 +573,45 @@ mod tests {
         let out = analyze_household(&request);
         assert_eq!(out["savings_rate"], json!(0.0));
         assert_eq!(out["budget_health"], json!("fair"));
-        assert_eq!(out["net_worth"], json!(0.0));
+        assert_eq!(out["net_worth"], json!("0.00"));
+    }
+
+    #[test]
+    fn household_totals_keep_every_digit_of_a_large_figure() {
+        // Both incomes and the expense are past a double's reach: in floats all three land on the same value and the
+        // surplus reads as zero. Exactly, the surplus is two whole units and has to say so.
+        let request = json!({"household_id": "H3", "period": "2026-11",
+            "incomes": [{"source": "salary", "amount": "123456789012345678901234567890.123456"},
+                        {"source": "rent", "amount": "0.876544"}],
+            "expenses": [{"category": "housing", "description": "rent",
+                          "amount": "123456789012345678901234567889.000000"}],
+            "assets": [{"name": "land", "value": "987654321098765432109876543210.120000"}],
+            "liabilities": []});
+        let out = analyze_household(&request);
+        assert_eq!(
+            out["surplus_deficit"],
+            json!("2.00"),
+            "a float would have answered 0.00 here, having lost the difference"
+        );
+        assert_eq!(
+            out["total_income"],
+            json!("123456789012345678901234567891.00"),
+            "the total keeps its whole digits, cut to the two places a report prints"
+        );
+        assert_eq!(out["net_worth"], json!("987654321098765432109876543210.12"));
+        assert_eq!(
+            out["expense_by_category"]["housing"],
+            json!("123456789012345678901234567889.00")
+        );
+        assert_eq!(out["budget_health"], json!("fair"));
+    }
+
+    #[test]
+    fn an_unreadable_amount_counts_as_nothing_rather_than_refusing_the_report() {
+        let request = json!({"household_id": "H4", "period": "2026-11",
+            "incomes": [{"source": "salary", "amount": "twelve"}, {"source": "rent", "amount": 100}],
+            "expenses": []});
+        let out = analyze_household(&request);
+        assert_eq!(out["total_income"], json!("100.00"));
     }
 }

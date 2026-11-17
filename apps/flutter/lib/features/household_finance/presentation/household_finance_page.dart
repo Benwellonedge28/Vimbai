@@ -1,18 +1,23 @@
 // Household finance: analyze a household's incomes, expenses, assets
 // and liabilities for a period (household-finance-service).
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 
 import 'package:vimbai_mobile_client/features/household_finance/data/household_finance_service.dart';
 
 class HouseholdFinancePage extends StatefulWidget {
-  const HouseholdFinancePage({super.key});
+  const HouseholdFinancePage({super.key, this.service});
+
+  /// The client the page talks to. A test hands it one that records the request instead of sending it.
+  final HouseholdFinanceService? service;
 
   @override
   State<HouseholdFinancePage> createState() => _HouseholdFinancePageState();
 }
 
 class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
-  final HouseholdFinanceService _hf = HouseholdFinanceService.instance;
+  late final HouseholdFinanceService _hf =
+      widget.service ?? HouseholdFinanceService.instance;
   final _householdCtrl = TextEditingController(text: 'household');
   final _periodCtrl = TextEditingController(text: '2026-10');
 
@@ -84,15 +89,20 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       ),
     );
     if (ok != true) return;
-    final amount = double.tryParse(amt.text.trim()) ?? 0;
-    if (src.text.trim().isEmpty || amount <= 0) {
+    // Money is kept as its own digits, not as a float: a large figure sent as a double comes back rewritten, and the
+    // analysis on the other side would be reporting on numbers this person never typed.
+    final amount = ExactAmount.tryParse(amt.text.trim());
+    if (src.text.trim().isEmpty ||
+        amount == null ||
+        amount.isNegative ||
+        amount.isZero) {
       _toast('Enter a source and a positive amount');
       return;
     }
     setState(
       () => _incomes.add({
         'source': src.text.trim(),
-        'amount': amount,
+        'amount': amount.toLedgerString(),
         'frequency': freq,
       }),
     );
@@ -130,8 +140,8 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       ),
     );
     if (ok != true) return;
-    final amount = double.tryParse(amt.text.trim()) ?? 0;
-    if (amount <= 0) {
+    final amount = ExactAmount.tryParse(amt.text.trim());
+    if (amount == null || amount.isNegative || amount.isZero) {
       _toast('Enter a positive amount');
       return;
     }
@@ -139,7 +149,7 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       () => _expenses.add({
         'category': category,
         'description': desc.text.trim(),
-        'amount': amount,
+        'amount': amount.toLedgerString(),
         'frequency': freq,
       }),
     );
@@ -168,13 +178,17 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       ),
     );
     if (ok != true) return;
-    final v = double.tryParse(value.text.trim()) ?? 0;
-    if (name.text.trim().isEmpty || v <= 0) {
+    final v = ExactAmount.tryParse(value.text.trim());
+    if (name.text.trim().isEmpty || v == null || v.isNegative || v.isZero) {
       _toast('Enter a name and a positive value');
       return;
     }
     setState(
-      () => _assets.add({'name': name.text.trim(), 'value': v, 'type': type}),
+      () => _assets.add({
+        'name': name.text.trim(),
+        'value': v.toLedgerString(),
+        'type': type,
+      }),
     );
   }
 
@@ -200,15 +214,15 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
       ),
     );
     if (ok != true) return;
-    final a = double.tryParse(amount.text.trim()) ?? 0;
-    if (name.text.trim().isEmpty || a <= 0) {
+    final a = ExactAmount.tryParse(amount.text.trim());
+    if (name.text.trim().isEmpty || a == null || a.isNegative || a.isZero) {
       _toast('Enter a name and a positive amount');
       return;
     }
     setState(
       () => _liabilities.add({
         'name': name.text.trim(),
-        'amount': a,
+        'amount': a.toLedgerString(),
         'type': type,
       }),
     );
@@ -431,6 +445,9 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
     void Function(int) onRemove,
     String Function(Map<String, dynamic>) subtitle,
   ) {
+    // "Incomes" -> "Add income": a bare plus tells a first-time user nothing, and this screen is where a household
+    // states what comes in and what goes out.
+    final singular = title.substring(0, title.length - 1).toLowerCase();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -443,7 +460,11 @@ class _HouseholdFinancePageState extends State<HouseholdFinancePage> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const Spacer(),
-            IconButton(icon: const Icon(Icons.add, size: 20), onPressed: onAdd),
+            TextButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Add $singular'),
+            ),
           ],
         ),
         ...List.generate(count, (i) {

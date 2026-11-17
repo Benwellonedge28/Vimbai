@@ -3,12 +3,19 @@
 // from the JWT and X-Book-ID from the active Book context.
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 
 class HouseholdFinanceService {
   HouseholdFinanceService._();
+
+  /// A constructor a test can stand on: the analysis is a calculation the page hands the engine, and proving what the
+  /// page sends should not need a running gateway.
+  @visibleForTesting
+  HouseholdFinanceService.forTest();
+
   static final HouseholdFinanceService instance = HouseholdFinanceService._();
 
   static const String _kBaseUrl = String.fromEnvironment(
