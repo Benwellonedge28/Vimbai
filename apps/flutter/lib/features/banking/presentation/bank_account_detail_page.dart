@@ -144,7 +144,11 @@ class _BankAccountDetailPageState extends State<BankAccountDetailPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error reconciling: ${e.toString()}')),
+          SnackBar(
+            content: Text(
+              'Not marked as reconciled: ${CouldNotRead.reasonOf(e)}',
+            ),
+          ),
         );
       }
     }

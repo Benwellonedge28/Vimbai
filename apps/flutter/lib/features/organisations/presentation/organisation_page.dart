@@ -8,6 +8,7 @@
 // organisation exists when the call failed, because a local row that disagrees with the engine is worse than an honest error.
 
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_sync_service.dart';
@@ -76,7 +77,7 @@ class _OrganisationPageState extends State<OrganisationPage> {
       if (!mounted) return;
       // Offline is the common case on a phone and deserves the plain words rather than a stack trace.
       setState(() {
-        _error = 'Could not reach the server. $e';
+        _error = 'Could not reach the server. ${CouldNotRead.reasonOf(e)}';
         _loading = false;
       });
     }
@@ -113,7 +114,7 @@ class _OrganisationPageState extends State<OrganisationPage> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Could not reach the server. $e';
+        _error = 'Could not reach the server. ${CouldNotRead.reasonOf(e)}';
       });
     }
   }
@@ -172,7 +173,7 @@ class _OrganisationPageState extends State<OrganisationPage> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Could not reach the server. $e';
+        _error = 'Could not reach the server. ${CouldNotRead.reasonOf(e)}';
       });
     }
   }
@@ -200,7 +201,7 @@ class _OrganisationPageState extends State<OrganisationPage> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Could not reach the server. $e';
+        _error = 'Could not reach the server. ${CouldNotRead.reasonOf(e)}';
       });
     }
   }
