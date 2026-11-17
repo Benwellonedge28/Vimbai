@@ -890,6 +890,22 @@ async fn a_password_reset_says_the_same_thing_whether_or_not_the_address_is_know
         "this endpoint must not say which emails exist"
     );
 
+    // and it does not promise a link this server cannot send: until there is a mail transport the code reaches the person
+    // through whoever runs the server, and the sentence has to say so or they wait for an email that never comes
+    let said = known["message"].as_str().unwrap_or_default();
+    assert!(
+        !said.to_lowercase().contains("has been sent"),
+        "the answer claimed something was sent: {said}"
+    );
+    assert!(
+        said.contains("audit trail"),
+        "the answer does not say where the code actually is: {said}"
+    );
+    assert!(
+        said.contains("24 hours") && said.contains("no email delivery"),
+        "the answer does not say how long the code lasts or why it is not an email: {said}"
+    );
+
     // a token that was never raised cannot be spent
     let (status, body) = call(
         graph,

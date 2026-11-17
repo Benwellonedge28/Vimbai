@@ -256,8 +256,9 @@ class AuthService {
   /// it so the screen can read it out instead of composing a guess.
   String? lastResetError;
 
-  /// What the engine answered when a reset was asked for. Its wording is conditional on purpose ("If the email exists...")
-  /// and is shown as it stands: saying "we sent it" would turn this door into a way of discovering which addresses exist.
+  /// What the engine answered when a reset was asked for. Its wording is conditional on purpose ("If that address
+  /// belongs to an account..."), because saying whether an address is registered would make this door a way to find out.
+  /// It is shown as it stands, never replaced with "we sent it".
   String? lastResetMessage;
 
   /// Ask the engine to send a password reset for an address.
@@ -285,7 +286,7 @@ class AuthService {
     }
     lastResetMessage =
         _engineMessage(response.body) ??
-        'If that address is registered, a password reset link has been sent to it.';
+        'The reset request was recorded. Ask whoever runs this Vimbai server for the code.';
     return true;
   }
 

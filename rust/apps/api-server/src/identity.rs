@@ -2037,9 +2037,16 @@ async fn request_password_reset(
             json!({ "reset_token": raw }),
         );
     }
-    // the same answer whether or not the address is registered: this endpoint must not say which emails exist
-    Json(json!({ "message": "If the email exists, a password reset link has been sent" }))
-        .into_response()
+    // The same answer whether or not the address is registered: this endpoint must not say which emails exist. It also
+    // says what actually happens next rather than promising a link: this engine has no mail transport, so the code is
+    // recorded in the audit trail for whoever runs the server to pass on. A person reading "a link has been sent" and then
+    // finding no email would be told something untrue, and would not know where to go.
+    Json(json!({
+        "message": "If that address belongs to an account, a reset code is now valid for 24 hours and is recorded in \
+                   this server's audit trail, because this Vimbai server has no email delivery yet. Ask whoever runs it \
+                   for the code."
+    }))
+    .into_response()
 }
 
 async fn confirm_password_reset(

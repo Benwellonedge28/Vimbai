@@ -27,7 +27,7 @@ void main() {
     ApiClient.transport = originalTransport;
   });
 
-  test('a request for a link shows the engine words, not a claim', () async {
+  test('a request for a code shows the engine words, not a claim', () async {
     String? body;
     ApiClient.transport = MockClient((request) async {
       if (request.url.path.endsWith('/identity/password/reset')) {
@@ -35,7 +35,9 @@ void main() {
         return http.Response(
           jsonEncode({
             'message':
-                'If the email exists, a password reset link has been sent',
+                'If that address belongs to an account, a reset code is now valid for 24 hours and is recorded in this '
+                "server's audit trail, because this Vimbai server has no email delivery yet. Ask whoever runs it for the "
+                'code.',
           }),
           200,
           headers: {'content-type': 'application/json'},
@@ -55,9 +57,10 @@ void main() {
     );
     expect(
       auth.lastResetMessage,
-      contains('If the email exists'),
+      contains('If that address belongs to an account'),
       reason:
-          'the conditional wording is the point: it must not become "we sent it"',
+          'the conditional wording is the point: it must not become "we sent it", and the sentence saying where the code '
+          'actually is must reach the person unchanged',
     );
   });
 
@@ -146,7 +149,9 @@ void main() {
         return http.Response(
           jsonEncode({
             'message':
-                'If the email exists, a password reset link has been sent',
+                'If that address belongs to an account, a reset code is now valid for 24 hours and is recorded in this '
+                "server's audit trail, because this Vimbai server has no email delivery yet. Ask whoever runs it for the "
+                'code.',
           }),
           200,
           headers: {'content-type': 'application/json'},
@@ -171,20 +176,27 @@ void main() {
       find.widgetWithText(TextField, 'Email address'),
       'sam@example.com',
     );
-    await tester.tap(find.text('Send reset link'));
+    await tester.tap(find.text('Ask for a reset code'));
     await tester.pumpAndSettle();
 
     expect(
-      find.text('If the email exists, a password reset link has been sent'),
+      find.textContaining('If that address belongs to an account'),
       findsOneWidget,
       reason:
           'the engine answer is shown as it is, conditional wording included',
     );
     expect(
-      find.text('Reset link or code'),
+      find.textContaining('no email delivery yet'),
       findsOneWidget,
       reason:
-          'the second step is offered, because the link is what the person now holds',
+          'and the sentence saying where the code really is reaches the person, so nobody waits for an email that '
+          'cannot come',
+    );
+    expect(
+      find.text('Reset code or link'),
+      findsOneWidget,
+      reason:
+          'the second step is offered, because the code is what the person now holds',
     );
   });
 }

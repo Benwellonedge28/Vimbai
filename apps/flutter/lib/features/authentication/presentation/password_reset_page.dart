@@ -58,9 +58,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
   Future<void> _confirm() async {
     final token = AuthService.resetTokenFrom(_linkController.text);
     if (token.isEmpty) {
-      setState(
-        () => _error = 'Paste the link you were sent, or the code in it.',
-      );
+      setState(() => _error = 'Paste the reset code you were given.');
       return;
     }
     if (_passwordController.text.isEmpty) {
@@ -82,7 +80,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
         _isLoading = false;
         _error =
             widget.authService.lastResetError ??
-            'That reset link was not accepted. Ask for a new one.';
+            'That reset code was not accepted. Ask for a new one.';
       });
       return;
     }
@@ -118,7 +116,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: _requestLink,
-                      child: const Text('Send reset link'),
+                      child: const Text('Ask for a reset code'),
                     ),
               if (_said != null) ...[
                 const SizedBox(height: 16),
@@ -129,8 +127,9 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                 TextField(
                   controller: _linkController,
                   decoration: const InputDecoration(
-                    labelText: 'Reset link or code',
-                    helperText: 'Paste the whole link; the code in it is used',
+                    labelText: 'Reset code or link',
+                    helperText:
+                        'Paste the code you were given, or the whole link',
                   ),
                 ),
                 const SizedBox(height: 12),
