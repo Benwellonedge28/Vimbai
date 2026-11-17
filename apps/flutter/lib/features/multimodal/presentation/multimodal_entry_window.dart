@@ -1,6 +1,7 @@
 // mobile-client/lib/widgets/multimodal_entry_window.dart
 
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:provider/provider.dart';
 import 'package:vimbai_mobile_client/features/multimodal/models/multimodal_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
@@ -94,7 +95,8 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
       }
       _populateEditableFields();
     } catch (e) {
-      _errorMessage = 'Failed to load task: $e';
+      _errorMessage =
+          'This task could not be read: ${CouldNotRead.reasonOf(e)}';
       print(_errorMessage);
     } finally {
       setState(() {
@@ -185,12 +187,13 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
       Navigator.pop(context); // Go back after submission
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to submit corrections: $e';
+        _errorMessage =
+            'The corrections were not sent: ${CouldNotRead.reasonOf(e)}';
       });
       print(_errorMessage);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $_errorMessage')));
+      ).showSnackBar(SnackBar(content: Text('$_errorMessage')));
     }
   }
 
@@ -301,7 +304,7 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-          ? Center(child: Text('Error: $_errorMessage'))
+          ? Center(child: Text('$_errorMessage', textAlign: TextAlign.center))
           : _task == null
           ? const Center(child: Text('No task data available'))
           : Padding(

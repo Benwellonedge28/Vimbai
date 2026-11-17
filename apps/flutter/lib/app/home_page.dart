@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 import 'package:vimbai_mobile_client/features/books/models/book_models.dart';
@@ -121,7 +122,9 @@ class _HomePageState extends State<HomePage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error syncing offline data: ${e.toString()}'),
+              content: Text(
+                'Offline entries were not sent just now: ${CouldNotRead.reasonOf(e)}',
+              ),
             ),
           );
         }

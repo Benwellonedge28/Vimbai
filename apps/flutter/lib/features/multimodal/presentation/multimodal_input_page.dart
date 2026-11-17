@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import 'package:vimbai_mobile_client/features/multimodal/data/multimodal_api_service.dart';
@@ -57,7 +58,8 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error starting recording: $e';
+        _errorMessage =
+            'Recording could not start: ${CouldNotRead.reasonOf(e)}';
       });
     }
   }
@@ -107,7 +109,8 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Processing failed: $e';
+        _errorMessage =
+            'Nothing was read from that: ${CouldNotRead.reasonOf(e)}';
       });
     } finally {
       setState(() {
@@ -201,10 +204,7 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
                   ),
             const SizedBox(height: 20),
             if (_errorMessage != null)
-              Text(
-                'Error: $_errorMessage',
-                style: const TextStyle(color: Colors.red),
-              ),
+              Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
             if (_results != null) _buildResultsDisplay(_results),
           ],
         ),
@@ -247,7 +247,7 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
               ],
               if (results.errors.isNotEmpty)
                 Text(
-                  'Errors: ${results.errors.join('; ')}',
+                  'Not everything was read: ${results.errors.join('; ')}',
                   style: const TextStyle(color: Colors.red),
                 ),
             ],
@@ -283,7 +283,7 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
               ),
               if (results.errors.isNotEmpty)
                 Text(
-                  'Errors: ${results.errors.join('; ')}',
+                  'Not everything was read: ${results.errors.join('; ')}',
                   style: const TextStyle(color: Colors.red),
                 ),
             ],

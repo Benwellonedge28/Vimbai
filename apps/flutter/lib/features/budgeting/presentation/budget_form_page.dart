@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/budgeting/data/finance_api_service.dart';
 import 'package:vimbai_mobile_client/features/budgeting/models/finance_models.dart';
 import 'package:intl/intl.dart';
@@ -114,7 +115,11 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating budget: ${e.toString()}')),
+            SnackBar(
+              content: Text(
+                'The budget was not saved: ${CouldNotRead.reasonOf(e)}',
+              ),
+            ),
           );
         }
       }
