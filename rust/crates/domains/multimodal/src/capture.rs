@@ -367,6 +367,71 @@ mod tests {
         .expect("a capture")
     }
 
+    /// Give a capture the reading a pipeline would have written into it: two lines, which is the least an entry can be.
+    fn read_capture(graph: &MemoryGraph, id: &str) -> Value {
+        update_capture(
+            graph,
+            &talked(),
+            id,
+            &json!({
+                "status": "ai_extracted",
+                "suggested_journal_entry": {
+                    "entry_date": "2026-11-17",
+                    "description": "Receipt",
+                    "lines": [
+                        {"account_number": "5000", "debit": "41.32", "credit": "0"},
+                        {"account_number": "1000", "debit": "0", "credit": "41.32"}
+                    ]
+                },
+                "now": 1500.0,
+            }),
+        )
+        .expect("a reading")
+    }
+
+    #[test]
+    fn a_capture_nothing_has_read_is_not_accepted_into_nothing() {
+        let graph = MemoryGraph::new();
+        let unread = capture_of(&graph, "image");
+        let id = text(&unread, "id");
+
+        // accepting it would take the record out of the inbox while posting nothing, so it is refused by name
+        let refused = organize_capture(&graph, &talked(), &id, &json!({"now": 2000.0}));
+        assert!(
+            matches!(refused, Err(StoreError::Invalid(_))),
+            "{refused:?}"
+        );
+        let held = capture(&graph, &talked(), &id).expect("a capture");
+        assert_eq!(held["status"], json!("received"));
+        assert_eq!(
+            inbox_summary(&graph, &talked()).expect("summary")["total_organized"],
+            json!(0)
+        );
+
+        // a reading that moves nothing is not a proposal either: half an entry is not something to post
+        let hollow = update_capture(
+            &graph,
+            &talked(),
+            &id,
+            &json!({"status": "ai_extracted", "suggested_journal_entry": {"lines": [{"account_number": "1000"}]}}),
+        )
+        .expect("a change");
+        assert!(suggested_entry(&hollow).is_none());
+        assert!(organize_capture(&graph, &talked(), &id, &json!({"now": 2000.0})).is_err());
+
+        // once it carries a real reading it is accepted, and the record says which entry it became
+        read_capture(&graph, &id);
+        let accepted = organize_capture(
+            &graph,
+            &talked(),
+            &id,
+            &json!({"now": 2000.0, "linked_vimbai_entity_id": "entry-1"}),
+        )
+        .expect("accept");
+        assert_eq!(accepted["status"], json!("completed"));
+        assert_eq!(accepted["linked_vimbai_entity_id"], json!("entry-1"));
+    }
+
     #[test]
     fn a_capture_is_one_of_five_kinds_and_one_of_seven_states() {
         let graph = MemoryGraph::new();
@@ -398,6 +463,7 @@ mod tests {
         let graph = MemoryGraph::new();
         let waiting = capture_of(&graph, "image");
         let accepted = capture_of(&graph, "text");
+        read_capture(&graph, &text(&accepted, "id"));
         organize_capture(
             &graph,
             &talked(),
@@ -466,6 +532,7 @@ mod tests {
         let graph = MemoryGraph::new();
         let made = capture_of(&graph, "document");
         let id = text(&made, "id");
+        read_capture(&graph, &id);
 
         let first =
             organize_capture(&graph, &talked(), &id, &json!({"now": 2000.0})).expect("accept");
