@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:vimbai_mobile_client/features/multimodal/models/multimodal_models.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
@@ -43,7 +44,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
   Map<String, dynamic> _summary = {};
   List<MultimodalProcessingTaskInDB> _records = [];
   bool _loading = false;
-  String? _error;
+  Object? _error;
   Timer? _fallbackPoll;
   StreamSubscription<RealtimeEvent>? _realtimeSub;
   int _pendingSync = 0;
@@ -119,7 +120,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e;
         _loading = false;
       });
     }
@@ -139,10 +140,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
       final file = await _picker.pickImage(source: ImageSource.camera);
       if (file == null) return;
       await _api.capturePhoto(File(file.path));
-      _toast('Photo captured - Vimbai is processing it in the background');
+      _toast('Saved to this Book\'s inbox. Nothing has read it yet.');
       _refresh();
     } catch (e) {
-      _toast('Capture failed: $e');
+      _toast('That was not captured: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -151,10 +152,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
       final file = await _picker.pickVideo(source: ImageSource.camera);
       if (file == null) return;
       await _api.captureVideo(File(file.path));
-      _toast('Video captured - Vimbai is processing it in the background');
+      _toast('Saved to this Book\'s inbox. Nothing has read it yet.');
       _refresh();
     } catch (e) {
-      _toast('Capture failed: $e');
+      _toast('That was not captured: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -174,12 +175,12 @@ class _BookInboxPageState extends State<BookInboxPage> {
         );
         count++;
       } catch (e) {
-        _toast('Scan failed: $e');
+        _toast('That page was not captured: ${CouldNotRead.reasonOf(e)}');
       }
       scanning = await _showScanNextDialog(count);
     }
     if (count > 0) {
-      _toast('$count page(s) scanned - processing in the background');
+      _toast('$count page(s) saved to this Book\'s inbox.');
       _refresh();
     }
   }
@@ -234,10 +235,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
     if (confirmed != true || controller.text.trim().isEmpty) return;
     try {
       await _api.captureText(controller.text.trim());
-      _toast('Note captured - Vimbai is processing it in the background');
+      _toast('Saved to this Book\'s inbox. Nothing has read it yet.');
       _refresh();
     } catch (e) {
-      _toast('Capture failed: $e');
+      _toast('That was not captured: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -248,10 +249,11 @@ class _BookInboxPageState extends State<BookInboxPage> {
   Future<void> _organize(MultimodalProcessingTaskInDB record) async {
     try {
       await _api.organizeRecord(record.id);
-      _toast('Organized into the Book');
+      // organizing posts the entry the reading proposed, so the toast says what reached the Book
+      _toast('Posted to the Book from that record');
       _refresh();
     } catch (e) {
-      _toast('Could not organize: $e');
+      _toast('Not organized into the Book: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -280,7 +282,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
       await _api.deleteTask(record.id);
       _refresh();
     } catch (e) {
-      _toast('Could not discard: $e');
+      _toast('Not discarded: ${CouldNotRead.reasonOf(e)}');
     }
   }
 
@@ -482,11 +484,10 @@ class _BookInboxPageState extends State<BookInboxPage> {
                         if (_error != null)
                           Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Could not load inbox: $_error',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                            child: CouldNotRead(
+                              what: 'This Book\'s inbox',
+                              error: _error,
+                              onRetry: _refresh,
                             ),
                           ),
                         _summaryBar(),
@@ -576,7 +577,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
           Center(
             child: Text(
               _view == 'incomplete'
-                  ? 'No incomplete records.\nCapture anything with the camera and\nVimbai will organize it for this Book.'
+                  ? 'No records waiting.\nCapture anything with the camera and it\nwaits here until you accept it into the Book.'
                   : 'Nothing here yet.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600),

@@ -199,10 +199,31 @@ pub fn capture(
     Records::new(graph, CAPTURE).get(scope, task_id)
 }
 
+/// The entry a reading proposed for this capture, when there is one to post.
+///
+/// A capture carries what was read out of it, and a reading that names accounts and amounts is a proposed entry. One that
+/// moves nothing (fewer than the two lines every entry needs) is not a proposal, so it is not returned: organizing must
+/// have something real to post rather than a shape that only looks like an entry.
+pub fn suggested_entry(held: &Value) -> Option<Value> {
+    let entry = held.get("suggested_journal_entry")?;
+    if !entry.is_object() {
+        return None;
+    }
+    let lines = entry.get("lines")?.as_array()?;
+    if lines.len() < 2 {
+        return None;
+    }
+    Some(entry.clone())
+}
+
 /// `POST /inbox/{id}/organize`: accept a capture into the Book.
 ///
 /// Idempotent: accepting one that is already accepted answers it unchanged, rather than stamping a second finishing time
 /// over the first.
+///
+/// A capture with no reading is refused by name rather than marked accepted. Nothing in this crate reads a document or
+/// hears a recording, so accepting an unread capture would take it out of the inbox while posting nothing to the Book:
+/// the record would disappear and the statements would move by zero. The refusal says what to do instead.
 pub fn organize_capture(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
@@ -213,15 +234,24 @@ pub fn organize_capture(
     if text(&held, "status") == "completed" {
         return Ok(held);
     }
-    Records::new(graph, CAPTURE).update(
-        scope,
-        task_id,
-        &json!({
-            "status": "completed",
-            "processing_end_time": stamp(payload),
-            "updated_at": stamp(payload),
-        }),
-    )
+    if suggested_entry(&held).is_none() {
+        return Err(StoreError::Invalid(
+            "This capture has not been read yet, so there is no entry to post. It stays in the inbox: write the entry \
+             yourself from what the record shows, or add a reading to the capture first."
+                .to_string(),
+        ));
+    }
+    let mut change = json!({
+        "status": "completed",
+        "processing_end_time": stamp(payload),
+        "updated_at": stamp(payload),
+    });
+    // where the posting went, so the accepted record still points at the entry it became
+    let entry_id = text(payload, "linked_vimbai_entity_id");
+    if !entry_id.is_empty() {
+        change["linked_vimbai_entity_id"] = json!(entry_id);
+    }
+    Records::new(graph, CAPTURE).update(scope, task_id, &change)
 }
 
 /// `PUT /tasks/{id}`: change the fields the caller named, and only those.

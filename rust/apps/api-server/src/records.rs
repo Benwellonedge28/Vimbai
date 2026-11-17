@@ -13178,11 +13178,41 @@ async fn post_capture_organize(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
+    // Accepting a capture means posting the entry its reading proposed. The posting goes through the ledger's own door,
+    // so it is validated, balanced and stamped exactly like an entry somebody typed: organize is not a second way to write
+    // to the journal, it is a way to hand the ledger an entry the reading already proposed.
+    let held = match capture::capture(graph.as_ref(), &scope, &task_id) {
+        Ok(held) => held,
+        Err(error) => return answer(Err(error)),
+    };
+    let mut accepted = merged_request(payload, query.as_deref());
+    let reading = capture::suggested_entry(&held);
+    let already = store::read::text(&held, "status") == "completed";
+    if let (Some(reading), false) = (reading, already) {
+        let mut entry = reading;
+        entry["status"] = json!("posted");
+        if store::read::text(&entry, "source_module").is_empty() {
+            entry["source_module"] = json!("Multimodal");
+        }
+        match accounting::create_entry(graph.as_ref(), &scope, &entry) {
+            Ok(posted) => {
+                let entry_id = store::read::text(&posted, "id");
+                match accepted {
+                    Value::Object(ref mut named) => {
+                        named.insert("linked_vimbai_entity_id".into(), json!(entry_id));
+                    }
+                    _ => accepted = json!({ "linked_vimbai_entity_id": entry_id }),
+                }
+            }
+            // nothing was accepted, so the capture stays in the inbox carrying the reason the posting was refused
+            Err(error) => return answer(Err(error)),
+        }
+    }
     answer(capture::organize_capture(
         graph.as_ref(),
         &scope,
         &task_id,
-        &merged_request(payload, query.as_deref()),
+        &accepted,
     ))
 }
 

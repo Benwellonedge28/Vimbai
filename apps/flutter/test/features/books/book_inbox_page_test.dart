@@ -49,6 +49,15 @@ class _OneCaptureInbox extends MultimodalApiService {
   };
 }
 
+/// The engine holding one capture and refusing to accept it, the way it refuses an unread one.
+class _UnreadCaptureInbox extends _OneCaptureInbox {
+  @override
+  Future<MultimodalProcessingTaskInDB> organizeRecord(String taskId) async =>
+      throw Exception(
+        'This capture has not been read yet, so there is no entry to post.',
+      );
+}
+
 Widget _screen(MultimodalApiService api) => MaterialApp(
   home: BookInboxPage(
     api: api,
@@ -64,8 +73,12 @@ void main() {
     await tester.pumpWidget(_screen(_RefusingInbox()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Could not load inbox'), findsOneWidget);
-    expect(find.textContaining('No incomplete records'), findsNothing);
+    expect(
+      find.textContaining('This Book\'s inbox could not be read just now.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('the engine is unreachable'), findsOneWidget);
+    expect(find.textContaining('No records waiting'), findsNothing);
   });
 
   testWidgets('a capture the engine holds reads as a row', (tester) async {
@@ -74,7 +87,27 @@ void main() {
 
     // the row exists, and the screen is not claiming a failure it never had
     expect(find.byType(Card), findsOneWidget);
-    expect(find.textContaining('Could not load inbox'), findsNothing);
-    expect(find.textContaining('No incomplete records'), findsNothing);
+    expect(find.textContaining('could not be read just now'), findsNothing);
+    expect(find.textContaining('No records waiting'), findsNothing);
+  });
+
+  testWidgets('an unread capture says why it was not accepted, and stays', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_screen(_UnreadCaptureInbox()));
+    await tester.pumpAndSettle();
+
+    // open the record and try to accept it into the Book
+    await tester.tap(find.byType(Card));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Organize into Book'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Not organized into the Book: This capture has not'),
+      findsOneWidget,
+    );
+    // the row is still there: a refused accept never removes the record
+    expect(find.byType(Card), findsOneWidget);
   });
 }

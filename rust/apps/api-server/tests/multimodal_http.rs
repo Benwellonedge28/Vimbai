@@ -96,6 +96,37 @@ async fn a_capture_waits_in_the_inbox_until_someone_accepts_or_corrects_it() {
     let (_, after) = call(&router, Method::GET, &format!("/tasks/{id}"), json!({})).await;
     assert_eq!(after["status"], json!("user_corrected"));
 
+    // accepting it means posting the entry the reading proposed, so the capture needs a reading and the Book the accounts
+    // it names: an unread capture is refused by name, which its own test covers
+    for (number, name, kind) in [("1000", "Cash", "asset"), ("5000", "Groceries", "expense")] {
+        let (status, made) = call(
+            &router,
+            Method::POST,
+            "/accounting/accounts",
+            json!({"account_number": number, "name": name, "account_type": kind}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{made}");
+    }
+    let (_, read) = call(
+        &router,
+        Method::PUT,
+        &format!("/tasks/{id}"),
+        json!({
+            "status": "ai_extracted",
+            "suggested_journal_entry": {
+                "entry_date": "2026-11-17",
+                "description": "Receipt",
+                "lines": [
+                    {"account_number": "5000", "debit": "41.32", "credit": "0"},
+                    {"account_number": "1000", "debit": "0", "credit": "41.32"}
+                ]
+            }
+        }),
+    )
+    .await;
+    assert_eq!(read["status"], json!("ai_extracted"), "{read}");
+
     // accepting it twice changes nothing, keeping the first finishing time
     let (status, first) = call(
         &router,
@@ -135,4 +166,166 @@ async fn a_capture_waits_in_the_inbox_until_someone_accepts_or_corrects_it() {
     assert_eq!(status, StatusCode::OK, "{gone}");
     let (status, _) = call(&router, Method::DELETE, &format!("/tasks/{id}"), json!({})).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// A capture nothing has read cannot be accepted into the Book.
+///
+/// Accepting used to mean flipping the record to `completed`, which took it out of the inbox while posting nothing: the
+/// record vanished and the statements moved by zero. The refusal names the situation instead, and the capture stays where
+/// a person can still act on it.
+#[tokio::test]
+async fn an_unread_capture_is_refused_rather_than_accepted_into_nothing() {
+    let router = router();
+    let (_, made) = call(
+        &router,
+        Method::POST,
+        "/tasks",
+        json!({"input_type": "image", "input_url": "data:image/png;base64,iVBORw0KGgo="}),
+    )
+    .await;
+    let id = made["id"].as_str().expect("an id").to_string();
+
+    let (status, refused) = call(
+        &router,
+        Method::POST,
+        &format!("/inbox/{id}/organize"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("has not been read yet"),
+        "{refused}"
+    );
+
+    // it is still the inbox's to show, and nothing was posted
+    let (_, summary) = call(&router, Method::GET, "/inbox/summary", json!({})).await;
+    assert_eq!(summary["total_incomplete"], json!(1));
+    assert_eq!(summary["total_organized"], json!(0));
+    let (_, journal) = call(
+        &router,
+        Method::GET,
+        "/accounting/journal-entries",
+        json!({}),
+    )
+    .await;
+    assert_eq!(journal.as_array().map(Vec::len), Some(0), "{journal}");
+}
+
+/// A capture that carries a reading is accepted by posting the entry the reading proposed.
+///
+/// The posting goes through the ledger's own door, so it is validated and stamped like any other: this is how a receipt
+/// photographed on a phone reaches the statements, and accepting it twice must not post it twice.
+#[tokio::test]
+async fn a_capture_with_a_reading_posts_the_entry_it_proposed() {
+    let router = router();
+    for (number, name, kind) in [("1000", "Cash", "asset"), ("5000", "Groceries", "expense")] {
+        let (status, made) = call(
+            &router,
+            Method::POST,
+            "/accounting/accounts",
+            json!({"account_number": number, "name": name, "account_type": kind}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{made}");
+    }
+
+    let (_, made) = call(
+        &router,
+        Method::POST,
+        "/tasks",
+        json!({"input_type": "image", "input_url": "data:image/png;base64,iVBORw0KGgo="}),
+    )
+    .await;
+    let id = made["id"].as_str().expect("an id").to_string();
+
+    let (status, read) = call(
+        &router,
+        Method::PUT,
+        &format!("/tasks/{id}"),
+        json!({
+            "status": "ai_extracted",
+            "suggested_journal_entry": {
+                "entry_date": "2026-11-17",
+                "description": "Groceries from the receipt",
+                "reference_number": "REC-1",
+                "lines": [
+                    {"account_number": "5000", "debit": "250.00", "credit": "0"},
+                    {"account_number": "1000", "debit": "0", "credit": "250.00"}
+                ]
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{read}");
+
+    let (status, accepted) = call(
+        &router,
+        Method::POST,
+        &format!("/inbox/{id}/organize"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+    assert_eq!(accepted["status"], json!("completed"));
+    let entry_id = accepted["linked_vimbai_entity_id"]
+        .as_str()
+        .expect("the entry it became")
+        .to_string();
+
+    // the entry is in the journal, posted, and the statements moved by it
+    let (_, entry) = call(
+        &router,
+        Method::GET,
+        &format!("/accounting/journal-entries/{entry_id}"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(entry["status"], json!("posted"), "{entry}");
+    assert_eq!(entry["description"], json!("Groceries from the receipt"));
+    let (_, trial) = call(&router, Method::GET, "/accounting/trial-balance", json!({})).await;
+    let moved: Vec<Value> = trial["accounts"]
+        .as_array()
+        .expect("accounts")
+        .iter()
+        .filter(|row| row["debit"] != json!("0.000000") || row["credit"] != json!("0.000000"))
+        .cloned()
+        .collect();
+    assert_eq!(moved.len(), 2, "{trial}");
+    assert_eq!(moved[0]["account_number"], json!("1000"));
+    assert_eq!(moved[0]["credit"], json!("250.000000"));
+    assert_eq!(moved[1]["account_number"], json!("5000"));
+    assert_eq!(moved[1]["debit"], json!("250.000000"));
+
+    // accepting it again posts nothing a second time
+    let (status, again) = call(
+        &router,
+        Method::POST,
+        &format!("/inbox/{id}/organize"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    let (_, journal) = call(
+        &router,
+        Method::GET,
+        "/accounting/journal-entries",
+        json!({}),
+    )
+    .await;
+    assert_eq!(journal.as_array().map(Vec::len), Some(1), "{journal}");
+
+    // and the chain still verifies over what was posted
+    let (status, integrity) = call(
+        &router,
+        Method::GET,
+        "/accounting/ledger/integrity",
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{integrity}");
+    assert_eq!(integrity["valid"], json!(true), "{integrity}");
 }
