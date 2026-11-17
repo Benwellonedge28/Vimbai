@@ -65,10 +65,6 @@ class _LoginPageState extends State<LoginPage> {
           builder: (context) => SecondFactorPage(authService: _authService),
         ),
       );
-    } else if (_errorMessage != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_errorMessage!)));
     }
   }
 
@@ -115,6 +111,21 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _login,
                       child: const Text('Login'),
                     ),
+              // A refused sign-in is something the person has to deal with, so the reason stays under the button where
+              // they are looking. It used to be a snackbar: the one sentence explaining why a password did not work
+              // slid away while the person was still reading it, leaving a form that looked as if nothing had happened.
+              if (_errorMessage != null && !_isLoading)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    _errorMessage!,
+                    key: const Key('sign-in-refusal'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               TextButton(
                 onPressed: _forgotPassword,
                 child: const Text('Forgot your password?'),
