@@ -1,14 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 
-class JournalEntryDetailPage extends StatelessWidget {
+class JournalEntryDetailPage extends StatefulWidget {
   final JournalEntry entry;
-  const JournalEntryDetailPage({super.key, required this.entry});
+
+  /// The engine the page talks to. A test hands it one that answers without a phone.
+  final AccountingApiService? service;
+
+  const JournalEntryDetailPage({super.key, required this.entry, this.service});
+
+  @override
+  State<JournalEntryDetailPage> createState() => _JournalEntryDetailPageState();
+}
+
+class _JournalEntryDetailPageState extends State<JournalEntryDetailPage> {
+  late final AccountingApiService _apiService =
+      widget.service ?? AccountingApiService();
+
+  /// The correction this page has written, once it has one. Kept so the door closes behind it: the engine refuses a
+  /// second correction of the same entry, and offering the button again would only invite that refusal.
+  String? _correctionId;
+
+  /// Whether a correction is being written, so the button cannot be pressed twice while the first is in flight.
+  bool _reversing = false;
+
+  /// A posted entry is corrected, never edited, so this is the door for a mistake. A note is a different matter: it is
+  /// edited or thrown away, and the engine refuses to reverse one, so the button is not offered for it.
+  bool get _canReverse => widget.entry.status == 'posted' && _correctionId == null;
+
+  Future<void> _reverse() async {
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Correct this entry?'),
+        content: Text(
+          'A second entry will be written that says the opposite of "${widget.entry.description}", and the books will '
+          'come back to where they were. The original stays, because a posted entry is never removed or changed, and '
+          'the correction will point back at it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('Keep it as it is'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('Write the correction'),
+          ),
+        ],
+      ),
+    );
+    if (agreed != true || !mounted) return;
+
+    setState(() => _reversing = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final correction = await _apiService.reverseJournalEntry(widget.entry.id);
+      if (!mounted) return;
+      setState(() {
+        _correctionId = correction.id;
+        _reversing = false;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('The correction was written against "${widget.entry.description}".'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _reversing = false);
+      // the engine's own words, because its refusal says why: already corrected, or not a posting at all
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not correct it: ${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
     final totalDebit = ExactAmount.sum(entry.lines.map((line) => line.debit));
     final totalCredit = ExactAmount.sum(entry.lines.map((line) => line.credit));
 
@@ -234,6 +311,26 @@ class JournalEntryDetailPage extends StatelessWidget {
                 ),
               ),
             ),
+            if (widget.entry.status == 'posted') ...[
+              const SizedBox(height: 24),
+              if (_correctionId != null)
+                Text(
+                  'This entry has been corrected. The correction is in the entries list.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else
+                FilledButton.tonalIcon(
+                  onPressed: _reversing || !_canReverse ? null : _reverse,
+                  icon: _reversing
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.undo),
+                  label: const Text('Correct this entry'),
+                ),
+            ],
           ],
         ),
       ),

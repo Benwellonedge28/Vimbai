@@ -106,6 +106,28 @@ class AccountingApiService {
     throw Exception('Failed to post journal entry: ${response.body}');
   }
 
+  /// Corrects a posted entry: the engine writes the entry that says the opposite and hands it back.
+  ///
+  /// The correction is not this app's arithmetic. The engine copies the original's amounts with the sides swapped, so a
+  /// value of any length crosses over exactly; doing it here would mean a second, smaller copy of that rule that could
+  /// differ from the one the books are kept by. A date may be given for where the correction belongs, and left out the
+  /// engine dates it with the original.
+  Future<JournalEntry> reverseJournalEntry(String entryId, {String? entryDate}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/journal-entries/$entryId/reverse'),
+      headers: await _getHeaders(),
+      body: json.encode({if (entryDate != null) 'entry_date': entryDate}),
+    );
+    if (response.statusCode == 200) {
+      final correction = JournalEntry.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+      await _localDb.insertJournalEntry(correction, isSynced: true);
+      return correction;
+    }
+    throw Exception('Failed to reverse journal entry: ${response.body}');
+  }
+
   /// Network-first list of journal entries with offline cache fallback.
   Future<List<JournalEntry>> getJournalEntries() async {
     try {
