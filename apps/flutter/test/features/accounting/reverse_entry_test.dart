@@ -103,7 +103,9 @@ void main() {
     expect(find.textContaining('has been corrected'), findsOneWidget);
   });
 
-  testWidgets('a refused correction keeps the door open and says why', (tester) async {
+  testWidgets('a refused correction keeps the door open and says why', (
+    tester,
+  ) async {
     // A refusal is the engine's own words coming back: the entry already had a correction, say. Swallowing it would
     // leave the person believing the books were fixed.
     final service = _AnsweringService(

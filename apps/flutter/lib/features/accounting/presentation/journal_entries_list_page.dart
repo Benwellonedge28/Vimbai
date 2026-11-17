@@ -130,11 +130,10 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) =>
-                              JournalEntryDetailPage(
-                                entry: entry,
-                                service: _apiService,
-                              ),
+                          builder: (context) => JournalEntryDetailPage(
+                            entry: entry,
+                            service: _apiService,
+                          ),
                         ),
                       );
                     },

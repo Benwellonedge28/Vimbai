@@ -29,7 +29,8 @@ class _JournalEntryDetailPageState extends State<JournalEntryDetailPage> {
 
   /// A posted entry is corrected, never edited, so this is the door for a mistake. A note is a different matter: it is
   /// edited or thrown away, and the engine refuses to reverse one, so the button is not offered for it.
-  bool get _canReverse => widget.entry.status == 'posted' && _correctionId == null;
+  bool get _canReverse =>
+      widget.entry.status == 'posted' && _correctionId == null;
 
   Future<void> _reverse() async {
     final agreed = await showDialog<bool>(
@@ -66,7 +67,9 @@ class _JournalEntryDetailPageState extends State<JournalEntryDetailPage> {
       });
       messenger.showSnackBar(
         SnackBar(
-          content: Text('The correction was written against "${widget.entry.description}".'),
+          content: Text(
+            'The correction was written against "${widget.entry.description}".',
+          ),
         ),
       );
     } catch (error) {

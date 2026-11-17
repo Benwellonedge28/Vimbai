@@ -112,7 +112,10 @@ class AccountingApiService {
   /// value of any length crosses over exactly; doing it here would mean a second, smaller copy of that rule that could
   /// differ from the one the books are kept by. A date may be given for where the correction belongs, and left out the
   /// engine dates it with the original.
-  Future<JournalEntry> reverseJournalEntry(String entryId, {String? entryDate}) async {
+  Future<JournalEntry> reverseJournalEntry(
+    String entryId, {
+    String? entryDate,
+  }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/journal-entries/$entryId/reverse'),
       headers: await _getHeaders(),
