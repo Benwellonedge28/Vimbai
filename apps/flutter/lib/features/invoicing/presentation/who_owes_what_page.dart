@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/ageing_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_statement_page.dart';
 
 class WhoOwesWhatPage extends StatefulWidget {
   const WhoOwesWhatPage({super.key, this.service});
@@ -105,6 +106,15 @@ class _WhoOwesWhatPageState extends State<WhoOwesWhatPage> {
       itemBuilder: (context, index) {
         final row = owing[index];
         return ListTile(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CustomerStatementPage(
+                customerId: row.customerId,
+                customerName: row.name,
+                service: widget.service,
+              ),
+            ),
+          ),
           leading: CircleAvatar(child: Text(_initial(row.name))),
           title: Text(row.name),
           subtitle: Text(

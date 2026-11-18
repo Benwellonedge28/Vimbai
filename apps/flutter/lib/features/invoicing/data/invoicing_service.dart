@@ -158,6 +158,162 @@ class CustomerOwing {
   });
 }
 
+/// One payment taken against an invoice, as the statement needs it: the day, and the amount.
+class InvoicePaymentEntry {
+  final String date;
+  final ExactAmount amount;
+
+  const InvoicePaymentEntry({required this.date, required this.amount});
+}
+
+/// One line of a customer statement: something that happened on a day, and where it left the balance.
+class StatementLine {
+  final String date;
+  final String description;
+  final ExactAmount charge;
+  final ExactAmount credit;
+  final ExactAmount running;
+
+  const StatementLine({
+    required this.date,
+    required this.description,
+    required this.charge,
+    required this.credit,
+    required this.running,
+  });
+}
+
+/// A customer's statement: every invoice raised and every payment taken, in the order they happened.
+///
+/// A statement is a history, not a summary, so an invoice that has since been settled is still on it - that is the whole
+/// point of sending somebody their account. The closing figure is the register's own outstanding total for that customer,
+/// reached by adding up the same events, so the two cannot disagree.
+class CustomerStatement {
+  final String customerId;
+  final String name;
+  final List<StatementLine> lines;
+  final ExactAmount charged;
+  final ExactAmount paid;
+  final ExactAmount closing;
+  final ExactAmount late;
+  final int oldestDaysLate;
+  final String asAt;
+
+  const CustomerStatement({
+    required this.customerId,
+    required this.name,
+    required this.lines,
+    required this.charged,
+    required this.paid,
+    required this.closing,
+    required this.late,
+    required this.oldestDaysLate,
+    required this.asAt,
+  });
+
+  bool get isEmpty => lines.isEmpty;
+}
+
+/// A customer's statement, worked out from the register and the payments against it.
+///
+/// Dates are compared as dates, and an event with no readable date sorts first rather than vanishing: a payment that lost its
+/// date is still money, and a statement that quietly dropped it would close higher than the Book does.
+CustomerStatement customerStatement(
+  List<Invoice> held,
+  Map<String, List<InvoicePaymentEntry>> payments, {
+  required String customerId,
+  required String today,
+  String? name,
+}) {
+  final events =
+      <({String date, bool charge, String description, ExactAmount amount})>[];
+  final mine = [
+    for (final invoice in held)
+      if (invoice.customerId == customerId) invoice,
+  ];
+  final invoicesByNumber = <String, Invoice>{};
+  for (final invoice in mine) {
+    invoicesByNumber[invoice.invoiceNumber] = invoice;
+    events.add((
+      date: invoice.invoiceDate,
+      charge: true,
+      description: '${invoice.invoiceNumber} raised, due ${invoice.dueDate}',
+      amount: invoice.total,
+    ));
+  }
+  for (final entry in payments.entries) {
+    final invoice = invoicesByNumber[entry.key];
+    if (invoice == null) continue;
+    for (final payment in entry.value) {
+      events.add((
+        date: payment.date,
+        charge: false,
+        description: 'Payment against ${invoice.invoiceNumber}',
+        amount: payment.amount,
+      ));
+    }
+  }
+
+  int byDate(
+    ({String date, bool charge, String description, ExactAmount amount}) a,
+    ({String date, bool charge, String description, ExactAmount amount}) b,
+  ) {
+    final dates = a.date.compareTo(b.date);
+    if (dates != 0) return dates;
+    // an invoice comes before the payment that settles it on the same day
+    if (a.charge != b.charge) return a.charge ? -1 : 1;
+    return a.description.compareTo(b.description);
+  }
+
+  events.sort(byDate);
+
+  var running = ExactAmount.zero;
+  var charged = ExactAmount.zero;
+  var paid = ExactAmount.zero;
+  final lines = <StatementLine>[];
+  for (final event in events) {
+    if (event.charge) {
+      running = running + event.amount;
+      charged = charged + event.amount;
+    } else {
+      running = running - event.amount;
+      paid = paid + event.amount;
+    }
+    lines.add(
+      StatementLine(
+        date: event.date,
+        description: event.description,
+        charge: event.charge ? event.amount : ExactAmount.zero,
+        credit: event.charge ? ExactAmount.zero : event.amount,
+        running: running,
+      ),
+    );
+  }
+
+  var late = ExactAmount.zero;
+  var oldest = 0;
+  for (final invoice in mine) {
+    final owing = invoice.outstanding;
+    if (owing.isZero) continue;
+    final days = daysBetween(invoice.dueDate, today);
+    if (days <= 0) continue;
+    late = late + owing;
+    if (days > oldest) oldest = days;
+  }
+
+  return CustomerStatement(
+    customerId: customerId,
+    name: name ?? (mine.isEmpty ? customerId : customerId),
+    lines: lines,
+    charged: charged,
+    paid: paid,
+    closing: running,
+    late: late,
+    oldestDaysLate: oldest,
+    asAt: today,
+  );
+}
+
 /// One band of lateness, and what falls in it.
 ///
 /// The bands are the ordinary ones a chase is run in: money not yet due is not a problem, and after that every month that
@@ -548,8 +704,13 @@ class InvoicingService {
     );
   }
 
-  /// What has been paid against an invoice so far.
-  Future<List<ExactAmount>> paymentsFor(String invoiceNumber) async {
+  /// What has been paid against an invoice so far, with the day each payment was taken.
+  ///
+  /// A statement is a list of events in date order, so the day matters as much as the amount: two payments off one invoice
+  /// dated a month apart are two lines on it, not one figure.
+  Future<List<InvoicePaymentEntry>> paymentEntriesFor(
+    String invoiceNumber,
+  ) async {
     final answer = await _client.get(
       Uri.parse(
         '$_base/invoices/${Uri.encodeComponent(invoiceNumber)}/payments',
@@ -564,9 +725,18 @@ class InvoicingService {
     final rows = jsonDecode(answer.body) as List;
     return [
       for (final row in rows)
-        ExactAmount.fromJson((row as Map<String, dynamic>)['amount']),
+        InvoicePaymentEntry(
+          date:
+              ((row as Map<String, dynamic>)['payment_date'] as String?) ?? '',
+          amount: ExactAmount.fromJson(row['amount']),
+        ),
     ];
   }
+
+  /// What has been paid against an invoice so far.
+  Future<List<ExactAmount>> paymentsFor(String invoiceNumber) async => [
+    for (final entry in await paymentEntriesFor(invoiceNumber)) entry.amount,
+  ];
 
   /// The next number to offer, so two invoices do not collide by accident.
   ///
