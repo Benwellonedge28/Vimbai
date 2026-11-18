@@ -8,8 +8,13 @@
 // rather than adding the lines up itself. A page that summed its own lines could disagree with the balance the Book
 // reports, and two figures for one debt is worse than a slow screen.
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
+import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 
 class SupplierAccountPage extends StatefulWidget {
@@ -18,6 +23,7 @@ class SupplierAccountPage extends StatefulWidget {
     required this.supplierId,
     this.supplierName,
     this.service,
+    this.ledger,
   });
 
   final String supplierId;
@@ -26,6 +32,9 @@ class SupplierAccountPage extends StatefulWidget {
   /// A test passes its own service so the page can be exercised without a server.
   final SupplierAccountService? service;
 
+  /// The ledger, for posting a bill into the books. A test passes its own.
+  final AccountingApiService? ledger;
+
   @override
   State<SupplierAccountPage> createState() => _SupplierAccountPageState();
 }
@@ -33,6 +42,10 @@ class SupplierAccountPage extends StatefulWidget {
 class _SupplierAccountPageState extends State<SupplierAccountPage> {
   late final SupplierAccountService _accounts =
       widget.service ?? SupplierAccountService.instance;
+  late final AccountingApiService _ledger =
+      widget.ledger ?? AccountingApiService();
+
+  bool _posting = false;
 
   bool _loading = true;
   String? _error;
@@ -64,6 +77,146 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       });
     }
   }
+
+  /// Put a bill, or a payment, into the accounts.
+  ///
+  /// The purchases ledger answers who is owed what; the accounts answer what the Book earned and what it holds. A bill
+  /// that lives only in the first makes the profit figure and the balance sheet both wrong by the same amount, so this
+  /// walks the one route into the ledger: the chart proposes both sides, the person sees the entry before it is written,
+  /// and the bill's own reference travels with it so tapping twice cannot post it twice - the engine refuses the second
+  /// one by name.
+  Future<void> _postToTheBooks(
+    SupplierAccountLine line,
+    String supplierName,
+  ) async {
+    setState(() => _posting = true);
+    try {
+      final chart = await _ledger.getAllAccounts();
+      final isBill = line.kind == 'purchase_invoice';
+      final reference = line.reference.trim().isEmpty
+          ? '${isBill ? 'BILL' : 'PAY'}-${line.date}-${widget.supplierId}'
+          : line.reference.trim();
+      Account? chosen;
+      if (isBill) {
+        final costs = chargeableAccounts(chart);
+        if (costs.isNotEmpty) chosen = costs.first;
+      }
+      var posting = isBill
+          ? billPosting(
+              chart: chart,
+              amount: line.amount,
+              supplierName: supplierName,
+              reference: reference,
+              charged: chosen,
+            )
+          : paymentPosting(
+              chart: chart,
+              amount: line.amount,
+              supplierName: supplierName,
+              reference: reference,
+            );
+      if (!mounted) return;
+      if (!posting.canPost) {
+        setState(() => _posting = false);
+        _say(posting.refusal);
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setSheet) => AlertDialog(
+            title: Text(isBill ? 'Post this bill' : 'Post this payment'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final side in posting.sides) Text(side.line),
+                if (isBill && chargeableAccounts(chart).length > 1) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<Account>(
+                    initialValue: chosen,
+                    decoration: const InputDecoration(
+                      labelText: 'What was it for',
+                    ),
+                    items: [
+                      for (final account in chargeableAccounts(chart))
+                        DropdownMenuItem(
+                          value: account,
+                          child: Text(
+                            '${account.accountNumber} ${account.accountName}',
+                          ),
+                        ),
+                    ],
+                    onChanged: (picked) {
+                      if (picked == null) return;
+                      setSheet(() {
+                        chosen = picked;
+                        posting = billPosting(
+                          chart: chart,
+                          amount: line.amount,
+                          supplierName: supplierName,
+                          reference: reference,
+                          charged: picked,
+                        );
+                      });
+                    },
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  'Reference $reference. A posted entry is corrected by reversing '
+                  'it, never edited.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Not now'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Post it'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        setState(() => _posting = false);
+        return;
+      }
+      await _ledger.createJournalEntry(
+        buildJournalEntry(
+          id: const Uuid().v4(),
+          entryDate: DateTime.parse(line.date),
+          description: posting.description,
+          referenceNumber: posting.reference,
+          lines: [
+            for (final side in posting.sides)
+              JournalLine(
+                accountNumber: side.accountNumber,
+                description: side.description,
+                debit: side.debit,
+                credit: side.credit,
+              ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _posting = false);
+      _say('${posting.total.toDecimalString()} is in the books.');
+    } catch (failure) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      _say(CouldNotRead.reasonOf(failure));
+    }
+  }
+
+  void _say(String words) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(words)));
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +263,8 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
         ),
         const Divider(height: 32),
         // newest first, so the top line is the figure above
-        for (final line in account.lines.reversed) _line(context, line),
+        for (final line in account.lines.reversed)
+          _line(context, line, account.name),
         const Divider(height: 24),
         Row(
           children: [
@@ -136,51 +290,74 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
     );
   }
 
-  Widget _line(BuildContext context, SupplierAccountLine line) {
+  Widget _line(
+    BuildContext context,
+    SupplierAccountLine line,
+    String supplierName,
+  ) {
     final adds = line.kind == 'purchase_invoice';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 84,
-            child: Text(
-              line.date,
-              style: Theme.of(context).textTheme.bodySmall,
+    // a bill and a payment are the two movements that belong in the accounts; a discount moves nothing to post
+    final postable =
+        line.moves &&
+        (line.kind == 'purchase_invoice' || line.kind == 'payment');
+    return InkWell(
+      onTap: postable && !_posting
+          ? () => _postToTheBooks(line, supplierName)
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 84,
+              child: Text(
+                line.date,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(line.wording),
-                if (line.reference.isNotEmpty)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(line.wording),
+                  if (line.reference.isNotEmpty)
+                    Text(
+                      line.reference,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   Text(
-                    line.reference,
+                    'balance ${line.running.toDecimalString()}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
                 Text(
-                  'balance ${line.running.toDecimalString()}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  // a movement the ledger does not count is shown as it is, not dressed up as a payment
+                  line.moves
+                      ? (adds
+                            ? line.amount.toDecimalString()
+                            : '−${line.amount.toDecimalString()}')
+                      : '—',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: line.moves && !adds ? Colors.green.shade800 : null,
+                  ),
                 ),
+                if (postable)
+                  Text(
+                    'Post to books',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            // a movement the ledger does not count is shown as it is, not dressed up as a payment
-            line.moves
-                ? (adds
-                      ? line.amount.toDecimalString()
-                      : '−${line.amount.toDecimalString()}')
-                : '—',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: line.moves && !adds ? Colors.green.shade800 : null,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

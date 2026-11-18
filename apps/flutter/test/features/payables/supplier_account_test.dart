@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/supplier_account_page.dart';
 
@@ -55,6 +57,47 @@ class _Fake {
         return http.Response(_answer ?? _account, 200);
       }),
     );
+}
+
+/// A ledger that answers a chart and records what was posted, without a server.
+class _FakeLedger extends AccountingApiService {
+  _FakeLedger({List<Account>? chart}) : _chart = chart ?? _usualChart();
+
+  static List<Account> _usualChart() => [
+    Account(
+      id: 'a1',
+      accountNumber: '1000',
+      accountName: 'Cash',
+      accountType: 'asset',
+      normalBalance: 'debit',
+    ),
+    Account(
+      id: 'a2',
+      accountNumber: '2000',
+      accountName: 'Accounts Payable',
+      accountType: 'liability',
+      normalBalance: 'credit',
+    ),
+    Account(
+      id: 'a3',
+      accountNumber: '5000',
+      accountName: 'Purchases',
+      accountType: 'expense',
+      normalBalance: 'debit',
+    ),
+  ];
+
+  final List<Account> _chart;
+  final List<JournalEntry> posted = [];
+
+  @override
+  Future<List<Account>> getAllAccounts() async => _chart;
+
+  @override
+  Future<JournalEntry> createJournalEntry(JournalEntry entry) async {
+    posted.add(entry);
+    return entry;
+  }
 }
 
 void main() {
@@ -172,6 +215,110 @@ void main() {
       );
     },
   );
+
+  testWidgets('a bill can be put into the books from the account', (
+    tester,
+  ) async {
+    final fake = _Fake();
+    final ledger = _FakeLedger();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SupplierAccountPage(
+          supplierId: 'paperco',
+          supplierName: 'Paper Co',
+          service: fake.service,
+          ledger: ledger,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // the bill line offers it; the discount line does not, because it moves nothing
+    expect(find.text('Post to books'), findsNWidgets(2));
+    await tester.tap(find.text('Bill received'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post this bill'), findsOneWidget);
+    expect(find.textContaining('Dr 5000 Purchases'), findsOneWidget);
+    expect(find.textContaining('Cr 2000 Accounts Payable'), findsOneWidget);
+    expect(ledger.posted, isEmpty);
+
+    await tester.tap(find.text('Post it'));
+    await tester.pumpAndSettle();
+
+    final entry = ledger.posted.single;
+    expect(entry.referenceNumber, 'INV-77');
+    expect(entry.status, 'posted');
+    expect(entry.lines.first.accountNumber, '5000');
+    expect(entry.lines.first.debit.toDecimalString(), '500.00');
+    expect(entry.lines.last.accountNumber, '2000');
+    expect(entry.lines.last.credit.toDecimalString(), '500.00');
+  });
+
+  testWidgets(
+    'a payment posted from the account clears the payable and leaves cash',
+    (tester) async {
+      final fake = _Fake();
+      final ledger = _FakeLedger();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SupplierAccountPage(
+            supplierId: 'paperco',
+            supplierName: 'Paper Co',
+            service: fake.service,
+            ledger: ledger,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Paid them'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Post it'));
+      await tester.pumpAndSettle();
+
+      final entry = ledger.posted.single;
+      expect(entry.description, 'Paid Paper Co');
+      expect(entry.lines.first.accountNumber, '2000');
+      expect(entry.lines.first.debit.toDecimalString(), '200.00');
+      expect(entry.lines.last.accountNumber, '1000');
+      expect(entry.lines.last.credit.toDecimalString(), '200.00');
+    },
+  );
+
+  testWidgets('a chart with no payable account refuses and posts nothing', (
+    tester,
+  ) async {
+    final fake = _Fake();
+    final ledger = _FakeLedger(
+      chart: [
+        Account(
+          id: 'a1',
+          accountNumber: '1000',
+          accountName: 'Cash',
+          accountType: 'asset',
+          normalBalance: 'debit',
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SupplierAccountPage(
+          supplierId: 'paperco',
+          supplierName: 'Paper Co',
+          service: fake.service,
+          ledger: ledger,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bill received'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('no Accounts Payable account'), findsOneWidget);
+    expect(find.text('Post it'), findsNothing);
+    expect(ledger.posted, isEmpty);
+  });
 
   testWidgets('a failed read is never shown as an empty account', (
     tester,
