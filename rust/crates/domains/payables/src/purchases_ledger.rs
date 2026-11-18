@@ -76,6 +76,11 @@ pub fn record_transaction(
     if text(payload, "creditor_name").is_empty() {
         return Err(refused("creditor_name is required"));
     }
+    // a bill may carry the day it falls due; a date that is not a date is refused rather than stored and read as none
+    let due = text(payload, "due_date");
+    if !due.is_empty() && day_of(&due).is_none() {
+        return Err(refused("due_date must be a date, like 2026-11-30"));
+    }
     let moved = amount_or_zero(payload, "amount")?;
     let running = balance_of(&replayed(&transactions(graph, scope)?), &creditor);
     let direction = movement(&text(payload, "transaction_type"));
@@ -553,4 +558,302 @@ mod tests {
         );
         assert!(refused.is_err());
     }
+    // ---- what falls due when ----
+
+    fn billed(id: &str, creditor: &str, amount: &str, date: &str, due: &str) -> Value {
+        json!({
+            "id": id, "creditor_id": creditor, "creditor_name": creditor.to_uppercase(),
+            "transaction_type": "purchase_invoice", "amount": amount, "date": date, "due_date": due,
+        })
+    }
+
+    #[test]
+    fn a_payment_clears_the_oldest_bill_first_so_the_open_bill_is_the_newest() {
+        let rows = vec![
+            billed("b-1", "c-1", "300.000000", "2026-01-01", "2026-01-31"),
+            billed("b-2", "c-1", "500.000000", "2026-02-01", "2026-03-01"),
+            json!({"id": "p-1", "creditor_id": "c-1", "transaction_type": "payment",
+                   "amount": "300.000000", "date": "2026-02-10"}),
+        ];
+        let plan = due_plan(&rows, "2026-02-15");
+        // the January bill is settled in full, so nothing is late and the open bill falls due on 1 March
+        assert_eq!(plan["overdue"], json!("0.000000"));
+        assert_eq!(plan["later"], json!("500.000000"));
+        assert_eq!(plan["next_due_date"], json!("2026-03-01"));
+        assert_eq!(plan["creditors"][0]["open_bills"], json!(1));
+    }
+
+    #[test]
+    fn a_part_paid_oldest_bill_is_late_by_what_is_left_of_it() {
+        let rows = vec![
+            billed("b-1", "c-1", "300.000000", "2026-01-01", "2026-01-31"),
+            billed("b-2", "c-1", "500.000000", "2026-02-01", "2026-03-01"),
+            json!({"id": "p-1", "creditor_id": "c-1", "transaction_type": "payment",
+                   "amount": "100.000000", "date": "2026-02-10"}),
+        ];
+        let plan = due_plan(&rows, "2026-02-15");
+        // 200.00 of the January bill is still open and late; the February bill is not due yet
+        assert_eq!(plan["overdue"], json!("200.000000"));
+        assert_eq!(plan["later"], json!("500.000000"));
+        assert_eq!(plan["overdue_suppliers"], json!(1));
+        assert_eq!(plan["creditors"][0]["overdue"], json!("200.000000"));
+        assert_eq!(plan["creditors"][0]["due_date"], json!("2026-01-31"));
+    }
+
+    #[test]
+    fn a_bill_falling_due_this_week_is_due_soon_and_a_later_one_can_wait() {
+        let rows = vec![
+            billed("b-1", "c-1", "120.000000", "2026-03-01", "2026-03-20"),
+            billed("b-2", "c-2", "80.000000", "2026-03-01", "2026-06-30"),
+        ];
+        let plan = due_plan(&rows, "2026-03-15");
+        assert_eq!(plan["due_soon"], json!("120.000000"));
+        assert_eq!(plan["later"], json!("80.000000"));
+        assert_eq!(plan["overdue"], json!("0.000000"));
+    }
+
+    #[test]
+    fn a_bill_with_no_due_date_is_reported_apart_and_never_as_due_today() {
+        let rows = vec![billed("b-1", "c-1", "75.000000", "2026-03-01", "")];
+        let plan = due_plan(&rows, "2026-03-15");
+        assert_eq!(plan["undated"], json!("75.000000"));
+        assert_eq!(plan["overdue"], json!("0.000000"));
+        assert_eq!(plan["due_soon"], json!("0.000000"));
+        assert_eq!(plan["creditors"][0]["due_date"], json!(""));
+    }
+
+    #[test]
+    fn a_supplier_owed_nothing_is_not_in_the_plan() {
+        let rows = vec![
+            billed("b-1", "c-1", "300.000000", "2026-01-01", "2026-01-31"),
+            json!({"id": "p-1", "creditor_id": "c-1", "transaction_type": "payment",
+                   "amount": "300.000000", "date": "2026-02-10"}),
+        ];
+        let plan = due_plan(&rows, "2026-02-15");
+        assert_eq!(plan["creditors"].as_array().unwrap().len(), 0);
+        assert_eq!(plan["overdue"], json!("0.000000"));
+        assert_eq!(plan["undated"], json!("0.000000"));
+    }
+
+    #[test]
+    fn a_discount_does_not_clear_a_bill_because_it_moves_nothing() {
+        let rows = vec![
+            billed("b-1", "c-1", "300.000000", "2026-01-01", "2026-01-31"),
+            json!({"id": "d-1", "creditor_id": "c-1", "transaction_type": "discount",
+                   "amount": "300.000000", "date": "2026-02-01"}),
+        ];
+        let plan = due_plan(&rows, "2026-02-15");
+        assert_eq!(plan["overdue"], json!("300.000000"));
+    }
+
+    #[test]
+    fn the_most_urgent_supplier_is_listed_first() {
+        let rows = vec![
+            billed("b-1", "calm", "900.000000", "2026-01-01", "2026-12-31"),
+            billed("b-2", "late", "50.000000", "2026-01-01", "2026-02-01"),
+        ];
+        let plan = due_plan(&rows, "2026-02-15");
+        assert_eq!(plan["creditors"][0]["creditor_id"], json!("late"));
+        assert_eq!(plan["creditors"][1]["creditor_id"], json!("calm"));
+    }
+
+    #[test]
+    fn a_due_date_that_is_not_a_date_is_refused_rather_than_stored() {
+        let graph = FakeGraph::returning(vec![]);
+        let refused = record_transaction(
+            &graph,
+            &scope(),
+            &json!({"creditor_id": "c-1", "creditor_name": "Paper Co",
+                    "transaction_type": "purchase_invoice", "amount": "10.00",
+                    "date": "2026-01-01", "due_date": "next friday"}),
+        )
+        .expect_err("a day that is not a day");
+        assert!(refused.to_string().contains("due_date"));
+    }
+
+    #[test]
+    fn a_bill_recorded_with_its_terms_is_read_back_by_the_plan() {
+        let graph = vimbai_store::fake::MemoryGraph::new();
+        record_transaction(
+            &graph,
+            &scope(),
+            &json!({"creditor_id": "c-1", "creditor_name": "Paper Co",
+                    "transaction_type": "purchase_invoice", "amount": "640.00",
+                    "date": "2026-03-01", "due_date": "2026-03-31"}),
+        )
+        .expect("recorded");
+        let rows = transactions(&graph, &scope()).expect("read");
+        let plan = due_plan(&rows, "2026-04-02");
+        assert_eq!(plan["overdue"], json!("640.000000"));
+        assert_eq!(plan["creditors"][0]["creditor_name"], json!("Paper Co"));
+    }
+}
+
+/// One bill still open after the payments are applied, and the day it falls due.
+///
+/// A bill carries a due date when the supplier gave terms; when it carries none the bill is kept with no day rather
+/// than being given an invented one, because "due on the day it arrived" and "due thirty days later" are both guesses
+/// and a guessed day is what makes a person pay the wrong supplier first.
+#[derive(Debug, Clone)]
+struct OpenBill {
+    due: String,
+    amount: Money,
+}
+
+/// The bills still open for one creditor, with the money already paid applied to the oldest bills first.
+///
+/// The ledger records what a supplier was billed and what was paid to them, and never which bill a payment settled.
+/// Allocating oldest first is the ordinary reading and it is exact: a payment covers the earliest bill in full before
+/// it touches a later one, so the set left open is the most recent bills, and the earliest day money falls due is the
+/// due date of the oldest of them. Payments beyond the bills clear them all, and the set is then empty.
+fn open_bills(rows: &[&Value], creditor_id: &str) -> Vec<OpenBill> {
+    let mut bills: Vec<(&Value, Money)> = Vec::new();
+    let mut paid = Money::zero();
+    for row in rows {
+        if text(row, "creditor_id") != creditor_id {
+            continue;
+        }
+        let moved = stored_amount(row, "amount").unwrap_or_else(|_| Money::zero());
+        match movement(&text(row, "transaction_type")) {
+            1 => bills.push((row, moved)),
+            -1 => paid = paid.plus(&moved),
+            _ => {}
+        }
+    }
+    // oldest bill first, and a bill with no readable date before the dated ones so it is never lost
+    bills.sort_by(|(left, _), (right, _)| {
+        match (day_of(&text(left, "date")), day_of(&text(right, "date"))) {
+            (Some(left), Some(right)) => left.cmp(&right),
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+    });
+
+    let mut open = Vec::new();
+    for (row, amount) in bills {
+        if paid >= amount {
+            paid = paid.minus(&amount);
+            continue;
+        }
+        let left = amount.minus(&paid);
+        paid = Money::zero();
+        open.push(OpenBill {
+            due: text(row, "due_date"),
+            amount: left,
+        });
+    }
+    open
+}
+
+/// `GET /due`: what is owed, arranged by when it has to be paid.
+///
+/// A total owed says nothing about urgency, and a person paying suppliers needs the order: what is already late, what
+/// falls due this week, and what can wait. Each supplier's balance is split across its open bills, and each open bill
+/// is placed by its own due date. A bill with no due date is reported on its own, never counted as due today.
+pub fn due_plan(rows: &[Value], today: &str) -> Value {
+    let as_at = day_of(today);
+    let balances = replayed(rows);
+    let borrowed: Vec<&Value> = rows.iter().collect();
+
+    let mut overdue = Money::zero();
+    let mut due_soon = Money::zero();
+    let mut later = Money::zero();
+    let mut undated = Money::zero();
+    let mut overdue_suppliers = 0_usize;
+    let mut soonest = String::new();
+    let mut suppliers: Vec<Value> = Vec::new();
+
+    for (creditor, balance) in &balances {
+        if *balance <= Money::zero() {
+            continue;
+        }
+        let open = open_bills(&borrowed, creditor);
+        let mut theirs_overdue = Money::zero();
+        let mut earliest = String::new();
+        let mut earliest_day: Option<i64> = None;
+
+        for bill in &open {
+            match (day_of(&bill.due), as_at) {
+                (Some(due), Some(today)) => {
+                    if due < today {
+                        overdue = overdue.plus(&bill.amount);
+                        theirs_overdue = theirs_overdue.plus(&bill.amount);
+                    } else if due - today <= 7 {
+                        due_soon = due_soon.plus(&bill.amount);
+                    } else {
+                        later = later.plus(&bill.amount);
+                    }
+                    if earliest_day.is_none_or(|held| due < held) {
+                        earliest_day = Some(due);
+                        earliest = bill.due.clone();
+                    }
+                }
+                // no day on the bill, or no day to compare it against: reported apart rather than guessed at
+                _ => undated = undated.plus(&bill.amount),
+            }
+        }
+        if theirs_overdue > Money::zero() {
+            overdue_suppliers += 1;
+        }
+        if !earliest.is_empty() && (soonest.is_empty() || earliest < soonest) {
+            soonest = earliest.clone();
+        }
+        let named = rows
+            .iter()
+            .filter(|row| text(row, "creditor_id") == *creditor)
+            .rev()
+            .map(|row| text(row, "creditor_name"))
+            .find(|name| !name.is_empty())
+            .unwrap_or_else(|| creditor.clone());
+        suppliers.push(json!({
+            "creditor_id": creditor,
+            "creditor_name": named,
+            "owed": wire(balance),
+            "overdue": wire(&theirs_overdue),
+            "due_date": earliest,
+            "open_bills": open.len(),
+        }));
+    }
+
+    // the most urgent supplier first: what is late, then what falls due soonest
+    suppliers.sort_by(|left, right| {
+        let late = |value: &Value| text(value, "overdue");
+        let owed = |value: &Value| text(value, "owed");
+        let by_late = Money::parse(&late(right))
+            .unwrap_or_else(|_| Money::zero())
+            .cmp(&Money::parse(&late(left)).unwrap_or_else(|_| Money::zero()));
+        if by_late != std::cmp::Ordering::Equal {
+            return by_late;
+        }
+        let left_day = day_of(&text(left, "due_date")).unwrap_or(i64::MAX);
+        let right_day = day_of(&text(right, "due_date")).unwrap_or(i64::MAX);
+        if left_day != right_day {
+            return left_day.cmp(&right_day);
+        }
+        Money::parse(&owed(right))
+            .unwrap_or_else(|_| Money::zero())
+            .cmp(&Money::parse(&owed(left)).unwrap_or_else(|_| Money::zero()))
+    });
+
+    json!({
+        "as_of": today,
+        "overdue": wire(&overdue),
+        "due_soon": wire(&due_soon),
+        "later": wire(&later),
+        "undated": wire(&undated),
+        "overdue_suppliers": overdue_suppliers,
+        "next_due_date": soonest,
+        "creditors": suppliers,
+    })
+}
+
+/// `GET /due` over the Book's ledger.
+pub fn due_plan_of_book(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    today: &str,
+) -> Result<Value, StoreError> {
+    let rows = transactions(graph, scope)?;
+    Ok(due_plan(&rows, today))
 }

@@ -167,6 +167,7 @@ class PayablesService {
     String date = '',
     String reference = '',
     String description = '',
+    String dueDate = '',
   }) async {
     if (supplierId.trim().isEmpty) {
       throw Exception('Say which supplier this is for.');
@@ -203,6 +204,9 @@ class PayablesService {
         if (date.isNotEmpty) 'date': date,
         if (reference.isNotEmpty) 'reference': reference,
         if (description.isNotEmpty) 'description': description,
+        // a bill carries the day it falls due, so "when you must pay" can order it; money already paid has
+        // no day to fall due, so the rule lives here rather than at each caller
+        if (dueDate.isNotEmpty && !movement.reduces) 'due_date': dueDate,
       }),
     );
     if (answer.statusCode != 200 && answer.statusCode != 201) {

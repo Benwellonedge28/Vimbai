@@ -258,6 +258,7 @@ class _RecordSupplierMovementSheetState
   );
   late final TextEditingController _amount = TextEditingController();
   final TextEditingController _reference = TextEditingController();
+  final TextEditingController _dueDate = TextEditingController();
 
   SupplierMovement _movement = SupplierMovement.bill;
   bool _saving = false;
@@ -275,6 +276,7 @@ class _RecordSupplierMovementSheetState
     _supplier.dispose();
     _amount.dispose();
     _reference.dispose();
+    _dueDate.dispose();
     super.dispose();
   }
 
@@ -299,6 +301,7 @@ class _RecordSupplierMovementSheetState
         outstandingBefore: widget.onto?.balance,
         date: widget.today,
         reference: _reference.text.trim(),
+        dueDate: _dueDate.text.trim(),
       );
       if (!mounted) return;
       Navigator.of(context).pop(saved);
@@ -367,6 +370,16 @@ class _RecordSupplierMovementSheetState
               labelText: 'Their bill or payment number, if it has one',
             ),
           ),
+          if (_movement == SupplierMovement.bill)
+            TextField(
+              controller: _dueDate,
+              decoration: const InputDecoration(
+                labelText: 'The day it must be paid, if they said',
+                helperText:
+                    'Write it as 2026-11-30. Leave it empty and the bill is '
+                    'listed with no date rather than counted as due today.',
+              ),
+            ),
           if (_problem != null) ...[
             const SizedBox(height: 12),
             Text(

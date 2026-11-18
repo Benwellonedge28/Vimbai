@@ -31,5 +31,6 @@ services:
   - GET /purchases-ledger-control/control-account/summary
   - GET /purchases-ledger-control/creditors
   - GET /purchases-ledger-control/creditors/{}
+  - GET /purchases-ledger-control/due
   - POST /purchases-ledger-control/reconcile
   - POST /purchases-ledger-control/transactions

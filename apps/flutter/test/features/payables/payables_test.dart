@@ -146,6 +146,58 @@ void main() {
     },
   );
 
+  test(
+    'a bill carries the day it must be paid, so the plan can order it',
+    () async {
+      final fake = _Fake();
+      final saved = await fake.service.record(
+        supplierId: 'paperco',
+        supplierName: 'Paper Co',
+        movement: SupplierMovement.bill,
+        amount: ExactAmount.parse('640'),
+        outstandingBefore: null,
+        dueDate: '2026-11-30',
+      );
+      expect(saved.supplierId, 'paperco');
+      final sent = jsonDecode(fake.sent.single.body) as Map<String, dynamic>;
+      expect(sent['due_date'], '2026-11-30');
+    },
+  );
+
+  test(
+    'a bill without terms sends no due date rather than an invented one',
+    () async {
+      final fake = _Fake();
+      await fake.service.record(
+        supplierId: 'paperco',
+        supplierName: 'Paper Co',
+        movement: SupplierMovement.bill,
+        amount: ExactAmount.parse('640'),
+        outstandingBefore: null,
+      );
+      final sent = jsonDecode(fake.sent.single.body) as Map<String, dynamic>;
+      expect(sent.containsKey('due_date'), isFalse);
+    },
+  );
+
+  test(
+    'a payment never carries a due date, because the money has left',
+    () async {
+      final fake = _Fake();
+      await fake.service.record(
+        supplierId: 'paperco',
+        supplierName: 'Paper Co',
+        movement: SupplierMovement.payment,
+        amount: ExactAmount.parse('100'),
+        outstandingBefore: ExactAmount.parse('300'),
+        dueDate: '2026-11-30',
+      );
+      final sent = jsonDecode(fake.sent.single.body) as Map<String, dynamic>;
+      expect(sent['transaction_type'], 'payment');
+      expect(sent.containsKey('due_date'), isFalse);
+    },
+  );
+
   testWidgets('the page leads with the total owed and says the books agree', (
     tester,
   ) async {

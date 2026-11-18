@@ -17339,6 +17339,29 @@ async fn get_creditors(State(graph): GraphState, headers: HeaderMap) -> Response
     ))
 }
 
+/// `GET /purchases-ledger-control/due`: what is owed, arranged by when it has to be paid.
+async fn get_due_plan(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    let today = asked
+        .get("as_of_date")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
+    answer(payables::purchases_ledger::due_plan_of_book(
+        graph.as_ref(),
+        &scope,
+        &today,
+    ))
+}
+
 async fn get_creditor_account(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -19700,6 +19723,7 @@ fn published_prefix_aliases(graph: GraphHandle) -> Router {
             "/purchases-ledger-control/creditors/:creditor_id",
             get(get_creditor_account),
         )
+        .route("/purchases-ledger-control/due", get(get_due_plan))
         .route(
             "/purchases-ledger-control/reconcile",
             post(reconcile_purchases_control_account),
