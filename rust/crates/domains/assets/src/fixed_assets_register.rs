@@ -238,6 +238,19 @@ pub fn depreciate<G: Graph + ?Sized>(
         return Err(StoreError::Invalid(format!("Asset is {status}")));
     }
 
+    // a month is charged once. Charging it again would write the asset down twice, and the register alone would not show
+    // it: two rows for one month look like two months.
+    let already = Records::new(graph, DEPRECIATION_ENTRY).list(scope, 1000)?;
+    if already.iter().any(|row| {
+        row.get("asset_id").and_then(Value::as_str) == Some(asset_id)
+            && row.get("period").and_then(Value::as_str) == Some(period.trim())
+    }) {
+        return Err(StoreError::Invalid(format!(
+            "Depreciation already recorded for period {}",
+            period.trim()
+        )));
+    }
+
     let cost = stored_amount(&asset, "acquisition_cost")?;
     let salvage = stored_amount(&asset, "salvage_value")?;
     let charge = monthly_charge(&asset)?;
@@ -351,18 +364,27 @@ pub fn summary<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value,
     let mut total_accumulated = Money::zero();
     let mut total_net_book_value = Money::zero();
     let mut active = 0usize;
+    let mut disposed = 0usize;
     let mut by_category: BTreeMap<String, (usize, Money)> = BTreeMap::new();
 
     for row in &rows {
+        let held = row.get("status").and_then(Value::as_str) == Some("active");
+        if held {
+            active += 1;
+        } else {
+            disposed += 1;
+        }
+        // a disposed asset keeps its row and its last book value, and neither is something the business still owns: the
+        // totals below are what is held, so a sold van cannot stay in what the register is worth
+        if !held {
+            continue;
+        }
         let cost = stored_amount(row, "acquisition_cost")?;
         let accumulated = stored_amount(row, "accumulated_depreciation")?;
         let net_book_value = stored_amount(row, "net_book_value")?;
         total_cost = total_cost.plus(&cost);
         total_accumulated = total_accumulated.plus(&accumulated);
         total_net_book_value = total_net_book_value.plus(&net_book_value);
-        if row.get("status").and_then(Value::as_str) == Some("active") {
-            active += 1;
-        }
         let category = row
             .get("category")
             .and_then(Value::as_str)
@@ -386,6 +408,7 @@ pub fn summary<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value,
     Ok(json!({
         "total_assets": rows.len(),
         "active_assets": active,
+        "disposed_assets": disposed,
         "total_acquisition_cost": total_cost.round(2).to_fixed(2),
         "total_accumulated_depreciation": total_accumulated.round(2).to_fixed(2),
         "total_net_book_value": total_net_book_value.round(2).to_fixed(2),
@@ -523,7 +546,7 @@ mod tests {
             stored_asset(
                 json!({"accumulated_depreciation": "3333.33", "net_book_value": "236666.67"}),
             ),
-            json!({"id": "d-1", "asset_id": "a-1", "period": "2026-10",
+            json!({"id": "d-1", "asset_id": "a-1", "period": "2026-09",
                    "depreciation_amount": "3333.33", "accumulated_depreciation": "3333.33",
                    "net_book_value": "236666.67", "method": "straight_line"}),
         ]);
@@ -538,6 +561,24 @@ mod tests {
         assert_eq!(params["props"]["net_book_value"], json!("236666.670000"));
         assert_eq!(params["props"]["period"], json!("2026-10"));
         assert_eq!(params["props"]["method"], json!("straight_line"));
+    }
+
+    #[test]
+    fn a_month_is_charged_once_and_charging_it_again_is_refused() {
+        // the register holds this month already: charging it a second time would write the asset down twice, and two rows
+        // for one month read as two months
+        let graph = FakeGraph::returning(vec![
+            stored_asset(json!({})),
+            json!({"id": "d-1", "asset_id": "a-1", "period": "2026-10",
+                   "depreciation_amount": "3333.33", "accumulated_depreciation": "3333.33",
+                   "net_book_value": "236666.67", "method": "straight_line"}),
+        ]);
+        let error = depreciate(&graph, &scope(), "a-1", "2026-10").expect_err("refused");
+        let said = format!("{error}");
+        assert!(
+            said.contains("already recorded for period 2026-10"),
+            "{said}"
+        );
     }
 
     #[test]
@@ -641,14 +682,35 @@ mod tests {
         let summary = summary(&graph, &scope()).expect("summary");
         assert_eq!(summary["total_assets"], json!(3));
         assert_eq!(summary["active_assets"], json!(2));
-        assert_eq!(summary["total_acquisition_cost"], json!("490000.00"));
+        assert_eq!(summary["disposed_assets"], json!(1));
+        // 240000 held + 10000 held; the sold row's 240000 cost is history, not something the business holds
+        assert_eq!(summary["total_acquisition_cost"], json!("250000.00"));
         assert_eq!(summary["total_net_book_value"], json!("246000.00"));
-        assert_eq!(summary["by_category"]["vehicles"]["count"], json!(2));
+        // the sold one is a row on the register and nothing more: one vehicle is held, not two
+        assert_eq!(summary["by_category"]["vehicles"]["count"], json!(1));
         assert_eq!(
             summary["by_category"]["vehicles"]["nbv"],
             json!("240000.00")
         );
         assert_eq!(summary["by_category"]["IT"]["nbv"], json!("6000.00"));
+    }
+
+    #[test]
+    fn a_sold_asset_is_not_part_of_what_the_register_is_worth() {
+        let graph = FakeGraph::returning(vec![
+            stored_asset(json!({"category": "vehicles", "net_book_value": "1000"})),
+            stored_asset(json!({
+                "id": "a-2",
+                "category": "vehicles",
+                "status": "disposed",
+                "net_book_value": "3000"
+            })),
+        ]);
+        let summary = summary(&graph, &scope()).expect("summary");
+        assert_eq!(summary["total_net_book_value"], json!("1000.00"));
+        assert_eq!(summary["total_acquisition_cost"], json!("240000.00"));
+        assert_eq!(summary["active_assets"], json!(1));
+        assert_eq!(summary["disposed_assets"], json!(1));
     }
 
     #[test]

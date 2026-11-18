@@ -1,0 +1,216 @@
+// The register of things a business owns, held to the figures the engine keeps.
+//
+// The value of the register is not a number this file invents: it is the sum of what each held asset is worth, so an asset
+// that has been sold cannot quietly stay in the total. The month's charge is the engine's own rule repeated, and the tests
+// below pin the two methods to the figures the engine answers with, so a disagreement shows up here rather than in a
+// balance.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/features/assets/data/fixed_asset_register.dart';
+
+Map<String, dynamic> _row({
+  String id = 'asset-1',
+  String name = 'Delivery van',
+  String code = 'VEH-001',
+  String category = 'vehicles',
+  String cost = '4500.000000',
+  String salvage = '500.000000',
+  String accumulated = '0.000000',
+  String netBookValue = '4500.000000',
+  int life = 5,
+  String method = 'straight_line',
+  String status = 'active',
+  String acquired = '2026-01-15',
+}) => {
+  'id': id,
+  'asset_code': code,
+  'asset_name': name,
+  'category': category,
+  'acquisition_date': acquired,
+  'acquisition_cost': cost,
+  'salvage_value': salvage,
+  'accumulated_depreciation': accumulated,
+  'net_book_value': netBookValue,
+  'useful_life_years': life,
+  'depreciation_method': method,
+  'status': status,
+};
+
+void main() {
+  group('what the register comes to', () {
+    test('it is the worth of what is held, not of everything ever bought', () {
+      final register = AssetRegister.fromJson([
+        _row(id: 'a', name: 'Van', netBookValue: '4500.000000'),
+        _row(
+          id: 'b',
+          name: 'Old press',
+          netBookValue: '0.000000',
+          status: 'disposed',
+        ),
+      ]);
+
+      expect(register.assets.length, 2);
+      expect(register.held.length, 1);
+      expect(register.worthNow.toDecimalString(), '4500.00');
+      expect(register.costOfWhatIsHeld.toDecimalString(), '4500.00');
+    });
+
+    test('the write-off so far is what has come off the cost', () {
+      final register = AssetRegister.fromJson([
+        _row(accumulated: '1200.000000', netBookValue: '3300.000000'),
+      ]);
+
+      // 1200 has come off a 4500 cost, and 3300 is left: of that, 500 is what it will be worth at the end, so 2800 is
+      // still to come off
+      expect(register.writtenOff.toDecimalString(), '1200.00');
+      expect(register.stillToWriteOff.toDecimalString(), '2800.00');
+    });
+
+    test('a long register keeps every digit, so a big business is exact', () {
+      final register = AssetRegister.fromJson([
+        _row(cost: '123456789012.123456', netBookValue: '123456789012.123456'),
+        _row(id: 'b', cost: '0.000001', netBookValue: '0.000001'),
+      ]);
+
+      expect(register.worthNow.toDecimalString(), '123456789012.123457');
+    });
+
+    test('the biggest remaining value comes first', () {
+      final register = AssetRegister.fromJson([
+        _row(id: 'a', name: 'Chair', netBookValue: '50.000000'),
+        _row(id: 'b', name: 'Van', netBookValue: '4500.000000'),
+      ]);
+
+      expect(register.assets.first.name, 'Van');
+      expect(register.assets.last.name, 'Chair');
+    });
+
+    test(
+      'an asset with no life is named rather than silently worth nothing',
+      () {
+        final register = AssetRegister.fromJson([
+          _row(id: 'a', life: 0),
+          _row(id: 'b', name: 'Press', life: 4),
+        ]);
+
+        expect(register.withoutALife.map((asset) => asset.id), ['a']);
+      },
+    );
+
+    test(
+      'categories are worth what they hold, largest first, and skip nothing',
+      () {
+        final register = AssetRegister.fromJson([
+          _row(id: 'a', category: 'vehicles', netBookValue: '3000.000000'),
+          _row(id: 'b', category: 'computers', netBookValue: '800.000000'),
+          _row(id: 'c', category: 'computers', netBookValue: '200.000000'),
+          _row(
+            id: 'd',
+            category: 'vehicles',
+            netBookValue: '900.000000',
+            status: 'disposed',
+          ),
+        ]);
+
+        expect(register.byCategory.length, 2);
+        expect(register.byCategory.first.category, AssetCategory.vehicles);
+        expect(register.byCategory.first.worth.toDecimalString(), '3000.00');
+        expect(register.byCategory.last.category, AssetCategory.computers);
+        expect(register.byCategory.last.count, 2);
+        expect(register.byCategory.last.worth.toDecimalString(), '1000.00');
+      },
+    );
+
+    test(
+      'an empty register says so rather than reading as a value of nothing',
+      () {
+        final register = AssetRegister.fromJson(const []);
+        expect(register.isEmpty, isTrue);
+        expect(register.worthNow.toDecimalString(), '0.00');
+      },
+    );
+
+    test('a category this app does not offer still reads as something', () {
+      final asset = FixedAsset.fromJson(_row(category: 'livestock'));
+      expect(asset.category, AssetCategory.other);
+    });
+  });
+
+  group('the month charge', () {
+    test('straight line spreads cost less salvage over the months of its life', () {
+      // 4500 - 500 over 5 years is 4000 over 60 months, which the engine rounds to the cent it actually charges: 66.67
+      // (proved live against the register, which answered accumulated_depreciation 66.67 after the first month)
+      final asset = FixedAsset.fromJson(_row());
+      expect(asset.monthlyCharge.toDecimalString(), '66.67');
+    });
+
+    test('reducing balance takes a twentieth of what is left', () {
+      final asset = FixedAsset.fromJson(
+        _row(method: 'reducing_balance', netBookValue: '2400.000000'),
+      );
+      expect(asset.monthlyCharge.toDecimalString(), '40.00');
+    });
+
+    test(
+      'an asset with no life charges nothing, and says it charges nothing',
+      () {
+        final asset = FixedAsset.fromJson(_row(life: 0));
+        expect(asset.monthlyCharge.isZero, isTrue);
+        expect(asset.chargesNothing, isTrue);
+      },
+    );
+
+    test('something already sold charges nothing, whatever its life says', () {
+      final asset = FixedAsset.fromJson(_row(status: 'disposed'));
+      expect(asset.monthlyCharge.isZero, isTrue);
+      expect(asset.chargesNothing, isFalse);
+    });
+
+    test('an asset down to its end value charges nothing more', () {
+      final asset = FixedAsset.fromJson(
+        _row(accumulated: '4000.000000', netBookValue: '500.000000'),
+      );
+      expect(asset.fullyWrittenDown, isTrue);
+    });
+  });
+
+  group('months', () {
+    test('the next month rolls the year over', () {
+      expect(FixedAsset.nextPeriod('2026-12'), '2027-01');
+    });
+
+    test('a month moved backwards crosses the year too', () {
+      expect(FixedAsset.shiftPeriod('2026-01', -1), '2025-12');
+      expect(FixedAsset.shiftPeriod('2026-03', -3), '2025-12');
+    });
+
+    test(
+      'something that is not a month is left alone rather than guessed at',
+      () {
+        expect(FixedAsset.nextPeriod('November'), 'November');
+      },
+    );
+  });
+
+  test('a charge read back keeps the period it was charged for', () {
+    final charge = DepreciationCharge.fromJson({
+      'period': '2026-11',
+      'depreciation_amount': '66.666667',
+      'accumulated_depreciation': '733.333334',
+      'net_book_value': '3766.666666',
+    });
+    expect(charge.period, '2026-11');
+    expect(charge.amount.toDecimalString(), '66.666667');
+    expect(charge.netBookValue.toDecimalString(), '3766.666666');
+  });
+
+  test('a figure the engine sent as a number is read the same as text', () {
+    final asset = FixedAsset.fromJson({
+      ..._row(),
+      'acquisition_cost': 4500,
+      'net_book_value': 4500.5,
+    });
+    expect(asset.cost, ExactAmount.parse('4500'));
+    expect(asset.netBookValue.toDecimalString(), '4500.50');
+  });
+}
