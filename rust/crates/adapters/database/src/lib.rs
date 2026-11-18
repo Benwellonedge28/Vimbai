@@ -183,6 +183,10 @@ pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_AS
 pub const DEPRECIATION_ENTRY: RecordKind =
     RecordKind::new("DepreciationEntry", "OWNS_DEPRECIATION_ENTRY");
 pub const ASSET_DISPOSAL: RecordKind = RecordKind::new("AssetDisposal", "OWNS_ASSET_DISPOSAL");
+/// The plans budgeting-service keeps: what a Book means to spend, account by account. Named apart from the
+/// non-profit's `Budget` so one label never stands for two things.
+pub const BOOK_BUDGET: RecordKind = RecordKind::new("BookBudget", "OWNS_BOOK_BUDGET");
+
 /// The intangibles intangible-assets-service owns.
 pub const INTANGIBLE_ASSET: RecordKind =
     RecordKind::new("IntangibleAsset", "OWNS_INTANGIBLE_ASSET");

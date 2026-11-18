@@ -13,7 +13,7 @@
 use std::sync::Arc;
 
 use ::npo::npo_scale;
-use accounting::{cash_flow, trading_account};
+use accounting::{cash_flow, ledger_book, trading_account};
 use analytics::benchmarking;
 use axum::{
     extract::{Path, RawQuery, State},
@@ -24,8 +24,8 @@ use axum::{
 };
 use banking;
 use budgeting_services::{
-    activity_based_budget as activity_budget, appropriation_control, master_budget,
-    rolling_forecast, scenario_analysis, scenario_modeling, sensitivity_analysis,
+    activity_based_budget as activity_budget, appropriation_control, budget_register,
+    master_budget, rolling_forecast, scenario_analysis, scenario_modeling, sensitivity_analysis,
     zero_based_budget,
 };
 use common::Money;
@@ -3293,6 +3293,91 @@ async fn register_asset(
         Err(response) => return *response,
     };
     answer(assets::create_asset(graph.as_ref(), &scope, &payload))
+}
+
+// --- a Book's spending plan ---
+
+async fn book_budgets(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(budget_register::list_budgets(graph.as_ref(), &scope))
+}
+
+async fn keep_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(budget_register::create(graph.as_ref(), &scope, &payload))
+}
+
+async fn one_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(budget_register::get_budget(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+    ))
+}
+
+async fn remove_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(budget_register::remove_budget(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+    ))
+}
+
+/// The plan against what was actually spent, read from the posted ledger over the plan's own dates.
+///
+/// The ledger decides what was spent, in one place (`ledger_book::posted_activity`), and the budgeting crate does the
+/// comparing. Nothing here adds a journal line up, so the report cannot disagree with the ledger.
+async fn plan_variance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let plan = match budget_register::get_budget(graph.as_ref(), &scope, &budget_id) {
+        Ok(plan) => plan,
+        Err(error) => return answer(Err(error)),
+    };
+    let start = plan["start_date"].as_str().unwrap_or("");
+    let end = plan["end_date"].as_str().unwrap_or("");
+    let spent = match ledger_book::posted_activity(graph.as_ref(), &scope, start, end) {
+        Ok(spent) => spent,
+        Err(error) => return answer(Err(error)),
+    };
+    answer(budget_register::variance(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+        &spent,
+    ))
 }
 
 async fn fixed_assets(
@@ -8981,6 +9066,18 @@ fn records_router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/records/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .route(
+            "/records/budget-register/budgets",
+            get(book_budgets).post(keep_budget),
+        )
+        .route(
+            "/records/budget-register/budgets/:budget_id",
+            get(one_budget).delete(remove_budget),
+        )
+        .route(
+            "/records/budget-register/budgets/:budget_id/variance",
+            get(plan_variance),
+        )
         .route(
             "/records/fixed-assets-register/assets",
             get(fixed_assets).post(register_asset),

@@ -12,6 +12,10 @@ Crate: `rust/crates/domains/budgeting`
 4. Scenario modelling and analysis: several futures side by side over the same period, and the comparison between them.
 5. Sensitivity analysis: how much a result moves when one assumption does, with the assumption stated rather than implied.
 6. Appropriation control: what may be spent against an appropriation, what has been, and the refusal when the two disagree.
+7. The Book's own spending plan (`budget_register`): one plan per period kept with the Book rather than on the phone that
+   typed it, one line per account, and the variance against what the posted ledger actually took up. A plan with no lines,
+   a line of nothing and two lines for one account are refused by name; the figure read from the ledger is signed in each
+   account's own direction, so a plan for sales reads as earned rather than as negative spending.
 
 A budget figure is exact money. A forecast is still money, and is never a float that happened to round well.
 
@@ -26,10 +30,13 @@ A budget figure is exact money. A forecast is still money, and is never a float 
 | `scenario-modeling-service` | `/scenario-modeling` |
 | `sensitivity-analysis-service` | `/sensitivity-analysis` |
 | `zero-based-budgeting-service` | `/zero-based-budgeting` |
+| the Book's spending plan | `/records/budget-register` |
 
 ## What it does not own
 
-The actual. This crate says what was intended; the ledger says what happened, and the variance between them is a reporting question. Nor does it post: an appropriation approval is a decision, not an entry.
+The actual. This crate says what was intended; the ledger says what happened, and the register reads it rather than keeping
+a second copy of it. Nor does the register post: a plan is an intention, and the spending against it is entered in Accounting. An appropriation
+approval is a decision, not an entry.
 
 ## Tests
 

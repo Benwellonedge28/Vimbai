@@ -1504,6 +1504,30 @@ paths:
     get:
       operationId: getRecordsBonusSharesIssues
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/budget-register/budgets:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsBudgetRegisterBudgets
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postRecordsBudgetRegisterBudgets
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/budget-register/budgets/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsBudgetRegisterBudgets
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    delete:
+      operationId: deleteRecordsBudgetRegisterBudgets
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/budget-register/budgets/{}/variance:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsBudgetRegisterBudgetsVariance
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/budgeting/analyze:
     parameters:
       - $ref: "#/components/parameters/BookId"

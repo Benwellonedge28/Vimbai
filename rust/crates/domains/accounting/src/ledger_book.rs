@@ -40,6 +40,8 @@
 //! belong in a reversing entry. A posted entry can therefore not be edited or deleted here, and a draft
 //! can be deleted but still not edited.
 
+use std::collections::BTreeMap;
+
 use serde_json::{json, Value};
 use vimbai_common::Money;
 use vimbai_ledger_core::hash_chain::{
@@ -332,6 +334,58 @@ pub fn account_period_activity<G: Graph + ?Sized>(
         "total_debits": wire(&debit),
         "total_credits": wire(&credit),
     }))
+}
+
+/// What every account has taken up between two dates, signed in the account's own direction.
+///
+/// This is the one place that decides what "spent" means for a period, so a report comparing a plan against what actually
+/// happened reads it here rather than adding journal lines up again. Only posted entries count: a draft moves no money, so
+/// counting one would report spending that has not happened. An account with no posted movement is left out rather than
+/// listed at nothing, because "no movement" and "moved nothing" are the same answer and the caller already knows both.
+///
+/// The sign follows the account: a debit-normal account (an expense, an asset) reports debits minus credits, so spending is
+/// positive. A credit-normal account (revenue, a liability) reports credits minus debits, so what was earned or raised is
+/// positive. Without that, a plan for sales would read as negative earnings.
+pub fn posted_activity<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    from: &str,
+    until: &str,
+) -> Result<BTreeMap<String, Money>, StoreError> {
+    let mut moved: BTreeMap<String, (Money, Money)> = BTreeMap::new();
+    for entry in entries(graph, scope)?.iter().filter(|entry| posted(entry)) {
+        if !dated_on_or_after(entry, from) || !dated_on_or_before(entry, until) {
+            continue;
+        }
+        for line in entry_lines(entry) {
+            let account_number = field(&line, "account_number");
+            if account_number.is_empty() {
+                continue;
+            }
+            let slot = moved
+                .entry(account_number.to_string())
+                .or_insert_with(|| (zero(), zero()));
+            slot.0 = slot.0.plus(&money_or_nothing(&line, "debit")?);
+            slot.1 = slot.1.plus(&money_or_nothing(&line, "credit")?);
+        }
+    }
+
+    let chart = accounts(graph, scope)?;
+    let mut activity: BTreeMap<String, Money> = BTreeMap::new();
+    for (account_number, (debit, credit)) in moved {
+        let account = chart
+            .iter()
+            .find(|row| field(row, "account_number") == account_number);
+        let signed = match account {
+            Some(account) => balance_of(account, &debit, &credit),
+            // an account the chart no longer holds: report the debit side, which is what a spending line would mean
+            None => debit.minus(&credit),
+        };
+        if !signed.is_zero() {
+            activity.insert(account_number, signed);
+        }
+    }
+    Ok(activity)
 }
 
 fn validated_lines(payload: &Value) -> Result<Vec<Value>, StoreError> {
@@ -1569,6 +1623,70 @@ mod tests {
             .iter()
             .find(|section| section["title"] == title)
             .expect("the section")
+    }
+
+    #[test]
+    fn what_a_period_spent_is_signed_in_each_account_s_own_direction() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        // a sale: cash up, sales up
+        posted_entry(
+            &graph,
+            "2026-03-10",
+            json!([{"account_number": "1000", "debit": "500.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "500.00"}]),
+        );
+        // rent paid: expense up, cash down
+        posted_entry(
+            &graph,
+            "2026-03-12",
+            json!([{"account_number": "5000", "debit": "300.00", "credit": "0"},
+                   {"account_number": "1000", "debit": "0", "credit": "300.00"}]),
+        );
+
+        let activity =
+            posted_activity(&graph, &scope(), "2026-03-01", "2026-03-31").expect("activity");
+        // spending is positive on an expense, earning is positive on revenue: neither reads as a minus
+        assert_eq!(
+            activity.get("5000").map(|m| m.to_fixed(2)),
+            Some("300.00".to_string())
+        );
+        assert_eq!(
+            activity.get("4000").map(|m| m.to_fixed(2)),
+            Some("500.00".to_string())
+        );
+        // cash is debit-normal and net down 500 - 300
+        assert_eq!(
+            activity.get("1000").map(|m| m.to_fixed(2)),
+            Some("200.00".to_string())
+        );
+    }
+
+    #[test]
+    fn a_draft_moves_nothing_and_a_date_outside_the_period_is_left_out() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-03-10", "description": "still a draft", "status": "draft",
+                    "lines": [{"account_number": "5000", "debit": "900.00", "credit": "0"},
+                              {"account_number": "1000", "debit": "0", "credit": "900.00"}]}),
+        )
+        .expect("a draft");
+        posted_entry(
+            &graph,
+            "2026-04-02",
+            json!([{"account_number": "5000", "debit": "50.00", "credit": "0"},
+                   {"account_number": "1000", "debit": "0", "credit": "50.00"}]),
+        );
+
+        let activity =
+            posted_activity(&graph, &scope(), "2026-03-01", "2026-03-31").expect("activity");
+        // the draft is not spending, and April's rent is not March's
+        assert!(activity.is_empty(), "{activity:?}");
     }
 
     #[test]

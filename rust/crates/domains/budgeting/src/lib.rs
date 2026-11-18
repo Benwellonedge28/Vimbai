@@ -20,6 +20,7 @@
 
 pub mod activity_based_budget;
 pub mod appropriation_control;
+pub mod budget_register;
 pub mod figures;
 pub mod master_budget;
 pub mod profit_loss;
