@@ -107,6 +107,40 @@ class Invoice {
   ExactAmount get outstanding => total - paid;
 }
 
+/// What the engine says after a payment is recorded against an invoice.
+///
+/// [journalPosted] is the engine being honest: recording a payment against an invoice does not write a ledger entry, so a
+/// screen that said "paid" without saying that would leave a Book whose income statement never saw the money.
+class InvoicePayment {
+  final String invoiceNumber;
+  final ExactAmount amount;
+  final ExactAmount paid;
+  final ExactAmount outstanding;
+  final String status;
+  final bool journalPosted;
+
+  const InvoicePayment({
+    required this.invoiceNumber,
+    required this.amount,
+    required this.paid,
+    required this.outstanding,
+    required this.status,
+    required this.journalPosted,
+  });
+
+  factory InvoicePayment.fromJson(Map<String, dynamic> json) => InvoicePayment(
+    invoiceNumber: (json['invoice_number'] as String?) ?? '',
+    amount: ExactAmount.fromJson(json['payment_amount']),
+    paid: ExactAmount.fromJson(json['paid_amount']),
+    outstanding: ExactAmount.fromJson(json['outstanding']),
+    status: (json['status'] as String?) ?? '',
+    journalPosted: json['journal_posted'] == true,
+  );
+
+  /// True once the invoice is settled.
+  bool get settled => outstanding.isZero;
+}
+
 /// The invoicing doors of one Book.
 class InvoicingService {
   InvoicingService._();
@@ -239,6 +273,63 @@ class InvoicingService {
       );
     }
     return Invoice.fromJson(jsonDecode(answer.body) as Map<String, dynamic>);
+  }
+
+  /// Record what a customer has paid against an invoice.
+  ///
+  /// The amount is compared with what is still owing before it is sent, because paying an invoice twice is the mistake
+  /// that costs somebody money and the engine, faithful to its own rule, would take it: it adds whatever it is given.
+  Future<InvoicePayment> recordPayment(
+    Invoice invoice,
+    ExactAmount amount, {
+    DateTime? on,
+  }) async {
+    if (amount.isZero) {
+      throw Exception('A payment has to be more than nothing.');
+    }
+    if (amount > invoice.outstanding) {
+      throw Exception(
+        'That is more than the ${invoice.outstanding.toDecimalString()} still owing on ${invoice.invoiceNumber}.',
+      );
+    }
+    final answer = await _client.post(
+      Uri.parse(
+        '$_base/invoices/${Uri.encodeComponent(invoice.invoiceNumber)}/record-payment',
+      ),
+      headers: _headers,
+      body: jsonEncode({
+        'payment_amount': amount.toLedgerString(),
+        if (on != null) 'payment_date': _date(on),
+      }),
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 201) {
+      throw Exception(
+        'The engine refused the payment: ${answer.statusCode} ${answer.body}',
+      );
+    }
+    return InvoicePayment.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// What has been paid against an invoice so far.
+  Future<List<ExactAmount>> paymentsFor(String invoiceNumber) async {
+    final answer = await _client.get(
+      Uri.parse(
+        '$_base/invoices/${Uri.encodeComponent(invoiceNumber)}/payments',
+      ),
+      headers: _headers,
+    );
+    if (answer.statusCode != 200) {
+      throw Exception(
+        'The engine answered ${answer.statusCode}: ${answer.body}',
+      );
+    }
+    final rows = jsonDecode(answer.body) as List;
+    return [
+      for (final row in rows)
+        ExactAmount.fromJson((row as Map<String, dynamic>)['amount']),
+    ];
   }
 
   /// The next number to offer, so two invoices do not collide by accident.

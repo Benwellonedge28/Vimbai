@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_detail_page.dart';
 
 class InvoicesPage extends StatefulWidget {
   const InvoicesPage({super.key, this.service});
@@ -129,12 +130,42 @@ class _InvoicesPageState extends State<InvoicesPage> {
         ),
       );
     }
+    final owing = ExactAmount.sum(held.map((invoice) => invoice.outstanding));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(
+            owing.isZero
+                ? 'Nothing is owing on this Book\'s invoices.'
+                : '${owing.toDecimalString()} still to come in across ${held.length} '
+                      '${held.length == 1 ? 'invoice' : 'invoices'}.',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(child: _register(held)),
+      ],
+    );
+  }
+
+  Widget _register(List<Invoice> held) {
     return ListView.separated(
       itemCount: held.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final invoice = held[index];
         return ListTile(
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    InvoiceDetailPage(invoice: invoice, service: _invoices),
+              ),
+            );
+            if (mounted) await _load();
+          },
           leading: CircleAvatar(
             child: Text(invoice.status.characters.first.toUpperCase()),
           ),
