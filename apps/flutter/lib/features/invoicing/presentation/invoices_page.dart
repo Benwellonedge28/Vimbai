@@ -10,6 +10,7 @@ import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_detail_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/who_owes_what_page.dart';
 
 class InvoicesPage extends StatefulWidget {
   const InvoicesPage({super.key, this.service});
@@ -90,7 +91,20 @@ class _InvoicesPageState extends State<InvoicesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sales invoices')),
+      appBar: AppBar(
+        title: const Text('Sales invoices'),
+        actions: [
+          IconButton(
+            tooltip: 'Who owes what',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => WhoOwesWhatPage(service: _invoices),
+              ),
+            ),
+            icon: const Icon(Icons.groups_outlined),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _customers.isEmpty && _held != null ? null : _raise,
         icon: const Icon(Icons.receipt_long),

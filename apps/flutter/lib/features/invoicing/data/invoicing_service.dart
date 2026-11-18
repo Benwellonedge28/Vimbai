@@ -141,6 +141,60 @@ class InvoicePayment {
   bool get settled => outstanding.isZero;
 }
 
+/// What one customer owes a Book, across every invoice raised against them.
+class CustomerOwing {
+  final String customerId;
+  final String name;
+  final ExactAmount owed;
+  final int invoices;
+  final String earliestDue;
+
+  const CustomerOwing({
+    required this.customerId,
+    required this.name,
+    required this.owed,
+    required this.invoices,
+    required this.earliestDue,
+  });
+}
+
+/// Who owes what, worked out from the register the engine already answered.
+///
+/// It is a summary of the invoices rather than a second figure kept anywhere: an outstanding balance that the app
+/// remembered would be a number to reconcile against the register, and the register is the one that is right.
+List<CustomerOwing> owingByCustomer(
+  List<Invoice> held, {
+  Map<String, String> names = const {},
+}) {
+  final owed = <String, ExactAmount>{};
+  final counted = <String, int>{};
+  final earliest = <String, String>{};
+  for (final invoice in held) {
+    final owing = invoice.outstanding;
+    if (owing.isZero) continue;
+    final who = invoice.customerId;
+    owed[who] = (owed[who] ?? ExactAmount.zero) + owing;
+    counted[who] = (counted[who] ?? 0) + 1;
+    final due = invoice.dueDate;
+    if (due.isNotEmpty &&
+        (!earliest.containsKey(who) || due.compareTo(earliest[who]!) < 0)) {
+      earliest[who] = due;
+    }
+  }
+  final rows = [
+    for (final entry in owed.entries)
+      CustomerOwing(
+        customerId: entry.key,
+        name: names[entry.key] ?? entry.key,
+        owed: entry.value,
+        invoices: counted[entry.key] ?? 0,
+        earliestDue: earliest[entry.key] ?? '',
+      ),
+  ];
+  rows.sort((a, b) => b.owed.compareTo(a.owed));
+  return rows;
+}
+
 /// The invoicing doors of one Book.
 class InvoicingService {
   InvoicingService._();
