@@ -8,15 +8,25 @@ import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
+import 'package:vimbai_mobile_client/features/cashbook/presentation/post_cash_entry_sheet.dart';
 
 class CashAccountPage extends StatefulWidget {
-  const CashAccountPage({super.key, required this.account, this.service});
+  const CashAccountPage({
+    super.key,
+    required this.account,
+    this.service,
+    this.accounting,
+  });
 
   final CashAccount account;
 
   /// A test passes its own service so the page can be exercised without a server.
   final CashBookService? service;
+
+  /// The ledger, for putting an entry into the books. Injectable for the same reason.
+  final AccountingApiService? accounting;
 
   @override
   State<CashAccountPage> createState() => _CashAccountPageState();
@@ -24,6 +34,11 @@ class CashAccountPage extends StatefulWidget {
 
 class _CashAccountPageState extends State<CashAccountPage> {
   late final CashBookService _cash = widget.service ?? CashBookService();
+  late final AccountingApiService _ledger =
+      widget.accounting ?? AccountingApiService();
+
+  /// The entries this visit has put into the ledger, so the screen does not invite the same posting twice.
+  final Set<String> _posted = {};
 
   late CashAccount _account = widget.account;
   bool _loading = true;
@@ -69,6 +84,21 @@ class _CashAccountPageState extends State<CashAccountPage> {
           _EntrySheet(service: _cash, account: _account, moneyIn: moneyIn),
     );
     if (made == true && mounted) await _load();
+  }
+
+  Future<void> _post(CashEntry entry) async {
+    final posted = await PostCashEntrySheet.show(
+      context,
+      entry: entry,
+      account: _account,
+      ledger: _ledger,
+    );
+    if (posted == true && mounted) {
+      setState(() => _posted.add(entry.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The entry is in the ledger.')),
+      );
+    }
   }
 
   @override
@@ -133,6 +163,14 @@ class _CashAccountPageState extends State<CashAccountPage> {
                 '${moneyIn.toDecimalString()} in · ${moneyOut.toDecimalString()} out',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (_entries.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Tap an entry to put it in the ledger. The cash book moves the balance; '
+                  'the ledger is where the double entry lives.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ],
           ),
         ),
@@ -163,6 +201,7 @@ class _CashAccountPageState extends State<CashAccountPage> {
                 entry.date,
                 if (entry.voucher.isNotEmpty) entry.voucher,
                 entry.status,
+                if (_posted.contains(entry.id)) 'in the ledger',
               ].join(' · '),
             ),
             trailing: Text(
@@ -174,6 +213,7 @@ class _CashAccountPageState extends State<CashAccountPage> {
                     : Colors.red.shade700,
               ),
             ),
+            onTap: () => _post(entry),
           ),
       ],
     );

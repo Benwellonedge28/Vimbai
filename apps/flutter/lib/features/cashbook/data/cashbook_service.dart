@@ -61,6 +61,9 @@ class CashEntry {
   final ExactAmount amount;
   final String status;
 
+  /// The chart account the other side of this entry belongs to, as the person named it.
+  final String againstAccount;
+
   const CashEntry({
     required this.id,
     required this.date,
@@ -69,6 +72,7 @@ class CashEntry {
     required this.moneyIn,
     required this.amount,
     required this.status,
+    this.againstAccount = '',
   });
 
   factory CashEntry.fromJson(Map<String, dynamic> json) => CashEntry(
@@ -79,6 +83,7 @@ class CashEntry {
     moneyIn: json['is_debit'] == true,
     amount: ExactAmount.fromJson(json['amount']),
     status: (json['status'] as String?) ?? '',
+    againstAccount: (json['account_code'] as String?) ?? '',
   );
 
   /// The signed effect on the balance, for adding up a page of entries.
