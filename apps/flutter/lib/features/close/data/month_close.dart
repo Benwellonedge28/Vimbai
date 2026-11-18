@@ -182,7 +182,8 @@ class MonthClose {
           ? '${spokenMonth(closedMonths.first)} is closed'
           : '${closedMonths.length} months are closed, up to ${spokenMonth(closedMonths.last)}',
     );
-    if (openFrom.isNotEmpty) parts.add('so entries can carry any day from $openFrom');
+    if (openFrom.isNotEmpty)
+      parts.add('so entries can carry any day from $openFrom');
     return '${parts.join(', ')}.';
   }
 }

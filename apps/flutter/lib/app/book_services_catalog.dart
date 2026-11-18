@@ -179,8 +179,7 @@ List<BookServiceEntry> servicesForTier(String tier) {
         ),
         BookServiceEntry(
           title: 'Close the month',
-          description:
-              'Make a month final, so nothing more is posted into it',
+          description: 'Make a month final, so nothing more is posted into it',
           icon: Icons.lock_clock_outlined,
           page: (context) => const CloseTheMonthPage(),
         ),

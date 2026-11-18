@@ -245,10 +245,7 @@ class _CloseTheMonthPageState extends State<CloseTheMonthPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          months.headline,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text(months.headline, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 6),
         Text(months.detail),
         const SizedBox(height: 16),
@@ -341,9 +338,7 @@ class _CloseTheMonthPageState extends State<CloseTheMonthPage> {
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _closing || blocked ? null : () => _close(month),
-                child: Text(
-                  _closing ? 'Closing $spoken' : 'Close $spoken',
-                ),
+                child: Text(_closing ? 'Closing $spoken' : 'Close $spoken'),
               ),
             ],
           ),

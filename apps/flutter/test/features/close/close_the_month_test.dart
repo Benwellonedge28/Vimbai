@@ -20,7 +20,11 @@ import 'package:vimbai_mobile_client/features/payables/data/payables_service.dar
 
 /// A door answering canned answers, recording what was asked.
 class _FakeDoor {
-  _FakeDoor({this.months = const [], this.closeStatus = 200, this.refusal = ''});
+  _FakeDoor({
+    this.months = const [],
+    this.closeStatus = 200,
+    this.refusal = '',
+  });
 
   final List<String> months;
   final int closeStatus;
@@ -116,29 +120,35 @@ Finder _inDialog(String words) => find.descendant(
 
 void main() {
   group('the reading', () {
-    test('the month on offer is the one just gone, never the one being lived in', () {
-      final open = MonthClose(
-        today: '2026-11-19',
-        closedMonths: const [],
-        closed: const [],
-      );
-      expect(open.currentMonth, '2026-11');
-      expect(open.monthOnOffer, '2026-10');
-      expect(open.headline, 'October 2026 is still open');
-      expect(open.nothingClosed, isTrue);
-    });
+    test(
+      'the month on offer is the one just gone, never the one being lived in',
+      () {
+        final open = MonthClose(
+          today: '2026-11-19',
+          closedMonths: const [],
+          closed: const [],
+        );
+        expect(open.currentMonth, '2026-11');
+        expect(open.monthOnOffer, '2026-10');
+        expect(open.headline, 'October 2026 is still open');
+        expect(open.nothingClosed, isTrue);
+      },
+    );
 
-    test('a month that is closed is skipped back to the earliest one still open', () {
-      final months = MonthClose(
-        today: '2026-11-19',
-        closedMonths: const ['2026-09', '2026-10'],
-        closed: const [],
-      );
-      // September and October are done, so August is what a late close would be about
-      expect(months.monthOnOffer, '2026-08');
-      expect(months.isClosed('2026-10'), isTrue);
-      expect(months.openFrom, '2026-11-01');
-    });
+    test(
+      'a month that is closed is skipped back to the earliest one still open',
+      () {
+        final months = MonthClose(
+          today: '2026-11-19',
+          closedMonths: const ['2026-09', '2026-10'],
+          closed: const [],
+        );
+        // September and October are done, so August is what a late close would be about
+        expect(months.monthOnOffer, '2026-08');
+        expect(months.isClosed('2026-10'), isTrue);
+        expect(months.openFrom, '2026-11-01');
+      },
+    );
 
     test('the month after December is January of the next year', () {
       final months = MonthClose(
@@ -166,92 +176,110 @@ void main() {
         note: 'After the bank statement',
       );
       expect(closed.spoken, 'October 2026');
-      expect(closed.trail, 'Closed by Samuel on 2026-11-05. After the bank statement');
+      expect(
+        closed.trail,
+        'Closed by Samuel on 2026-11-05. After the bank statement',
+      );
     });
   });
 
   group('the page', () {
-    testWidgets('offers the month just gone and closes it once the checks are clean', (
+    testWidgets(
+      'offers the month just gone and closes it once the checks are clean',
+      (tester) async {
+        final door = _FakeDoor();
+        final checks = _FakeChecks(
+          balance: _balanced(),
+          entries: const [],
+          check: _agreeing(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CloseTheMonthPage(
+              service: door.service,
+              source: checks,
+              today: '2026-11-19',
+              closedBy: 'Samuel',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('October 2026 is still open'), findsOneWidget);
+        expect(
+          find.text('No month has been closed yet, so the books are open.'),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Close October 2026'),
+        );
+        await tester.pumpAndSettle();
+
+        // what closing means, said before anything is written
+        expect(find.text('Close October 2026?'), findsOneWidget);
+        await tester.tap(_inDialog('Close October 2026'));
+        await tester.pumpAndSettle();
+
+        final posted = door.sent
+            .where((request) => request.method == 'POST')
+            .toList();
+        expect(posted, hasLength(1));
+        final body = jsonDecode(posted.single.body) as Map<String, dynamic>;
+        expect(body['period'], '2026-10');
+        expect(body['closes_on'], '2026-11-19');
+        expect(body['closed_by'], 'Samuel');
+      },
+    );
+
+    testWidgets(
+      'a draft in the journal withholds the close and names what to fix',
+      (tester) async {
+        final door = _FakeDoor();
+        final checks = _FakeChecks(
+          balance: _balanced(),
+          entries: [
+            JournalEntry(
+              id: 'e-1',
+              entryDate: DateTime(2026, 10, 20),
+              description: 'late invoice',
+              sourceModule: 'Manual',
+              status: 'draft',
+              lines: const [],
+            ),
+          ],
+          check: _agreeing(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CloseTheMonthPage(
+              service: door.service,
+              source: checks,
+              today: '2026-11-19',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final button = tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Close October 2026'),
+        );
+        expect(
+          button.onPressed,
+          isNull,
+          reason: 'a month is not closed over a draft',
+        );
+        expect(find.textContaining('still in draft'), findsWidgets);
+        expect(find.text('Open Books in order'), findsOneWidget);
+        expect(door.sent.where((request) => request.method == 'POST'), isEmpty);
+      },
+    );
+
+    testWidgets('a check that could not be made is never counted as clean', (
       tester,
     ) async {
-      final door = _FakeDoor();
-      final checks = _FakeChecks(
-        balance: _balanced(),
-        entries: const [],
-        check: _agreeing(),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CloseTheMonthPage(
-            service: door.service,
-            source: checks,
-            today: '2026-11-19',
-            closedBy: 'Samuel',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('October 2026 is still open'), findsOneWidget);
-      expect(find.text('No month has been closed yet, so the books are open.'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(FilledButton, 'Close October 2026'));
-      await tester.pumpAndSettle();
-
-      // what closing means, said before anything is written
-      expect(find.text('Close October 2026?'), findsOneWidget);
-      await tester.tap(_inDialog('Close October 2026'));
-      await tester.pumpAndSettle();
-
-      final posted = door.sent.where((request) => request.method == 'POST').toList();
-      expect(posted, hasLength(1));
-      final body = jsonDecode(posted.single.body) as Map<String, dynamic>;
-      expect(body['period'], '2026-10');
-      expect(body['closes_on'], '2026-11-19');
-      expect(body['closed_by'], 'Samuel');
-    });
-
-    testWidgets('a draft in the journal withholds the close and names what to fix', (
-      tester,
-    ) async {
-      final door = _FakeDoor();
-      final checks = _FakeChecks(
-        balance: _balanced(),
-        entries: [
-          JournalEntry(
-            id: 'e-1',
-            entryDate: DateTime(2026, 10, 20),
-            description: 'late invoice',
-            sourceModule: 'Manual',
-            status: 'draft',
-            lines: const [],
-          ),
-        ],
-        check: _agreeing(),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CloseTheMonthPage(
-            service: door.service,
-            source: checks,
-            today: '2026-11-19',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Close October 2026'),
-      );
-      expect(button.onPressed, isNull, reason: 'a month is not closed over a draft');
-      expect(find.textContaining('still in draft'), findsWidgets);
-      expect(find.text('Open Books in order'), findsOneWidget);
-      expect(door.sent.where((request) => request.method == 'POST'), isEmpty);
-    });
-
-    testWidgets('a check that could not be made is never counted as clean', (tester) async {
       final door = _FakeDoor();
       final checks = _FakeChecks(broken: true);
 
@@ -273,7 +301,9 @@ void main() {
       expect(find.textContaining('could not be made'), findsWidgets);
     });
 
-    testWidgets('a month already closed is shown as closed, with the trail', (tester) async {
+    testWidgets('a month already closed is shown as closed, with the trail', (
+      tester,
+    ) async {
       final door = _FakeDoor(months: const ['2026-09', '2026-10']);
       final checks = _FakeChecks(
         balance: _balanced(),
@@ -302,7 +332,8 @@ void main() {
     testWidgets('the engine refusal is shown in its own words', (tester) async {
       final door = _FakeDoor(
         closeStatus: 422,
-        refusal: '2026-10 is already closed, so nothing more can be posted into it.',
+        refusal:
+            '2026-10 is already closed, so nothing more can be posted into it.',
       );
       final checks = _FakeChecks(
         balance: _balanced(),
@@ -328,37 +359,47 @@ void main() {
 
       expect(find.text('That month was not closed'), findsOneWidget);
       expect(
-        find.text('2026-10 is already closed, so nothing more can be posted into it.'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('a failed read is reported rather than shown as nothing closed', (tester) async {
-      final broken = ClosedPeriodsService.fresh()
-        ..useClient(
-          MockClient((request) async => http.Response('{"detail":"no book"}', 500)),
-        );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CloseTheMonthPage(
-            service: broken,
-            source: _FakeChecks(
-              balance: _balanced(),
-              entries: const [],
-              check: _agreeing(),
-            ),
-            today: '2026-11-19',
-          ),
+        find.text(
+          '2026-10 is already closed, so nothing more can be posted into it.',
         ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('The months closed could not be read just now.'),
         findsOneWidget,
       );
-      expect(find.textContaining('No month has been closed yet'), findsNothing);
     });
+
+    testWidgets(
+      'a failed read is reported rather than shown as nothing closed',
+      (tester) async {
+        final broken = ClosedPeriodsService.fresh()
+          ..useClient(
+            MockClient(
+              (request) async => http.Response('{"detail":"no book"}', 500),
+            ),
+          );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CloseTheMonthPage(
+              service: broken,
+              source: _FakeChecks(
+                balance: _balanced(),
+                entries: const [],
+                check: _agreeing(),
+              ),
+              today: '2026-11-19',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('The months closed could not be read just now.'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('No month has been closed yet'),
+          findsNothing,
+        );
+      },
+    );
   });
 }
