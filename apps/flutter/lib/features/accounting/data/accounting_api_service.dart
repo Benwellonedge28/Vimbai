@@ -11,6 +11,7 @@
 import 'dart:convert';
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/cash_movement.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
@@ -301,6 +302,23 @@ class AccountingApiService {
       endingCashBalance: ExactAmount.fromJson(json['ending_cash']),
       netIncome: ExactAmount.fromJson(json['net_operating']),
     );
+  }
+
+  /// Where the money went over a period, read from the posted ledger by the engine.
+  Future<CashMovement> getCashMovement(DateTime start, DateTime end) async {
+    final response = await _client.get(
+      Uri.parse(
+        '$_baseUrl/cash-flow?start_date=${start.toIso8601String()}'
+        '&end_date=${end.toIso8601String()}',
+      ),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return CashMovement.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw Exception('Failed to read where the money went: ${response.body}');
   }
 
   /// Pushes any locally-queued (unsynced) journal entries to the backend.

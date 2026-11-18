@@ -26,6 +26,7 @@ services:
   - GET /accounting/capital-calculations
   - GET /accounting/capital-calculations/{}
   - GET /accounting/cash-disbursements-journal
+  - GET /accounting/cash-flow
   - GET /accounting/cash-receipts-journal
   - GET /accounting/control-accounts
   - GET /accounting/income-statement

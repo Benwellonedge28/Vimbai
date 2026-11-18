@@ -262,6 +262,12 @@ paths:
     post:
       operationId: postAccountingCashDisbursementsJournal
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/cash-flow:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAccountingCashFlow
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /accounting/cash-receipts-journal:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -1131,6 +1137,12 @@ paths:
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
     post:
       operationId: postRecordsAccountingCashDisbursementsJournal
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/cash-flow:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsAccountingCashFlow
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/accounting/cash-receipts-journal:
     parameters:

@@ -251,7 +251,7 @@ List<BookServiceEntry> servicesForTier(String tier) {
         ),
         BookServiceEntry(
           title: 'Cash flow statement',
-          description: 'Operating, investing and financing flows',
+          description: 'Where the money went, and what for',
           icon: Icons.currency_exchange,
           page: (context) => const CashFlowStatementPage(),
         ),

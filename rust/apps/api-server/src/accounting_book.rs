@@ -308,6 +308,22 @@ async fn income_statement(
     ))
 }
 
+async fn cash_flow(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book::cash_flow(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 async fn balance_sheet(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -981,7 +997,8 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             .route(&format!("{prefix}/trial-balance"), get(trial_balance))
             .route(&format!("{prefix}/income-statement"), get(income_statement))
-            .route(&format!("{prefix}/balance-sheet"), get(balance_sheet));
+            .route(&format!("{prefix}/balance-sheet"), get(balance_sheet))
+            .route(&format!("{prefix}/cash-flow"), get(cash_flow));
     }
     router.with_state(graph)
 }

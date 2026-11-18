@@ -47,10 +47,10 @@ use vimbai_ledger_core::hash_chain::{
 };
 use vimbai_store::amounts::wire;
 use vimbai_store::read::money_or_nothing;
-use vimbai_store::read::{field, optional, or_default, refused, text};
+use vimbai_store::read::{field, flag, optional, or_default, refused, text};
 use vimbai_store::{
-    created_record, BookScope, Graph, Records, StoreError, JOURNAL_DRAFT, JOURNAL_DRAFT_LINE,
-    JOURNAL_ENTRY, JOURNAL_LINE, LEDGER_ACCOUNT,
+    created_record, BookScope, Graph, Records, StoreError, CASH_BANK_ACCOUNT, JOURNAL_DRAFT,
+    JOURNAL_DRAFT_LINE, JOURNAL_ENTRY, JOURNAL_LINE, LEDGER_ACCOUNT,
 };
 
 /// The source modules whose reference numbers the service keeps unique.
@@ -1301,6 +1301,208 @@ pub fn balance_sheet<G: Graph + ?Sized>(
     }))
 }
 
+/// `GET /cash-flow/`: where the money moved, read from the posted ledger.
+///
+/// A cash flow statement is not a second set of books: it is the same entries looked at from the cash side. So this
+/// reads posted entries only, exactly like the trial balance, the income statement and the balance sheet, and it takes
+/// the set of cash accounts from the cash book - each cash or bank account names the chart account it is kept against -
+/// rather than guessing from an account number.
+///
+/// Each entry is classified by what the money moved against, and the classification needs no allocation. An entry
+/// balances, so the cash it moved is exactly the negative of everything else it moved; grouping those other lines by
+/// their account's type gives each class its share to the last digit, with nothing left over:
+///
+/// * revenue and expense accounts are operating - trading;
+/// * other asset accounts are investing - buying or selling what the business uses;
+/// * liability and equity accounts are financing - borrowing, repaying, and what the owners put in or took out.
+///
+/// An account type outside those five is not swept into operating quietly: it is counted as unclassified so a chart
+/// carrying something unusual says so instead of hiding it.
+///
+/// Opening cash is the ledger's own cash movement before the period, so opening plus the period's movement is closing
+/// by construction and a statement can never disagree with itself. The cash book's own total is reported beside it,
+/// because the two are kept by different rules (a cash book account can be opened with a balance that was never an
+/// entry) and a person should be told when they differ rather than shown one and left to assume.
+/// One class of a cash flow statement: its heading, the counterpart accounts that actually moved money through cash,
+/// and how many accounts in that class moved nothing (a count, never a row of zeros).
+struct FlowClass<'a> {
+    title: &'a str,
+    sources: Vec<(String, Money)>,
+    quiet: usize,
+}
+
+impl<'a> FlowClass<'a> {
+    fn new(title: &'a str) -> Self {
+        Self {
+            title,
+            sources: Vec::new(),
+            quiet: 0,
+        }
+    }
+}
+
+pub fn cash_flow<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Value, StoreError> {
+    let from = optional(query, "start_date").ok_or_else(|| refused("start_date is required"))?;
+    let until = optional(query, "end_date").ok_or_else(|| refused("end_date is required"))?;
+
+    // which chart accounts are cash: the cash book's own answer, not a guess at the numbering
+    let cash_accounts: Vec<(String, String)> = Records::new(graph, CASH_BANK_ACCOUNT)
+        .list(scope, 1000)?
+        .into_iter()
+        .filter(|row| flag(row, "is_active"))
+        .map(|row| {
+            (
+                field(&row, "account_code").to_string(),
+                field(&row, "account_name").to_string(),
+            )
+        })
+        .collect();
+    if cash_accounts.is_empty() {
+        return Err(refused(
+            "no cash or bank account is recorded, so there is no cash movement to report",
+        ));
+    }
+    let is_cash = |number: &str| cash_accounts.iter().any(|(code, _)| code == number);
+
+    let all = entries(graph, scope)?;
+    let chart = accounts(graph, scope)?;
+    let kind_of = |number: &str| -> String {
+        chart
+            .iter()
+            .find(|account| field(account, "account_number") == number)
+            .map(|account| field(account, "account_type").to_string())
+            .unwrap_or_default()
+    };
+    let name_of = |number: &str| -> String {
+        chart
+            .iter()
+            .find(|account| field(account, "account_number") == number)
+            .map(|account| field(account, "name").to_string())
+            .unwrap_or_else(|| number.to_string())
+    };
+
+    // where each class's money came from, kept per counterpart account so a person reads sources, not totals
+    let mut classes = vec![
+        FlowClass::new("Operating"),
+        FlowClass::new("Investing"),
+        FlowClass::new("Financing"),
+    ];
+    let mut unclassified = 0usize;
+    let mut movement = zero();
+    let mut opening = zero();
+
+    for entry in all.iter().filter(|entry| posted(entry)) {
+        let mut cash_here = zero();
+        let mut by_class: Vec<Vec<(String, Money)>> = vec![Vec::new(), Vec::new(), Vec::new()];
+        let mut odd_here = 0usize;
+        for line in entry_lines(entry) {
+            let number = field(&line, "account_number").to_string();
+            let debit = money_or_nothing(&line, "debit")?;
+            let credit = money_or_nothing(&line, "credit")?;
+            let signed = debit.minus(&credit);
+            if is_cash(&number) {
+                cash_here = cash_here.plus(&signed);
+                continue;
+            }
+            if is_zero(&signed) {
+                continue;
+            }
+            let slot = match kind_of(&number).as_str() {
+                "revenue" | "expense" => Some(0usize),
+                "asset" => Some(1),
+                "liability" | "equity" => Some(2),
+                _ => None,
+            };
+            match slot {
+                Some(index) => by_class[index].push((name_of(&number), signed.negate())),
+                None => odd_here += 1,
+            }
+        }
+        if is_zero(&cash_here) {
+            continue;
+        }
+        if !dated_on_or_before(entry, &until) {
+            // later than the period: not this statement's business at all
+            continue;
+        }
+        if !dated_on_or_after(entry, &from) {
+            // everything before the period is what the business held when it opened
+            opening = opening.plus(&cash_here);
+            continue;
+        }
+        movement = movement.plus(&cash_here);
+        unclassified += odd_here;
+        for (index, class) in classes.iter_mut().enumerate() {
+            for (name, amount) in by_class[index].drain(..) {
+                if is_zero(&amount) {
+                    class.quiet += 1;
+                    continue;
+                }
+                match class.sources.iter_mut().find(|(known, _)| *known == name) {
+                    Some((_, running)) => *running = running.plus(&amount),
+                    None => class.sources.push((name, amount)),
+                }
+            }
+        }
+    }
+
+    let mut sections = Vec::new();
+    let mut classified = zero();
+    for class in classes {
+        let mut rows = class.sources;
+        rows.sort_by(|one, two| {
+            two.1
+                .abs()
+                .as_decimal()
+                .cmp(one.1.abs().as_decimal())
+                .then_with(|| one.0.cmp(&two.0))
+        });
+        let net = Money::sum(rows.iter().map(|(_, amount)| amount));
+        classified = classified.plus(&net);
+        sections.push(json!({
+            "title": class.title,
+            "lines": rows
+                .iter()
+                .map(|(name, amount)| json!({"description": name, "amount": wire(amount)}))
+                .collect::<Vec<_>>(),
+            "net": wire(&net),
+            "quiet": class.quiet,
+        }));
+    }
+
+    let cash_book_total = Money::sum(
+        Records::new(graph, CASH_BANK_ACCOUNT)
+            .list(scope, 1000)?
+            .into_iter()
+            .filter(|row| flag(row, "is_active"))
+            .map(|row| money_or_nothing(&row, "current_balance"))
+            .collect::<Result<Vec<_>, StoreError>>()?
+            .iter(),
+    );
+
+    Ok(json!({
+        "start_date": from,
+        "end_date": until,
+        "sections": sections,
+        "net_change": wire(&movement),
+        "opening_cash": wire(&opening),
+        "closing_cash": wire(&opening.plus(&movement)),
+        "unclassified": unclassified,
+        // the classes should add up to the movement: when they do not, something moved cash without a counterpart
+        "classified": wire(&classified),
+        "cash_accounts": cash_accounts
+            .iter()
+            .map(|(code, name)| json!({"account_number": code, "name": name}))
+            .collect::<Vec<_>>(),
+        "cash_book_total": wire(&cash_book_total),
+        "agrees_with_cash_book": cash_book_total == opening.plus(&movement),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1320,6 +1522,259 @@ mod tests {
         json!({"id": "e-1", "entry_date": "2026-03-15", "status": status,
                "description": "sale", "source_module": "Manual", "created_at": "2026-03-15T10:00:00",
                "lines": lines})
+    }
+
+    fn cash_book(graph: &vimbai_store::fake::MemoryGraph, code: &str, name: &str, balance: &str) {
+        vimbai_store::Records::new(graph, CASH_BANK_ACCOUNT)
+            .create(
+                &scope(),
+                &json!({"account_code": code, "account_name": name, "account_type": "bank",
+                        "current_balance": balance, "opening_balance": balance, "is_active": true}),
+            )
+            .expect("a cash account");
+    }
+
+    fn chart(graph: &vimbai_store::fake::MemoryGraph) {
+        for (number, name, kind, normal) in [
+            ("1000", "Cash", "asset", "debit"),
+            ("1500", "Equipment", "asset", "debit"),
+            ("2000", "Loan", "liability", "credit"),
+            ("3000", "Owner's stake", "equity", "credit"),
+            ("4000", "Sales", "revenue", "credit"),
+            ("5000", "Rent", "expense", "debit"),
+        ] {
+            vimbai_store::Records::new(graph, LEDGER_ACCOUNT)
+                .create(
+                    &scope(),
+                    &json!({"account_number": number, "name": name, "account_type": kind,
+                            "normal_balance": normal}),
+                )
+                .expect("an account");
+        }
+    }
+
+    fn posted_entry(graph: &vimbai_store::fake::MemoryGraph, date: &str, lines: Value) {
+        create_entry(
+            graph,
+            &scope(),
+            &json!({"entry_date": date, "description": "moved", "status": "posted", "lines": lines}),
+        )
+        .expect("a posted entry");
+    }
+
+    fn section<'a>(answer: &'a Value, title: &str) -> &'a Value {
+        answer["sections"]
+            .as_array()
+            .expect("sections")
+            .iter()
+            .find(|section| section["title"] == title)
+            .expect("the section")
+    }
+
+    #[test]
+    fn a_sale_is_operating_cash_and_a_loan_is_financing() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        cash_book(&graph, "1000", "Bank", "0");
+        posted_entry(
+            &graph,
+            "2026-03-10",
+            json!([{"account_number": "1000", "debit": "500.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "500.00"}]),
+        );
+        posted_entry(
+            &graph,
+            "2026-03-11",
+            json!([{"account_number": "1000", "debit": "2000.00", "credit": "0"},
+                   {"account_number": "2000", "debit": "0", "credit": "2000.00"}]),
+        );
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(answer["net_change"], "2500.000000");
+        assert_eq!(answer["opening_cash"], "0.000000");
+        assert_eq!(answer["closing_cash"], "2500.000000");
+        assert_eq!(section(&answer, "Operating")["net"], "500.000000");
+        assert_eq!(
+            section(&answer, "Operating")["lines"][0]["description"],
+            "Sales"
+        );
+        assert_eq!(section(&answer, "Financing")["net"], "2000.000000");
+        assert_eq!(section(&answer, "Investing")["net"], "0.000000");
+        // the classes account for every cent that moved
+        assert_eq!(answer["classified"], answer["net_change"]);
+    }
+
+    #[test]
+    fn money_out_reduces_the_class_it_came_from() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        cash_book(&graph, "1000", "Bank", "0");
+        posted_entry(
+            &graph,
+            "2026-03-12",
+            json!([{"account_number": "5000", "debit": "300.00", "credit": "0"},
+                   {"account_number": "1000", "debit": "0", "credit": "300.00"}]),
+        );
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(answer["net_change"], "-300.000000");
+        assert_eq!(section(&answer, "Operating")["net"], "-300.000000");
+        assert_eq!(
+            section(&answer, "Operating")["lines"][0]["amount"],
+            "-300.000000"
+        );
+    }
+
+    #[test]
+    fn buying_equipment_is_investing_not_operating() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        cash_book(&graph, "1000", "Bank", "0");
+        posted_entry(
+            &graph,
+            "2026-03-13",
+            json!([{"account_number": "1500", "debit": "800.00", "credit": "0"},
+                   {"account_number": "1000", "debit": "0", "credit": "800.00"}]),
+        );
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(section(&answer, "Investing")["net"], "-800.000000");
+        assert_eq!(section(&answer, "Operating")["net"], "0.000000");
+    }
+
+    #[test]
+    fn what_was_held_before_the_period_is_the_opening_balance() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        cash_book(&graph, "1000", "Bank", "0");
+        posted_entry(
+            &graph,
+            "2026-02-20",
+            json!([{"account_number": "1000", "debit": "1000.00", "credit": "0"},
+                   {"account_number": "3000", "debit": "0", "credit": "1000.00"}]),
+        );
+        posted_entry(
+            &graph,
+            "2026-03-05",
+            json!([{"account_number": "1000", "debit": "250.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "250.00"}]),
+        );
+        // later than the period: not this statement's business
+        posted_entry(
+            &graph,
+            "2026-04-05",
+            json!([{"account_number": "1000", "debit": "999.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "999.00"}]),
+        );
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(answer["opening_cash"], "1000.000000");
+        assert_eq!(answer["net_change"], "250.000000");
+        assert_eq!(answer["closing_cash"], "1250.000000");
+    }
+
+    #[test]
+    fn a_draft_moves_no_cash() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        cash_book(&graph, "1000", "Bank", "0");
+        create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-03-15", "description": "sale", "status": "draft",
+                    "lines": [{"account_number": "1000", "debit": "500.00", "credit": "0"},
+                              {"account_number": "4000", "debit": "0", "credit": "500.00"}]}),
+        )
+        .expect("a draft");
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(answer["net_change"], "0.000000");
+        assert_eq!(
+            section(&answer, "Operating")["lines"]
+                .as_array()
+                .expect("lines")
+                .len(),
+            0
+        );
+    }
+
+    #[test]
+    fn a_book_with_no_cash_account_is_refused_rather_than_shown_as_zero() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+
+        let refused = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        );
+        assert!(
+            refused.is_err(),
+            "a Book with no cash account has no cash to report"
+        );
+    }
+
+    #[test]
+    fn the_cash_book_is_named_beside_the_statement_and_its_disagreement_is_visible() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        // the cash book was opened with a balance that was never an entry
+        cash_book(&graph, "1000", "Bank", "1200.00");
+        posted_entry(
+            &graph,
+            "2026-03-05",
+            json!([{"account_number": "1000", "debit": "250.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "250.00"}]),
+        );
+
+        let answer = cash_flow(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("a statement");
+
+        assert_eq!(answer["closing_cash"], "250.000000");
+        assert_eq!(answer["cash_book_total"], "1200.000000");
+        assert_eq!(answer["agrees_with_cash_book"], false);
+        assert_eq!(answer["cash_accounts"][0]["name"], "Bank");
     }
 
     #[test]
