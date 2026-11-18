@@ -151,16 +151,45 @@ pub fn purchases_control_summary(
 }
 
 /// `GET /creditors`.
+///
+/// A balance on its own is not enough to act on: "c-1 owes 300" says nothing to somebody deciding who to pay. Each
+/// creditor is therefore named from their own most recent transaction that carried a name, and dated with the last day
+/// they were active, both read from the same ledger the balance is replayed from rather than kept anywhere else. A
+/// creditor whose transactions never carried a name is still listed, named by their identifier.
 pub fn list_creditors(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
 ) -> Result<Value, StoreError> {
-    let balances = replayed(&transactions(graph, scope)?);
+    let rows = transactions(graph, scope)?;
+    let balances = replayed(&rows);
     let total = Money::sum(balances.iter().map(|(_, balance)| balance));
     Ok(json!({
         "creditors": balances
             .iter()
-            .map(|(creditor, balance)| json!({"creditor_id": creditor, "balance": wire(balance)}))
+            .map(|(creditor, balance)| {
+                let theirs: Vec<&Value> = rows
+                    .iter()
+                    .filter(|row| text(row, "creditor_id") == *creditor)
+                    .collect();
+                let named = theirs
+                    .iter()
+                    .rev()
+                    .map(|row| text(row, "creditor_name"))
+                    .find(|name| !name.is_empty());
+                let last_day = theirs
+                    .iter()
+                    .map(|row| text(row, "date"))
+                    .filter(|day| !day.is_empty())
+                    .max()
+                    .unwrap_or_default();
+                json!({
+                    "creditor_id": creditor,
+                    "creditor_name": named.unwrap_or_else(|| creditor.clone()),
+                    "balance": wire(balance),
+                    "transactions": theirs.len(),
+                    "last_activity": last_day,
+                })
+            })
             .collect::<Vec<_>>(),
         "total_balance": wire(&total),
     }))

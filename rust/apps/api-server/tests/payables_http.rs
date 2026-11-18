@@ -147,6 +147,36 @@ async fn the_creditors_are_listed_with_their_balances() {
     assert_eq!(body["total_balance"], json!("1250.000000"));
 }
 
+/// A balance with nobody's name on it is not something a person can act on, so each creditor is named from their own most
+/// recent named transaction and dated with their last day of activity. A creditor whose entries never carried a name is
+/// still listed, named by their identifier rather than dropped.
+#[tokio::test]
+async fn a_creditor_is_listed_by_name_and_not_only_by_balance() {
+    let graph = Scripted::queue(vec![vec![
+        json!({"id": "t-1", "creditor_id": "paperco", "creditor_name": "Paper Co (old name)", "transaction_type": "purchase_invoice", "amount": "480.000000", "date": "2026-10-20"}),
+        json!({"id": "t-2", "creditor_id": "paperco", "creditor_name": "Paper Co", "transaction_type": "payment", "amount": "180.000000", "date": "2026-11-05"}),
+        json!({"id": "t-3", "creditor_id": "unnamed", "transaction_type": "purchase_invoice", "amount": "20.000000", "date": "2026-11-12"}),
+    ]]);
+    let (status, body) = call(graph, Method::GET, "/creditors", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let listed = body["creditors"].as_array().unwrap();
+    assert_eq!(listed.len(), 2);
+    let paper = listed
+        .iter()
+        .find(|row| row["creditor_id"] == json!("paperco"))
+        .expect("paperco is listed");
+    // the most recent name wins, and the last day of activity is the payment's
+    assert_eq!(paper["creditor_name"], json!("Paper Co"));
+    assert_eq!(paper["balance"], json!("300.000000"));
+    assert_eq!(paper["transactions"], json!(2));
+    assert_eq!(paper["last_activity"], json!("2026-11-05"));
+    let nameless = listed
+        .iter()
+        .find(|row| row["creditor_id"] == json!("unnamed"))
+        .expect("a creditor with no name is still listed");
+    assert_eq!(nameless["creditor_name"], json!("unnamed"));
+}
+
 #[tokio::test]
 async fn the_purchases_ledger_reconciles_with_its_control_account() {
     let graph = Scripted::queue(vec![
