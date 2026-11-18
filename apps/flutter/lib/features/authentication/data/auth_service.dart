@@ -687,6 +687,23 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // Tell the engine the session is over before forgetting it here. A refresh token outlives the screen - it is good for
+    // days - so a phone handed to someone else used to leave a session that could still be renewed by anything that had
+    // copied the token. The engine is best-effort: being unable to reach it must never keep a person signed in on a
+    // phone they are walking away from.
+    final refresh = await UserLocalData.getRefreshToken();
+    if (refresh != null && refresh.isNotEmpty) {
+      try {
+        await _client.post(
+          Uri.parse(
+            '$_baseUrl/identity/token/revoke?refresh_token=${Uri.encodeQueryComponent(refresh)}',
+          ),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        );
+      } catch (_) {
+        // no engine, no revocation; the local session ends regardless
+      }
+    }
     SessionToken.clear();
     await UserLocalData.clearUserData();
     SyncService.instance.stop(); // halt the offline outbox until next login
