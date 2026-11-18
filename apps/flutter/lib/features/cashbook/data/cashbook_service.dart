@@ -115,6 +115,48 @@ class CashPosition {
   ExactAmount get total => cash + bank + savings;
 }
 
+/// One month's check of a cash or bank account against the statement the bank sent.
+///
+/// The engine does the arithmetic: it adds the account's opening balance to its posted entries for the book side, and keeps
+/// the statement balance and the adjustments as given, so the record shows what the two sides said rather than what the phone
+/// thought. The difference is kept here as books minus statement: negative means the bank shows money the books have not
+/// recorded yet, positive means the books show money the bank has not seen.
+class CashReconciliation {
+  final String id;
+  final String accountCode;
+  final String statementDate;
+  final ExactAmount statementBalance;
+  final ExactAmount bookBalance;
+  final String status;
+  final String reviewedBy;
+
+  const CashReconciliation({
+    required this.id,
+    required this.accountCode,
+    required this.statementDate,
+    required this.statementBalance,
+    required this.bookBalance,
+    required this.status,
+    required this.reviewedBy,
+  });
+
+  factory CashReconciliation.fromJson(Map<String, dynamic> json) =>
+      CashReconciliation(
+        id: (json['id'] as String?) ?? '',
+        accountCode: (json['bank_account'] as String?) ?? '',
+        statementDate: (json['statement_date'] as String?) ?? '',
+        statementBalance: ExactAmount.fromJson(json['statement_balance']),
+        bookBalance: ExactAmount.fromJson(json['book_balance']),
+        status: (json['status'] as String?) ?? '',
+        reviewedBy: (json['reviewed_by'] as String?) ?? '',
+      );
+
+  /// What the books show beyond what the bank shows.
+  ExactAmount get gap => bookBalance - statementBalance;
+
+  bool get agrees => gap.isZero;
+}
+
 class CashBookService {
   CashBookService({http.Client? client, String? base})
     : _client = client ?? http.Client(),
@@ -253,6 +295,83 @@ class CashBookService {
       );
     }
     return CashEntry.fromJson(jsonDecode(answer.body) as Map<String, dynamic>);
+  }
+
+  /// Every reconciliation kept for one account, newest statement first.
+  Future<List<CashReconciliation>> reconciliations(String accountCode) async {
+    final answer = await _client.get(
+      Uri.parse(
+        '$_base/reconciliations?bank_account=${Uri.encodeQueryComponent(accountCode)}',
+      ),
+      headers: _headers,
+    );
+    if (answer.statusCode != 200) {
+      throw Exception(
+        'The engine answered ${answer.statusCode}: ${answer.body}',
+      );
+    }
+    return [
+      for (final row in jsonDecode(answer.body) as List)
+        CashReconciliation.fromJson(row as Map<String, dynamic>),
+    ];
+  }
+
+  /// Check one account against the statement the bank sent.
+  Future<CashReconciliation> reconcile({
+    required CashAccount account,
+    required String statementDate,
+    required ExactAmount statementBalance,
+    String preparedBy = '',
+  }) async {
+    if (statementDate.trim().isEmpty) {
+      throw Exception('A reconciliation needs the date of the statement.');
+    }
+    final answer = await _client.post(
+      Uri.parse('$_base/reconciliations'),
+      headers: _headers,
+      body: jsonEncode({
+        'bank_account': account.code,
+        'statement_date': statementDate.trim(),
+        'statement_balance': statementBalance.toLedgerString(),
+        if (preparedBy.trim().isNotEmpty) 'prepared_by': preparedBy.trim(),
+        'adjustments': const [],
+      }),
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 201) {
+      throw Exception(
+        'The engine refused the reconciliation: ${answer.statusCode} ${answer.body}',
+      );
+    }
+    return CashReconciliation.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Close a reconciliation that has been looked at and accepted.
+  Future<CashReconciliation> markReconciled(
+    CashReconciliation reconciliation, {
+    required String reviewedBy,
+    required String completedAt,
+  }) async {
+    if (reviewedBy.trim().isEmpty) {
+      throw Exception('Say who checked it.');
+    }
+    final answer = await _client.put(
+      Uri.parse('$_base/reconciliations/${reconciliation.id}/complete'),
+      headers: _headers,
+      body: jsonEncode({
+        'reviewed_by': reviewedBy.trim(),
+        'completed_at': completedAt,
+      }),
+    );
+    if (answer.statusCode != 200) {
+      throw Exception(
+        'The engine refused to close it: ${answer.statusCode} ${answer.body}',
+      );
+    }
+    return CashReconciliation.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
   }
 
   void close() => _client.close();

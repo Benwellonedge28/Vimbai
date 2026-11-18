@@ -11,6 +11,7 @@ import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/post_cash_entry_sheet.dart';
+import 'package:vimbai_mobile_client/features/cashbook/presentation/reconcile_sheet.dart';
 
 class CashAccountPage extends StatefulWidget {
   const CashAccountPage({
@@ -44,6 +45,7 @@ class _CashAccountPageState extends State<CashAccountPage> {
   bool _loading = true;
   String? _error;
   List<CashEntry> _entries = const [];
+  List<CashReconciliation> _checks = const [];
 
   @override
   void initState() {
@@ -59,9 +61,11 @@ class _CashAccountPageState extends State<CashAccountPage> {
     try {
       final entries = await _cash.entries(_account.code);
       final accounts = await _cash.accounts();
+      final checks = await _cash.reconciliations(_account.code);
       if (!mounted) return;
       setState(() {
         _entries = entries;
+        _checks = checks;
         for (final fresh in accounts) {
           if (fresh.code == _account.code) _account = fresh;
         }
@@ -84,6 +88,49 @@ class _CashAccountPageState extends State<CashAccountPage> {
           _EntrySheet(service: _cash, account: _account, moneyIn: moneyIn),
     );
     if (made == true && mounted) await _load();
+  }
+
+  Future<void> _reconcile() async {
+    final made = await ReconcileSheet.show(
+      context,
+      account: _account,
+      service: _cash,
+    );
+    if (made != null && mounted) {
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            made.agrees
+                ? 'Recorded. The books and the bank agree.'
+                : 'Recorded with the gap as it stands today.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _markChecked(CashReconciliation check) async {
+    final who = await showDialog<String>(
+      context: context,
+      builder: (_) => const _ReviewerDialog(),
+    );
+    if (who == null || !mounted) return;
+    try {
+      await _cash.markReconciled(
+        check,
+        reviewedBy: who,
+        completedAt: DateTime.now().toIso8601String(),
+      );
+      if (!mounted) return;
+      await _load();
+    } catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(CouldNotRead.reasonOf(failure))));
+    }
   }
 
   Future<void> _post(CashEntry entry) async {
@@ -110,7 +157,16 @@ class _CashAccountPageState extends State<CashAccountPage> {
       _entries.where((entry) => !entry.moneyIn).map((entry) => entry.amount),
     );
     return Scaffold(
-      appBar: AppBar(title: Text('${_account.code} · ${_account.name}')),
+      appBar: AppBar(
+        title: Text('${_account.code} · ${_account.name}'),
+        actions: [
+          IconButton(
+            tooltip: 'Reconcile with the statement',
+            onPressed: _reconcile,
+            icon: const Icon(Icons.fact_check_outlined),
+          ),
+        ],
+      ),
       body: _body(moneyIn, moneyOut),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -218,6 +274,94 @@ class _CashAccountPageState extends State<CashAccountPage> {
             ),
             onTap: () => _post(entry),
           ),
+        const Divider(height: 24),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Statement checks',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton(onPressed: _reconcile, child: const Text('Check it')),
+            ],
+          ),
+        ),
+        if (_checks.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: Text(
+              'Not yet checked against a bank statement. Checking asks what the statement '
+              'says, so a month the books and the bank disagree is found in the month it happened.',
+            ),
+          ),
+        for (final check in _checks)
+          ListTile(
+            leading: Icon(
+              check.agrees ? Icons.check_circle_outline : Icons.error_outline,
+              color: check.agrees
+                  ? Colors.green.shade700
+                  : Colors.orange.shade800,
+            ),
+            title: Text(reconciliationLine(check)),
+            subtitle: Text(
+              [
+                check.status == 'completed' ? 'checked' : 'still to be checked',
+                if (check.reviewedBy.isNotEmpty) 'by ${check.reviewedBy}',
+              ].join(' · '),
+            ),
+            trailing: check.status == 'completed'
+                ? null
+                : TextButton(
+                    onPressed: () => _markChecked(check),
+                    child: const Text('Checked'),
+                  ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Asks who checked the reconciliation, because the record names them.
+class _ReviewerDialog extends StatefulWidget {
+  const _ReviewerDialog();
+
+  @override
+  State<_ReviewerDialog> createState() => _ReviewerDialogState();
+}
+
+class _ReviewerDialogState extends State<_ReviewerDialog> {
+  final _who = TextEditingController();
+
+  @override
+  void dispose() {
+    _who.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Who checked it?'),
+      content: TextField(
+        controller: _who,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: 'Name'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_who.text.trim().isEmpty) return;
+            Navigator.of(context).pop(_who.text.trim());
+          },
+          child: const Text('Record it'),
+        ),
       ],
     );
   }
