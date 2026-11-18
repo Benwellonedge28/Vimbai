@@ -158,6 +158,188 @@ class CustomerOwing {
   });
 }
 
+/// One band of lateness, and what falls in it.
+///
+/// The bands are the ordinary ones a chase is run in: money not yet due is not a problem, and after that every month that
+/// passes makes a debt both less likely to be paid and more worth a phone call.
+class AgeingBand {
+  final String label;
+  final ExactAmount amount;
+  final int invoices;
+
+  const AgeingBand({
+    required this.label,
+    required this.amount,
+    required this.invoices,
+  });
+
+  bool get isEmpty => amount.isZero;
+}
+
+/// What one customer owes, split by how late each invoice is.
+class AgeingRow {
+  final String customerId;
+  final String name;
+  final List<AgeingBand> bands;
+  final ExactAmount owed;
+  final ExactAmount late;
+  final int oldestDaysLate;
+
+  const AgeingRow({
+    required this.customerId,
+    required this.name,
+    required this.bands,
+    required this.owed,
+    required this.late,
+    required this.oldestDaysLate,
+  });
+}
+
+/// The whole Book's lateness: who owes what, and how much of it has run past its due date.
+class AgeingReport {
+  final List<AgeingRow> rows;
+  final List<AgeingBand> bands;
+
+  const AgeingReport({required this.rows, required this.bands});
+
+  ExactAmount get owed =>
+      bands.fold(ExactAmount.zero, (running, band) => running + band.amount);
+
+  /// Everything past its due date, which is the money a chase is actually about.
+  ExactAmount get late => bands
+      .skip(1)
+      .fold(ExactAmount.zero, (running, band) => running + band.amount);
+
+  bool get isEmpty => owed.isZero;
+
+  AgeingRow? get worst {
+    AgeingRow? worst;
+    for (final row in rows) {
+      if (row.late.isZero) continue;
+      if (worst == null || row.oldestDaysLate > worst.oldestDaysLate) {
+        worst = row;
+      }
+    }
+    return worst;
+  }
+}
+
+/// The banding a chase is run in, named once so the screen and the tests cannot drift apart.
+const ageingBandLabels = [
+  'Not yet due',
+  '1–30 days late',
+  '31–60 days late',
+  '61–90 days late',
+  'Over 90 days late',
+];
+
+/// How late the money is, worked out from the invoice register.
+///
+/// Every figure comes from invoices the engine already answered - the outstanding amount and the date each one was due - so
+/// this cannot drift from the register. A settled invoice is not in it at all, and an invoice with no due date is counted as
+/// not yet due rather than as late, because a debt is only late against a date somebody agreed.
+AgeingReport ageingReport(
+  List<Invoice> held, {
+  required String today,
+  Map<String, String> names = const {},
+}) {
+  final owed = <String, List<ExactAmount>>{};
+  final counted = <String, List<int>>{};
+  final oldest = <String, int>{};
+  final byCustomer = <String, String>{};
+
+  int band(int daysLate) {
+    if (daysLate <= 0) return 0;
+    if (daysLate <= 30) return 1;
+    if (daysLate <= 60) return 2;
+    if (daysLate <= 90) return 3;
+    return 4;
+  }
+
+  for (final invoice in held) {
+    final owing = invoice.outstanding;
+    if (owing.isZero) continue;
+    final who = invoice.customerId;
+    byCustomer[who] = who;
+    final amounts = owed.putIfAbsent(
+      who,
+      () => List<ExactAmount>.filled(5, ExactAmount.zero),
+    );
+    final counts = counted.putIfAbsent(who, () => List<int>.filled(5, 0));
+    final daysLate = daysBetween(invoice.dueDate, today);
+    final at = band(daysLate);
+    amounts[at] = amounts[at] + owing;
+    counts[at] = counts[at] + 1;
+    if (daysLate > (oldest[who] ?? 0)) oldest[who] = daysLate;
+  }
+
+  final totals = List<ExactAmount>.filled(5, ExactAmount.zero);
+  final totalCounts = List<int>.filled(5, 0);
+  final rows = <AgeingRow>[];
+  for (final entry in owed.entries) {
+    final who = entry.key;
+    final bands = [
+      for (var i = 0; i < 5; i++)
+        AgeingBand(
+          label: ageingBandLabels[i],
+          amount: entry.value[i],
+          invoices: counted[who]![i],
+        ),
+    ];
+    for (var i = 0; i < 5; i++) {
+      totals[i] = totals[i] + entry.value[i];
+      totalCounts[i] = totalCounts[i] + counted[who]![i];
+    }
+    final total = entry.value.fold(ExactAmount.zero, (a, b) => a + b);
+    final late = entry.value.skip(1).fold(ExactAmount.zero, (a, b) => a + b);
+    rows.add(
+      AgeingRow(
+        customerId: who,
+        name: names[who] ?? who,
+        bands: bands,
+        owed: total,
+        late: late,
+        oldestDaysLate: oldest[who] ?? 0,
+      ),
+    );
+  }
+  // The people with money past its due date come first, worst first: that is the order a chase happens in.
+  rows.sort((a, b) {
+    if (a.late.isZero != b.late.isZero) return a.late.isZero ? 1 : -1;
+    if (a.late.isZero) return b.owed.compareTo(a.owed);
+    if (a.oldestDaysLate != b.oldestDaysLate) {
+      return b.oldestDaysLate.compareTo(a.oldestDaysLate);
+    }
+    return b.late.compareTo(a.late);
+  });
+  return AgeingReport(
+    rows: rows,
+    bands: [
+      for (var i = 0; i < 5; i++)
+        AgeingBand(
+          label: ageingBandLabels[i],
+          amount: totals[i],
+          invoices: totalCounts[i],
+        ),
+    ],
+  );
+}
+
+/// Whole days from one date to another, both written as yyyy-MM-dd.
+///
+/// Dates are compared as dates rather than as strings, because '2026-9-1' and '2026-09-01' sort differently as text and the
+/// same as days. An unreadable date counts as no time at all rather than as a large lateness.
+int daysBetween(String from, String to) {
+  final start = DateTime.tryParse(from.trim());
+  final end = DateTime.tryParse(to.trim());
+  if (start == null || end == null) return 0;
+  return DateTime(
+    end.year,
+    end.month,
+    end.day,
+  ).difference(DateTime(start.year, start.month, start.day)).inDays;
+}
+
 /// Who owes what, worked out from the register the engine already answered.
 ///
 /// It is a summary of the invoices rather than a second figure kept anywhere: an outstanding balance that the app

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/ageing_page.dart';
 
 class WhoOwesWhatPage extends StatefulWidget {
   const WhoOwesWhatPage({super.key, this.service});
@@ -63,7 +64,20 @@ class _WhoOwesWhatPageState extends State<WhoOwesWhatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Who owes what')),
+      appBar: AppBar(
+        title: const Text('Who owes what'),
+        actions: [
+          IconButton(
+            tooltip: 'How late the money is',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => AgeingPage(service: widget.service),
+              ),
+            ),
+            icon: const Icon(Icons.hourglass_bottom_outlined),
+          ),
+        ],
+      ),
       body: _body(),
     );
   }
