@@ -15,6 +15,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
+import 'package:vimbai_mobile_client/features/integrity/data/ledger_integrity.dart';
 import '../../../core/api/amount.dart';
 
 class AccountingApiService {
@@ -85,6 +86,23 @@ class AccountingApiService {
     } else {
       throw Exception('Failed to sync journal entry: ${response.body}');
     }
+  }
+
+  /// Proof that nothing in the books has been changed since it was written.
+  ///
+  /// The engine walks the chain of fingerprints and answers; the app never decides this itself, because a check the thing
+  /// being checked gets to pass is worth nothing.
+  Future<LedgerIntegrity> getLedgerIntegrity() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/ledger/integrity'),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return LedgerIntegrity.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw Exception('Failed to check the books: ${response.body}');
   }
 
   /// Posts a draft: one call on the engine turns the note into the entry it describes.

@@ -25,6 +25,7 @@ import 'package:vimbai_mobile_client/features/personal_finance/presentation/pers
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
+import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
 
 /// One service entry available to a Book type.
@@ -150,6 +151,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
     case 'business':
     default:
       return [
+        BookServiceEntry(
+          title: 'Proof nothing has changed',
+          description:
+              'That every posted entry is still what it was when it was written',
+          icon: Icons.verified_outlined,
+          page: (context) => const LedgerIntegrityPage(),
+        ),
         BookServiceEntry(
           title: 'How the year has gone',
           description:
