@@ -91,6 +91,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
 
-    expect(find.text('\$1234567890123456789012345678901.25'), findsWidgets);
+    // every digit, in full, and no currency symbol: the Book's currency is not the app's to assume
+    expect(find.text('1234567890123456789012345678901.25'), findsWidgets);
   });
 }

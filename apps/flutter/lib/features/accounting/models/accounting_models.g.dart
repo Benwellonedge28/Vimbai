@@ -349,6 +349,8 @@ BalanceSheet _$BalanceSheetFromJson(Map<String, dynamic> json) => BalanceSheet(
       .map((e) => BalanceSheetItem.fromJson(e as Map<String, dynamic>))
       .toList(),
   totalAssets: exactAmountFromJson(json['total_assets']),
+  totalLiabilities: exactAmountFromJson(json['total_liabilities']),
+  totalEquity: exactAmountFromJson(json['total_equity']),
   totalLiabilitiesEquity: exactAmountFromJson(json['total_liabilities_equity']),
 );
 
@@ -359,6 +361,8 @@ Map<String, dynamic> _$BalanceSheetToJson(BalanceSheet instance) =>
       'liabilities': instance.liabilities.map((e) => e.toJson()).toList(),
       'equity': instance.equity.map((e) => e.toJson()).toList(),
       'total_assets': exactAmountToJson(instance.totalAssets),
+      'total_liabilities': exactAmountToJson(instance.totalLiabilities),
+      'total_equity': exactAmountToJson(instance.totalEquity),
       'total_liabilities_equity': exactAmountToJson(
         instance.totalLiabilitiesEquity,
       ),

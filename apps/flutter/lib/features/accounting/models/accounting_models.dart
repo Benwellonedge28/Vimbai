@@ -448,6 +448,18 @@ class BalanceSheet {
   )
   final ExactAmount totalAssets;
   @JsonKey(
+    name: 'total_liabilities',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalLiabilities;
+  @JsonKey(
+    name: 'total_equity',
+    fromJson: exactAmountFromJson,
+    toJson: exactAmountToJson,
+  )
+  final ExactAmount totalEquity;
+  @JsonKey(
     name: 'total_liabilities_equity',
     fromJson: exactAmountFromJson,
     toJson: exactAmountToJson,
@@ -460,6 +472,8 @@ class BalanceSheet {
     required this.liabilities,
     required this.equity,
     required this.totalAssets,
+    required this.totalLiabilities,
+    required this.totalEquity,
     required this.totalLiabilitiesEquity,
   });
 
