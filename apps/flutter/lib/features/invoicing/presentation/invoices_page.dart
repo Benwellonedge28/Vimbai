@@ -144,7 +144,7 @@ class _InvoicesPageState extends State<InvoicesPage> {
         ),
       );
     }
-    final owing = ExactAmount.sum(held.map((invoice) => invoice.outstanding));
+    final owing = owedAcross(held);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

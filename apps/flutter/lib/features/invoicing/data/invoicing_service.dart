@@ -534,6 +534,13 @@ List<CustomerOwing> owingByCustomer(
 }
 
 /// The invoicing doors of one Book.
+/// What the whole register still has to bring in, added from the same figure each invoice shows.
+///
+/// One place, because two places would answer "how much is owed" differently the first time one of them was edited: the
+/// register's heading and the "where you stand" page both ask this.
+ExactAmount owedAcross(Iterable<Invoice> invoices) =>
+    ExactAmount.sum(invoices.map((invoice) => invoice.outstanding));
+
 class InvoicingService {
   InvoicingService._();
 
