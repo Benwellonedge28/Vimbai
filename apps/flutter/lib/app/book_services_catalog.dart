@@ -24,6 +24,7 @@ import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/presentation/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
+import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
 
 /// One service entry available to a Book type.
@@ -149,6 +150,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
     case 'business':
     default:
       return [
+        BookServiceEntry(
+          title: 'How the year has gone',
+          description:
+              'Each month so far: what came in, what went out, what stayed',
+          icon: Icons.timeline_outlined,
+          page: (context) => const YearTrendPage(),
+        ),
         BookServiceEntry(
           title: 'Books in order',
           description:
