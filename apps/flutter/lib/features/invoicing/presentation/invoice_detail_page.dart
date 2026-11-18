@@ -5,18 +5,30 @@
 // marked paid and whose income statement has never seen the money is exactly the mistake a business finds out about at
 // year end.
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 
 class InvoiceDetailPage extends StatefulWidget {
-  const InvoiceDetailPage({super.key, required this.invoice, this.service});
+  const InvoiceDetailPage({
+    super.key,
+    required this.invoice,
+    this.service,
+    this.accounting,
+  });
 
   final Invoice invoice;
 
   /// A test passes its own service so the page can be exercised without a server.
   final InvoicingService? service;
+
+  /// The ledger this Book posts to, injectable for the same reason.
+  final AccountingApiService? accounting;
 
   @override
   State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
@@ -26,8 +38,13 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
   late final InvoicingService _invoices =
       widget.service ?? InvoicingService.instance;
 
+  late final AccountingApiService _ledger =
+      widget.accounting ?? AccountingApiService();
+
   late Invoice _invoice = widget.invoice;
   bool _recording = false;
+  bool _posting = false;
+  bool _posted = false;
 
   Future<void> _recordPayment() async {
     final amount = await showDialog<ExactAmount>(
@@ -64,6 +81,117 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
       setState(() => _recording = false);
       _say(CouldNotRead.reasonOf(failure));
     }
+  }
+
+  /// Put the sale itself into the ledger.
+  ///
+  /// Recording a payment against an invoice is bookkeeping against the invoice; the money reaching the books is a journal
+  /// entry, and the ledger has exactly one route into it. This walks that route with the person rather than instead of
+  /// them: the two accounts are proposed from their own chart, shown as they will be posted, and nothing is written until
+  /// they say so. The invoice number travels as the entry's reference, so trying twice cannot post the same sale twice -
+  /// the engine refuses the second one by name.
+  Future<void> _postTheSale() async {
+    setState(() => _posting = true);
+    try {
+      final accounts = await _ledger.getAllAccounts();
+      final owed = _account(
+        accounts,
+        (account) =>
+            account.accountType == 'asset' &&
+            (account.accountName.toLowerCase().contains('receivable') ||
+                account.accountName.toLowerCase().contains('debtor')),
+      );
+      final earned = _account(
+        accounts,
+        (account) =>
+            account.accountType == 'revenue' ||
+            account.accountType == 'income' ||
+            account.accountName.toLowerCase().contains('sales'),
+      );
+      if (owed == null || earned == null) {
+        throw Exception(
+          'This Book\'s chart has no ${owed == null ? 'Accounts Receivable' : 'Sales'} account, '
+          'so the sale cannot be posted from here. Add one in Chart of accounts.',
+        );
+      }
+      final total = _invoice.total;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Post the sale'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dr ${owed.accountNumber} ${owed.accountName}  ${total.toDecimalString()}',
+              ),
+              Text(
+                'Cr ${earned.accountNumber} ${earned.accountName}  ${total.toDecimalString()}',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Reference ${_invoice.invoiceNumber}. Posted entries are corrected by reversing '
+                'them, never edited.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Post it'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        setState(() => _posting = false);
+        return;
+      }
+      await _ledger.createJournalEntry(
+        buildJournalEntry(
+          id: const Uuid().v4(),
+          entryDate: DateTime.parse(_invoice.invoiceDate),
+          description: 'Invoice ${_invoice.invoiceNumber}',
+          referenceNumber: _invoice.invoiceNumber,
+          lines: [
+            JournalLine(
+              accountNumber: owed.accountNumber,
+              description: 'Owed on ${_invoice.invoiceNumber}',
+              debit: total,
+            ),
+            JournalLine(
+              accountNumber: earned.accountNumber,
+              description: 'Sold on ${_invoice.invoiceNumber}',
+              credit: total,
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _posting = false;
+        _posted = true;
+      });
+      _say('${_invoice.invoiceNumber} is in the ledger.');
+    } catch (failure) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      _say(CouldNotRead.reasonOf(failure));
+    }
+  }
+
+  /// The first account in the chart that answers to [wanted].
+  Account? _account(List<Account> accounts, bool Function(Account) wanted) {
+    for (final account in accounts) {
+      if (wanted(account)) return account;
+    }
+    return null;
   }
 
   void _say(String words) => ScaffoldMessenger.of(
@@ -116,9 +244,27 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
               ),
             ),
           const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.menu_book_outlined),
+            title: const Text('Post the sale to the ledger'),
+            subtitle: Text(
+              _posted
+                  ? 'This sale is in the ledger under reference ${_invoice.invoiceNumber}.'
+                  : 'Dr Accounts Receivable, Cr Sales, for ${_invoice.total.toDecimalString()}. '
+                        'You will see the entry before it is posted.',
+            ),
+            trailing: _posted
+                ? const Icon(Icons.check_circle_outline)
+                : const Icon(Icons.chevron_right),
+            enabled: !_posted && !_posting,
+            onTap: _postTheSale,
+          ),
+          const SizedBox(height: 8),
           Text(
             'Recording a payment here is bookkeeping against the invoice. The money reaching the '
-            'ledger is a journal entry in Accounting, which is the only route into it.',
+            'ledger is a journal entry, and this screen writes one through the same route as '
+            'Accounting does.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
