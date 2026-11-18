@@ -12,6 +12,7 @@ import 'package:http/testing.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/payables/data/payables_service.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
+import 'package:vimbai_mobile_client/features/payables/presentation/supplier_account_page.dart';
 
 const String _listed =
     '{"creditors":['
@@ -163,6 +164,28 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'tapping a supplier opens their account, and the button beside it records a movement',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PayablesPage(service: _Fake().service, today: '2026-11-18'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // the name is what a person taps to ask "how did we get to 300.00?"
+      await tester.tap(find.text('Paper Co'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SupplierAccountPage), findsOneWidget);
+
+      // and recording is still reachable, but deliberately a separate act
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.add_circle_outline), findsWidgets);
+    },
+  );
 
   testWidgets('a control account that disagrees is said plainly, not hidden', (
     tester,

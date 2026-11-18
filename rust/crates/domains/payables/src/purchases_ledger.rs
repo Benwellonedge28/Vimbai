@@ -195,6 +195,107 @@ pub fn list_creditors(
     }))
 }
 
+/// `GET /creditors/{creditor_id}`: one supplier's account, as it stands.
+///
+/// A balance on the creditors list says how much is owed; it does not say how it got there, and a person paying a
+/// supplier needs the history: what was billed, what was paid, and what was left after each. So this is the same
+/// ledger walked for one creditor only.
+///
+/// The running figure is replayed here rather than read from the `balance` stamp each transaction carries, because a
+/// stamp records the balance at the moment it was written and a later correction to an earlier entry would leave the
+/// stamps disagreeing with the list. Both are read from the same rows in the same order, so the closing figure of an
+/// account is the balance the creditors list reports for that supplier.
+///
+/// Order is by date, oldest first, and a transaction with no readable date sorts before dated ones rather than
+/// vanishing: an entry that lost its date is still money, and dropping it would close the account at a figure the Book
+/// does not agree with. Transactions sharing a day keep the order they were recorded in.
+pub fn creditor_account(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    creditor_id: &str,
+) -> Result<Value, StoreError> {
+    let creditor_id = creditor_id.trim();
+    if creditor_id.is_empty() {
+        return Err(refused("a creditor is required"));
+    }
+
+    let rows = transactions(graph, scope)?;
+    let mut theirs: Vec<&Value> = rows
+        .iter()
+        .filter(|row| text(row, "creditor_id") == creditor_id)
+        .collect();
+    // stable: the store returns rows in the order they were written, and a sort by day must not shuffle a day's work
+    theirs.sort_by(|a, b| {
+        let left = day_of(&text(a, "date"));
+        let right = day_of(&text(b, "date"));
+        match (left, right) {
+            (Some(left), Some(right)) => left.cmp(&right),
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+    });
+
+    let mut invoices = Money::zero();
+    let mut debit_notes = Money::zero();
+    let mut payments = Money::zero();
+    let mut refunds = Money::zero();
+    let mut running = Money::zero();
+    let mut lines: Vec<Value> = Vec::new();
+    let mut named = String::new();
+    let mut last_day = String::new();
+
+    for row in &theirs {
+        let kind = text(row, "transaction_type");
+        let moved = stored_amount(row, "amount").unwrap_or_else(|_| Money::zero());
+        match movement(&kind) {
+            1 => {
+                invoices = invoices.plus(&moved);
+                running = running.plus(&moved);
+            }
+            -1 => {
+                match kind.as_str() {
+                    "debit_note" => debit_notes = debit_notes.plus(&moved),
+                    "payment" => payments = payments.plus(&moved),
+                    _ => refunds = refunds.plus(&moved),
+                }
+                running = running.minus(&moved);
+            }
+            _ => {}
+        }
+        let day = text(row, "date");
+        if !day.is_empty() {
+            last_day = day.clone();
+        }
+        let name = text(row, "creditor_name");
+        if !name.is_empty() {
+            named = name;
+        }
+        lines.push(json!({
+            "date": day,
+            "transaction_type": kind,
+            // a discount is recorded and moves nothing, so the account says so rather than showing a silent zero
+            "moves": movement(&kind) != 0,
+            "reference": text(row, "reference"),
+            "amount": wire(&moved),
+            "running": wire(&running),
+        }));
+    }
+
+    Ok(json!({
+        "creditor_id": creditor_id,
+        "creditor_name": if named.is_empty() { creditor_id.to_owned() } else { named },
+        "lines": lines,
+        "total_invoices": wire(&invoices),
+        "total_debit_notes": wire(&debit_notes),
+        "total_payments": wire(&payments),
+        "total_refunds": wire(&refunds),
+        "balance": wire(&running),
+        "transaction_count": theirs.len(),
+        "last_activity": last_day,
+    }))
+}
+
 /// `POST /reconcile`: the control account against the sum of the creditor balances.
 pub fn purchases_reconcile(
     graph: &(impl Graph + ?Sized),
@@ -235,6 +336,105 @@ mod tests {
             json!({"id": "t-3", "creditor_id": "c-2", "transaction_type": "purchase_invoice", "amount": "250.500000", "date": "2026-01-20"}),
             json!({"id": "t-4", "creditor_id": "c-1", "transaction_type": "debit_note", "amount": "100.000000", "date": "2026-02-01"}),
         ]
+    }
+
+    #[test]
+    fn a_suppliers_account_lists_what_was_billed_and_paid_with_the_balance_each_left() {
+        let graph = FakeGraph::returning(ledger());
+        let answer = creditor_account(&graph, &scope(), "c-1").expect("read");
+        assert_eq!(answer["creditor_id"], json!("c-1"));
+        assert_eq!(answer["transaction_count"], json!(3));
+        let lines = answer["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0]["transaction_type"], json!("purchase_invoice"));
+        assert_eq!(lines[0]["running"], json!("1000.000000"));
+        assert_eq!(lines[1]["running"], json!("600.000000"));
+        assert_eq!(lines[2]["running"], json!("500.000000"));
+        assert_eq!(answer["total_invoices"], json!("1000.000000"));
+        assert_eq!(answer["total_payments"], json!("400.000000"));
+        assert_eq!(answer["total_debit_notes"], json!("100.000000"));
+        assert_eq!(answer["balance"], json!("500.000000"));
+    }
+
+    #[test]
+    fn an_account_closes_at_the_balance_the_creditors_list_reports() {
+        // the two are read from the same rows in the same order, so a disagreement here would be a real defect
+        let graph = FakeGraph::returning(ledger());
+        let listed = list_creditors(&graph, &scope()).expect("listed");
+        let account = creditor_account(&graph, &scope(), "c-1").expect("read");
+        assert_eq!(account["balance"], listed["creditors"][0]["balance"]);
+    }
+
+    #[test]
+    fn an_account_is_ordered_by_day_even_when_it_was_recorded_out_of_order() {
+        let graph = FakeGraph::returning(vec![
+            json!({"id": "t-1", "creditor_id": "c-1", "transaction_type": "payment", "amount": "300.000000", "date": "2026-03-01"}),
+            json!({"id": "t-2", "creditor_id": "c-1", "transaction_type": "purchase_invoice", "amount": "900.000000", "date": "2026-01-15"}),
+        ]);
+        let answer = creditor_account(&graph, &scope(), "c-1").expect("read");
+        let lines = answer["lines"].as_array().unwrap();
+        assert_eq!(lines[0]["date"], json!("2026-01-15"));
+        assert_eq!(lines[0]["running"], json!("900.000000"));
+        assert_eq!(lines[1]["running"], json!("600.000000"));
+        assert_eq!(answer["balance"], json!("600.000000"));
+    }
+
+    #[test]
+    fn a_transaction_without_a_date_is_kept_and_sorts_first() {
+        let graph = FakeGraph::returning(vec![
+            json!({"id": "t-1", "creditor_id": "c-1", "transaction_type": "purchase_invoice", "amount": "200.000000", "date": "2026-02-01"}),
+            json!({"id": "t-2", "creditor_id": "c-1", "transaction_type": "purchase_invoice", "amount": "50.000000", "date": ""}),
+        ]);
+        let answer = creditor_account(&graph, &scope(), "c-1").expect("read");
+        let lines = answer["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), 2, "an undated entry is money, not nothing");
+        assert_eq!(lines[0]["date"], json!(""));
+        assert_eq!(lines[1]["running"], json!("250.000000"));
+    }
+
+    #[test]
+    fn a_discount_on_the_account_is_shown_as_moving_nothing() {
+        let graph = FakeGraph::returning(vec![
+            json!({"id": "t-1", "creditor_id": "c-1", "transaction_type": "purchase_invoice", "amount": "1000.000000", "date": "2026-01-01"}),
+            json!({"id": "t-2", "creditor_id": "c-1", "transaction_type": "discount", "amount": "100.000000", "date": "2026-01-05"}),
+        ]);
+        let answer = creditor_account(&graph, &scope(), "c-1").expect("read");
+        let lines = answer["lines"].as_array().unwrap();
+        assert_eq!(lines[1]["moves"], json!(false));
+        assert_eq!(lines[1]["running"], json!("1000.000000"));
+        assert_eq!(answer["balance"], json!("1000.000000"));
+    }
+
+    #[test]
+    fn a_supplier_is_named_from_their_own_entries_and_falls_back_to_the_identifier() {
+        let graph = FakeGraph::returning(vec![
+            json!({"id": "t-1", "creditor_id": "c-1", "creditor_name": "Harare Hardware", "transaction_type": "purchase_invoice", "amount": "500.000000", "date": "2026-01-01"}),
+        ]);
+        let answer = creditor_account(&graph, &scope(), "c-1").expect("read");
+        assert_eq!(answer["creditor_name"], json!("Harare Hardware"));
+        assert_eq!(answer["last_activity"], json!("2026-01-01"));
+
+        let nameless = FakeGraph::returning(vec![
+            json!({"id": "t-1", "creditor_id": "c-9", "transaction_type": "purchase_invoice", "amount": "10.000000", "date": "2026-01-01"}),
+        ]);
+        let answer = creditor_account(&nameless, &scope(), "c-9").expect("read");
+        assert_eq!(answer["creditor_name"], json!("c-9"));
+    }
+
+    #[test]
+    fn a_supplier_with_nothing_on_the_books_answers_an_empty_account_rather_than_failing() {
+        let graph = FakeGraph::returning(ledger());
+        let answer = creditor_account(&graph, &scope(), "c-nobody").expect("read");
+        assert_eq!(answer["transaction_count"], json!(0));
+        assert_eq!(answer["balance"], json!("0.000000"));
+        assert_eq!(answer["lines"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn an_account_without_a_supplier_is_refused() {
+        let graph = FakeGraph::returning(ledger());
+        let refused = creditor_account(&graph, &scope(), "  ");
+        assert!(refused.is_err(), "an account must name its supplier");
     }
 
     #[test]

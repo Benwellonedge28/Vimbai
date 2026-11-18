@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/payables/data/payables_service.dart';
+import 'package:vimbai_mobile_client/features/payables/presentation/supplier_account_page.dart';
 
 class PayablesPage extends StatefulWidget {
   const PayablesPage({super.key, this.service, this.today});
@@ -68,6 +69,20 @@ class _PayablesPageState extends State<PayablesPage> {
         _loading = false;
       });
     }
+  }
+
+  /// Their account: the history behind the balance on this page.
+  Future<void> _openAccount(OwedToSupplier supplier) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SupplierAccountPage(
+          supplierId: supplier.supplierId,
+          supplierName: supplier.name,
+        ),
+      ),
+    );
+    // a movement may have been recorded while it was open, so the balances are read again rather than assumed
+    if (mounted) await _load();
   }
 
   Future<void> _record({OwedToSupplier? onto}) async {
@@ -141,16 +156,27 @@ class _PayablesPageState extends State<PayablesPage> {
             Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                onTap: () => _record(onto: supplier),
+                // the name opens their account: what was billed, what was paid, what is left
+                onTap: () => _openAccount(supplier),
                 title: Text(supplier.name),
                 subtitle: Text(
                   supplier.lastActivity.isEmpty
                       ? '${supplier.movements} movements'
                       : '${supplier.movements} movements, last on ${supplier.lastActivity}',
                 ),
-                trailing: Text(
-                  supplier.balance.toDecimalString(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      supplier.balance.toDecimalString(),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      tooltip: 'Record a bill, payment or note',
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () => _record(onto: supplier),
+                    ),
+                  ],
                 ),
               ),
             ),

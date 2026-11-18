@@ -17339,6 +17339,22 @@ async fn get_creditors(State(graph): GraphState, headers: HeaderMap) -> Response
     ))
 }
 
+async fn get_creditor_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(creditor_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::purchases_ledger::creditor_account(
+        graph.as_ref(),
+        &scope,
+        &creditor_id,
+    ))
+}
+
 async fn reconcile_purchases_control_account(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -19680,6 +19696,10 @@ fn published_prefix_aliases(graph: GraphHandle) -> Router {
             get(get_purchases_control_summary),
         )
         .route("/purchases-ledger-control/creditors", get(get_creditors))
+        .route(
+            "/purchases-ledger-control/creditors/:creditor_id",
+            get(get_creditor_account),
+        )
         .route(
             "/purchases-ledger-control/reconcile",
             post(reconcile_purchases_control_account),
