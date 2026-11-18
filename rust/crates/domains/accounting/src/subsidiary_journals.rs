@@ -742,16 +742,18 @@ mod tests {
 
     /// Runs a create against a chart and returns the journal entry that was posted.
     fn posted_entry(build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>) -> Value {
-        // two chart reads (one per line), then the chain, then the entry write, then the journal write
+        // two chart reads (one per line), then the months closed, then the chain, then the entry write, then the journal
+        // write
         let graph = FakeGraph::queue(vec![
             chart(),
             chart(),
+            vec![],
             vec![],
             vec![json!({"id": "je-1"})],
             vec![json!({"id": "doc-1"})],
         ]);
         build(&graph).expect("created");
-        let (statement, params) = graph.statement(3);
+        let (statement, params) = graph.statement(4);
         assert!(statement.contains("CREATE"), "{statement}");
         // the lines are written as their own records now, carried in the same statement as the entry
         let mut entry = params["props"].as_object().cloned().expect("an entry");

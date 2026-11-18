@@ -36,6 +36,7 @@ pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
 pub mod ledger_book;
+pub mod periods;
 pub mod revenue_recognition;
 pub mod standards;
 pub mod subsidiary_journals;

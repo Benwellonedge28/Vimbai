@@ -2098,6 +2098,9 @@ async fn a_balanced_entry_over_ordinary_amounts_is_stored_stamped() {
             json!({"id": "a-2", "account_number": "4000", "account_type": "revenue",
                    "normal_balance": "credit"}),
         ],
+        // no month is closed
+        vec![],
+        // the chain so far, which is empty
         vec![],
         vec![json!({"id": "e-1"})],
     ]);
@@ -2161,6 +2164,9 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
     let graph = Scripted::queue(vec![
         chart.clone(),
         chart,
+        // no month is closed
+        vec![],
+        // the chain so far
         vec![],
         vec![json!({"id": "je-1"})],
         vec![json!({"id": "doc-1"})],

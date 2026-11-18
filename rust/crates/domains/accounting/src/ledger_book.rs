@@ -555,6 +555,13 @@ fn write_posting<G: Graph + ?Sized>(
         }
     }
 
+    // a month that has been reported on and closed cannot be written into: last month's figures have been read, filed
+    // and acted on, and an entry arriving now with an old date would change them without anybody being told
+    let entry_date = text(payload, "entry_date");
+    if let Some(refusal) = super::periods::refusal_for(graph, scope, &entry_date)? {
+        return Err(refused(&refusal));
+    }
+
     let reference = text(payload, "reference_number");
     let source_module = or_default(payload, "source_module", "Manual");
     if !reference.is_empty() && REFERENCE_CHECKED.contains(&source_module.as_str()) {
@@ -575,7 +582,7 @@ fn write_posting<G: Graph + ?Sized>(
         .unwrap_or_else(|| vimbai_store::minted_id(&scope.book_id));
     let body = json!({
         "id": entry_id,
-        "entry_date": text(payload, "entry_date"),
+        "entry_date": entry_date,
         "description": text(payload, "description"),
         "reference_number": reference,
         "source_module": source_module,
@@ -1626,6 +1633,65 @@ mod tests {
     }
 
     #[test]
+    fn an_entry_dated_into_a_closed_month_is_refused_and_the_journal_is_left_alone() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        chart(&graph);
+        posted_entry(
+            &graph,
+            "2026-10-20",
+            json!([{"account_number": "1000", "debit": "500.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "500.00"}]),
+        );
+        super::super::periods::close_period(
+            &graph,
+            &scope(),
+            &json!({"period": "2026-10", "closes_on": "2026-11-05"}),
+        )
+        .expect("October closes");
+
+        // the same trade again, dated inside the month that has been reported on
+        let refused = create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-10-31", "description": "late invoice", "status": "posted",
+                    "lines": [{"account_number": "1000", "debit": "90.00", "credit": "0"},
+                              {"account_number": "4000", "debit": "0", "credit": "90.00"}]}),
+        )
+        .expect_err("October is closed");
+        let words = refused.to_string();
+        assert!(words.contains("2026-10 is closed"), "{words}");
+
+        // nothing was written: the journal still holds the one entry it had
+        assert_eq!(entries(&graph, &scope()).expect("journal").len(), 1);
+
+        // a draft is a note rather than a posting, and posting it is refused for the same reason
+        let note = create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-10-31", "description": "late invoice", "status": "draft",
+                    "lines": [{"account_number": "1000", "debit": "90.00", "credit": "0"},
+                              {"account_number": "4000", "debit": "0", "credit": "90.00"}]}),
+        )
+        .expect("a note is kept");
+        let note_id = field(&note, "id").to_string();
+        let refused = post_draft(&graph, &scope(), &note_id).expect_err("and cannot be posted");
+        assert!(
+            refused.to_string().contains("2026-10 is closed"),
+            "{refused}"
+        );
+
+        // the same entry dated in the open month goes in
+        posted_entry(
+            &graph,
+            "2026-11-02",
+            json!([{"account_number": "1000", "debit": "90.00", "credit": "0"},
+                   {"account_number": "4000", "debit": "0", "credit": "90.00"}]),
+        );
+        assert_eq!(entries(&graph, &scope()).expect("journal").len(), 2);
+    }
+
+    #[test]
     fn what_a_period_spent_is_signed_in_each_account_s_own_direction() {
         use vimbai_store::fake::MemoryGraph;
         let graph = MemoryGraph::new();
@@ -2240,7 +2306,7 @@ mod tests {
     #[test]
     fn an_entry_is_stamped_over_the_stamp_before_it() {
         let graph = FakeGraph::queue(vec![
-            // the chart, once per line, then the chain, then the write
+            // the chart, once per line, then the months closed, then the chain, then the write
             vec![
                 account("1000", "asset", "debit"),
                 account("4000", "revenue", "credit"),
@@ -2249,6 +2315,7 @@ mod tests {
                 account("1000", "asset", "debit"),
                 account("4000", "revenue", "credit"),
             ],
+            vec![],
             vec![json!({"id": "e-9", "created_at": "2026-01-01T00:00:00", "entry_hash": "abc"})],
             vec![json!({"id": "e-1"})],
         ]);

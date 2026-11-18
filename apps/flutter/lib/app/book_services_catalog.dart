@@ -28,6 +28,7 @@ import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/presentation/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
+import 'package:vimbai_mobile_client/features/close/presentation/close_the_month_page.dart';
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
@@ -175,6 +176,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Whether the ledger adds up, what is still in draft, and whether suppliers agree',
           icon: Icons.fact_check_outlined,
           page: (context) => const BooksInOrderPage(),
+        ),
+        BookServiceEntry(
+          title: 'Close the month',
+          description:
+              'Make a month final, so nothing more is posted into it',
+          icon: Icons.lock_clock_outlined,
+          page: (context) => const CloseTheMonthPage(),
         ),
         BookServiceEntry(
           title: 'Where you stand',

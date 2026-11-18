@@ -28,6 +28,7 @@ services:
   - GET /accounting/cash-disbursements-journal
   - GET /accounting/cash-flow
   - GET /accounting/cash-receipts-journal
+  - GET /accounting/closed-periods
   - GET /accounting/control-accounts
   - GET /accounting/income-statement
   - GET /accounting/journal-entries
@@ -54,6 +55,7 @@ services:
   - POST /accounting/capital-calculations
   - POST /accounting/cash-disbursements-journal
   - POST /accounting/cash-receipts-journal
+  - POST /accounting/closed-periods
   - POST /accounting/control-accounts
   - POST /accounting/journal-entries
   - POST /accounting/journal-entries/{}/post

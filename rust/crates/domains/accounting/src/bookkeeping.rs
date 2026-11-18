@@ -1078,6 +1078,9 @@ mod tests {
                         "account_type": "expense", "normal_balance": "debit"})],
             vec![json!({"id": "acct-6101", "account_number": "1001",
                         "account_type": "asset", "normal_balance": "debit"})],
+            // no month is closed
+            vec![],
+            // the chain so far, which is empty
             vec![],
             vec![json!({"id": "je-1"})],
             vec![json!({"id": "pce-1"})],

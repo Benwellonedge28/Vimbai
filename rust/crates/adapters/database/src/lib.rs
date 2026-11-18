@@ -406,6 +406,12 @@ pub const JOURNAL_ENTRY: RecordKind = RecordKind::new("JournalEntry", "OWNS_JOUR
 /// entry it describes.
 pub const JOURNAL_DRAFT: RecordKind = RecordKind::new("JournalDraft", "OWNS_JOURNAL_DRAFT");
 
+/// A month a Book has reported on and locked.
+///
+/// Kept apart from the journal on purpose: it is a decision about a period rather than a posting, it can be reopened
+/// while the journal cannot be rewritten, and the posting check reads it before anything is written.
+pub const CLOSED_PERIOD: RecordKind = RecordKind::new("ClosedPeriod", "OWNS_CLOSED_PERIOD");
+
 /// The records accounting-standards-service owns.
 pub const STANDARDS_CONFIG: RecordKind =
     RecordKind::new("StandardsConfig", "OWNS_STANDARDS_CONFIG");

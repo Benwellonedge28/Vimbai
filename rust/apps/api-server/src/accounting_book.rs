@@ -2,6 +2,7 @@
 
 use accounting::bookkeeping as papers;
 use accounting::ledger_book as book;
+use accounting::periods;
 use accounting::subsidiary_journals as journals;
 use axum::{
     extract::{Path, RawQuery, State},
@@ -230,6 +231,28 @@ async fn integrity(State(graph): GraphState, headers: HeaderMap) -> Response {
         Err(response) => return *response,
     };
     answer(book::verify_chain(graph.as_ref(), &scope))
+}
+
+/// `POST /accounting/closed-periods/`: lock a month so nothing more can be posted into it.
+async fn close_period(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(periods::close_period(graph.as_ref(), &scope, &payload))
+}
+
+/// `GET /accounting/closed-periods/`: the months closed, and the day the open books begin.
+async fn closed_periods(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(periods::list_periods(graph.as_ref(), &scope))
 }
 
 async fn ledger(
@@ -904,6 +927,11 @@ pub fn router(graph: GraphHandle) -> Router {
                 post(reverse_entry),
             )
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
+            // a month that has been reported on can be locked, and then nothing more is posted into it
+            .route(
+                &format!("{prefix}/closed-periods"),
+                post(close_period).get(closed_periods),
+            )
             .route(&format!("{prefix}/ledgers/:account_number"), get(ledger))
             .route(
                 &format!("{prefix}/sales-journal"),
