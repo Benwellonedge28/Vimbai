@@ -17,6 +17,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/income_sta
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
@@ -178,6 +179,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Money held, owed to you, owed by you, and what you have made',
           icon: Icons.insights,
           page: (context) => const WhereYouStandPage(),
+        ),
+        BookServiceEntry(
+          title: 'Everyone you bill',
+          description:
+              'Your customers, how to reach them, and what each one owes',
+          icon: Icons.people_outline,
+          page: (context) => const CustomerRegisterPage(),
         ),
         BookServiceEntry(
           title: 'Sales invoices',

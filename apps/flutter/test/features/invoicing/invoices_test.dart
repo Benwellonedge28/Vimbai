@@ -80,6 +80,43 @@ void main() {
     },
   );
 
+  test(
+    'an invoice whose lines come to nothing is refused before it is sent',
+    () async {
+      var sent = false;
+      final service = InvoicingService.fresh()
+        ..useClient(
+          MockClient((request) async {
+            sent = true;
+            return http.Response('{}', 200);
+          }),
+        );
+
+      await expectLater(
+        service.raiseInvoice(
+          invoiceNumber: 'INV-0002',
+          customer: _customer,
+          invoiceDate: DateTime(2026, 11, 18),
+          dueDate: DateTime(2026, 12, 18),
+          lines: [
+            InvoiceLine(
+              description: 'Consulting',
+              quantity: ExactAmount.parse('2'),
+              unitPrice: ExactAmount.zero,
+            ),
+          ],
+        ),
+        throwsA(
+          predicate(
+            (error) => error.toString().contains('would bill 0.00'),
+            'names the zero bill',
+          ),
+        ),
+      );
+      expect(sent, isFalse, reason: 'nothing reached the engine');
+    },
+  );
+
   test('the number offered is one past the highest already taken', () {
     final service = InvoicingService.fresh();
     expect(service.nextNumberFor([]), 'INV-0001');

@@ -22,10 +22,18 @@ class InvoiceCustomer {
   final String customerId;
   final String name;
 
+  /// How to reach them. Kept by the engine since the domain was ported and empty until somebody fills them in.
+  final String email;
+  final String phone;
+  final String address;
+
   const InvoiceCustomer({
     required this.id,
     required this.customerId,
     required this.name,
+    this.email = '',
+    this.phone = '',
+    this.address = '',
   });
 
   factory InvoiceCustomer.fromJson(Map<String, dynamic> json) =>
@@ -33,10 +41,16 @@ class InvoiceCustomer {
         id: (json['id'] as String?) ?? '',
         customerId: (json['customer_id'] as String?) ?? '',
         name: (json['name'] as String?) ?? '',
+        email: (json['email'] as String?) ?? '',
+        phone: (json['phone'] as String?) ?? '',
+        address: (json['address'] as String?) ?? '',
       );
 
   /// What a list shows when a customer was saved without a name.
   String get label => name.isNotEmpty ? name : customerId;
+
+  /// Whether there is a way to reach them on file at all.
+  bool get reachable => email.isNotEmpty || phone.isNotEmpty;
 }
 
 /// One line of an invoice: what was sold, how much of it, and at what price.
@@ -105,6 +119,16 @@ class Invoice {
 
   /// What has still to come in on this invoice.
   ExactAmount get outstanding => total - paid;
+
+  /// Whether this invoice is money the customer has actually been asked for.
+  ///
+  /// A draft has not been sent and a void one was withdrawn, so neither is a debt: counting them would chase money nobody
+  /// was ever billed. Every total in the app - who owes what, how late it is, a customer's account, the register - adds up
+  /// this figure rather than [outstanding], so a draft can never inflate what a business believes it is owed.
+  bool get isClaim => status != 'draft' && status != 'void';
+
+  /// What this invoice adds to what the customer owes: its outstanding amount if it has been asked for, otherwise nothing.
+  ExactAmount get claim => isClaim ? outstanding : ExactAmount.zero;
 }
 
 /// What the engine says after a payment is recorded against an invoice.
@@ -293,7 +317,7 @@ CustomerStatement customerStatement(
   var late = ExactAmount.zero;
   var oldest = 0;
   for (final invoice in mine) {
-    final owing = invoice.outstanding;
+    final owing = invoice.claim;
     if (owing.isZero) continue;
     final days = daysBetween(invoice.dueDate, today);
     if (days <= 0) continue;
@@ -413,7 +437,7 @@ AgeingReport ageingReport(
   }
 
   for (final invoice in held) {
-    final owing = invoice.outstanding;
+    final owing = invoice.claim;
     if (owing.isZero) continue;
     final who = invoice.customerId;
     byCustomer[who] = who;
@@ -508,7 +532,7 @@ List<CustomerOwing> owingByCustomer(
   final counted = <String, int>{};
   final earliest = <String, String>{};
   for (final invoice in held) {
-    final owing = invoice.outstanding;
+    final owing = invoice.claim;
     if (owing.isZero) continue;
     final who = invoice.customerId;
     owed[who] = (owed[who] ?? ExactAmount.zero) + owing;
@@ -539,7 +563,7 @@ List<CustomerOwing> owingByCustomer(
 /// One place, because two places would answer "how much is owed" differently the first time one of them was edited: the
 /// register's heading and the "where you stand" page both ask this.
 ExactAmount owedAcross(Iterable<Invoice> invoices) =>
-    ExactAmount.sum(invoices.map((invoice) => invoice.outstanding));
+    ExactAmount.sum(invoices.map((invoice) => invoice.claim));
 
 class InvoicingService {
   InvoicingService._();
@@ -615,6 +639,57 @@ class InvoicingService {
     );
   }
 
+  /// Change a customer's details.
+  ///
+  /// The name may be corrected; the identifier never is, because that is what every invoice already points at. A misspelt
+  /// name is exactly what this is for, so it is the one thing the register lets a person fix.
+  Future<InvoiceCustomer> updateCustomer(
+    String customerId, {
+    required String name,
+    String? email,
+    String? phone,
+    String? address,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('A customer needs a name.');
+    }
+    final answer = await _client.put(
+      Uri.parse('$_base/customers/$customerId'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': trimmed,
+        'email': email ?? '',
+        'phone': phone ?? '',
+        'address': address ?? '',
+      }),
+    );
+    if (answer.statusCode != 200) {
+      throw Exception(
+        'The engine refused the change: ${answer.statusCode} ${answer.body}',
+      );
+    }
+    return InvoiceCustomer.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Forget a customer.
+  ///
+  /// Only ever offered for a customer with no invoices: the engine would delete one that has them, and every invoice they
+  /// were billed on would be left pointing at nothing.
+  Future<void> removeCustomer(String customerId) async {
+    final answer = await _client.delete(
+      Uri.parse('$_base/customers/$customerId'),
+      headers: _headers,
+    );
+    if (answer.statusCode != 200) {
+      throw Exception(
+        'The engine refused to remove the customer: ${answer.statusCode} ${answer.body}',
+      );
+    }
+  }
+
   /// Every invoice the Book has raised, newest first as the engine returns them.
   Future<List<Invoice>> listInvoices() async {
     final answer = await _client.get(
@@ -652,6 +727,14 @@ class InvoicingService {
       throw Exception('An invoice needs at least one line.');
     }
     final total = ExactAmount.sum(lines.map((line) => line.amount));
+    // an invoice for nothing is a mistyped line rather than a bill: the engine takes a zero total as faithfully as any other
+    // figure, and a customer billed 0.00 is a debt that will never be chased
+    if (total.isZero) {
+      throw Exception(
+        'Every line came to nothing, so this would bill 0.00. Check the '
+        'quantity and the price.',
+      );
+    }
     final answer = await _client.post(
       Uri.parse('$_base/invoices'),
       headers: _headers,
