@@ -200,7 +200,10 @@ class _CashAccountPageState extends State<CashAccountPage> {
               [
                 entry.date,
                 if (entry.voucher.isNotEmpty) entry.voucher,
-                entry.status,
+                // Only an unusual state is worth saying: a posted entry is the norm, and a line reading "posted" on every
+                // row is noise that hides the one that says voided.
+                if (entry.status.isNotEmpty && entry.status != 'posted')
+                  entry.status,
                 if (_posted.contains(entry.id)) 'in the ledger',
               ].join(' · '),
             ),

@@ -148,6 +148,9 @@ void main() {
     expect(sent['bank_account'], 'CB-001');
     expect(sent['amount'], '250.000000');
     expect(sent['description'], 'Paid by Acme');
+    // the engine moves the balance on creation whatever the status, but counts only posted entries in the account's own
+    // statement and in a reconciliation - an entry left pending made those two halves disagree
+    expect(sent['status'], 'posted');
   });
 
   testWidgets(

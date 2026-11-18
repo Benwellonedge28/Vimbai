@@ -241,7 +241,10 @@ class CashBookService {
         'is_debit': moneyIn,
         'bank_account': account.code,
         'book_type': moneyIn ? 'receipts' : 'payments',
-        'status': 'pending',
+        // Written as posted, not left waiting. The engine moves the account's balance when the entry is created whatever
+        // its status, but its own statement and any reconciliation count only posted entries - so an entry left pending had
+        // the account's balance and the account's statement disagreeing about the same money.
+        'status': 'posted',
       }),
     );
     if (answer.statusCode != 200 && answer.statusCode != 201) {
