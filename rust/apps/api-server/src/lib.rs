@@ -1309,7 +1309,22 @@ mod typed_adapters {
         // a rate of zero is a rate, not a missing field
         assert_eq!(out["total_nassa"], json!("300.00"));
         assert_eq!(out["total_cost_to_company"], json!("17600.00"));
-        assert_eq!(out["journal_entries"].as_array().map(Vec::len), Some(8));
+        // nine lines, and they balance: other deductions are money held for somebody else, so they are
+        // credited rather than dropping out of the journal
+        assert_eq!(out["journal_entries"].as_array().map(Vec::len), Some(9));
+        let lines = out["journal_entries"].as_array().expect("lines");
+        let debit: f64 = lines
+            .iter()
+            .map(|line| line["debit"].as_f64().unwrap_or(0.0))
+            .sum();
+        let credit: f64 = lines
+            .iter()
+            .map(|line| line["credit"].as_f64().unwrap_or(0.0))
+            .sum();
+        assert!(
+            (debit - credit).abs() < 0.005,
+            "debits {debit} against credits {credit}"
+        );
     }
 
     #[test]

@@ -109,6 +109,15 @@ pub fn process_payroll(employees: &[EmployeeSalary]) -> PayrollAccountingOutput 
             total_pension.plus(&employer_pension),
         ),
         line("Medical Aid Payable", zero.clone(), total_medical.clone()),
+        // A deduction the payroll takes from a person's pay is money the business now holds for
+        // somebody else - a garnishee, a staff loan repayment, union dues - so it is owed onward and
+        // needs its own credit. Without this line the journal was short by exactly the other
+        // deductions, which meant a run could not be posted to a ledger that insists on balance.
+        line(
+            "Other Deductions Payable",
+            zero.clone(),
+            total_other.clone(),
+        ),
         line("Salaries Payable", zero.clone(), total_net.clone()),
     ];
 
@@ -230,11 +239,12 @@ mod tests {
 
         let debits = Money::sum(r.journal_entries.iter().map(|j| &j.debit));
         let credits = Money::sum(r.journal_entries.iter().map(|j| &j.credit));
-        // PYTHON QUIRK KEPT: "other deductions" reduce net pay but have no
-        // payable credit line, so the journal sits 200 out of balance.
+        // The other deductions are money held for somebody else, so they are credited and the run
+        // balances. It did not before: the journal was short by exactly that total, and a ledger
+        // that refuses an unbalanced entry means the run could not be posted at all.
         assert_eq!(debits.to_fixed(2), "11000.00");
-        assert_eq!(credits.to_fixed(2), "10800.00");
-        assert_eq!(debits.minus(&credits).to_fixed(2), "200.00");
+        assert_eq!(credits.to_fixed(2), "11000.00");
+        assert_eq!(debits.minus(&credits).to_fixed(2), "0.00");
     }
 
     #[test]
@@ -242,7 +252,11 @@ mod tests {
         let r = process_payroll(&[employee("6000", "0", "0"), employee("6000", "0", "0")]);
         assert_eq!(r.total_gross.to_fixed(2), "12000.00");
         assert_eq!(r.total_net.to_fixed(2), "7860.00");
-        assert_eq!(r.journal_entries.len(), 8);
+        // nine lines: seven charges and payables, the other deductions the business holds, and net pay
+        assert_eq!(r.journal_entries.len(), 9);
+        let debits = Money::sum(r.journal_entries.iter().map(|j| &j.debit));
+        let credits = Money::sum(r.journal_entries.iter().map(|j| &j.credit));
+        assert_eq!(debits.to_fixed(2), credits.to_fixed(2));
     }
 
     #[test]
@@ -286,6 +300,9 @@ mod tests {
         emp.paye_rate = 0.25;
         let r = process_payroll(&[emp]);
         assert_eq!(r.total_net.to_fixed(2), "0.00");
-        assert_eq!(r.journal_entries.len(), 8);
+        assert_eq!(r.journal_entries.len(), 9);
+        let debits = Money::sum(r.journal_entries.iter().map(|j| &j.debit));
+        let credits = Money::sum(r.journal_entries.iter().map(|j| &j.credit));
+        assert_eq!(debits.to_fixed(2), credits.to_fixed(2));
     }
 }
