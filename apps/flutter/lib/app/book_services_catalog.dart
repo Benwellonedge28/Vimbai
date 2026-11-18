@@ -23,6 +23,7 @@ import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_pa
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/presentation/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
+import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
 
 /// One service entry available to a Book type.
@@ -148,6 +149,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
     case 'business':
     default:
       return [
+        BookServiceEntry(
+          title: 'Books in order',
+          description:
+              'Whether the ledger adds up, what is still in draft, and whether suppliers agree',
+          icon: Icons.fact_check_outlined,
+          page: (context) => const BooksInOrderPage(),
+        ),
         BookServiceEntry(
           title: 'Where you stand',
           description:
