@@ -166,6 +166,26 @@ class ExactAmount implements Comparable<ExactAmount> {
 
   ExactAmount operator -(ExactAmount other) => this + other.negated();
 
+  /// This amount multiplied by [other], exactly, then carried back to the six places an amount holds.
+  ///
+  /// Two six-place figures make a twelve-place product, so the carrying back is a single rounding rather than a running
+  /// one, and it rounds half to even - the rule the engine's own division uses - so a line amount computed here and the
+  /// same line computed there agree. Hundredths of a cent cannot drift into a total through repeated additions, and a
+  /// quantity times a unit price is the figure a person reading the line would work out by hand.
+  ExactAmount operator *(ExactAmount other) {
+    if (isZero || other.isZero) return zero;
+    final product = BigInt.parse(digits) * BigInt.parse(other.digits);
+    final divisor = BigInt.from(10).pow(scale);
+    var carried = product ~/ divisor;
+    final remainder = product - carried * divisor;
+    final twice = remainder * BigInt.two;
+    if (twice > divisor || (twice == divisor && carried.isOdd)) {
+      carried += BigInt.one;
+    }
+    final pointing = negative != other.negative;
+    return ExactAmount._(pointing, _strip(carried.toString()))._normalised();
+  }
+
   /// The same amount in the other direction.
   ExactAmount negated() => isZero ? zero : ExactAmount._(!negative, digits);
 

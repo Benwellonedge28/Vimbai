@@ -16,6 +16,7 @@ import 'package:vimbai_mobile_client/features/household_finance/presentation/hou
 import 'package:vimbai_mobile_client/features/accounting/presentation/income_statement_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/presentation/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
@@ -143,6 +144,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
     case 'business':
     default:
       return [
+        BookServiceEntry(
+          title: 'Sales invoices',
+          description: 'Bill a customer, and see what is still to come in',
+          icon: Icons.receipt_long,
+          page: (context) => const InvoicesPage(),
+        ),
         BookServiceEntry(
           title: 'Chart of accounts',
           description: 'Your business account structure',
