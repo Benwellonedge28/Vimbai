@@ -17,3 +17,4 @@ postgres = { version = "0.19", features = ["with-serde_json-1"] }
 
 [dev-dependencies]
 tempfile = "3"
+vimbai_test_support = { path = "../../../tests/support" }

@@ -18,47 +18,12 @@ use vimbai_store::{
     BookScope, Graph, PlatformRecords, RecordKind, Records, JOURNAL_ENTRY, JOURNAL_LINE,
     LEDGER_ACCOUNT,
 };
+use vimbai_test_support::TestSchema;
 
-/// A namespace of this test's own, dropped when the guard goes.
-struct Database {
-    dsn: String,
-    schema: String,
-}
-
-impl Database {
-    fn open() -> Option<Self> {
-        let base = std::env::var("VIMBAI_TEST_POSTGRES").ok()?;
-        let schema = format!("vimbai_test_{}", std::process::id()) + &format!("_{}", unique());
-        let mut admin = postgres::Client::connect(&base, postgres::NoTls)
-            .unwrap_or_else(|error| panic!("cannot reach {base}: {error}"));
-        admin
-            .batch_execute(&format!("CREATE SCHEMA {schema};"))
-            .unwrap_or_else(|error| panic!("cannot create {schema}: {error}"));
-        // search_path makes the store's own statements land in this namespace without the store having to know about it
-        let dsn = format!("{base} options='-c search_path={schema}'");
-        Some(Self { dsn, schema })
-    }
-
-    fn store(&self) -> PostgresGraph {
-        PostgresGraph::connect(&self.dsn, 4).expect("a store")
-    }
-}
-
-impl Drop for Database {
-    fn drop(&mut self) {
-        let base = self.dsn.split(" options=").next().unwrap().to_owned();
-        if let Ok(mut admin) = postgres::Client::connect(&base, postgres::NoTls) {
-            let _ = admin.batch_execute(&format!("DROP SCHEMA IF EXISTS {} CASCADE;", self.schema));
-        }
-    }
-}
-
-fn unique() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_nanos() as u64)
-        .unwrap_or(7)
+/// A namespace of this test's own, from the store crate's one helper, so every suite names and drops a namespace the
+/// same way and the create is retried when the server is busy with the other test binaries starting beside it.
+fn database() -> Option<TestSchema> {
+    TestSchema::open("vimbai_test")
 }
 
 fn scope(book: &str, user: &str) -> BookScope {
@@ -75,10 +40,10 @@ fn skip(name: &str) {
 
 #[test]
 fn a_book_is_written_read_listed_and_kept_to_itself() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_book_is_written_read_listed_and_kept_to_itself");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let entries = Records::new(&store, JOURNAL_ENTRY);
 
     let entry = entries
@@ -109,10 +74,10 @@ fn a_book_is_written_read_listed_and_kept_to_itself() {
 
 #[test]
 fn an_entry_and_its_lines_arrive_together_and_are_walked_from_the_account() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("an_entry_and_its_lines_arrive_together_and_are_walked_from_the_account");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let accounts = Records::new(&store, LEDGER_ACCOUNT);
     let book = scope("book-1", "sam");
 
@@ -155,10 +120,10 @@ fn an_entry_and_its_lines_arrive_together_and_are_walked_from_the_account() {
 
 #[test]
 fn a_refused_posting_leaves_no_edge_and_no_half_entry() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_refused_posting_leaves_no_edge_and_no_half_entry");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let book = scope("book-1", "sam");
     let entries = Records::new(&store, JOURNAL_ENTRY);
 
@@ -181,10 +146,10 @@ fn a_refused_posting_leaves_no_edge_and_no_half_entry() {
 
 #[test]
 fn an_amount_of_thirty_nine_digits_survives_the_crossing() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("an_amount_of_thirty_nine_digits_survives_the_crossing");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let people = PlatformRecords::new(&store, RecordKind::new("Account", "OWNS_ACCOUNT"));
     let amount = "123456789012345678901234567890.123456789";
     let made = people
@@ -200,10 +165,10 @@ fn an_amount_of_thirty_nine_digits_survives_the_crossing() {
 
 #[test]
 fn a_platform_record_is_stored_found_changed_and_removed() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_platform_record_is_stored_found_changed_and_removed");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let people = PlatformRecords::new(&store, RecordKind::new("Account", "OWNS_ACCOUNT"));
 
     people
@@ -235,10 +200,10 @@ fn a_platform_record_is_stored_found_changed_and_removed() {
 
 #[test]
 fn a_platform_write_replaces_rather_than_colliding() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_platform_write_replaces_rather_than_colliding");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let people = PlatformRecords::new(&store, RecordKind::new("Account", "OWNS_ACCOUNT"));
 
     let first = people
@@ -255,10 +220,10 @@ fn a_platform_write_replaces_rather_than_colliding() {
 
 #[test]
 fn a_row_shared_by_a_book_is_written_listed_found_and_removed() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_row_shared_by_a_book_is_written_listed_found_and_removed");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let memberships = SharedRecords::new(&store, RecordKind::new("Membership", "HAS_MEMBER"));
 
     let created = memberships
@@ -311,10 +276,10 @@ fn a_row_shared_by_a_book_is_written_listed_found_and_removed() {
 
 #[test]
 fn the_deployment_store_answers_operations_and_refuses_statements() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("the_deployment_store_answers_operations_and_refuses_statements");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     // the whole point of the semantic doors: a Postgres backend is not a Cypher interpreter with a SQL accent
     let refused = store.run("MATCH (x:Book) RETURN x", json!({}));
     assert!(refused.is_err(), "a statement was answered: {refused:?}");
@@ -326,10 +291,10 @@ fn the_deployment_store_answers_operations_and_refuses_statements() {
 
 #[test]
 fn many_writers_on_one_book_lose_nothing() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("many_writers_on_one_book_lose_nothing");
     };
-    let store = std::sync::Arc::new(database.store());
+    let store = std::sync::Arc::new(PostgresGraph::connect(database.dsn(), 4).expect("a store"));
     let book = scope("book-1", "sam");
 
     let writers = 24;
@@ -371,10 +336,10 @@ fn many_writers_on_one_book_lose_nothing() {
 
 #[test]
 fn two_books_write_at_the_same_time_without_waiting_for_each_other() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("two_books_write_at_the_same_time_without_waiting_for_each_other");
     };
-    let store = std::sync::Arc::new(database.store());
+    let store = std::sync::Arc::new(PostgresGraph::connect(database.dsn(), 4).expect("a store"));
     let mut handles = Vec::new();
     for book in 0..4 {
         let store = std::sync::Arc::clone(&store);
@@ -409,10 +374,10 @@ fn two_books_write_at_the_same_time_without_waiting_for_each_other() {
 
 #[test]
 fn the_store_carries_a_book_between_sqlite_and_postgres() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("the_store_carries_a_book_between_sqlite_and_postgres");
     };
-    let deployment = database.store();
+    let deployment = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let device = vimbai_store::sqlite::SqliteGraph::in_memory().expect("a device store");
     let book = scope("book-1", "sam");
 
@@ -464,11 +429,11 @@ fn the_store_carries_a_book_between_sqlite_and_postgres() {
 /// and filtered afterwards.
 #[test]
 fn a_page_seeks_from_a_place_rather_than_counting_from_the_top() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         eprintln!("skipped: VIMBAI_TEST_POSTGRES is not set");
         return;
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     let records = Records::new(&store, PRODUCT_COST);
     let mut written = Vec::new();
     for index in 0..60 {
@@ -500,10 +465,10 @@ fn a_page_seeks_from_a_place_rather_than_counting_from_the_top() {
 
 #[test]
 fn the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     assert_eq!(
         store.version().expect("a version"),
         vimbai_store::postgres::SCHEMA.len() as i64,
@@ -518,7 +483,7 @@ fn the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing() {
         )
         .expect("an entry");
     let id = entry.get("id").and_then(Value::as_str).unwrap().to_owned();
-    let again = database.store();
+    let again = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     assert_eq!(
         again.version().expect("a version"),
         vimbai_store::postgres::SCHEMA.len() as i64,
@@ -534,15 +499,15 @@ fn the_schema_is_a_versioned_step_list_and_a_second_open_runs_nothing() {
 
 #[test]
 fn a_store_written_by_a_newer_build_is_refused_rather_than_downgraded() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("a_store_written_by_a_newer_build_is_refused_rather_than_downgraded");
     };
-    database.store();
-    let mut admin = postgres::Client::connect(&database.dsn, postgres::NoTls).expect("a client");
+    PostgresGraph::connect(database.dsn(), 4).expect("a store");
+    let mut admin = postgres::Client::connect(database.dsn(), postgres::NoTls).expect("a client");
     admin
         .batch_execute("UPDATE schema_version SET version = 99;")
         .expect("a version to set");
-    let refusal = match vimbai_store::postgres::PostgresGraph::connect(&database.dsn, 2) {
+    let refusal = match vimbai_store::postgres::PostgresGraph::connect(database.dsn(), 2) {
         Ok(_) => {
             panic!("a database claiming schema 99 was opened by a build that knows fewer steps")
         }
@@ -556,10 +521,10 @@ fn a_store_written_by_a_newer_build_is_refused_rather_than_downgraded() {
 
 #[test]
 fn every_step_can_be_undone_and_re_applied_over_records_that_are_already_there() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         return skip("every_step_can_be_undone_and_re_applied_over_records_that_are_already_there");
     };
-    let store = database.store();
+    let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     Records::new(&store, JOURNAL_ENTRY)
         .create(&scope("book-a", "sam"), &json!({"description": "before"}))
         .expect("an entry");
@@ -571,8 +536,8 @@ fn every_step_can_be_undone_and_re_applied_over_records_that_are_already_there()
     }
     assert_eq!(store.version().expect("a version"), 0);
     // re-applying finds an empty schema: nothing is left to hold the record, which is what an undone step means
-    database.store();
-    let fresh = database.store();
+    PostgresGraph::connect(database.dsn(), 4).expect("a store");
+    let fresh = PostgresGraph::connect(database.dsn(), 4).expect("a store");
     assert_eq!(fresh.version().expect("a version"), steps);
     let listing = Records::new(&fresh, JOURNAL_ENTRY)
         .list(&scope("book-a", "sam"), 20)

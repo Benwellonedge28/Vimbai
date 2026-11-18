@@ -12,6 +12,7 @@ members = [
     "crates/adapters/gateway",
     "xtask",
     "tests/financial-integrity",
+    "tests/support",
     "tests/scale",
     "crates/adapters/database",
     "crates/adapters/wire",

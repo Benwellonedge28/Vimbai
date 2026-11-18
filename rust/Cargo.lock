@@ -3366,6 +3366,7 @@ dependencies = [
  "vimbai_store",
  "vimbai_tax",
  "vimbai_tenancy",
+ "vimbai_test_support",
  "vimbai_treasury_fx",
  "vimbai_variance",
  "vimbai_webhooks",
@@ -3933,6 +3934,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "vimbai_common",
+ "vimbai_test_support",
 ]
 
 [[package]]
@@ -3986,6 +3988,13 @@ dependencies = [
  "vimbai_common",
  "vimbai_service_offline_sync",
  "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_test_support"
+version = "0.1.0"
+dependencies = [
+ "postgres",
 ]
 
 [[package]]

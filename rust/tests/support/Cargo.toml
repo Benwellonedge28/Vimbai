@@ -1,0 +1,11 @@
+[package]
+name = "vimbai_test_support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "The shared harness of the suites that have to answer against a real Postgres: a namespace per test, created once and dropped, and the retry a busy server needs when every binary starts at the same moment"
+
+[dependencies]
+postgres = { version = "0.19", features = ["with-serde_json-1"] }

@@ -20,46 +20,11 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 use store::postgres::PostgresGraph;
+use vimbai_test_support::TestSchema;
 
-/// A namespace of this test's own, dropped when the guard goes.
-struct Database {
-    dsn: String,
-    schema: String,
-}
-
-impl Database {
-    fn open() -> Option<Self> {
-        let base = std::env::var("VIMBAI_TEST_POSTGRES").ok()?;
-        let schema = format!("vimbai_engine_{}_{}", std::process::id(), unique());
-        let mut admin = postgres::Client::connect(&base, postgres::NoTls)
-            .unwrap_or_else(|error| panic!("cannot reach {base}: {error}"));
-        admin
-            .batch_execute(&format!("CREATE SCHEMA {schema};"))
-            .unwrap_or_else(|error| panic!("cannot create {schema}: {error}"));
-        let dsn = format!("{base} options='-c search_path={schema}'");
-        Some(Self { dsn, schema })
-    }
-
-    fn store(&self) -> Arc<PostgresGraph> {
-        Arc::new(PostgresGraph::connect(&self.dsn, 4).expect("a deployment store"))
-    }
-}
-
-impl Drop for Database {
-    fn drop(&mut self) {
-        let base = self.dsn.split(" options=").next().unwrap().to_owned();
-        if let Ok(mut admin) = postgres::Client::connect(&base, postgres::NoTls) {
-            let _ = admin.batch_execute(&format!("DROP SCHEMA IF EXISTS {} CASCADE;", self.schema));
-        }
-    }
-}
-
-fn unique() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_nanos() as u64)
-        .unwrap_or(7)
+/// A namespace of this test's own, from the store crate's one helper.
+fn database() -> Option<TestSchema> {
+    TestSchema::open("vimbai_engine")
 }
 
 async fn call(
@@ -105,13 +70,14 @@ fn a_rule(name: &str) -> Value {
 
 #[test]
 fn the_engine_writes_reads_and_keeps_a_book_apart_in_postgres() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         eprintln!("no VIMBAI_TEST_POSTGRES, so the deployment engine tests skip");
         return;
     };
     let runtime = tokio::runtime::Runtime::new().expect("a runtime");
     runtime.block_on(async {
-        let store = database.store();
+        let store =
+            Arc::new(PostgresGraph::connect(database.dsn(), 4).expect("a deployment store"));
 
         let (status, written) = call(
             store.clone(),
@@ -143,8 +109,14 @@ fn the_engine_writes_reads_and_keeps_a_book_apart_in_postgres() {
         );
 
         // a second store on the same database is what a restarted engine looks like
-        let (status, after_restart) =
-            call(database.store(), "book-1", Method::GET, "/rules", None).await;
+        let (status, after_restart) = call(
+            Arc::new(PostgresGraph::connect(database.dsn(), 4).expect("a deployment store")),
+            "book-1",
+            Method::GET,
+            "/rules",
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK, "{after_restart}");
         assert_eq!(
             after_restart.as_array().map(Vec::len),
@@ -156,13 +128,14 @@ fn the_engine_writes_reads_and_keeps_a_book_apart_in_postgres() {
 
 #[test]
 fn a_book_records_its_own_sequence_in_postgres() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         eprintln!("no VIMBAI_TEST_POSTGRES, so the deployment engine tests skip");
         return;
     };
     let runtime = tokio::runtime::Runtime::new().expect("a runtime");
     runtime.block_on(async {
-        let store = database.store();
+        let store =
+            Arc::new(PostgresGraph::connect(database.dsn(), 4).expect("a deployment store"));
 
         // the high-water mark a syncing device quotes back: it has to come out of the store, not out of a process's memory
         let (status, first) = call(
@@ -207,11 +180,11 @@ fn a_book_records_its_own_sequence_in_postgres() {
 /// even when Neo4j's own variables are set - the older store stays reachable, but it does not take the deployment first.
 #[test]
 fn the_engine_chooses_postgres_ahead_of_neo4j() {
-    let Some(database) = Database::open() else {
+    let Some(database) = database() else {
         eprintln!("no VIMBAI_TEST_POSTGRES, so the store-selection test skips");
         return;
     };
-    std::env::set_var("VIMBAI_POSTGRES_URL", &database.dsn);
+    std::env::set_var("VIMBAI_POSTGRES_URL", database.dsn());
     // a Neo4j that is configured but must not be chosen: the address is one nothing listens on, so a caller reaching it
     // would fail rather than quietly succeed against the wrong store
     std::env::set_var("NEO4J_URI", "bolt://127.0.0.1:17687");

@@ -79,6 +79,7 @@ getrandom = "0.2"
 sha2 = "0.10"
 
 [dev-dependencies]
+vimbai_test_support = { path = "../../tests/support" }
 tower = { version = "0.5", features = ["util"] }
 # the engine's own tests reach a real Postgres when one is offered, rather than trusting a fake to agree with itself
 postgres = { version = "0.19", features = ["with-serde_json-1"] }
