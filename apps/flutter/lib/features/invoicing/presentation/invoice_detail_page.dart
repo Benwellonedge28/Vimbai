@@ -12,7 +12,9 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/take_payment_in_sheet.dart';
 
 class InvoiceDetailPage extends StatefulWidget {
   const InvoiceDetailPage({
@@ -20,6 +22,7 @@ class InvoiceDetailPage extends StatefulWidget {
     required this.invoice,
     this.service,
     this.accounting,
+    this.cash,
   });
 
   final Invoice invoice;
@@ -29,6 +32,9 @@ class InvoiceDetailPage extends StatefulWidget {
 
   /// The ledger this Book posts to, injectable for the same reason.
   final AccountingApiService? accounting;
+
+  /// The cash book, for taking in the money a payment is about.
+  final CashBookService? cash;
 
   @override
   State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
@@ -41,10 +47,16 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
   late final AccountingApiService _ledger =
       widget.accounting ?? AccountingApiService();
 
+  late final CashBookService _cash = widget.cash ?? CashBookService();
+
   late Invoice _invoice = widget.invoice;
   bool _recording = false;
   bool _posting = false;
   bool _posted = false;
+
+  /// The payment just recorded, while it has not yet reached the cash book.
+  ExactAmount? _toTakeIn;
+  bool _taking = false;
 
   Future<void> _recordPayment() async {
     final amount = await showDialog<ExactAmount>(
@@ -58,6 +70,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
       if (!mounted) return;
       setState(() {
         _recording = false;
+        _toTakeIn = amount;
         _invoice = Invoice(
           invoiceNumber: _invoice.invoiceNumber,
           customerId: _invoice.customerId,
@@ -80,6 +93,36 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
       if (!mounted) return;
       setState(() => _recording = false);
       _say(CouldNotRead.reasonOf(failure));
+    }
+  }
+
+  /// Record the money the payment was made with.
+  ///
+  /// The payment lowered what is owed; the money still has to land somewhere. Nothing here guesses which account it reached,
+  /// and nothing is recorded twice: the failing case is a Book whose invoices are all settled and whose cash book has never
+  /// seen a penny.
+  Future<void> _takeTheMoneyIn() async {
+    final amount = _toTakeIn;
+    if (amount == null) return;
+    setState(() => _taking = true);
+    final entry = await TakePaymentInSheet.show(
+      context,
+      amount: amount,
+      invoiceNumber: _invoice.invoiceNumber,
+      customer: _invoice.customerId,
+      cash: _cash,
+      ledger: _ledger,
+    );
+    if (!mounted) return;
+    setState(() {
+      _taking = false;
+      if (entry != null) _toTakeIn = null;
+    });
+    if (entry != null) {
+      _say(
+        '${entry.amount.toDecimalString()} is in ${entry.description}. '
+        'Its ledger entry is one tap on that receipt.',
+      );
     }
   }
 
@@ -267,6 +310,30 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
             'Accounting does.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (_toTakeIn != null) ...[
+            const SizedBox(height: 8),
+            Card(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: ListTile(
+                leading: const Icon(Icons.savings_outlined),
+                title: Text(
+                  '${_toTakeIn!.toDecimalString()} is not in the cash book yet',
+                ),
+                subtitle: const Text(
+                  'The invoice knows it was paid. Record where the money went so the cash book '
+                  'knows it too.',
+                ),
+                trailing: _taking
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.chevron_right),
+                onTap: _taking ? null : _takeTheMoneyIn,
+              ),
+            ),
+          ],
         ],
       ),
     );
