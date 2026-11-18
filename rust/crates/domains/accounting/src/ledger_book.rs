@@ -443,6 +443,13 @@ fn legacy_payload(entry_id: &str, entry: &Value) -> Value {
     })
 }
 
+/// The entries in the order they were written, which is the order the chain was stamped in.
+///
+/// A record's own timestamp is kept to the second, so two entries posted inside one second carry the same one and only
+/// the id is left to separate them. That works because an id is minted with the moment and a counter in its leading
+/// digits: it ascends with the order the records were written, on one device and across restarts. An id that were
+/// merely unique would put two entries of one second in an order of its own choosing, and a chain that is whole would
+/// be reported as broken.
 fn in_creation_order(mut rows: Vec<Value>) -> Vec<Value> {
     rows.sort_by(|one, two| {
         field(one, "created_at")

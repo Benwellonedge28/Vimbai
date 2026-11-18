@@ -1907,20 +1907,136 @@ pub fn minted_id(book_id: &str) -> String {
     uuid_like(book_id, 0)
 }
 
+/// An id is unique by what made it, not by the clock.
+///
+/// The clock alone cannot carry this. Its resolution is coarse enough for two threads writing at once to read the same
+/// value, and the store then refuses the second record with a uniqueness error - a write lost for a reason that has
+/// nothing to do with the data. This was not theoretical: eight writers on one device collided inside a quarter second.
+///
+/// So three things are mixed, and each answers a way the others fail:
+/// - a counter that only ever goes up, which makes two ids minted in the same instant differ;
+/// - the clock, in nanoseconds, which keeps ids apart across restarts of the same process;
+/// - a seed the operating system hands out once per process, which keeps them apart across devices and processes
+///   writing the same Book, where two counters both start at zero and the clock can agree.
+///
+/// The value is well mixed rather than added together, and the count is also carried in the clear, so two ids can only be
+/// equal if the same process minted them at the same count - which it cannot.
 fn uuid_like(book_id: &str, salt: usize) -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// Every id this process has minted, so a coarse clock cannot repeat one.
+    static MINTED: AtomicU64 = AtomicU64::new(0);
+
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let mixed = (nanos as u64) ^ ((salt as u64) << 32) ^ book_id.len() as u64;
-    format!("{mixed:016x}")
+    let count = MINTED.fetch_add(1, Ordering::Relaxed);
+    mixed_id(book_id, salt, nanos, count)
+}
+
+/// The value the clock and the count produce together, with both handed in.
+///
+/// Split out from [`uuid_like`] so the property that matters can be asserted without waiting for a coarse clock to turn
+/// up on the machine running the test: the same instant, written twice, is two ids.
+///
+/// The two parts are laid out rather than added together, and the order of the layout is deliberate: the clock first,
+/// the count second, the seed-mixed remainder last. Record timestamps are kept to the second, so two entries posted
+/// inside one second carry the same one, and the ledger falls back to the id to say which came first. An id whose
+/// digits ascend with the moment it was minted keeps that fallback honest; a well-mixed id alone would put the two in
+/// an order of its own choosing, and the ledger would report a chain that is whole as broken.
+fn mixed_id(book_id: &str, salt: usize, nanos: u128, count: u64) -> String {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hash, Hasher};
+    use std::sync::OnceLock;
+
+    /// The seed the operating system gave this process, asked for once rather than on every id.
+    static SEED: OnceLock<RandomState> = OnceLock::new();
+
+    let mut hasher = SEED.get_or_init(RandomState::new).build_hasher();
+    book_id.hash(&mut hasher);
+    nanos.hash(&mut hasher);
+    count.hash(&mut hasher);
+    salt.hash(&mut hasher);
+    // clock, then count, then the part the seed mixed in: two devices writing the same instant and their own first
+    // record still differ, and the first two parts keep ids in the order they were minted
+    format!(
+        "{nanos:016x}{count:010x}{mixed:010x}",
+        mixed = hasher.finish() as u32 as u64
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    #[test]
+    fn two_records_written_in_the_same_instant_do_not_share_an_id() {
+        // The clock is the part that fails first, so it is held still here: every id below is minted at the same
+        // nanosecond, which is what two threads writing at once really do on a machine with a coarse clock. The count
+        // is the only thing that differs, and it must be enough.
+        use std::collections::HashSet;
+
+        let ids: Vec<String> = (0..1000)
+            .map(|count| mixed_id("book-1", 4, 1_700_000_000_000_000_000, count))
+            .collect();
+        let distinct: HashSet<&String> = ids.iter().collect();
+        assert_eq!(
+            distinct.len(),
+            ids.len(),
+            "two records minted the same id in one instant"
+        );
+        // and it is still a function of what it was given, not of when it ran
+        assert_eq!(
+            mixed_id("book-1", 4, 1_700_000_000_000_000_000, 7),
+            mixed_id("book-1", 4, 1_700_000_000_000_000_000, 7)
+        );
+        // a different Book or a different salt is a different id
+        assert_ne!(
+            mixed_id("book-1", 4, 1_700_000_000_000_000_000, 7),
+            mixed_id("book-2", 4, 1_700_000_000_000_000_000, 7)
+        );
+        // and they ascend with the order they were minted in, which is what the ledger leans on: record timestamps
+        // are kept to the second, so two entries posted inside one second are told apart by their ids
+        let ordered: Vec<String> = (0..50)
+            .map(|count| mixed_id("book-1", 4, 1_700_000_000_000_000_000, count))
+            .collect();
+        let mut sorted = ordered.clone();
+        sorted.sort();
+        assert_eq!(
+            sorted, ordered,
+            "ids do not keep the order they were minted in"
+        );
+    }
+
+    #[test]
+    fn ids_minted_at_the_same_instant_by_eight_hands_are_all_different() {
+        // The first version of this took its whole answer from the wall clock, so two threads writing in the same
+        // nanosecond got the same id and the store refused the second with a uniqueness error. It happened on a real
+        // device run, which is why this test writes from many threads rather than trusting one id at a time.
+        use std::collections::HashSet;
+        use std::sync::{Arc, Mutex};
+
+        let minted = Arc::new(Mutex::new(Vec::new()));
+        let mut hands = Vec::new();
+        for _ in 0..8 {
+            let minted = Arc::clone(&minted);
+            hands.push(std::thread::spawn(move || {
+                let mine: Vec<String> = (0..200).map(|_| minted_id("book-1")).collect();
+                minted.lock().expect("the list").extend(mine);
+            }));
+        }
+        for hand in hands {
+            hand.join().expect("a hand panicked");
+        }
+
+        let ids = minted.lock().expect("the list");
+        let distinct: HashSet<&String> = ids.iter().collect();
+        assert_eq!(ids.len(), 1600);
+        assert_eq!(distinct.len(), 1600, "two records were minted the same id");
+    }
 
     /// Records every statement so the test can assert on the Cypher and the parameters.
     struct FakeGraph {
