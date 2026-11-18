@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/core/api/amount.dart';
+import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/supplier_account_page.dart';
 
@@ -97,6 +99,60 @@ class _FakeLedger extends AccountingApiService {
   Future<JournalEntry> createJournalEntry(JournalEntry entry) async {
     posted.add(entry);
     return entry;
+  }
+}
+
+/// A cash book that records what it was asked to record, without a server.
+class _FakeCash extends CashBookService {
+  _FakeCash({List<CashAccount>? places}) : _places = places ?? _usualPlaces();
+
+  static List<CashAccount> _usualPlaces() => [
+    CashAccount(
+      id: 'bank-1',
+      code: '1010',
+      name: 'Bank',
+      type: 'bank',
+      bankName: 'CBZ',
+      currency: 'USD',
+      openingBalance: ExactAmount.zero,
+      balance: ExactAmount.zero,
+    ),
+  ];
+
+  final List<CashAccount> _places;
+  final List<Map<String, Object?>> written = [];
+
+  @override
+  Future<List<CashAccount>> accounts() async => _places;
+
+  @override
+  Future<CashEntry> record({
+    required CashAccount account,
+    required bool moneyIn,
+    required ExactAmount amount,
+    required String description,
+    required String date,
+    String voucher = '',
+    String againstAccount = '',
+  }) async {
+    written.add({
+      'account': account.code,
+      'moneyIn': moneyIn,
+      'amount': amount.toDecimalString(),
+      'description': description,
+      'voucher': voucher,
+      'against': againstAccount,
+    });
+    return CashEntry(
+      id: 'cb-1',
+      date: date,
+      voucher: voucher,
+      description: description,
+      moneyIn: moneyIn,
+      amount: amount,
+      status: 'posted',
+      againstAccount: againstAccount,
+    );
   }
 }
 
@@ -256,10 +312,11 @@ void main() {
   });
 
   testWidgets(
-    'a payment posted from the account clears the payable and leaves cash',
+    'a payment records the money leaving the bank, not a second journal entry',
     (tester) async {
       final fake = _Fake();
       final ledger = _FakeLedger();
+      final cash = _FakeCash();
       await tester.pumpWidget(
         MaterialApp(
           home: SupplierAccountPage(
@@ -267,6 +324,7 @@ void main() {
             supplierName: 'Paper Co',
             service: fake.service,
             ledger: ledger,
+            cash: cash,
           ),
         ),
       );
@@ -274,15 +332,48 @@ void main() {
 
       await tester.tap(find.text('Paid them'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Post it'));
+
+      expect(find.textContaining('Record 200.00 leaving'), findsOneWidget);
+      await tester.tap(find.text('Record it'));
       await tester.pumpAndSettle();
 
-      final entry = ledger.posted.single;
-      expect(entry.description, 'Paid Paper Co');
-      expect(entry.lines.first.accountNumber, '2000');
-      expect(entry.lines.first.debit.toDecimalString(), '200.00');
-      expect(entry.lines.last.accountNumber, '1000');
-      expect(entry.lines.last.credit.toDecimalString(), '200.00');
+      final written = cash.written.single;
+      expect(written['account'], '1010');
+      expect(written['moneyIn'], isFalse);
+      expect(written['amount'], '200.00');
+      expect(written['description'], 'Paid Paper Co');
+      expect(written['against'], '2000');
+      expect(written['voucher'], 'EFT 12');
+      // the ledger entry belongs to that cash movement, so nothing was posted from here
+      expect(ledger.posted, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a Book with no cash or bank account says so instead of recording nothing',
+    (tester) async {
+      final fake = _Fake();
+      final ledger = _FakeLedger();
+      final cash = _FakeCash(places: const []);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SupplierAccountPage(
+            supplierId: 'paperco',
+            supplierName: 'Paper Co',
+            service: fake.service,
+            ledger: ledger,
+            cash: cash,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paid them'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Record it'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('no cash or bank account'), findsOneWidget);
+      expect(cash.written, isEmpty);
     },
   );
 

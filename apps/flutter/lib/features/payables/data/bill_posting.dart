@@ -5,10 +5,9 @@
 // on its own statements. This file works out the double entry that closes that gap, and refuses rather than guessing when
 // the chart cannot carry it.
 //
-// The rules are the ordinary ones, and they are here rather than in a screen so every route to posting a bill says the
-// same thing:
-//   a bill received    Dr what it cost you   Cr what you owe the supplier
-//   a payment to them  Dr what you owe       Cr the account the money left
+// The rule is the ordinary one, and it is here rather than in a screen so every route to posting a bill says the same
+// thing: a bill received is Dr what it cost you, Cr what you owe the supplier. A payment is not worked out here, because
+// money leaving is a cash movement and the cash book already owns that entry, with its own reference.
 //
 // Nothing is hard-coded to an account number. A Book's chart is its own, so the two sides are found by type and name in
 // that chart; a chart with no payable account, or no account of the right kind to charge, is refused with the fix named.
@@ -87,30 +86,6 @@ Account? payableAccount(List<Account> chart) {
   return null;
 }
 
-/// The account the money left, for a payment to a supplier.
-///
-/// Taken from the Book's own chart rather than assumed: a Book may keep money in a bank account, a cash account, or both,
-/// and paying from the wrong one makes a reconciliation wrong in a way that is hard to see later.
-Account? moneyAccount(List<Account> chart, {String? prefer}) {
-  final candidates = [
-    for (final account in accountsOfType(chart, 'asset'))
-      if (account.accountName.toLowerCase().contains('bank') ||
-          account.accountName.toLowerCase().contains('cash'))
-        account,
-  ];
-  if (candidates.isEmpty) return null;
-  final wanted = (prefer ?? '').trim().toLowerCase();
-  if (wanted.isNotEmpty) {
-    for (final account in candidates) {
-      if (account.accountNumber == prefer ||
-          account.accountName.toLowerCase() == wanted) {
-        return account;
-      }
-    }
-  }
-  return candidates.first;
-}
-
 /// The entry for a bill that has been received and not yet recorded in the accounts.
 ///
 /// [charged] is the account the cost belongs in. It is passed in rather than guessed when a chart holds several, because
@@ -165,66 +140,6 @@ BillPosting billPosting({
         debit: ExactAmount.zero,
         credit: amount,
         description: 'Owed to $whose',
-      ),
-    ],
-  );
-}
-
-/// The entry for money paid to a supplier.
-BillPosting paymentPosting({
-  required List<Account> chart,
-  required ExactAmount amount,
-  required String supplierName,
-  required String reference,
-  Account? from,
-}) {
-  if (amount.isZero) {
-    return const BillPosting.refused(
-      'A payment of nothing changes nothing, so there is nothing to post.',
-    );
-  }
-  if (amount.isNegative) {
-    return const BillPosting.refused('A payment cannot be less than nothing.');
-  }
-  final owed = payableAccount(chart);
-  if (owed == null) {
-    return const BillPosting.refused(
-      'This Book has no Accounts Payable account, so a payment cannot be posted. '
-      'Add one in Chart of accounts.',
-    );
-  }
-  final money = from ?? moneyAccount(chart);
-  if (money == null) {
-    return const BillPosting.refused(
-      'This Book has no cash or bank account, so there is nowhere for the money '
-      'to have left. Add one in Chart of accounts.',
-    );
-  }
-  if (money.accountNumber == owed.accountNumber) {
-    return const BillPosting.refused(
-      'Both sides cannot be the same account, so this would move nothing.',
-    );
-  }
-  final whose = supplierName.trim().isEmpty
-      ? 'a supplier'
-      : supplierName.trim();
-  return BillPosting(
-    reference: reference.trim(),
-    description: 'Paid $whose',
-    sides: [
-      ProposedSide(
-        accountNumber: owed.accountNumber,
-        accountName: owed.accountName,
-        debit: amount,
-        credit: ExactAmount.zero,
-        description: 'Paid $whose',
-      ),
-      ProposedSide(
-        accountNumber: money.accountNumber,
-        accountName: money.accountName,
-        debit: ExactAmount.zero,
-        credit: amount,
-        description: 'Left ${money.accountName}',
       ),
     ],
   );

@@ -14,8 +14,10 @@ import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
+import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
+import 'package:vimbai_mobile_client/features/payables/presentation/pay_supplier_out_sheet.dart';
 
 class SupplierAccountPage extends StatefulWidget {
   const SupplierAccountPage({
@@ -24,6 +26,7 @@ class SupplierAccountPage extends StatefulWidget {
     this.supplierName,
     this.service,
     this.ledger,
+    this.cash,
   });
 
   final String supplierId;
@@ -35,6 +38,9 @@ class SupplierAccountPage extends StatefulWidget {
   /// The ledger, for posting a bill into the books. A test passes its own.
   final AccountingApiService? ledger;
 
+  /// The cash book, for recording the money a payment took out of the bank.
+  final CashBookService? cash;
+
   @override
   State<SupplierAccountPage> createState() => _SupplierAccountPageState();
 }
@@ -44,6 +50,7 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       widget.service ?? SupplierAccountService.instance;
   late final AccountingApiService _ledger =
       widget.ledger ?? AccountingApiService();
+  late final CashBookService _cash = widget.cash ?? CashBookService();
 
   bool _posting = false;
 
@@ -93,6 +100,13 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
     try {
       final chart = await _ledger.getAllAccounts();
       final isBill = line.kind == 'purchase_invoice';
+      if (!isBill) {
+        // Money leaving is a cash movement, and a cash movement has one route into the books: the payment itself, which
+        // carries its own reference. Posting a journal entry here as well would record the same money twice.
+        setState(() => _posting = false);
+        await _recordTheMoneyLeaving(line, supplierName);
+        return;
+      }
       final reference = line.reference.trim().isEmpty
           ? '${isBill ? 'BILL' : 'PAY'}-${line.date}-${widget.supplierId}'
           : line.reference.trim();
@@ -101,20 +115,13 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
         final costs = chargeableAccounts(chart);
         if (costs.isNotEmpty) chosen = costs.first;
       }
-      var posting = isBill
-          ? billPosting(
-              chart: chart,
-              amount: line.amount,
-              supplierName: supplierName,
-              reference: reference,
-              charged: chosen,
-            )
-          : paymentPosting(
-              chart: chart,
-              amount: line.amount,
-              supplierName: supplierName,
-              reference: reference,
-            );
+      var posting = billPosting(
+        chart: chart,
+        amount: line.amount,
+        supplierName: supplierName,
+        reference: reference,
+        charged: chosen,
+      );
       if (!mounted) return;
       if (!posting.canPost) {
         setState(() => _posting = false);
@@ -125,13 +132,13 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setSheet) => AlertDialog(
-            title: Text(isBill ? 'Post this bill' : 'Post this payment'),
+            title: const Text('Post this bill'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final side in posting.sides) Text(side.line),
-                if (isBill && chargeableAccounts(chart).length > 1) ...[
+                if (chargeableAccounts(chart).length > 1) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<Account>(
                     initialValue: chosen,
@@ -212,6 +219,31 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       setState(() => _posting = false);
       _say(CouldNotRead.reasonOf(failure));
     }
+  }
+
+  /// Record the money a payment took out of the bank.
+  ///
+  /// The purchases ledger knows the supplier was paid; it does not know the bank is emptier for it. The cash book is the
+  /// record of what actually moved, and it is also where a money movement gets its ledger entry, so this hands the person
+  /// that one step rather than writing a second, competing entry from here.
+  Future<void> _recordTheMoneyLeaving(
+    SupplierAccountLine line,
+    String supplierName,
+  ) async {
+    final entry = await PaySupplierOutSheet.show(
+      context,
+      amount: line.amount,
+      supplierName: supplierName,
+      cash: _cash,
+      ledger: _ledger,
+      reference: line.reference.trim(),
+    );
+    if (!mounted) return;
+    if (entry == null) return;
+    _say(
+      '${entry.amount.toDecimalString()} has left the bank. '
+      'Its ledger entry is one tap on that payment in the cash book.',
+    );
   }
 
   void _say(String words) => ScaffoldMessenger.of(
