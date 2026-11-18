@@ -17,6 +17,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/income_sta
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
+import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
 import 'package:vimbai_mobile_client/features/personal_finance/presentation/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
@@ -149,6 +150,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'Bill a customer, and see what is still to come in',
           icon: Icons.receipt_long,
           page: (context) => const InvoicesPage(),
+        ),
+        BookServiceEntry(
+          title: 'Cash book',
+          description: 'What the business holds, and every receipt and payment',
+          icon: Icons.account_balance_wallet_outlined,
+          page: (context) => const CashBookPage(),
         ),
         BookServiceEntry(
           title: 'Chart of accounts',
