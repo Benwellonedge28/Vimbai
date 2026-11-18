@@ -19,6 +19,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_pag
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
 import 'package:vimbai_mobile_client/features/assets/presentation/fixed_assets_page.dart';
+import 'package:vimbai_mobile_client/features/budgeting/presentation/spending_plan_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
@@ -200,6 +201,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Suppliers owed money, bills received, and what you have paid',
           icon: Icons.receipt,
           page: (context) => const PayablesPage(),
+        ),
+        BookServiceEntry(
+          title: 'What you planned',
+          description:
+              'What each account may take up, and what it actually took up',
+          icon: Icons.savings_outlined,
+          page: (context) => const SpendingPlanPage(),
         ),
         BookServiceEntry(
           title: 'Things you own',
