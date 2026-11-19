@@ -153,6 +153,45 @@ fn tax_account<G: Graph + ?Sized>(
 /// One tax on a document: its name, the account it posts to, and how much it is.
 type TaxLine = (String, String, String, Money);
 
+/// Which way a taxed document moves, so one posting helper serves a sale, a purchase and their reversals.
+///
+/// A return is the exact mirror of the document it returns, so it is posted by building the forward lines and turning
+/// each one round. That way a change to how a sale posts cannot leave its return posting something else.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TaxedDocument {
+    Sale,
+    SalesReturn,
+    Purchase,
+    PurchaseReturn,
+}
+
+impl TaxedDocument {
+    /// True where the document is money going out to a supplier rather than coming in from a customer.
+    fn is_purchase(self) -> bool {
+        matches!(self, Self::Purchase | Self::PurchaseReturn)
+    }
+
+    /// True where the document takes back one already posted, so every line moves the other way.
+    fn reverses(self) -> bool {
+        matches!(self, Self::SalesReturn | Self::PurchaseReturn)
+    }
+}
+
+/// The same lines with every debit and credit swapped, which is what a return posts.
+fn mirror(lines: Vec<Value>) -> Vec<Value> {
+    lines
+        .into_iter()
+        .map(|line| {
+            json!({
+                "account_number": line["account_number"].clone(),
+                "debit": line["credit"].clone(),
+                "credit": line["debit"].clone(),
+                "description": line["description"].clone(),
+            })
+        })
+        .collect()
+}
+
 /// The taxes a document names, in the order it named them. Empty when the caller sent a tax figure instead.
 fn named_taxes(payload: &Value) -> Vec<String> {
     payload
@@ -226,6 +265,7 @@ fn post_taxed_lines(
     description: String,
     reference: &str,
     source_module: &str,
+    kind: TaxedDocument,
     debit_account: &str,
     credit_account: &str,
     net: &Money,
@@ -240,7 +280,7 @@ fn post_taxed_lines(
     let untaxed = net.minus(&total_tax);
     // a sale records the figure the customer paid and charges each tax to its own expense line, so the tax shows in
     // expenses by type and the sale is never understated; a purchase costs the net and reclaims each tax
-    let sale = source_module == "SalesJournal";
+    let sale = !kind.is_purchase();
     let mut lines: Vec<Value> = Vec::new();
     if sale {
         lines.push(json!({"account_number": debit_account, "debit": wire(net),
@@ -272,6 +312,11 @@ fn post_taxed_lines(
                           "credit": wire(net), "description": line_note}),
         );
     }
+    let lines = if kind.reverses() {
+        mirror(lines)
+    } else {
+        lines
+    };
     let entry = json!({
         "entry_date": text(payload, "entry_date"),
         "description": description,
@@ -293,6 +338,7 @@ fn post_taxed(
     description: String,
     reference: &str,
     source_module: &str,
+    kind: TaxedDocument,
     debit_account: &str,
     credit_account: &str,
     net: &Money,
@@ -304,28 +350,33 @@ fn post_taxed(
     let tax_account = tax_account(graph, scope, payload)?;
     // a sale records the figure the customer paid and charges the tax to its own expense account, so the tax shows in
     // expenses rather than being folded into the sale; a purchase costs net less tax and reclaims the tax
-    let sale = source_module == "SalesJournal";
-    let lines = if sale {
+    let sale = !kind.is_purchase();
+    let forward: Vec<Value> = if sale {
         let expense_account = taxes::tax_expense_account(graph, scope)?;
-        json!([
-            {"account_number": debit_account, "debit": wire(net), "credit": wire(&zero),
-             "description": line_note},
-            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
-             "description": line_note},
-            {"account_number": expense_account, "debit": wire(tax), "credit": wire(&zero),
-             "description": format!("Tax charged on {line_note}")},
-            {"account_number": tax_account, "debit": wire(&zero), "credit": wire(tax),
-             "description": format!("Tax owed on {line_note}")},
-        ])
+        vec![
+            json!({"account_number": debit_account, "debit": wire(net), "credit": wire(&zero),
+                   "description": line_note}),
+            json!({"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
+                   "description": line_note}),
+            json!({"account_number": expense_account, "debit": wire(tax), "credit": wire(&zero),
+                   "description": format!("Tax charged on {line_note}")}),
+            json!({"account_number": tax_account, "debit": wire(&zero), "credit": wire(tax),
+                   "description": format!("Tax owed on {line_note}")}),
+        ]
     } else {
-        json!([
-            {"account_number": debit_account, "debit": wire(&untaxed), "credit": wire(&zero),
-             "description": line_note},
-            {"account_number": tax_account, "debit": wire(tax), "credit": wire(&zero),
-             "description": format!("Tax on {line_note}")},
-            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
-             "description": line_note},
-        ])
+        vec![
+            json!({"account_number": debit_account, "debit": wire(&untaxed), "credit": wire(&zero),
+                   "description": line_note}),
+            json!({"account_number": tax_account, "debit": wire(tax), "credit": wire(&zero),
+                   "description": format!("Tax on {line_note}")}),
+            json!({"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
+                   "description": line_note}),
+        ]
+    };
+    let lines = if kind.reverses() {
+        mirror(forward)
+    } else {
+        forward
     };
     let entry = json!({
         "entry_date": text(payload, "entry_date"),
@@ -429,6 +480,7 @@ pub fn create_sale(
             format!("Sales Journal: Invoice {invoice}"),
             &invoice,
             "SalesJournal",
+            TaxedDocument::Sale,
             "1100",
             "4000",
             &net,
@@ -443,6 +495,7 @@ pub fn create_sale(
             format!("Sales Journal: Invoice {invoice}"),
             &invoice,
             "SalesJournal",
+            TaxedDocument::Sale,
             "1100",
             "4000",
             &net,
@@ -536,6 +589,7 @@ pub fn create_purchase(
             format!("Purchases Journal: PO {order}"),
             &order,
             "PurchasesJournal",
+            TaxedDocument::Purchase,
             "1200",
             "2000",
             &net,
@@ -550,6 +604,7 @@ pub fn create_purchase(
             format!("Purchases Journal: PO {order}"),
             &order,
             "PurchasesJournal",
+            TaxedDocument::Purchase,
             "1200",
             "2000",
             &net,
@@ -734,22 +789,64 @@ pub fn create_sales_return(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let total = money(payload, "total_amount")?;
-    let tax = money_or_nothing(payload, "tax_amount")?;
-    let net = total.minus(&tax);
     let reference = text(payload, "return_number");
+    // what is credited back is what the customer paid, so the tax comes out of it exactly as it did on the sale
+    let typed_tax = money_or_nothing(payload, "tax_amount")?;
+    let (tax, tax_lines) = if typed_tax.is_zero() {
+        tax_from_total(graph, scope, payload, true, &total)?
+    } else {
+        (typed_tax, Vec::new())
+    };
+    check_tax_fits(&tax, &total, &format!("sales return {reference}"))?;
+    let net = total.minus(&tax);
+    let note = format!("Sales Return {reference}");
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Sales Returns: {reference}"),
-        &reference,
-        "SalesReturnsJournal",
-        "4100",
-        "1100",
-        &net,
-        &format!("Sales Return {reference}"),
-    )?;
+    // a return is the sale turned round: the customer owes the total again, the sale is taken back in full and each tax
+    // it carried leaves the expense it was charged to and the liability it was owed to
+    let entry_id = if tax.is_zero() {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Sales Returns: {reference}"),
+            &reference,
+            "SalesReturnsJournal",
+            "4050",
+            "1100",
+            &net,
+            &note,
+        )?
+    } else if !tax_lines.is_empty() {
+        post_taxed_lines(
+            graph,
+            scope,
+            payload,
+            format!("Sales Returns: {reference}"),
+            &reference,
+            "SalesReturnsJournal",
+            TaxedDocument::SalesReturn,
+            "1100",
+            "4050",
+            &total,
+            &tax_lines,
+            &note,
+        )?
+    } else {
+        post_taxed(
+            graph,
+            scope,
+            payload,
+            format!("Sales Returns: {reference}"),
+            &reference,
+            "SalesReturnsJournal",
+            TaxedDocument::SalesReturn,
+            "1100",
+            "4050",
+            &total,
+            &tax,
+            &note,
+        )?
+    };
 
     remember(
         graph,
@@ -778,22 +875,64 @@ pub fn create_purchases_return(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let total = money(payload, "total_amount")?;
-    let tax = money_or_nothing(payload, "tax_amount")?;
-    let net = total.minus(&tax);
     let reference = text(payload, "return_number");
+    // what the supplier credits back is what was paid, so the tax comes out of it exactly as it did on the bill
+    let typed_tax = money_or_nothing(payload, "tax_amount")?;
+    let (tax, tax_lines) = if typed_tax.is_zero() {
+        tax_from_total(graph, scope, payload, false, &total)?
+    } else {
+        (typed_tax, Vec::new())
+    };
+    check_tax_fits(&tax, &total, &format!("purchases return {reference}"))?;
+    let net = total.minus(&tax);
+    let note = format!("Purchases Return {reference}");
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Purchases Returns: {reference}"),
-        &reference,
-        "PurchasesReturnsJournal",
-        "5100",
-        "2000",
-        &net,
-        &format!("Purchases Return {reference}"),
-    )?;
+    // goods back to a supplier is the purchase turned round: the supplier is owed the total again, the cost is taken
+    // back and each tax it carried leaves the reclaim it was charged to
+    let entry_id = if tax.is_zero() {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Returns: {reference}"),
+            &reference,
+            "PurchasesReturnsJournal",
+            "2000",
+            "5050",
+            &net,
+            &note,
+        )?
+    } else if !tax_lines.is_empty() {
+        post_taxed_lines(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Returns: {reference}"),
+            &reference,
+            "PurchasesReturnsJournal",
+            TaxedDocument::PurchaseReturn,
+            "5050",
+            "2000",
+            &total,
+            &tax_lines,
+            &note,
+        )?
+    } else {
+        post_taxed(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Returns: {reference}"),
+            &reference,
+            "PurchasesReturnsJournal",
+            TaxedDocument::PurchaseReturn,
+            "5050",
+            "2000",
+            &total,
+            &tax,
+            &note,
+        )?
+    };
 
     remember(
         graph,
@@ -1067,7 +1206,8 @@ mod tests {
             ("2000", "liability", "credit"),
             ("4000", "revenue", "credit"),
             ("4100", "revenue", "credit"),
-            ("5100", "expense", "debit"),
+            ("4050", "revenue", "debit"),
+            ("5050", "expense", "credit"),
             ("6000", "expense", "debit"),
         ]
         .into_iter()
@@ -1138,6 +1278,134 @@ mod tests {
         );
         // and the document remembers the tax it carried
         assert_eq!(field(&sale, "tax_amount"), "13419.910000");
+    }
+
+    /// A Book with VAT defined, which a taxed document needs before it can be posted.
+    fn book_with_vat() -> (vimbai_store::fake::MemoryGraph, BookScope) {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        let reclaim = taxes::tax_expense_account(&graph, &scope).expect("a tax expense account");
+        taxes::save_tax(
+            &graph,
+            &scope,
+            &json!({"name": "VAT", "rate": "15.5", "scope": "both",
+                    "collected_account": "2100", "reclaim_account": "2100",
+                    "expense_account": reclaim, "effective_from": "2026-01-01"}),
+        )
+        .expect("VAT defined");
+        (graph, scope)
+    }
+
+    fn lines_of(
+        graph: &vimbai_store::fake::MemoryGraph,
+        scope: &BookScope,
+        id: &str,
+    ) -> Vec<Value> {
+        let entry = ledger_book::get_entry(graph, scope, id).expect("the entry");
+        entry["lines"].as_array().cloned().expect("lines")
+    }
+
+    fn sum(lines: &[Value], side: &str) -> Money {
+        lines.iter().fold(Money::zero(), |total, line| {
+            total.plus(&money(line, side).expect(side))
+        })
+    }
+
+    /// Goods come back: the sale is taken back in full, and the tax it carried leaves both the expense it was charged
+    /// to and the liability it was owed to. What the customer owed is the figure they paid, not the net of it.
+    #[test]
+    fn a_sales_return_takes_the_sale_and_the_tax_back_out() {
+        let (graph, scope) = book_with_vat();
+        create_sale(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-19", "invoice_number": "CAR-1",
+                    "customer_id": "c-1", "total_amount": "100000.00", "taxes": ["VAT"]}),
+        )
+        .expect("posted");
+
+        let back = create_sales_return(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-20", "return_number": "CN-1",
+                    "original_invoice_number": "CAR-1", "customer_id": "c-1",
+                    "total_amount": "100000.00", "taxes": ["VAT"], "reason": "came back"}),
+        )
+        .expect("posted");
+        let lines = lines_of(&graph, &scope, field(&back, "journal_entry_id"));
+        assert_eq!(lines.len(), 4);
+        assert_eq!(sum(&lines, "debit"), sum(&lines, "credit"));
+        // the customer no longer owes it
+        assert_eq!(field(&lines[0], "account_number"), "1100");
+        assert_eq!(
+            money(&lines[0], "credit").expect("owed"),
+            total_of("100000.00")
+        );
+        // the sale is taken back in full, and the tax leaves the expense it was charged to
+        assert_eq!(field(&lines[1], "account_number"), "4050");
+        assert_eq!(
+            money(&lines[1], "debit").expect("sale"),
+            total_of("100000.00")
+        );
+        assert_eq!(field(&lines[2], "account_number"), "6900");
+        assert_eq!(
+            money(&lines[2], "credit").expect("tax"),
+            total_of("13419.91")
+        );
+        // and it is no longer owed to the taxman
+        assert_eq!(field(&lines[3], "account_number"), "2100");
+        assert_eq!(
+            money(&lines[3], "debit").expect("tax owed"),
+            total_of("13419.91")
+        );
+        assert_eq!(field(&back, "tax_amount"), "13419.910000");
+    }
+
+    /// Goods go back to the supplier: the bill is taken back in full and the tax it carried leaves the reclaim.
+    #[test]
+    fn a_purchases_return_takes_the_bill_and_the_tax_back_out() {
+        let (graph, scope) = book_with_vat();
+        create_purchase(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-19", "purchase_order_number": "PO-1",
+                    "vendor_id": "v-1", "total_amount": "460.00", "taxes": ["VAT"]}),
+        )
+        .expect("posted");
+
+        let back = create_purchases_return(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-20", "return_number": "DN-1",
+                    "original_po_number": "PO-1", "vendor_id": "v-1",
+                    "total_amount": "460.00", "taxes": ["VAT"], "reason": "wrong item"}),
+        )
+        .expect("posted");
+        let lines = lines_of(&graph, &scope, field(&back, "journal_entry_id"));
+        assert_eq!(lines.len(), 3);
+        assert_eq!(sum(&lines, "debit"), sum(&lines, "credit"));
+        // the cost comes back off the account the bill put it on
+        assert_eq!(field(&lines[0], "account_number"), "5050");
+        assert_eq!(
+            money(&lines[0], "credit").expect("cost"),
+            total_of("398.27")
+        );
+        // the tax leaves the account it was reclaimed into, by crediting what the bill debited
+        assert_eq!(field(&lines[1], "account_number"), "2100");
+        assert_eq!(
+            money(&lines[1], "credit").expect("reclaim"),
+            total_of("61.73")
+        );
+        // and the supplier is no longer owed it
+        assert_eq!(field(&lines[2], "account_number"), "2000");
+        assert_eq!(money(&lines[2], "debit").expect("owed"), total_of("460.00"));
+        assert_eq!(field(&back, "tax_amount"), "61.730000");
+    }
+
+    fn total_of(text: &str) -> Money {
+        Money::parse(text).expect("an amount")
     }
 
     /// The chart these documents post to, with the one account that holds their tax.
@@ -1276,19 +1544,22 @@ mod tests {
     }
 
     #[test]
-    fn a_purchase_return_debits_its_expense_account_as_shipped() {
+    fn a_purchase_return_reduces_cost_rather_than_raising_it() {
         let entry = posted_entry(|graph| {
             create_purchases_return(
                 graph,
                 &scope(),
                 &json!({"return_number": "PR-1", "vendor_id": "v-1", "entry_date": "2026-03-15",
-                        "total_amount": "120.00", "tax_amount": "20.00"}),
+                        "total_amount": "100.00"}),
             )
         });
         let lines = entry["lines"].as_array().expect("lines");
-        // the expense account is debited, which raises it rather than reversing the purchase
-        assert_eq!(lines[0]["account_number"], json!("5100"));
+        // the supplier is no longer owed it, and the cost comes back off the returns account; the shipped service
+        // debited the expense account, which raised the cost of goods a return had just taken back
+        assert_eq!(lines[0]["account_number"], json!("2000"));
         assert_eq!(lines[0]["debit"], json!("100.000000"));
+        assert_eq!(lines[1]["account_number"], json!("5050"));
+        assert_eq!(lines[1]["credit"], json!("100.000000"));
     }
 
     #[test]

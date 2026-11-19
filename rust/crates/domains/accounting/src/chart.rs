@@ -62,11 +62,16 @@ pub const CORE: [StandardAccount; 8] = [
 ];
 
 /// What a business books that the other tiers do not.
-pub const BUSINESS: [StandardAccount; 4] = [
+///
+/// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
+/// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
+pub const BUSINESS: [StandardAccount; 6] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
     account("1500", "Equipment", "asset", "debit"),
     account("2100", "VAT Payable", "liability", "credit"),
+    account("4050", "Sales Returns", "revenue", "debit"),
+    account("5050", "Purchases Returns", "expense", "credit"),
 ];
 
 /// A person's own money, and what living costs.
