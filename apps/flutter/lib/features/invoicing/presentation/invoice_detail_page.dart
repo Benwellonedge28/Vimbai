@@ -370,6 +370,12 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           Text('Raised ${_invoice.invoiceDate} · due ${_invoice.dueDate}'),
           const SizedBox(height: 16),
           _row('Total', _invoice.total.toDecimalString(), bold: true),
+          if (_invoice.billedAbroad) _row('Money', _invoice.currency),
+          if (_invoice.moneyWord.isNotEmpty)
+            Text(
+              _invoice.moneyWord,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           if (!_invoice.discount.isZero)
             _row('Less discount', '-${_invoice.discount.toDecimalString()}'),
           if (!_invoice.discount.isZero)

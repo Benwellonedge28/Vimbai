@@ -91,6 +91,12 @@ class Invoice {
   /// record, where [due] works it out from the total instead.
   final ExactAmount? amountDue;
 
+  /// The money this invoice was raised in, when the customer was billed in another one. Empty means the Book's own.
+  final String currency;
+
+  /// The rate it was raised at: what one unit of [currency] is worth in the Book's money. Empty when none was stated.
+  final String rate;
+
   final ExactAmount paid;
   final String status;
   final List<InvoiceLine> lines;
@@ -103,6 +109,8 @@ class Invoice {
     required this.total,
     this.discount = ExactAmount.zero,
     this.amountDue,
+    this.currency = '',
+    this.rate = '',
     required this.paid,
     required this.status,
     required this.lines,
@@ -118,6 +126,8 @@ class Invoice {
     amountDue: json['amount_due'] == null
         ? null
         : ExactAmount.fromJson(json['amount_due']),
+    currency: (json['currency'] as String?) ?? '',
+    rate: (json['exchange_rate'] as String?) ?? '',
     paid: ExactAmount.fromJson(json['paid_amount']),
     status: (json['status'] as String?) ?? 'draft',
     lines: [
@@ -130,6 +140,24 @@ class Invoice {
         ),
     ],
   );
+
+  /// Whether the customer was billed in another money than the Book's own.
+  bool get billedAbroad => currency.trim().isNotEmpty;
+
+  /// What to say about the money this invoice was raised in, or nothing when it was raised at home.
+  ///
+  /// The rate is shown as the engine recorded it, without the trailing zeros six-place text carries, so a rate of 25.5
+  /// reads as 25.5 rather than 25.500000.
+  String get moneyWord {
+    if (!billedAbroad) {
+      return '';
+    }
+    final shown = rate.trim().replaceFirst(RegExp(r'\.?0+$'), '');
+    if (shown.isEmpty) {
+      return 'Billed in $currency';
+    }
+    return 'Billed in $currency at $shown';
+  }
 
   /// What the customer owes once the discount is off, which is the figure the sale carries to the ledger and the figure
   /// tax follows.

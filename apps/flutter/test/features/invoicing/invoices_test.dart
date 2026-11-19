@@ -36,6 +36,41 @@ void main() {
   setUp(() => SessionToken.set('a-session-token'));
   tearDown(() => SessionToken.clear());
 
+  test('an invoice raised abroad says which money and at what rate', () {
+    final abroad = Invoice.fromJson({
+      'invoice_number': 'USD-1',
+      'customer_id': 'ACME-1',
+      'invoice_date': '2026-11-19',
+      'due_date': '2026-12-19',
+      'total_amount': '150.000000',
+      'currency': 'USD',
+      'exchange_rate': '25.500000',
+      'paid_amount': '0',
+      'status': 'outstanding',
+      'items': const [],
+    });
+    expect(abroad.billedAbroad, isTrue);
+    // the six-place text the ledger carries reads as the rate the customer was billed at
+    expect(abroad.moneyWord, 'Billed in USD at 25.5');
+
+    final home = Invoice.fromJson({
+      'invoice_number': 'INV-1',
+      'customer_id': 'ACME-1',
+      'invoice_date': '2026-11-19',
+      'due_date': '2026-12-19',
+      'total_amount': '150.000000',
+      'paid_amount': '0',
+      'status': 'outstanding',
+      'items': const [],
+    });
+    expect(home.billedAbroad, isFalse);
+    expect(
+      home.moneyWord,
+      '',
+      reason: 'nothing is invented for a home invoice',
+    );
+  });
+
   test('the money the customer is billed in travels with its rate', () async {
     late Map<String, dynamic> sent;
     final service = InvoicingService.fresh()
