@@ -294,7 +294,7 @@ pub fn create_currency(
     let stated_places = vimbai_store::read::whole(payload, "decimal_places");
     let (name, places) = match (named.is_empty(), payload.get("decimal_places")) {
         (false, Some(_)) => (named, stated_places),
-        _ => match crate::iso_currencies::find(&code) {
+        _ => match vimbai_common::iso_currencies::find(&code) {
             Some(known) => (
                 if named.is_empty() {
                     known.name.to_string()

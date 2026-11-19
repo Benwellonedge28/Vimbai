@@ -18381,7 +18381,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // the currencies of the world, so a Book chooses from them rather than typing a code and hoping
         .route(
             "/currencies/catalogue",
-            get(|| async { answer(Ok(banking::iso_currencies::catalogue())) }),
+            get(|| async { answer(Ok(common::iso_currencies::catalogue())) }),
         )
         .route(
             "/currencies/:code",

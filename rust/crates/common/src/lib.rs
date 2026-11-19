@@ -6,6 +6,7 @@ pub mod dates;
 pub mod document_money;
 pub mod hash;
 pub mod ids;
+pub mod iso_currencies;
 pub mod ledger;
 pub mod money;
 pub mod normal;
