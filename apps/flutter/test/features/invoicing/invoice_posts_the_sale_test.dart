@@ -359,4 +359,54 @@ void main() {
       expect(debits, credits, reason: 'the entry still balances');
     },
   );
+
+  testWidgets(
+    'a sale billed abroad is not posted from here as if its money were the Book\'s',
+    (tester) async {
+      final ledger = _FakeLedger([
+        _account('1100', 'Accounts Receivable', 'asset'),
+        _account('4000', 'Sales', 'revenue'),
+      ]);
+      final abroad = Invoice(
+        invoiceNumber: 'USD-1',
+        customerId: 'acme',
+        invoiceDate: '2026-11-18',
+        dueDate: '2026-12-18',
+        total: ExactAmount.parse('100000.00'),
+        currency: 'USD',
+        rate: '25.500000',
+        paid: ExactAmount.zero,
+        status: 'outstanding',
+        lines: [
+          InvoiceLine(
+            description: 'Car',
+            quantity: ExactAmount.parse('1'),
+            unitPrice: ExactAmount.parse('100000.00'),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: InvoiceDetailPage(
+            invoice: abroad,
+            accounting: ledger,
+            tax: const _NoTax(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Post the sale to the ledger'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Post it'));
+      await tester.pumpAndSettle();
+
+      // nothing was written: 100,000 dollars are not 100,000 of the Book's money
+      expect(ledger.written, isEmpty);
+      expect(find.textContaining('billed in USD'), findsOneWidget);
+      // the money line on the invoice and the refusal both say the rate
+      expect(find.textContaining('at 25.5'), findsWidgets);
+    },
+  );
 }

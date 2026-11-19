@@ -286,6 +286,21 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
         setState(() => _posting = false);
         return;
       }
+      // A sale billed in another money is carried into the Book's own money by the engine, at the rate the invoice was
+      // raised at. This screen builds its lines from the figures the customer sees, so posting from here would carry
+      // 100,000 dollars as if they were 100,000 of the Book's money. Rather than post a figure nobody can reconcile, it
+      // says so and leaves the posting to the engine's own sale route, which converts.
+      if (_invoice.billedAbroad) {
+        setState(() => _posting = false);
+        _say(
+          '${_invoice.invoiceNumber} was billed in ${_invoice.currency} '
+          '${_invoice.moneyWord.isEmpty ? '' : 'at ${_invoice.rate.trim().replaceFirst(RegExp(r'\.?0+\$'), '')}'}'
+          ', so its sale is posted in this Book\'s own money at that rate. '
+          'Posting it from here would carry '
+          '${total.toDecimalString()} as if it were ${_invoice.currency}.',
+        );
+        return;
+      }
       final lines = carried != null
           ? saleLinesFor(
               preview: carried!,
