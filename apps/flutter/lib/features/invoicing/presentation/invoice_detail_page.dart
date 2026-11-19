@@ -14,6 +14,8 @@ import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_dr
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/data/sales_return.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/take_a_sale_back_sheet.dart';
 import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
 import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/take_payment_in_sheet.dart';
@@ -26,6 +28,7 @@ class InvoiceDetailPage extends StatefulWidget {
     this.accounting,
     this.cash,
     this.tax,
+    this.returns,
   });
 
   final Invoice invoice;
@@ -41,6 +44,9 @@ class InvoiceDetailPage extends StatefulWidget {
 
   /// The Book's taxes, injectable so a test can answer without a server.
   final SaleTaxReads? tax;
+
+  /// The returns route, injectable for the same reason.
+  final SalesReturnService? returns;
 
   @override
   State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
@@ -395,6 +401,25 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
                 : const Icon(Icons.chevron_right),
             enabled: !_posted && !_posting,
             onTap: _postTheSale,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.undo),
+            title: const Text('Take this sale back'),
+            subtitle: Text(
+              'Goods come back: the customer is credited ${_invoice.total.toDecimalString()} in '
+              'full, and the tax the sale carried leaves its own expense and what you owe.',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final posted = await showTakeASaleBack(
+                context,
+                invoice: _invoice,
+                tax: _tax,
+                returns: widget.returns,
+              );
+              if (posted == true && mounted) setState(() {});
+            },
           ),
           const SizedBox(height: 8),
           Text(
