@@ -6,13 +6,16 @@
 // the chart cannot carry it.
 //
 // The rule is the ordinary one, and it is here rather than in a screen so every route to posting a bill says the same
-// thing: a bill received is Dr what it cost you, Cr what you owe the supplier. A payment is not worked out here, because
+// thing: a bill received is Dr what it cost you, Cr what you owe the supplier. A bill that carries tax adds a third side,
+// Dr the tax account, because that tax is reclaimable and folding it into the cost would both overstate the cost and lose
+// the reclaim. A payment is not worked out here, because
 // money leaving is a cash movement and the cash book already owns that entry, with its own reference.
 //
 // Nothing is hard-coded to an account number. A Book's chart is its own, so the two sides are found by type and name in
 // that chart; a chart with no payable account, or no account of the right kind to charge, is refused with the fix named.
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/tax/data/taxed_amounts.dart';
 
 /// One side of the entry a bill or a payment would post.
 class ProposedSide {
@@ -90,12 +93,16 @@ Account? payableAccount(List<Account> chart) {
 ///
 /// [charged] is the account the cost belongs in. It is passed in rather than guessed when a chart holds several, because
 /// only the person holding the bill knows whether it was rent, stock or stationery.
+/// [tax] is the tax the bill carries, which is a fact printed on the bill rather than something worked out from a rate.
+/// It is posted to the Book's own tax account as something to reclaim, so a taxed bill does not put its tax into the cost
+/// of what was bought.
 BillPosting billPosting({
   required List<Account> chart,
   required ExactAmount amount,
   required String supplierName,
   required String reference,
   Account? charged,
+  ExactAmount tax = ExactAmount.zero,
 }) {
   if (amount.isZero) {
     return const BillPosting.refused(
@@ -123,6 +130,23 @@ BillPosting billPosting({
   final whose = supplierName.trim().isEmpty
       ? 'a supplier'
       : supplierName.trim();
+  if (!tax.isZero || tax.isNegative) {
+    try {
+      checkTaxFits(total: amount, tax: tax, document: 'bill');
+    } on Exception catch (refusal) {
+      return BillPosting.refused(
+        refusal.toString().replaceFirst('Exception: ', ''),
+      );
+    }
+  }
+  // the tax is reclaimable, so it needs an account of its own; posting it into the cost would hide it
+  final reclaim = taxAccountIn(chart);
+  if (!tax.isZero && reclaim == null) {
+    return const BillPosting.refused(
+      'This bill carries tax, but the Book has no VAT account to reclaim it in, so it '
+      'would be lost in the cost. Add one in Chart of accounts.',
+    );
+  }
   return BillPosting(
     reference: cleanReference,
     description: 'Bill from $whose',
@@ -130,10 +154,18 @@ BillPosting billPosting({
       ProposedSide(
         accountNumber: cost.accountNumber,
         accountName: cost.accountName,
-        debit: amount,
+        debit: amount - tax,
         credit: ExactAmount.zero,
         description: 'Billed by $whose',
       ),
+      if (!tax.isZero)
+        ProposedSide(
+          accountNumber: reclaim!.accountNumber,
+          accountName: reclaim.accountName,
+          debit: tax,
+          credit: ExactAmount.zero,
+          description: 'Tax on the bill from $whose',
+        ),
       ProposedSide(
         accountNumber: owed.accountNumber,
         accountName: owed.accountName,

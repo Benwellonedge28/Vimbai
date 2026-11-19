@@ -114,4 +114,87 @@ void main() {
     );
     expect(posting.description, 'Bill from a supplier');
   });
+
+  group('a bill that carries tax', () {
+    List<Account> taxedChart() => [
+      ..._chart(),
+      _account('2100', 'VAT Payable', 'liability'),
+    ];
+
+    test('puts the tax on its own side, so the cost is what was bought', () {
+      final posting = billPosting(
+        chart: taxedChart(),
+        amount: ExactAmount.parse('460'),
+        supplierName: 'Paper Co',
+        reference: 'INV-9',
+        tax: ExactAmount.parse('60'),
+      );
+      expect(posting.canPost, isTrue);
+      expect(posting.sides.length, 3);
+      // what it cost, what can be reclaimed, and what is owed: the three still balance
+      expect(posting.sides[0].accountName, 'Purchases');
+      expect(posting.sides[0].debit.toDecimalString(), '400.00');
+      expect(posting.sides[1].accountName, 'VAT Payable');
+      expect(posting.sides[1].debit.toDecimalString(), '60.00');
+      expect(posting.sides[2].accountName, 'Accounts Payable');
+      expect(posting.sides[2].credit.toDecimalString(), '460.00');
+      final debits = posting.sides
+          .map((side) => side.debit)
+          .fold(ExactAmount.zero, (sum, one) => sum + one);
+      expect(debits, posting.sides.last.credit);
+    });
+
+    test('a bill with no tax posts the two sides it always did', () {
+      final posting = billPosting(
+        chart: taxedChart(),
+        amount: ExactAmount.parse('460'),
+        supplierName: 'Paper Co',
+        reference: 'INV-9',
+      );
+      expect(posting.sides.length, 2);
+      expect(posting.sides.first.debit.toDecimalString(), '460.00');
+    });
+
+    test(
+      'a Book with no tax account refuses rather than losing the reclaim in the cost',
+      () {
+        final posting = billPosting(
+          chart: _chart(),
+          amount: ExactAmount.parse('460'),
+          supplierName: 'Paper Co',
+          reference: 'INV-9',
+          tax: ExactAmount.parse('60'),
+        );
+        expect(posting.canPost, isFalse);
+        expect(posting.refusal, contains('VAT account'));
+        expect(posting.sides, isEmpty);
+      },
+    );
+
+    test(
+      'tax larger than the bill, or all of it, is refused naming the figures',
+      () {
+        final tooMuch = billPosting(
+          chart: taxedChart(),
+          amount: ExactAmount.parse('100'),
+          supplierName: 'Paper Co',
+          reference: 'INV-9',
+          tax: ExactAmount.parse('150'),
+        );
+        expect(tooMuch.canPost, isFalse);
+        expect(tooMuch.refusal, contains('150'));
+        expect(tooMuch.refusal, contains('100'));
+
+        final allOfIt = billPosting(
+          chart: taxedChart(),
+          amount: ExactAmount.parse('100'),
+          supplierName: 'Paper Co',
+          reference: 'INV-9',
+          tax: ExactAmount.parse('100'),
+        );
+        expect(allOfIt.canPost, isFalse);
+        expect(allOfIt.refusal, contains('carry nothing'));
+      },
+    );
+  });
 }

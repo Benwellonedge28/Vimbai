@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
@@ -18,6 +19,7 @@ import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dar
 import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/pay_supplier_out_sheet.dart';
+import 'package:vimbai_mobile_client/features/tax/data/taxed_amounts.dart';
 
 class SupplierAccountPage extends StatefulWidget {
   const SupplierAccountPage({
@@ -110,6 +112,7 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       final reference = line.reference.trim().isEmpty
           ? '${isBill ? 'BILL' : 'PAY'}-${line.date}-${widget.supplierId}'
           : line.reference.trim();
+      final taxField = TextEditingController();
       Account? chosen;
       if (isBill) {
         final costs = chargeableAccounts(chart);
@@ -138,6 +141,34 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final side in posting.sides) Text(side.line),
+                if (isBill && taxAccountIn(chart) != null) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: taxField,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Tax on this bill',
+                      helperText:
+                          'Leave it empty if the bill carries none. It is posted to '
+                          '${taxAccountIn(chart)!.accountNumber} '
+                          '${taxAccountIn(chart)!.accountName} to reclaim.',
+                    ),
+                    onChanged: (typed) {
+                      setSheet(() {
+                        posting = billPosting(
+                          chart: chart,
+                          amount: line.amount,
+                          supplierName: supplierName,
+                          reference: reference,
+                          charged: chosen,
+                          tax: _taxFrom(typed),
+                        );
+                      });
+                    },
+                  ),
+                ],
                 if (chargeableAccounts(chart).length > 1) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<Account>(
@@ -164,6 +195,7 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
                           supplierName: supplierName,
                           reference: reference,
                           charged: picked,
+                          tax: _taxFrom(taxField.text),
                         );
                       });
                     },
@@ -190,6 +222,7 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
           ),
         ),
       );
+      taxField.dispose();
       if (confirmed != true || !mounted) {
         setState(() => _posting = false);
         return;
@@ -244,6 +277,20 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       '${entry.amount.toDecimalString()} has left the bank. '
       'Its ledger entry is one tap on that payment in the cash book.',
     );
+  }
+
+  /// What was typed as tax, read without ever throwing at somebody mid-keystroke.
+  ///
+  /// An unfinished figure reads as nothing yet, so the sides above it simply show the bill as untaxed until the figure is
+  /// whole. A figure the bill cannot carry is refused by `billPosting` and shown in place of the sides.
+  ExactAmount _taxFrom(String typed) {
+    final trimmed = typed.trim();
+    if (trimmed.isEmpty) return ExactAmount.zero;
+    try {
+      return ExactAmount.parse(trimmed);
+    } catch (_) {
+      return ExactAmount.zero;
+    }
   }
 
   void _say(String words) => ScaffoldMessenger.of(

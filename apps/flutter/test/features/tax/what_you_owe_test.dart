@@ -100,7 +100,9 @@ void main() {
         expect(
           () => _split(total: '100', tax: '100'),
           throwsA(
-            predicate((error) => error.toString().contains('earn nothing')),
+            predicate(
+              (error) => error.toString().contains('carry nothing but tax'),
+            ),
           ),
         );
       },
