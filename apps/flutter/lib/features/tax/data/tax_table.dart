@@ -350,10 +350,13 @@ class TaxTableService {
   }
 
   /// What each chosen tax would be on a document, in the order the Book declares, before anything is posted.
+  ///
+  /// [gross] is the total the customer or supplier sees, because that is the figure on a document: the tax is taken out
+  /// of it rather than added on top, so a car sold for 100,000 has its tax taken out of the 100,000.
   Future<TaxPreview> preview({
     required String date,
     required String direction,
-    required String net,
+    required String gross,
     List<String> taxes = const [],
   }) async {
     final answer = await _client.post(
@@ -362,7 +365,7 @@ class TaxTableService {
       body: jsonEncode({
         'date': date,
         'direction': direction,
-        'net': net,
+        'gross': gross,
         'taxes': taxes,
       }),
     );

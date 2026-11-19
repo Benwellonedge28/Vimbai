@@ -633,15 +633,26 @@ pub fn compute_tax<G: Graph + ?Sized>(
             )))
         }
     };
-    let net = money(payload, "net")?;
-    if net.is_zero() {
+    // A document is given as the total somebody actually pays, so the tax comes out of it rather than being added on
+    // top. `net` is still accepted, for a caller that already knows the figure without tax.
+    let gross_given = if payload.get("gross").is_some() {
+        Some(money(payload, "gross")?)
+    } else {
+        None
+    };
+    let document = match &gross_given {
+        Some(gross) => gross.clone(),
+        None => money(payload, "net")?,
+    };
+    if document.is_zero() {
         return Err(refused(
             "A document of nothing carries no tax, so there is nothing to work out.",
         ));
     }
-    if net.is_negative() {
+    if document.is_negative() {
         return Err(refused("A document cannot be less than nothing."));
     }
+    let net = document.clone();
 
     let in_force = rules_in_force(graph, scope, &on, sale)?;
     let wanted: Vec<String> = payload
@@ -730,11 +741,36 @@ pub fn compute_tax<G: Graph + ?Sized>(
     }
 
     let hundred = Money::from_i64(100);
+
+    // Where the document is a total, the working out runs backwards: each tax's share of the net is found first, so
+    // that the net plus every share comes to exactly the total that was given. A tax declared after another is still
+    // charged on the net plus the tax it applies after, which is what compounding a declaration means.
+    let mut factors: Vec<Money> = Vec::new();
+    for rule in &chosen {
+        let mut one = Money::from_i64(1);
+        for earlier in &rule.after {
+            if let Some(position) = chosen.iter().position(|other| &other.name == earlier) {
+                if position < factors.len() {
+                    one = one.plus(&factors[position]);
+                }
+            }
+        }
+        factors.push(rule.rate.over(&hundred).times(&one));
+    }
+    let mut factor = Money::from_i64(1);
+    for share in &factors {
+        factor = factor.plus(share);
+    }
+    let base_net = match &gross_given {
+        Some(gross) => gross.over(&factor).round(SCALE),
+        None => net.clone(),
+    };
+
     let mut lines: Vec<Value> = Vec::new();
     let mut total = Money::zero();
     for rule in &chosen {
-        // the base is the net plus every tax this one applies after, which is what makes compounding a declaration
-        let mut base = net.clone();
+        // the base is the net plus every tax this one applies after
+        let mut base = base_net.clone();
         for earlier in &rule.after {
             if let Some(line) = lines
                 .iter()
@@ -765,14 +801,31 @@ pub fn compute_tax<G: Graph + ?Sized>(
             "side": if sale { "credit" } else { "debit" },
         }));
     }
+
+    // A document given as a total must still add up to that total once the tax is taken out, so the last cent of
+    // rounding comes off the net rather than being lost or invented.
+    let (net_final, gross_final) = match &gross_given {
+        Some(gross) => (gross.minus(&total), gross.clone()),
+        None => (net.clone(), net.plus(&total)),
+    };
+    if net_final.is_negative() {
+        return Err(refused(
+            "The tax on this document is more than the document, so there would be nothing left of it. Check the \
+             amount, or the rate.",
+        ));
+    }
     Ok(json!({
         "date": on,
         "direction": if sale { "sale" } else { "purchase" },
-        "net": wire(&net),
+        "net": wire(&net_final),
         "tax_lines": lines,
         "tax": wire(&total),
-        "gross": wire(&net.plus(&total)),
-        "note": "Each tax posts to its own account, so nothing is merged into one figure.",
+        "gross": wire(&gross_final),
+        "note": if gross_given.is_some() {
+            "The tax is taken out of the total, so the net is the total less every tax."
+        } else {
+            "Each tax posts to its own account, so nothing is merged into one figure."
+        },
     }))
 }
 
@@ -804,6 +857,55 @@ mod tests {
                    "effective_from": "2026-01-01"}),
         )
         .expect("VAT defined")
+    }
+
+    #[test]
+    fn a_car_sold_for_a_hundred_thousand_has_the_tax_taken_out_of_it() {
+        // the figure on the invoice is what the customer pays, so the tax comes out of it rather than being added on
+        let graph = charted();
+        vat(&graph);
+        let split = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "100000.00",
+                    "taxes": ["VAT"]}),
+        )
+        .expect("split");
+        assert_eq!(split["gross"], json!("100000.000000"));
+        assert_eq!(split["net"], json!("86580.090000"));
+        assert_eq!(split["tax"], json!("13419.910000"));
+        assert_eq!(split["tax_lines"][0]["account_number"], json!("2100"));
+        // and the net plus the tax is exactly the total that was given, to the cent
+        let net = Money::parse(field(&split, "net")).expect("net");
+        let tax = Money::parse(field(&split, "tax")).expect("tax");
+        assert_eq!(net.plus(&tax), Money::parse("100000.00").expect("total"));
+    }
+
+    #[test]
+    fn a_total_carrying_two_taxes_still_adds_up_to_the_total() {
+        // a levy declared after VAT is charged on the VAT-inclusive figure, and the total stays what was given
+        let graph = charted();
+        vat(&graph);
+        define(
+            &graph,
+            json!({"name": "Levy", "rate": "2", "scope": "sales", "collected_account": "2100",
+                   "effective_from": "2026-01-01", "applies_after": ["VAT"]}),
+        )
+        .expect("levy defined");
+        let split = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "1000.00",
+                    "taxes": ["VAT", "Levy"]}),
+        )
+        .expect("split");
+        assert_eq!(split["gross"], json!("1000.000000"));
+        assert_eq!(split["tax_lines"][0]["amount"], json!("131.570000"));
+        assert_eq!(split["tax_lines"][1]["amount"], json!("19.610000"));
+        let net = Money::parse(field(&split, "net")).expect("net");
+        let tax = Money::parse(field(&split, "tax")).expect("tax");
+        assert_eq!(net.plus(&tax), Money::parse("1000.00").expect("total"));
+        assert_eq!(net, Money::parse("848.82").expect("net"));
     }
 
     #[test]

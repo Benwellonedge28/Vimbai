@@ -45,6 +45,7 @@ use vimbai_store::{
 };
 
 use crate::ledger_book;
+use crate::taxes;
 use vimbai_store::read::{field, money, money_or_nothing, optional, or_default, refused, text};
 use vimbai_store::write::remember;
 
@@ -146,6 +147,137 @@ fn tax_account<G: Graph + ?Sized>(
 /// and paid tax is money to reclaim, and folding either into income or an expense states both wrongly.
 ///
 /// The total on each side is still the document's net, so the entry balances exactly as it did before.
+#[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
+/// One tax on a document: its name, the account it posts to, and how much it is.
+type TaxLine = (String, String, Money);
+
+/// The taxes a document names, in the order it named them. Empty when the caller sent a tax figure instead.
+fn named_taxes(payload: &Value) -> Vec<String> {
+    payload
+        .get("taxes")
+        .and_then(Value::as_array)
+        .map(|names| {
+            names
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|one| one.trim().to_string())
+                .filter(|one| !one.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The tax on a document whose figure is what the customer or supplier actually pays.
+///
+/// The tax comes out of that figure rather than being added on top, so a car sold for 100,000 has its tax taken out of
+/// the 100,000. Each tax is returned with its own account, because each is owed to a different place and appears on a
+/// different return, and one line per tax is what the journal posts.
+fn tax_from_total(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    payload: &Value,
+    sale: bool,
+    total: &Money,
+) -> Result<(Money, Vec<TaxLine>), StoreError> {
+    let names = named_taxes(payload);
+    if names.is_empty() {
+        return Ok((Money::zero(), Vec::new()));
+    }
+    let split = taxes::compute_tax(
+        graph,
+        scope,
+        &json!({
+            "date": text(payload, "entry_date"),
+            "direction": if sale { "sale" } else { "purchase" },
+            "gross": wire(total),
+            "taxes": names,
+        }),
+    )?;
+    let tax = Money::parse(field(&split, "tax"))
+        .map_err(|_| refused("The tax on this document could not be read back."))?;
+    let mut lines: Vec<TaxLine> = Vec::new();
+    for line in split["tax_lines"].as_array().cloned().unwrap_or_default() {
+        let amount = Money::parse(field(&line, "amount"))
+            .map_err(|_| refused("A tax amount could not be read back."))?;
+        if amount.is_zero() {
+            continue;
+        }
+        lines.push((
+            field(&line, "tax").to_string(),
+            field(&line, "account_number").to_string(),
+            amount,
+        ));
+    }
+    Ok((tax, lines))
+}
+
+/// Post a taxed document with one line per tax, each to the account that tax names.
+///
+/// A single tax still goes through here, so the account posted to is the tax's own rather than whichever account the
+/// Book happens to call VAT.
+#[allow(clippy::too_many_arguments)]
+fn post_taxed_lines(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    payload: &Value,
+    description: String,
+    reference: &str,
+    source_module: &str,
+    debit_account: &str,
+    credit_account: &str,
+    net: &Money,
+    tax_lines: &[TaxLine],
+    line_note: &str,
+) -> Result<String, StoreError> {
+    let zero = Money::zero();
+    let mut total_tax = Money::zero();
+    for (_, _, amount) in tax_lines {
+        total_tax = total_tax.plus(amount);
+    }
+    let untaxed = net.minus(&total_tax);
+    // a sale earns the net and owes each tax; a purchase costs the net and reclaims each tax
+    let sale = source_module == "SalesJournal";
+    let mut lines: Vec<Value> = Vec::new();
+    if sale {
+        lines.push(json!({"account_number": debit_account, "debit": wire(net),
+                          "credit": wire(&zero), "description": line_note}));
+        lines.push(
+            json!({"account_number": credit_account, "debit": wire(&zero),
+                          "credit": wire(&untaxed), "description": line_note}),
+        );
+        for (name, account, amount) in tax_lines {
+            lines.push(json!({"account_number": account, "debit": wire(&zero),
+                              "credit": wire(amount),
+                              "description": format!("{name} on {line_note}")}));
+        }
+    } else {
+        lines.push(
+            json!({"account_number": debit_account, "debit": wire(&untaxed),
+                          "credit": wire(&zero), "description": line_note}),
+        );
+        for (name, account, amount) in tax_lines {
+            lines.push(json!({"account_number": account, "debit": wire(amount),
+                              "credit": wire(&zero),
+                              "description": format!("{name} on {line_note}")}));
+        }
+        lines.push(
+            json!({"account_number": credit_account, "debit": wire(&zero),
+                          "credit": wire(net), "description": line_note}),
+        );
+    }
+    let entry = json!({
+        "entry_date": text(payload, "entry_date"),
+        "description": description,
+        "reference_number": reference,
+        "source_module": source_module,
+        "status": "posted",
+        "created_at": text(payload, "created_at"),
+        "lines": lines,
+    });
+    let posted = ledger_book::create_entry(graph, scope, &entry)?;
+    Ok(field(&posted, "id").to_string())
+}
+
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
 fn post_taxed(
     graph: &(impl Graph + ?Sized),
@@ -255,9 +387,15 @@ pub fn create_sale(
 ) -> Result<Value, StoreError> {
     let total = money(payload, "total_amount")?;
     let discount = money_or_nothing(payload, "discount_amount")?;
-    let tax = money_or_nothing(payload, "tax_amount")?;
     let net = total.minus(&discount);
     let invoice = text(payload, "invoice_number");
+    // a figure typed into the tax field is used as given; a document that names its taxes has them taken out of the total
+    let typed_tax = money_or_nothing(payload, "tax_amount")?;
+    let (tax, tax_lines) = if typed_tax.is_zero() {
+        tax_from_total(graph, scope, payload, true, &net)?
+    } else {
+        (typed_tax, Vec::new())
+    };
     check_tax_fits(&tax, &net, &format!("invoice {invoice}"))?;
 
     let entry_id = if tax.is_zero() {
@@ -271,6 +409,20 @@ pub fn create_sale(
             "1100",
             "4000",
             &net,
+            &format!("Sales Invoice {invoice}"),
+        )?
+    } else if !tax_lines.is_empty() {
+        post_taxed_lines(
+            graph,
+            scope,
+            payload,
+            format!("Sales Journal: Invoice {invoice}"),
+            &invoice,
+            "SalesJournal",
+            "1100",
+            "4000",
+            &net,
+            &tax_lines,
             &format!("Sales Invoice {invoice}"),
         )?
     } else {
@@ -343,9 +495,14 @@ pub fn create_purchase(
 ) -> Result<Value, StoreError> {
     let total = money(payload, "total_amount")?;
     let discount = money_or_nothing(payload, "discount_amount")?;
-    let tax = money_or_nothing(payload, "tax_amount")?;
     let net = total.minus(&discount);
     let order = text(payload, "purchase_order_number");
+    let typed_tax = money_or_nothing(payload, "tax_amount")?;
+    let (tax, tax_lines) = if typed_tax.is_zero() {
+        tax_from_total(graph, scope, payload, false, &net)?
+    } else {
+        (typed_tax, Vec::new())
+    };
     check_tax_fits(&tax, &net, &format!("purchase {order}"))?;
 
     let entry_id = if tax.is_zero() {
@@ -359,6 +516,20 @@ pub fn create_purchase(
             "1200",
             "2000",
             &net,
+            &format!("Purchase {order}"),
+        )?
+    } else if !tax_lines.is_empty() {
+        post_taxed_lines(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Journal: PO {order}"),
+            &order,
+            "PurchasesJournal",
+            "1200",
+            "2000",
+            &net,
+            &tax_lines,
             &format!("Purchase {order}"),
         )?
     } else {
@@ -899,6 +1070,55 @@ mod tests {
     }
 
     /// Runs a create against a chart and returns the journal entry that was posted.
+    #[test]
+    fn a_car_sold_for_a_hundred_thousand_has_the_tax_taken_out_of_the_total() {
+        // the invoice says 100,000, so that is what the customer owes; the tax comes out of it, it is not added on
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        taxes::save_tax(
+            &graph,
+            &scope,
+            &json!({"name": "VAT", "rate": "15.5", "scope": "both",
+                    "collected_account": "2100", "effective_from": "2026-01-01"}),
+        )
+        .expect("VAT defined");
+
+        let sale = create_sale(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-19", "invoice_number": "CAR-1",
+                    "customer_id": "c-1", "total_amount": "100000.00",
+                    "taxes": ["VAT"]}),
+        )
+        .expect("posted");
+        let entry_id = field(&sale, "journal_entry_id").to_string();
+        let entry = ledger_book::get_entry(&graph, &scope, &entry_id).expect("the entry");
+        let lines = entry["lines"].as_array().cloned().expect("lines");
+        let debits: Money = lines.iter().fold(Money::zero(), |sum, line| {
+            sum.plus(&money(line, "debit").expect("debit"))
+        });
+        let credits: Money = lines.iter().fold(Money::zero(), |sum, line| {
+            sum.plus(&money(line, "credit").expect("credit"))
+        });
+        assert_eq!(debits, credits);
+        assert_eq!(debits, Money::parse("100000.00").expect("total"));
+        // three lines: the customer owes the total, sales earn the net, and the tax is owed on its own
+        assert_eq!(lines.len(), 3);
+        assert_eq!(field(&lines[2], "account_number"), "2100");
+        assert_eq!(
+            money(&lines[2], "credit").expect("tax"),
+            Money::parse("13419.91").expect("tax")
+        );
+        assert_eq!(
+            money(&lines[1], "credit").expect("net"),
+            Money::parse("86580.09").expect("net")
+        );
+        // and the document remembers the tax it carried
+        assert_eq!(field(&sale, "tax_amount"), "13419.910000");
+    }
+
     /// The chart these documents post to, with the one account that holds their tax.
     fn chart_with_tax() -> Vec<Value> {
         let mut rows = chart();

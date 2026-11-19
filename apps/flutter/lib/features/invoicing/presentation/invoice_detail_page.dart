@@ -166,7 +166,8 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
             account.accountName.toLowerCase().contains('tax'),
       );
       final total = _invoice.total;
-      // the tax this invoice carries, if any: typed by the person because it is their invoice, never derived from a rate
+      // the tax this invoice carries, if any: typed by the person because it is their invoice, never derived from a rate.
+      // The invoice total is what the customer pays, so the tax is taken out of it rather than added on top.
       final taxField = TextEditingController();
       final confirmed = await showDialog<bool>(
         context: context,
@@ -184,13 +185,19 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
               ),
               if (taxAccount != null) ...[
                 const SizedBox(height: 12),
+                Text(
+                  '${total.toDecimalString()} is what the customer pays, so any '
+                  'tax is taken out of it and the sale earns the rest.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: taxField,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: 'Tax charged on this invoice',
+                    labelText: 'Tax included in that total',
                     helperText:
                         'Leave it empty if the invoice carries none. It will be '
                         'posted to ${taxAccount.accountNumber} ${taxAccount.accountName}.',

@@ -114,13 +114,13 @@ class _TaxTablePageState extends State<TaxTablePage> {
           ? await _service.preview(
               date: _today,
               direction: 'sale',
-              net: '1000.00',
+              gross: '1000.00',
               taxes: [saved.name],
             )
           : await _service.preview(
               date: _today,
               direction: 'purchase',
-              net: '1000.00',
+              gross: '1000.00',
               taxes: [saved.name],
             );
       if (!mounted) return;
