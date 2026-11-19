@@ -4,6 +4,7 @@ use accounting::bookkeeping as papers;
 use accounting::ledger_book as book;
 use accounting::periods;
 use accounting::subsidiary_journals as journals;
+use accounting::tax;
 use axum::{
     extract::{Path, RawQuery, State},
     http::HeaderMap,
@@ -231,6 +232,26 @@ async fn integrity(State(graph): GraphState, headers: HeaderMap) -> Response {
         Err(response) => return *response,
     };
     answer(book::verify_chain(graph.as_ref(), &scope))
+}
+
+/// `GET /accounting/tax/`: what the Book's tax account collected, what it can reclaim, and what is owed.
+///
+/// The figures are the ledger's own: the tax posted with each document, added over the period. A Book whose chart holds
+/// no tax account answers with nothing collected and says so, rather than implying a nil return.
+async fn tax_due(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::tax_due(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
 }
 
 /// `POST /accounting/closed-periods/`: lock a month so nothing more can be posted into it.
@@ -927,6 +948,8 @@ pub fn router(graph: GraphHandle) -> Router {
                 post(reverse_entry),
             )
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
+            // what the tax posted over a period adds up to, and whether the Book holds a tax account at all
+            .route(&format!("{prefix}/tax"), get(tax_due))
             // a month that has been reported on can be locked, and then nothing more is posted into it
             .route(
                 &format!("{prefix}/closed-periods"),

@@ -2154,14 +2154,22 @@ async fn the_trial_balance_answers_under_both_prefixes() {
 
 #[tokio::test]
 async fn a_sales_invoice_is_posted_and_answered_over_http() {
+    // the chart holds the account a taxed invoice puts its tax in, which is found by its name
     let chart: Vec<serde_json::Value> = ["1000", "1100", "4000"]
         .into_iter()
         .map(|number| {
             json!({"id": format!("a-{number}"), "account_number": number, "name": number,
                    "account_type": "asset", "normal_balance": "debit"})
         })
+        .chain(std::iter::once(json!({
+            "id": "a-2100", "account_number": "2100", "name": "VAT Payable",
+            "account_type": "liability", "normal_balance": "credit"
+        })))
         .collect();
     let graph = Scripted::queue(vec![
+        // the tax account is looked up first, then the chart once per line of the taxed entry
+        chart.clone(),
+        chart.clone(),
         chart.clone(),
         chart,
         // no month is closed
@@ -2180,7 +2188,7 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
                     "discount_amount": "50.00", "tax_amount": "140.00"})),
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["invoice_number"], json!("INV-1"));
     assert_eq!(body["journal_entry_id"], json!("je-1"));
     assert_eq!(body["total_amount"], json!("1000.000000"));

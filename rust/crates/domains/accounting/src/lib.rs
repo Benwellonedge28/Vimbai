@@ -41,6 +41,7 @@ pub mod revenue_recognition;
 pub mod standards;
 pub mod subsidiary_journals;
 pub mod suspense;
+pub mod tax;
 pub mod trading_account;
 pub use balance_sheet::{
     generate as generate_balance_sheet, history as balance_sheet_history, latest_sheet,

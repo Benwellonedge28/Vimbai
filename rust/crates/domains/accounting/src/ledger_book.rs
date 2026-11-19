@@ -95,7 +95,7 @@ fn account_body(payload: &Value, created_at: &str, updated_at: &str) -> Value {
     })
 }
 
-fn accounts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Vec<Value>, StoreError> {
+pub fn accounts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Vec<Value>, StoreError> {
     let mut rows = Records::new(graph, LEDGER_ACCOUNT).list(scope, 2000)?;
     rows.sort_by(|one, two| field(one, "account_number").cmp(field(two, "account_number")));
     Ok(rows)

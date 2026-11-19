@@ -198,6 +198,7 @@ services:
   - GET /accounting/subsidiary-ledgers/accounts-receivable
   - GET /accounting/subsidiary-ledgers/fixed-assets
   - GET /accounting/subsidiary-ledgers/inventory
+  - GET /accounting/tax
   - GET /accounting/trial-balance
   - POST /accounting/accounts
   - POST /accounting/bank-reconciliation

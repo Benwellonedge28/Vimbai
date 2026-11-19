@@ -10,11 +10,18 @@
 //! and so on. Nothing here derives an account from the document, so a book whose chart lacks those
 //! numbers refuses the document rather than guessing where it belongs. That is pinned.
 //!
+//! Tax is posted as its own line. The service recorded the tax on the document and posted the entry without
+//! it, so a Book could show a taxed invoice whose ledger said the business had earned the tax as revenue and
+//! owed nobody anything. A taxed sale now posts `Dr receivable (total less discount) / Cr sales (net less tax)
+//! / Cr tax (tax)`, and a taxed purchase `Dr purchases (net less tax) / Dr tax (tax) / Cr payable (net)`, so
+//! collected tax sits as a liability and paid tax as something to reclaim. The tax account is the Book's own:
+//! named in the payload, or the one account whose name says VAT or tax. A Book with none is refused by name
+//! rather than having its tax posted to nothing, and a tax larger than the document is refused as the typo it
+//! is. `GET /accounting/tax` adds what the account holds over a period.
+//!
 //! Behaviours kept as shipped, each pinned by a test:
 //!
-//! * tax is recorded on the document but never posted: the sales and purchases journals post the total
-//!   less the discount, so a taxed invoice reaches the ledger without its tax, and the returns journals
-//!   post the total less the tax;
+//! * the returns journals post the total less the tax, which is right for a return of a taxed document;
 //! * a purchase return debits the purchases-returns account and credits payables, which raises an expense
 //!   account instead of lowering the one it reverses;
 //! * a cash receipt credits revenue for a cash sale and payables-clearing revenue `4100` for anything
@@ -69,6 +76,123 @@ fn post(
             {"account_number": credit_account, "debit": wire(&zero), "credit": wire(amount),
              "description": line_note},
         ],
+    });
+    let posted = ledger_book::create_entry(graph, scope, &entry)?;
+    Ok(field(&posted, "id").to_string())
+}
+
+/// A document's tax cannot be more than the document. A tax larger than the net is not a rate anybody charges; it is a
+/// total typed into the tax field, and posting it would leave the sale earning less than nothing.
+fn check_tax_fits(tax: &Money, net: &Money, what: &str) -> Result<(), StoreError> {
+    if *tax > *net {
+        return Err(refused(&format!(
+            "The tax on {what} is {} which is more than the {} the document comes to. Check which figure is the tax.",
+            tax.to_fixed(2),
+            net.to_fixed(2)
+        )));
+    }
+    Ok(())
+}
+
+/// The tax account this Book keeps, which is where the tax on a document belongs.
+///
+/// The caller may name it; otherwise it is the one account in the chart whose name says VAT or tax. A Book with none, or
+/// with more than one and no name given, is refused rather than guessed at: putting collected tax in the wrong account
+/// hides a liability that somebody has to pay, and inventing a number the chart does not hold would post to nothing.
+fn tax_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<String, StoreError> {
+    let named = text(payload, "tax_account_number");
+    let accounts = crate::ledger_book::accounts(graph, scope)?;
+    if !named.is_empty() {
+        let held = accounts.iter().any(|account| {
+            field(account, "account_number") == named
+                && !field(account, "account_number").is_empty()
+        });
+        if !held {
+            return Err(refused(&format!(
+                "Account number {named} was given as the tax account but this Book's chart does not hold it."
+            )));
+        }
+        return Ok(named);
+    }
+    let named_vat: Vec<String> = accounts
+        .iter()
+        .filter(|account| {
+            let name = field(account, "name").to_lowercase();
+            name.contains("vat") || name.contains("tax")
+        })
+        .map(|account| field(account, "account_number").to_string())
+        .filter(|number| !number.is_empty())
+        .collect();
+    match named_vat.len() {
+        1 => Ok(named_vat[0].clone()),
+        0 => Err(refused(
+            "This document carries tax, but this Book's chart has no VAT account to hold it. Add one in Chart of \
+             accounts, or say which account it is with tax_account_number.",
+        )),
+        _ => Err(refused(&format!(
+            "This Book has {} accounts whose name mentions VAT or tax ({}), so the one to post to is not obvious. Say \
+             which with tax_account_number.",
+            named_vat.len(),
+            named_vat.join(", ")
+        ))),
+    }
+}
+
+/// Posts a document that carries tax: the tax gets its own line, because collected tax is money owed to somebody else
+/// and paid tax is money to reclaim, and folding either into income or an expense states both wrongly.
+///
+/// The total on each side is still the document's net, so the entry balances exactly as it did before.
+#[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
+fn post_taxed(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    payload: &Value,
+    description: String,
+    reference: &str,
+    source_module: &str,
+    debit_account: &str,
+    credit_account: &str,
+    net: &Money,
+    tax: &Money,
+    line_note: &str,
+) -> Result<String, StoreError> {
+    let zero = Money::zero();
+    let untaxed = net.minus(tax);
+    let tax_account = tax_account(graph, scope, payload)?;
+    // a sale earns net less tax and owes the tax; a purchase costs net less tax and reclaims the tax. Which side the tax
+    // sits on is the difference between the two documents, so it is decided here rather than by the caller.
+    let sale = source_module == "SalesJournal";
+    let lines = if sale {
+        json!([
+            {"account_number": debit_account, "debit": wire(net), "credit": wire(&zero),
+             "description": line_note},
+            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(&untaxed),
+             "description": line_note},
+            {"account_number": tax_account, "debit": wire(&zero), "credit": wire(tax),
+             "description": format!("Tax on {line_note}")},
+        ])
+    } else {
+        json!([
+            {"account_number": debit_account, "debit": wire(&untaxed), "credit": wire(&zero),
+             "description": line_note},
+            {"account_number": tax_account, "debit": wire(tax), "credit": wire(&zero),
+             "description": format!("Tax on {line_note}")},
+            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
+             "description": line_note},
+        ])
+    };
+    let entry = json!({
+        "entry_date": text(payload, "entry_date"),
+        "description": description,
+        "reference_number": reference,
+        "source_module": source_module,
+        "status": "posted",
+        "created_at": text(payload, "created_at"),
+        "lines": lines,
     });
     let posted = ledger_book::create_entry(graph, scope, &entry)?;
     Ok(field(&posted, "id").to_string())
@@ -134,19 +258,36 @@ pub fn create_sale(
     let tax = money_or_nothing(payload, "tax_amount")?;
     let net = total.minus(&discount);
     let invoice = text(payload, "invoice_number");
+    check_tax_fits(&tax, &net, &format!("invoice {invoice}"))?;
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Sales Journal: Invoice {invoice}"),
-        &invoice,
-        "SalesJournal",
-        "1100",
-        "4000",
-        &net,
-        &format!("Sales Invoice {invoice}"),
-    )?;
+    let entry_id = if tax.is_zero() {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Sales Journal: Invoice {invoice}"),
+            &invoice,
+            "SalesJournal",
+            "1100",
+            "4000",
+            &net,
+            &format!("Sales Invoice {invoice}"),
+        )?
+    } else {
+        post_taxed(
+            graph,
+            scope,
+            payload,
+            format!("Sales Journal: Invoice {invoice}"),
+            &invoice,
+            "SalesJournal",
+            "1100",
+            "4000",
+            &net,
+            &tax,
+            &format!("Sales Invoice {invoice}"),
+        )?
+    };
 
     remember(
         graph,
@@ -205,19 +346,36 @@ pub fn create_purchase(
     let tax = money_or_nothing(payload, "tax_amount")?;
     let net = total.minus(&discount);
     let order = text(payload, "purchase_order_number");
+    check_tax_fits(&tax, &net, &format!("purchase {order}"))?;
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Purchases Journal: PO {order}"),
-        &order,
-        "PurchasesJournal",
-        "1200",
-        "2000",
-        &net,
-        &format!("Purchase {order}"),
-    )?;
+    let entry_id = if tax.is_zero() {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Journal: PO {order}"),
+            &order,
+            "PurchasesJournal",
+            "1200",
+            "2000",
+            &net,
+            &format!("Purchase {order}"),
+        )?
+    } else {
+        post_taxed(
+            graph,
+            scope,
+            payload,
+            format!("Purchases Journal: PO {order}"),
+            &order,
+            "PurchasesJournal",
+            "1200",
+            "2000",
+            &net,
+            &tax,
+            &format!("Purchase {order}"),
+        )?
+    };
 
     remember(
         graph,
@@ -741,6 +899,38 @@ mod tests {
     }
 
     /// Runs a create against a chart and returns the journal entry that was posted.
+    /// The chart these documents post to, with the one account that holds their tax.
+    fn chart_with_tax() -> Vec<Value> {
+        let mut rows = chart();
+        rows.push(
+            json!({"id": "a-2100", "account_number": "2100", "name": "VAT payable",
+                         "account_type": "liability", "normal_balance": "credit"}),
+        );
+        rows
+    }
+
+    /// A document that carries tax reads the chart once more than a plain one, to find the account that holds it, so the
+    /// stubs are one longer: the chart once for the tax account, once per line when the posting validates them (three lines
+    /// for a taxed document), then the months closed, then the chain, then the entry write and the document write.
+    fn posted_entry_with_tax(build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>) -> Value {
+        let graph = FakeGraph::queue(vec![
+            chart_with_tax(),
+            chart_with_tax(),
+            chart_with_tax(),
+            chart_with_tax(),
+            vec![],
+            vec![],
+            vec![json!({"id": "je-1"})],
+            vec![json!({"id": "doc-1"})],
+        ]);
+        build(&graph).expect("created");
+        let (statement, params) = graph.statement(6);
+        assert!(statement.contains("CREATE"), "{statement}");
+        let mut entry = params["props"].as_object().cloned().expect("an entry");
+        entry.insert("lines".into(), params["children"].clone());
+        Value::Object(entry)
+    }
+
     fn posted_entry(build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>) -> Value {
         // two chart reads (one per line), then the months closed, then the chain, then the entry write, then the journal
         // write
@@ -762,8 +952,8 @@ mod tests {
     }
 
     #[test]
-    fn a_sales_invoice_posts_the_total_less_discount_and_never_the_tax() {
-        let entry = posted_entry(|graph| {
+    fn a_sales_invoice_posts_the_total_less_discount_and_the_tax_as_its_own_line() {
+        let entry = posted_entry_with_tax(|graph| {
             create_sale(
                 graph,
                 &scope(),
@@ -773,11 +963,67 @@ mod tests {
             )
         });
         let lines = entry["lines"].as_array().expect("lines");
-        assert_eq!(lines[0]["debit"], json!("950.000000"));
+        // the customer owes the whole invoice
         assert_eq!(lines[0]["account_number"], json!("1100"));
-        assert_eq!(lines[1]["credit"], json!("950.000000"));
-        // the tax is on the document, not in the entry
-        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0]["debit"], json!("950.000000"));
+        // the business earned the sale without the tax, and owes the tax to somebody else
+        assert_eq!(lines[1]["account_number"], json!("4000"));
+        assert_eq!(lines[1]["credit"], json!("810.000000"));
+        assert_eq!(lines[2]["account_number"], json!("2100"));
+        assert_eq!(lines[2]["credit"], json!("140.000000"));
+        assert_eq!(lines.len(), 3);
+    }
+
+    #[test]
+    fn a_taxed_document_in_a_book_with_no_tax_account_is_refused_rather_than_posting_to_nothing() {
+        // the chart this Book holds has no account whose name mentions VAT or tax
+        let graph = FakeGraph::queue(vec![chart(), chart(), chart()]);
+        let refused = create_sale(
+            &graph,
+            &scope(),
+            &json!({"invoice_number": "INV-2", "entry_date": "2026-03-15",
+                    "total_amount": "115.00", "tax_amount": "15.00"}),
+        )
+        .expect_err("no tax account");
+        let words = refused.to_string();
+        assert!(words.contains("no VAT account"), "{words}");
+        assert!(words.contains("tax_account_number"), "{words}");
+    }
+
+    #[test]
+    fn a_tax_larger_than_the_document_is_refused_naming_both_figures() {
+        let graph = FakeGraph::returning(chart());
+        let refused = create_sale(
+            &graph,
+            &scope(),
+            &json!({"invoice_number": "INV-3", "entry_date": "2026-03-15",
+                    "total_amount": "100.00", "tax_amount": "150.00"}),
+        )
+        .expect_err("tax above the total");
+        let words = refused.to_string();
+        assert!(words.contains("150.00"), "{words}");
+        assert!(words.contains("100.00"), "{words}");
+        assert!(words.contains("which figure is the tax"), "{words}");
+    }
+
+    #[test]
+    fn a_purchase_with_tax_reclaims_it_rather_than_costing_the_business_for_it() {
+        let entry = posted_entry_with_tax(|graph| {
+            create_purchase(
+                graph,
+                &scope(),
+                &json!({"purchase_order_number": "PO-1", "vendor_id": "v-1",
+                        "entry_date": "2026-03-15", "total_amount": "460.00",
+                        "tax_amount": "60.00"}),
+            )
+        });
+        let lines = entry["lines"].as_array().expect("lines");
+        assert_eq!(lines[0]["account_number"], json!("1200"));
+        assert_eq!(lines[0]["debit"], json!("400.000000"));
+        assert_eq!(lines[1]["account_number"], json!("2100"));
+        assert_eq!(lines[1]["debit"], json!("60.000000"));
+        assert_eq!(lines[2]["account_number"], json!("2000"));
+        assert_eq!(lines[2]["credit"], json!("460.000000"));
     }
 
     #[test]
