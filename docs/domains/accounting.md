@@ -58,3 +58,12 @@ and each tax into the Book's own money before a line posts. The differences that
 than absorbed: on settlement at a later rate, on restatement of foreign balances at a period end, and on translation for
 consolidation as a cumulative adjustment in equity. Which rate applies to which item, and the three differences
 themselves, are `vimbai_common::fx`, per ADR-012; no domain crate carries its own opinion about a rate.
+
+## Vimbai records money, it does not move it
+
+Nothing here pays, transfers or collects. Every receipt, payment and settlement the engine posts is a record of a
+movement that happened outside Vimbai, in an account the business already holds, reported by the person who saw it
+happen. A receipt against a document raised in another money therefore records what arrived and clears the debt it
+settles: the money is in the bank already, and the engine's only job is to say so in the right accounts and to place the
+difference the rate made where a reader can see it. The route never calls a payment provider, holds no balance, and
+cannot move a figure out of the business.

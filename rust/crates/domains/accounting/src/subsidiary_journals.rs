@@ -682,18 +682,39 @@ pub fn create_receipt(
         "4100"
     };
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Cash Receipts: {receipt}"),
-        &receipt,
-        "CashReceiptsJournal",
-        &cash_account,
-        revenue_account,
-        &amount,
-        &text(payload, "description"),
-    )?;
+    // A receipt against a document raised in another money clears a debt that was posted at an earlier rate. Vimbai
+    // does not move the money: it records what arrived, in an account the business already holds. When the caller names
+    // the money and what the debt was posted at, the difference the rate made is posted to its own account instead of
+    // being left inside receivables or credited to revenue as though the business had earned it.
+    let foreign = !text(payload, "document_currency").trim().is_empty();
+    let entry_id = if foreign {
+        let carried = money(payload, "carried")?;
+        let mut settlement = payload.clone();
+        if let Value::Object(ref mut fields) = settlement {
+            fields.insert("carried".into(), wire(&carried));
+            fields.insert("received".into(), wire(&amount));
+            fields.insert("reference_number".into(), json!(receipt));
+            fields.insert("bank_account".into(), json!(cash_account));
+        }
+        let posted = crate::fx_settlement::settle_foreign(graph, scope, &settlement)?;
+        posted["journal_entry_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    } else {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Cash Receipts: {receipt}"),
+            &receipt,
+            "CashReceiptsJournal",
+            &cash_account,
+            revenue_account,
+            &amount,
+            &text(payload, "description"),
+        )?
+    };
 
     remember(
         graph,
