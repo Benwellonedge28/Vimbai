@@ -29,6 +29,7 @@ import 'package:vimbai_mobile_client/features/personal_finance/presentation/pers
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/close_the_month_page.dart';
+import 'package:vimbai_mobile_client/features/tax/presentation/what_you_owe_page.dart';
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
@@ -176,6 +177,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Whether the ledger adds up, what is still in draft, and whether suppliers agree',
           icon: Icons.fact_check_outlined,
           page: (context) => const BooksInOrderPage(),
+        ),
+        BookServiceEntry(
+          title: 'What you owe the taxman',
+          description:
+              'Tax charged on sales, tax reclaimed on purchases, and what is due',
+          icon: Icons.receipt_long_outlined,
+          page: (context) => const WhatYouOwePage(),
         ),
         BookServiceEntry(
           title: 'Close the month',

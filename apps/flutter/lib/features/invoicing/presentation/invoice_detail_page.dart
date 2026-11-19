@@ -14,6 +14,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_dr
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/take_payment_in_sheet.dart';
 
 class InvoiceDetailPage extends StatefulWidget {
@@ -157,7 +158,16 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           'so the sale cannot be posted from here. Add one in Chart of accounts.',
         );
       }
+      // the Book's own VAT account, found by name: a taxed sale puts its tax there rather than in income
+      final taxAccount = _account(
+        accounts,
+        (account) =>
+            account.accountName.toLowerCase().contains('vat') ||
+            account.accountName.toLowerCase().contains('tax'),
+      );
       final total = _invoice.total;
+      // the tax this invoice carries, if any: typed by the person because it is their invoice, never derived from a rate
+      final taxField = TextEditingController();
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -172,6 +182,21 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
               Text(
                 'Cr ${earned.accountNumber} ${earned.accountName}  ${total.toDecimalString()}',
               ),
+              if (taxAccount != null) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: taxField,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Tax charged on this invoice',
+                    helperText:
+                        'Leave it empty if the invoice carries none. It will be '
+                        'posted to ${taxAccount.accountNumber} ${taxAccount.accountName}.',
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Text(
                 'Reference ${_invoice.invoiceNumber}. Posted entries are corrected by reversing '
@@ -192,28 +217,36 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           ],
         ),
       );
+      final typedTax = taxField.text.trim();
+      taxField.dispose();
       if (confirmed != true || !mounted) {
         setState(() => _posting = false);
         return;
       }
+      // the split is built before anything is sent, so a tax the invoice cannot support stops here with a sentence
+      final split = saleSplit(
+        owed: PostingAccount(
+          accountNumber: owed.accountNumber,
+          accountName: owed.accountName,
+        ),
+        earned: PostingAccount(
+          accountNumber: earned.accountNumber,
+          accountName: earned.accountName,
+        ),
+        taxAccount: PostingAccount(
+          accountNumber: taxAccount?.accountNumber ?? '',
+          accountName: taxAccount?.accountName ?? '',
+        ),
+        total: total,
+        tax: typedTax.isEmpty ? ExactAmount.zero : ExactAmount.parse(typedTax),
+      );
       await _ledger.createJournalEntry(
         buildJournalEntry(
           id: const Uuid().v4(),
           entryDate: DateTime.parse(_invoice.invoiceDate),
           description: 'Invoice ${_invoice.invoiceNumber}',
           referenceNumber: _invoice.invoiceNumber,
-          lines: [
-            JournalLine(
-              accountNumber: owed.accountNumber,
-              description: 'Owed on ${_invoice.invoiceNumber}',
-              debit: total,
-            ),
-            JournalLine(
-              accountNumber: earned.accountNumber,
-              description: 'Sold on ${_invoice.invoiceNumber}',
-              credit: total,
-            ),
-          ],
+          lines: split.linesFor(_invoice.invoiceNumber),
         ),
       );
       if (!mounted) return;
