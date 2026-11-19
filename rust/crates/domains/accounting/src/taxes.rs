@@ -41,6 +41,9 @@ pub struct Rule {
     pub collected_account: String,
     /// Where tax paid on a purchase is reclaimed. Empty when this tax is not paid on purchases.
     pub reclaim_account: String,
+    /// Where the tax is charged as an expense when it is taken out of a sale, so a sale records the figure the customer
+    /// paid and the tax appears in expenses as its own line. Empty means the Book has not said where that expense sits.
+    pub expense_account: String,
     /// The taxes whose amount is added to this one's base before it is charged.
     pub after: Vec<String>,
     pub from: String,
@@ -64,6 +67,7 @@ impl Rule {
             applies_to_purchases: scope != "sales",
             collected_account: field(record, "collected_account").to_string(),
             reclaim_account: field(record, "reclaim_account").to_string(),
+            expense_account: field(record, "expense_account").to_string(),
             after: record
                 .get("applies_after")
                 .and_then(Value::as_array)
@@ -118,11 +122,64 @@ impl Rule {
             },
             "collected_account": self.collected_account,
             "reclaim_account": self.reclaim_account,
+            "expense_account": self.expense_account,
             "applies_after": self.after,
             "effective_from": self.from,
             "effective_to": self.until,
         })
     }
+}
+
+/// The expense account a tax taken out of a sale is charged to.
+///
+/// A sale now records the figure the customer paid, so the tax it carries has to be somewhere on the other side of the
+/// profit and loss: it is an expense of the sale, named by its type on the line, and each tax still credits its own
+/// payable account. The Book's own account is used when it has one; otherwise one is opened, because a tax with nowhere
+/// to put its expense would either fold the tax into the sale or refuse a sale the Book can plainly make.
+pub fn tax_expense_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+) -> Result<String, StoreError> {
+    let chart = ledger_book::accounts(graph, scope)?;
+    for account in &chart {
+        let name = field(account, "name").to_lowercase();
+        let number = field(account, "account_number");
+        if !number.is_empty()
+            && field(account, "account_type") == "expense"
+            && (name.contains("tax charged") || name.contains("tax expense"))
+        {
+            return Ok(number.to_string());
+        }
+    }
+    let mut number = String::new();
+    for candidate in 6900..7000 {
+        let wanted = format!("{candidate}");
+        if !chart
+            .iter()
+            .any(|account| field(account, "account_number") == wanted.as_str())
+        {
+            number = wanted;
+            break;
+        }
+    }
+    if number.is_empty() {
+        return Err(refused(
+            "Every expense account number this Book can open is taken, so there is nowhere to charge the tax on a \
+             sale. Free one in Chart of accounts, or set an expense account on each tax.",
+        ));
+    }
+    ledger_book::create_account(
+        graph,
+        scope,
+        &json!({
+            "account_number": number,
+            "name": "Tax charged on sales",
+            "account_type": "expense",
+            "normal_balance": "debit",
+            "description": "The tax taken out of sales, one line per tax type.",
+        }),
+    )?;
+    Ok(number)
 }
 
 /// Whether a string is a day: `2026-01-01`, not a month and not a year.
@@ -301,13 +358,16 @@ pub fn save_tax<G: Graph + ?Sized>(
     }
     let collected = text(payload, "collected_account").trim().to_string();
     let reclaim = text(payload, "reclaim_account").trim().to_string();
+    // a tax taken out of a sale is an expense of the sale, so the Book says which expense account that is; a tax charged
+    // at nothing needs none
+    let expense = text(payload, "expense_account").trim().to_string();
     if !rate.is_zero() && collected.is_empty() && reclaim.is_empty() {
         return Err(refused(&format!(
             "Say which account {name} posts to, or it cannot be charged. Add one in Chart of accounts."
         )));
     }
     let chart = ledger_book::accounts(graph, scope)?;
-    for number in [&collected, &reclaim] {
+    for number in [&collected, &reclaim, &expense] {
         if number.is_empty() {
             continue;
         }
@@ -375,6 +435,7 @@ pub fn save_tax<G: Graph + ?Sized>(
         "scope": scope_word,
         "collected_account": collected,
         "reclaim_account": reclaim,
+        "expense_account": expense,
         "applies_after": after,
         "effective_from": from,
         "effective_to": until,
@@ -500,6 +561,9 @@ pub fn seed_taxes<G: Graph + ?Sized>(
         vat_any.clone()
     };
 
+    // a tax taken out of a sale is charged to an expense account, so the seeded taxes name one
+    let expense = tax_expense_account(graph, scope).unwrap_or_default();
+
     let catalogue = [
         (
             "VAT",
@@ -553,6 +617,7 @@ pub fn seed_taxes<G: Graph + ?Sized>(
             "scope": scope_word,
             "collected_account": collected,
             "reclaim_account": reclaims,
+            "expense_account": if rate == "0" { "" } else { expense.as_str() },
             "applies_after": [],
             "effective_from": from,
             "effective_to": "",
@@ -571,6 +636,7 @@ pub fn seed_taxes<G: Graph + ?Sized>(
             "name": name,
             "rate": rate,
             "account": collected,
+            "expense_account": if rate == "0" { "" } else { expense.as_str() },
             "note": note,
             "id": field(&saved, "id"),
         }));
@@ -784,6 +850,11 @@ pub fn compute_tax<G: Graph + ?Sized>(
         }
         let amount = base.times(&rule.rate).over(&hundred).round(SCALE);
         let account = rule.account(sale);
+        let expense = if sale && !amount.is_zero() && rule.expense_account.is_empty() {
+            tax_expense_account(graph, scope)?
+        } else {
+            rule.expense_account.clone()
+        };
         if !amount.is_zero() && account.is_empty() {
             return Err(refused(&format!(
                 "{} is charged on this document but the Book has no account for it, so the tax would go nowhere. \
@@ -798,6 +869,7 @@ pub fn compute_tax<G: Graph + ?Sized>(
             "base": wire(&base),
             "amount": wire(&amount),
             "account_number": account,
+            "expense_account": expense,
             "side": if sale { "credit" } else { "debit" },
         }));
     }

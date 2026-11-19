@@ -2161,13 +2161,17 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
             json!({"id": format!("a-{number}"), "account_number": number, "name": number,
                    "account_type": "asset", "normal_balance": "debit"})
         })
-        .chain(std::iter::once(json!({
-            "id": "a-2100", "account_number": "2100", "name": "VAT Payable",
-            "account_type": "liability", "normal_balance": "credit"
-        })))
+        .chain([
+            json!({"id": "a-2100", "account_number": "2100", "name": "VAT Payable",
+                   "account_type": "liability", "normal_balance": "credit"}),
+            json!({"id": "a-6900", "account_number": "6900", "name": "Tax charged on sales",
+                   "account_type": "expense", "normal_balance": "debit"}),
+        ])
         .collect();
     let graph = Scripted::queue(vec![
-        // the tax account is looked up first, then the chart once per line of the taxed entry
+        // the tax account and the expense account the tax is charged to, then the chart once per line
+        chart.clone(),
+        chart.clone(),
         chart.clone(),
         chart.clone(),
         chart.clone(),

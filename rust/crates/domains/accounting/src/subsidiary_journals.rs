@@ -12,8 +12,9 @@
 //!
 //! Tax is posted as its own line. The service recorded the tax on the document and posted the entry without
 //! it, so a Book could show a taxed invoice whose ledger said the business had earned the tax as revenue and
-//! owed nobody anything. A taxed sale now posts `Dr receivable (total less discount) / Cr sales (net less tax)
-//! / Cr tax (tax)`, and a taxed purchase `Dr purchases (net less tax) / Dr tax (tax) / Cr payable (net)`, so
+//! owed nobody anything. A taxed sale now posts `Dr receivable (the total the customer pays) / Cr sales (that same
+//! figure, so a sale is never understated) / Dr tax expense (each tax, by its own type) / Cr tax owed (each tax, to its
+//! own account)`, and a taxed purchase `Dr purchases (net less tax) / Dr tax (tax) / Cr payable (net)`, so
 //! collected tax sits as a liability and paid tax as something to reclaim. The tax account is the Book's own:
 //! named in the payload, or the one account whose name says VAT or tax. A Book with none is refused by name
 //! rather than having its tax posted to nothing, and a tax larger than the document is refused as the typo it
@@ -123,7 +124,8 @@ fn tax_account<G: Graph + ?Sized>(
         .iter()
         .filter(|account| {
             let name = field(account, "name").to_lowercase();
-            name.contains("vat") || name.contains("tax")
+            let expense = field(account, "account_type") == "expense";
+            !expense && (name.contains("vat") || name.contains("tax"))
         })
         .map(|account| field(account, "account_number").to_string())
         .filter(|number| !number.is_empty())
@@ -149,7 +151,7 @@ fn tax_account<G: Graph + ?Sized>(
 /// The total on each side is still the document's net, so the entry balances exactly as it did before.
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
 /// One tax on a document: its name, the account it posts to, and how much it is.
-type TaxLine = (String, String, Money);
+type TaxLine = (String, String, String, Money);
 
 /// The taxes a document names, in the order it named them. Empty when the caller sent a tax figure instead.
 fn named_taxes(payload: &Value) -> Vec<String> {
@@ -205,6 +207,7 @@ fn tax_from_total(
         lines.push((
             field(&line, "tax").to_string(),
             field(&line, "account_number").to_string(),
+            field(&line, "expense_account").to_string(),
             amount,
         ));
     }
@@ -231,11 +234,12 @@ fn post_taxed_lines(
 ) -> Result<String, StoreError> {
     let zero = Money::zero();
     let mut total_tax = Money::zero();
-    for (_, _, amount) in tax_lines {
+    for (_, _, _, amount) in tax_lines {
         total_tax = total_tax.plus(amount);
     }
     let untaxed = net.minus(&total_tax);
-    // a sale earns the net and owes each tax; a purchase costs the net and reclaims each tax
+    // a sale records the figure the customer paid and charges each tax to its own expense line, so the tax shows in
+    // expenses by type and the sale is never understated; a purchase costs the net and reclaims each tax
     let sale = source_module == "SalesJournal";
     let mut lines: Vec<Value> = Vec::new();
     if sale {
@@ -243,19 +247,22 @@ fn post_taxed_lines(
                           "credit": wire(&zero), "description": line_note}));
         lines.push(
             json!({"account_number": credit_account, "debit": wire(&zero),
-                          "credit": wire(&untaxed), "description": line_note}),
+                          "credit": wire(net), "description": line_note}),
         );
-        for (name, account, amount) in tax_lines {
+        for (name, account, expense, amount) in tax_lines {
+            lines.push(json!({"account_number": expense, "debit": wire(amount),
+                              "credit": wire(&zero),
+                              "description": format!("{name} charged on {line_note}")}));
             lines.push(json!({"account_number": account, "debit": wire(&zero),
                               "credit": wire(amount),
-                              "description": format!("{name} on {line_note}")}));
+                              "description": format!("{name} owed on {line_note}")}));
         }
     } else {
         lines.push(
             json!({"account_number": debit_account, "debit": wire(&untaxed),
                           "credit": wire(&zero), "description": line_note}),
         );
-        for (name, account, amount) in tax_lines {
+        for (name, account, _expense, amount) in tax_lines {
             lines.push(json!({"account_number": account, "debit": wire(amount),
                               "credit": wire(&zero),
                               "description": format!("{name} on {line_note}")}));
@@ -295,17 +302,20 @@ fn post_taxed(
     let zero = Money::zero();
     let untaxed = net.minus(tax);
     let tax_account = tax_account(graph, scope, payload)?;
-    // a sale earns net less tax and owes the tax; a purchase costs net less tax and reclaims the tax. Which side the tax
-    // sits on is the difference between the two documents, so it is decided here rather than by the caller.
+    // a sale records the figure the customer paid and charges the tax to its own expense account, so the tax shows in
+    // expenses rather than being folded into the sale; a purchase costs net less tax and reclaims the tax
     let sale = source_module == "SalesJournal";
     let lines = if sale {
+        let expense_account = taxes::tax_expense_account(graph, scope)?;
         json!([
             {"account_number": debit_account, "debit": wire(net), "credit": wire(&zero),
              "description": line_note},
-            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(&untaxed),
+            {"account_number": credit_account, "debit": wire(&zero), "credit": wire(net),
              "description": line_note},
+            {"account_number": expense_account, "debit": wire(tax), "credit": wire(&zero),
+             "description": format!("Tax charged on {line_note}")},
             {"account_number": tax_account, "debit": wire(&zero), "credit": wire(tax),
-             "description": format!("Tax on {line_note}")},
+             "description": format!("Tax owed on {line_note}")},
         ])
     } else {
         json!([
@@ -1103,17 +1113,28 @@ mod tests {
             sum.plus(&money(line, "credit").expect("credit"))
         });
         assert_eq!(debits, credits);
-        assert_eq!(debits, Money::parse("100000.00").expect("total"));
-        // three lines: the customer owes the total, sales earn the net, and the tax is owed on its own
-        assert_eq!(lines.len(), 3);
-        assert_eq!(field(&lines[2], "account_number"), "2100");
+        // four lines: the customer owes the total, the sale records that same figure in full, and the tax it carries is
+        // its own expense against its own payable account
+        assert_eq!(lines.len(), 4);
+        assert_eq!(field(&lines[0], "account_number"), "1100");
         assert_eq!(
-            money(&lines[2], "credit").expect("tax"),
+            money(&lines[0], "debit").expect("owed"),
+            Money::parse("100000.00").expect("total")
+        );
+        assert_eq!(field(&lines[1], "account_number"), "4000");
+        assert_eq!(
+            money(&lines[1], "credit").expect("sale"),
+            Money::parse("100000.00").expect("the figure the customer paid"),
+        );
+        assert_eq!(field(&lines[2], "account_number"), "6900");
+        assert_eq!(
+            money(&lines[2], "debit").expect("tax expense"),
             Money::parse("13419.91").expect("tax")
         );
+        assert_eq!(field(&lines[3], "account_number"), "2100");
         assert_eq!(
-            money(&lines[1], "credit").expect("net"),
-            Money::parse("86580.09").expect("net")
+            money(&lines[3], "credit").expect("tax owed"),
+            Money::parse("13419.91").expect("tax")
         );
         // and the document remembers the tax it carried
         assert_eq!(field(&sale, "tax_amount"), "13419.910000");
@@ -1126,25 +1147,28 @@ mod tests {
             json!({"id": "a-2100", "account_number": "2100", "name": "VAT payable",
                          "account_type": "liability", "normal_balance": "credit"}),
         );
+        rows.push(
+            json!({"id": "a-6900", "account_number": "6900", "name": "Tax charged on sales",
+                         "account_type": "expense", "normal_balance": "debit"}),
+        );
         rows
     }
 
-    /// A document that carries tax reads the chart once more than a plain one, to find the account that holds it, so the
-    /// stubs are one longer: the chart once for the tax account, once per line when the posting validates them (three lines
-    /// for a taxed document), then the months closed, then the chain, then the entry write and the document write.
-    fn posted_entry_with_tax(build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>) -> Value {
-        let graph = FakeGraph::queue(vec![
-            chart_with_tax(),
-            chart_with_tax(),
-            chart_with_tax(),
-            chart_with_tax(),
-            vec![],
-            vec![],
-            vec![json!({"id": "je-1"})],
-            vec![json!({"id": "doc-1"})],
-        ]);
+    /// A document that carries tax reads the chart for the expense account its tax is charged to, then once per line when
+    /// the posting validates them (four lines for a taxed sale: the debt, the sale, the tax expense and the tax owed),
+    /// then the months closed, then the chain, then the entry write and the document write.
+    fn posted_entry_with_tax(
+        reads: usize,
+        build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>,
+    ) -> Value {
+        let mut scripts: Vec<Vec<Value>> = (0..reads).map(|_| chart_with_tax()).collect();
+        scripts.push(vec![]);
+        scripts.push(vec![]);
+        scripts.push(vec![json!({"id": "je-1"})]);
+        scripts.push(vec![json!({"id": "doc-1"})]);
+        let graph = FakeGraph::queue(scripts);
         build(&graph).expect("created");
-        let (statement, params) = graph.statement(6);
+        let (statement, params) = graph.statement(reads + 2);
         assert!(statement.contains("CREATE"), "{statement}");
         let mut entry = params["props"].as_object().cloned().expect("an entry");
         entry.insert("lines".into(), params["children"].clone());
@@ -1173,7 +1197,8 @@ mod tests {
 
     #[test]
     fn a_sales_invoice_posts_the_total_less_discount_and_the_tax_as_its_own_line() {
-        let entry = posted_entry_with_tax(|graph| {
+        // the tax account, the expense account the tax is charged to, and four lines
+        let entry = posted_entry_with_tax(6, |graph| {
             create_sale(
                 graph,
                 &scope(),
@@ -1186,12 +1211,15 @@ mod tests {
         // the customer owes the whole invoice
         assert_eq!(lines[0]["account_number"], json!("1100"));
         assert_eq!(lines[0]["debit"], json!("950.000000"));
-        // the business earned the sale without the tax, and owes the tax to somebody else
+        // the sale records the figure the customer paid, in full
         assert_eq!(lines[1]["account_number"], json!("4000"));
-        assert_eq!(lines[1]["credit"], json!("810.000000"));
-        assert_eq!(lines[2]["account_number"], json!("2100"));
-        assert_eq!(lines[2]["credit"], json!("140.000000"));
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[1]["credit"], json!("950.000000"));
+        // the tax it carries is its own expense, and is owed to somebody else on its own line
+        assert_eq!(lines[2]["account_number"], json!("6900"));
+        assert_eq!(lines[2]["debit"], json!("140.000000"));
+        assert_eq!(lines[3]["account_number"], json!("2100"));
+        assert_eq!(lines[3]["credit"], json!("140.000000"));
+        assert_eq!(lines.len(), 4);
     }
 
     #[test]
@@ -1228,7 +1256,8 @@ mod tests {
 
     #[test]
     fn a_purchase_with_tax_reclaims_it_rather_than_costing_the_business_for_it() {
-        let entry = posted_entry_with_tax(|graph| {
+        // the tax account and three lines: a purchase reclaims its tax, it does not charge one
+        let entry = posted_entry_with_tax(4, |graph| {
             create_purchase(
                 graph,
                 &scope(),

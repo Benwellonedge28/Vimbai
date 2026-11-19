@@ -9,6 +9,7 @@
 // amount of tax is the one the person's own invoice carries.
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
 import 'package:vimbai_mobile_client/features/tax/data/taxed_amounts.dart';
 
 export 'package:vimbai_mobile_client/features/tax/data/taxed_amounts.dart'
@@ -100,4 +101,113 @@ SaleSplit saleSplit({
     tax: tax,
     total: total,
   );
+}
+
+/// The two lines a sale that carries no tax posts: the customer owes the whole figure, and the business earned it.
+List<JournalLine> untaxedSaleLines({
+  required PostingAccount owed,
+  required PostingAccount earned,
+  required ExactAmount total,
+  required String reference,
+}) => [
+  JournalLine(
+    accountNumber: owed.accountNumber,
+    debit: total,
+    credit: ExactAmount.zero,
+    description: 'Owed on $reference',
+  ),
+  JournalLine(
+    accountNumber: earned.accountNumber,
+    debit: ExactAmount.zero,
+    credit: total,
+    description: 'Sold on $reference',
+  ),
+];
+
+/// The lines a sale posts, taken from what the engine said the sale carries.
+///
+/// The engine works each tax out of the total from the tax's own percentage and names the account that tax belongs to, so
+/// nothing here knows a rate or chooses an account: this only lays the engine's figures on the two sides a journal has.
+/// One line per tax, which is the whole point of the tax table: each tax is owed somewhere of its own.
+List<JournalLine> saleLinesFor({
+  required TaxPreview preview,
+  required PostingAccount owed,
+  required PostingAccount earned,
+  required String reference,
+}) {
+  if (preview.carriesNothing) {
+    return untaxedSaleLines(
+      owed: owed,
+      earned: earned,
+      total: preview.gross,
+      reference: reference,
+    );
+  }
+  return [
+    JournalLine(
+      accountNumber: owed.accountNumber,
+      debit: preview.gross,
+      credit: ExactAmount.zero,
+      description: 'Owed on $reference',
+    ),
+    JournalLine(
+      accountNumber: earned.accountNumber,
+      debit: ExactAmount.zero,
+      credit: preview.gross,
+      description: 'Sold on $reference',
+    ),
+    for (final line in preview.lines)
+      if (!line.amount.isZero) ...[
+        JournalLine(
+          accountNumber: line.expenseAccount,
+          debit: line.amount,
+          credit: ExactAmount.zero,
+          description: '${line.tax} charged on $reference',
+        ),
+        JournalLine(
+          accountNumber: line.accountNumber,
+          debit: ExactAmount.zero,
+          credit: line.amount,
+          description: '${line.tax} owed on $reference',
+        ),
+      ],
+  ];
+}
+
+/// What the phone asks the engine about tax on a sale, so a test can answer without a server.
+abstract class SaleTaxReads {
+  /// The Book's taxes that hold on [date] and are charged on sales.
+  Future<List<BookTax>> chargedOnSales(String date);
+
+  /// What the chosen taxes come to on a sale of [gross], in the Book's declared order.
+  Future<TaxPreview> preview({
+    required String date,
+    required String gross,
+    required List<String> taxes,
+  });
+}
+
+/// The engine's own answer, through the tax table it publishes.
+class EngineSaleTax implements SaleTaxReads {
+  EngineSaleTax({TaxTableService? table})
+    : _table = table ?? TaxTableService.instance;
+
+  final TaxTableService _table;
+
+  @override
+  Future<List<BookTax>> chargedOnSales(String date) async {
+    final table = await _table.read(date: date);
+    return [
+      for (final tax in table.taxes)
+        if (tax.inForce && tax.onSales) tax,
+    ];
+  }
+
+  @override
+  Future<TaxPreview> preview({
+    required String date,
+    required String gross,
+    required List<String> taxes,
+  }) =>
+      _table.preview(date: date, direction: 'sale', gross: gross, taxes: taxes);
 }

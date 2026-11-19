@@ -11,6 +11,8 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_detail_page.dart';
+import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
+import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
 
 Invoice _invoice() => Invoice(
   invoiceNumber: 'INV-0001',
@@ -53,6 +55,74 @@ class _FakeLedger extends AccountingApiService {
   }
 }
 
+/// A Book that charges no tax, so the plain sale can be exercised on its own.
+class _NoTax implements SaleTaxReads {
+  const _NoTax();
+
+  @override
+  Future<List<BookTax>> chargedOnSales(String date) async => const [];
+
+  @override
+  Future<TaxPreview> preview({
+    required String date,
+    required String gross,
+    required List<String> taxes,
+  }) async => throw UnimplementedError('nothing was chosen');
+}
+
+/// A Book that charges VAT at 15.5%, answering with the engine's own figures for a 100,000.00 sale.
+class _VatBook implements SaleTaxReads {
+  _VatBook(this.gross);
+
+  final ExactAmount gross;
+  final List<String> asked = [];
+
+  @override
+  Future<List<BookTax>> chargedOnSales(String date) async => [
+    BookTax(
+      id: 'vat',
+      name: 'VAT',
+      rate: ExactAmount.parse('15.5'),
+      scope: 'sales',
+      collectedAccount: '2100',
+      reclaimAccount: '2100',
+      appliesAfter: const [],
+      effectiveFrom: '2026-01-01',
+      effectiveTo: '',
+      inForce: true,
+    ),
+  ];
+
+  @override
+  Future<TaxPreview> preview({
+    required String date,
+    required String gross,
+    required List<String> taxes,
+  }) async {
+    asked.addAll(taxes);
+    final total = ExactAmount.parse(gross);
+    final tax = ExactAmount.parse('13419.91');
+    final net = total - tax;
+    return TaxPreview(
+      net: net,
+      tax: tax,
+      gross: total,
+      lines: [
+        TaxLine(
+          tax: 'VAT',
+          rate: ExactAmount.parse('15.5'),
+          base: net,
+          amount: tax,
+          side: 'credit',
+          accountNumber: '2100',
+          expenseAccount: '6900',
+        ),
+      ],
+      note: '',
+    );
+  }
+}
+
 void main() {
   testWidgets(
     'the sale is posted as a balanced entry, with the invoice number as its reference',
@@ -65,7 +135,11 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: InvoiceDetailPage(invoice: _invoice(), accounting: ledger),
+          home: InvoiceDetailPage(
+            invoice: _invoice(),
+            accounting: ledger,
+            tax: const _NoTax(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -115,7 +189,11 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: InvoiceDetailPage(invoice: _invoice(), accounting: ledger),
+          home: InvoiceDetailPage(
+            invoice: _invoice(),
+            accounting: ledger,
+            tax: const _NoTax(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -129,6 +207,81 @@ void main() {
       );
       expect(find.text('Post it'), findsNothing);
       expect(ledger.written, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a sale that carries tax posts the tax out of the total, to its own account',
+    (tester) async {
+      final ledger = _FakeLedger([
+        _account('1100', 'Accounts Receivable', 'asset'),
+        _account('4000', 'Sales', 'revenue'),
+        _account('2100', 'VAT Payable', 'liability'),
+      ]);
+      final car = Invoice(
+        invoiceNumber: 'CAR-1',
+        customerId: 'acme',
+        invoiceDate: '2026-11-19',
+        dueDate: '2026-12-19',
+        total: ExactAmount.parse('100000.00'),
+        paid: ExactAmount.zero,
+        status: 'outstanding',
+        lines: const [],
+      );
+      final tax = _VatBook(ExactAmount.parse('100000.00'));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: InvoiceDetailPage(invoice: car, accounting: ledger, tax: tax),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Post the sale to the ledger'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('VAT 15.5%'), findsOneWidget);
+      await tester.tap(find.text('VAT 15.5%'));
+      await tester.pumpAndSettle();
+
+      expect(tax.asked, ['VAT'], reason: 'the tax is chosen, never typed');
+      expect(
+        find.textContaining('13419.91'),
+        findsWidgets,
+        reason: 'the engine own figure is shown before anything is posted',
+      );
+      expect(ledger.written, isEmpty);
+
+      await tester.tap(find.text('Post it'));
+      await tester.pumpAndSettle();
+
+      final entry = ledger.written.single;
+      expect(entry.lines.length, 4);
+      expect(entry.lines[0].accountNumber, '1100');
+      expect(entry.lines[0].debit, ExactAmount.parse('100000.00'));
+      expect(
+        entry.lines[1].accountNumber,
+        '4000',
+        reason: 'the sale records what the customer paid, in full',
+      );
+      expect(entry.lines[1].credit, ExactAmount.parse('100000.00'));
+      expect(
+        entry.lines[2].accountNumber,
+        '6900',
+        reason: 'the tax is its own expense, named by its type',
+      );
+      expect(entry.lines[2].debit, ExactAmount.parse('13419.91'));
+      expect(entry.lines[3].accountNumber, '2100');
+      expect(entry.lines[3].credit, ExactAmount.parse('13419.91'));
+      final debits = entry.lines.fold(
+        ExactAmount.zero,
+        (sum, line) => sum + line.debit,
+      );
+      final credits = entry.lines.fold(
+        ExactAmount.zero,
+        (sum, line) => sum + line.credit,
+      );
+      expect(debits, credits, reason: 'the entry still balances');
     },
   );
 }

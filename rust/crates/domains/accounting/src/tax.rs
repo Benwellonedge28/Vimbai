@@ -19,10 +19,12 @@ use vimbai_store::{
 
 use crate::ledger_book;
 
-/// Whether an account is the Book's tax account: the name says so.
-fn holds_tax(name: &str) -> bool {
-    let name = name.to_lowercase();
-    name.contains("vat") || name.contains("tax")
+/// Whether an account is one the tax is *owed* in, rather than the expense a sale is charged: the name says so, and the
+/// expense account a sale charges its tax to is not a place tax is owed, so counting it would double the figure.
+fn holds_tax(account: &Value) -> bool {
+    let name = field(account, "name").to_lowercase();
+    let expense = field(account, "account_type") == "expense";
+    !expense && (name.contains("vat") || name.contains("tax"))
 }
 
 /// `GET /accounting/tax/`: what was collected, what can be reclaimed, and what is owed, over a period.
@@ -47,7 +49,7 @@ pub fn tax_due<G: Graph + ?Sized>(
     let chart = ledger_book::accounts(graph, scope)?;
     let tax_accounts: Vec<(String, String)> = chart
         .iter()
-        .filter(|account| holds_tax(field(account, "name")))
+        .filter(|account| holds_tax(account))
         .map(|account| {
             (
                 field(account, "account_number").to_string(),

@@ -192,6 +192,7 @@ class TaxLine {
     required this.amount,
     required this.side,
     required this.accountNumber,
+    this.expenseAccount = '',
   });
 
   final String tax;
@@ -203,6 +204,10 @@ class TaxLine {
   final String side;
   final String accountNumber;
 
+  /// Where a sale charges this tax as an expense, so the sale keeps the figure the customer paid. Empty on a purchase,
+  /// which reclaims its tax instead of costing it.
+  final String expenseAccount;
+
   factory TaxLine.fromJson(Map<String, dynamic> json) => TaxLine(
     tax: (json['tax'] as String?) ?? '',
     rate: ExactAmount.fromJson(json['rate']),
@@ -210,6 +215,7 @@ class TaxLine {
     amount: ExactAmount.fromJson(json['amount']),
     side: (json['side'] as String?) ?? '',
     accountNumber: (json['account_number'] as String?) ?? '',
+    expenseAccount: (json['expense_account'] as String?) ?? '',
   );
 
   bool get credited => side == 'credit';
@@ -223,12 +229,16 @@ class TaxPreview {
     required this.gross,
     required this.lines,
     required this.note,
+    this.direction = 'sale',
   });
 
   final ExactAmount net;
   final ExactAmount tax;
   final ExactAmount gross;
   final List<TaxLine> lines;
+
+  /// `sale` or `purchase`: a sale charges its tax as an expense, a purchase reclaims it.
+  final String direction;
 
   /// The engine's own sentence, used when nothing was chosen: a document carries no tax until one is.
   final String note;
@@ -242,6 +252,7 @@ class TaxPreview {
         TaxLine.fromJson(row as Map<String, dynamic>),
     ],
     note: (json['note'] as String?) ?? '',
+    direction: (json['direction'] as String?) ?? 'sale',
   );
 
   bool get carriesNothing => lines.isEmpty || tax.isZero;
@@ -256,8 +267,12 @@ class TaxPreview {
               '${line.accountNumber}',
     ];
     if (parts.isEmpty) return note;
-    return 'A ${net.toDecimalString()} document carries '
-        '${tax.toDecimalString()} of tax: ${parts.join(', ')}.';
+    if (direction == 'purchase') {
+      return 'A ${gross.toDecimalString()} document reclaims '
+          '${tax.toDecimalString()} of tax: ${parts.join(', ')}.';
+    }
+    return 'The sale records ${gross.toDecimalString()} and the tax is '
+        '${tax.toDecimalString()} in expenses: ${parts.join(', ')}.';
   }
 }
 

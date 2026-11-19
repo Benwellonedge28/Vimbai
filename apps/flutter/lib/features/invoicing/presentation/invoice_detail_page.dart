@@ -15,6 +15,7 @@ import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
+import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/take_payment_in_sheet.dart';
 
 class InvoiceDetailPage extends StatefulWidget {
@@ -24,6 +25,7 @@ class InvoiceDetailPage extends StatefulWidget {
     this.service,
     this.accounting,
     this.cash,
+    this.tax,
   });
 
   final Invoice invoice;
@@ -37,6 +39,9 @@ class InvoiceDetailPage extends StatefulWidget {
   /// The cash book, for taking in the money a payment is about.
   final CashBookService? cash;
 
+  /// The Book's taxes, injectable so a test can answer without a server.
+  final SaleTaxReads? tax;
+
   @override
   State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
 }
@@ -49,6 +54,8 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
       widget.accounting ?? AccountingApiService();
 
   late final CashBookService _cash = widget.cash ?? CashBookService();
+
+  late final SaleTaxReads _tax = widget.tax ?? EngineSaleTax();
 
   late Invoice _invoice = widget.invoice;
   bool _recording = false;
@@ -158,102 +165,148 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           'so the sale cannot be posted from here. Add one in Chart of accounts.',
         );
       }
-      // the Book's own VAT account, found by name: a taxed sale puts its tax there rather than in income
-      final taxAccount = _account(
-        accounts,
-        (account) =>
-            account.accountName.toLowerCase().contains('vat') ||
-            account.accountName.toLowerCase().contains('tax'),
-      );
       final total = _invoice.total;
-      // the tax this invoice carries, if any: typed by the person because it is their invoice, never derived from a rate.
-      // The invoice total is what the customer pays, so the tax is taken out of it rather than added on top.
-      final taxField = TextEditingController();
+      // the taxes this Book charges on a sale on the invoice's own day. Which taxes hold, and at what rate, is the
+      // Book's business, so the phone asks rather than assuming: a rate is a fact about somebody's registration.
+      List<BookTax> onSales = const [];
+      String? taxTrouble;
+      try {
+        onSales = await _tax.chargedOnSales(_invoice.invoiceDate);
+      } catch (failure) {
+        taxTrouble = CouldNotRead.reasonOf(failure);
+      }
+      // what the engine says the chosen taxes come to on this invoice, kept out of the builder so the answer survives a
+      // rebuild of the dialog
+      TaxPreview? carried;
+      var chosen = <String>[];
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Post the sale'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dr ${owed.accountNumber} ${owed.accountName}  ${total.toDecimalString()}',
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            Future<void> ask(String name) async {
+              setDialogState(() {
+                chosen = chosen.contains(name)
+                    ? (chosen.toList()..remove(name))
+                    : [...chosen, name];
+              });
+              try {
+                final answer = await _tax.preview(
+                  date: _invoice.invoiceDate,
+                  gross: total.toDecimalString(),
+                  taxes: chosen,
+                );
+                setDialogState(() => carried = answer);
+              } catch (failure) {
+                setDialogState(() => carried = null);
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Post the sale'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dr ${owed.accountNumber} ${owed.accountName}  ${total.toDecimalString()}',
+                  ),
+                  Text(
+                    'Cr ${earned.accountNumber} ${earned.accountName}  '
+                    '${(carried?.net ?? total).toDecimalString()}',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${total.toDecimalString()} is what the customer pays. Any tax '
+                    'is taken out of it and each tax goes to its own account.',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                  if (taxTrouble != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'The taxes this Book charges could not be read, so this '
+                      'sale will be posted without tax. $taxTrouble',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                  ],
+                  if (onSales.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final tax in onSales)
+                          FilterChip(
+                            label: Text('${tax.name} ${tax.rateText}'),
+                            selected: chosen.contains(tax.name),
+                            onSelected: (_) => ask(tax.name),
+                          ),
+                      ],
+                    ),
+                    if (carried != null && !carried!.carriesNothing) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        carried!.reading,
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Reference ${_invoice.invoiceNumber}. Posted entries are corrected by reversing '
+                    'them, never edited.',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              Text(
-                'Cr ${earned.accountNumber} ${earned.accountName}  ${total.toDecimalString()}',
-              ),
-              if (taxAccount != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '${total.toDecimalString()} is what the customer pays, so any '
-                  'tax is taken out of it and the sale earns the rest.',
-                  style: Theme.of(ctx).textTheme.bodySmall,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Not now'),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: taxField,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Tax included in that total',
-                    helperText:
-                        'Leave it empty if the invoice carries none. It will be '
-                        'posted to ${taxAccount.accountNumber} ${taxAccount.accountName}.',
-                  ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Post it'),
                 ),
               ],
-              const SizedBox(height: 12),
-              Text(
-                'Reference ${_invoice.invoiceNumber}. Posted entries are corrected by reversing '
-                'them, never edited.',
-                style: Theme.of(ctx).textTheme.bodySmall,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Not now'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Post it'),
-            ),
-          ],
+            );
+          },
         ),
       );
-      final typedTax = taxField.text.trim();
-      taxField.dispose();
       if (confirmed != true || !mounted) {
         setState(() => _posting = false);
         return;
       }
-      // the split is built before anything is sent, so a tax the invoice cannot support stops here with a sentence
-      final split = saleSplit(
-        owed: PostingAccount(
-          accountNumber: owed.accountNumber,
-          accountName: owed.accountName,
-        ),
-        earned: PostingAccount(
-          accountNumber: earned.accountNumber,
-          accountName: earned.accountName,
-        ),
-        taxAccount: PostingAccount(
-          accountNumber: taxAccount?.accountNumber ?? '',
-          accountName: taxAccount?.accountName ?? '',
-        ),
-        total: total,
-        tax: typedTax.isEmpty ? ExactAmount.zero : ExactAmount.parse(typedTax),
-      );
+      final lines = carried != null
+          ? saleLinesFor(
+              preview: carried!,
+              owed: PostingAccount(
+                accountNumber: owed.accountNumber,
+                accountName: owed.accountName,
+              ),
+              earned: PostingAccount(
+                accountNumber: earned.accountNumber,
+                accountName: earned.accountName,
+              ),
+              reference: _invoice.invoiceNumber,
+            )
+          : untaxedSaleLines(
+              owed: PostingAccount(
+                accountNumber: owed.accountNumber,
+                accountName: owed.accountName,
+              ),
+              earned: PostingAccount(
+                accountNumber: earned.accountNumber,
+                accountName: earned.accountName,
+              ),
+              total: total,
+              reference: _invoice.invoiceNumber,
+            );
       await _ledger.createJournalEntry(
         buildJournalEntry(
           id: const Uuid().v4(),
           entryDate: DateTime.parse(_invoice.invoiceDate),
           description: 'Invoice ${_invoice.invoiceNumber}',
           referenceNumber: _invoice.invoiceNumber,
-          lines: split.linesFor(_invoice.invoiceNumber),
+          lines: lines,
         ),
       );
       if (!mounted) return;

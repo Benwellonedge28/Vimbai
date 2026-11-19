@@ -32,10 +32,10 @@ const _seeded = '''
 const _empty = '{"date":"2026-11-19","count":0,"taxes":[]}';
 
 const _preview = '''
-{"date":"2026-11-19","direction":"sale","net":"1000.000000","tax":"155.000000",
- "gross":"1155.000000",
- "tax_lines":[{"tax":"VAT","rate":"15.5000","base":"1000.000000","amount":"155.000000",
-               "side":"credit","account_number":"2100"}],
+{"date":"2026-11-19","direction":"sale","net":"845.000000","tax":"155.000000",
+ "gross":"1000.000000",
+ "tax_lines":[{"tax":"VAT","rate":"15.5000","base":"845.000000","amount":"155.000000",
+               "side":"credit","account_number":"2100","expense_account":"6900"}],
  "note":""}
 ''';
 
@@ -174,7 +174,7 @@ void main() {
     // the figure shown afterwards is the engine's answer, not one the app worked out
     expect(
       find.text(
-        'A 1000.00 document carries 155.00 of tax: VAT 155.00 to account 2100.',
+        'The sale records 1000.00 and the tax is 155.00 in expenses: VAT 155.00 to account 2100.',
       ),
       findsOneWidget,
     );
