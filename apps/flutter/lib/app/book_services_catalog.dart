@@ -16,6 +16,7 @@ import 'package:vimbai_mobile_client/features/household_finance/presentation/hou
 import 'package:vimbai_mobile_client/features/accounting/presentation/income_statement_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/discounts_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
 import 'package:vimbai_mobile_client/features/assets/presentation/fixed_assets_page.dart';
@@ -192,6 +193,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Each tax, its rate and account, and the day it starts applying',
           icon: Icons.percent_outlined,
           page: (context) => const TaxTablePage(),
+        ),
+        BookServiceEntry(
+          title: 'The discounts you give',
+          description:
+              'Each discount, what it takes off, who it is for, and whether it is given automatically',
+          icon: Icons.local_offer_outlined,
+          page: (context) => const DiscountsPage(),
         ),
         BookServiceEntry(
           title: 'Close the month',
