@@ -136,6 +136,8 @@ class _TakeASaleBackSheetState extends State<TakeASaleBackSheet> {
         customerId: widget.invoice.customerId,
         total: widget.invoice.total,
         taxes: _chosen.toList(),
+        currency: widget.invoice.currency,
+        rate: widget.invoice.rate,
         reason: _reason.text,
       );
       if (!mounted) return;

@@ -39,6 +39,9 @@ void main() {
       );
 
       final body = jsonDecode(sent!) as Map<String, dynamic>;
+      // a sale billed at home names no money, so the return names none either
+      expect(body.containsKey('currency'), isFalse, reason: '$body');
+      expect(body.containsKey('exchange_rate'), isFalse, reason: '$body');
       // the customer paid 100,000, so 100,000 is what is credited back: the tax is taken out of it, never added to it
       expect(body['total_amount'], '100000.00');
       expect(body['taxes'], ['VAT']);
@@ -79,4 +82,38 @@ void main() {
       ),
     );
   });
+
+  test(
+    'a return of a sale billed abroad is reversed in that same money',
+    () async {
+      late String sent;
+      final service = SalesReturnService.fresh()
+        ..useClient(
+          MockClient((request) async {
+            sent = request.body;
+            return http.Response(
+              '{"return_number":"CN-USD-1","total_amount":"100000.00",'
+              '"tax_amount":"0","journal_entry_id":"je-1"}',
+              201,
+            );
+          }),
+        );
+
+      await service.record(
+        entryDate: '2026-11-20',
+        returnNumber: 'CN-USD-1',
+        originalInvoiceNumber: 'USD-1',
+        customerId: 'c-1',
+        total: ExactAmount.parse('100000.00'),
+        taxes: const [],
+        currency: 'usd',
+        rate: '25.5',
+      );
+
+      final body = jsonDecode(sent) as Map<String, dynamic>;
+      // without these the engine would hand the customer back Book money and reverse a dollar sale at par
+      expect(body['currency'], 'USD', reason: 'trimmed and upper-cased: $body');
+      expect(body['exchange_rate'], '25.5', reason: '$body');
+    },
+  );
 }

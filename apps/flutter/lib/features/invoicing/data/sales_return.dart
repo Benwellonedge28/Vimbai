@@ -83,6 +83,8 @@ class SalesReturnService {
     required String customerId,
     required ExactAmount total,
     required List<String> taxes,
+    String currency = '',
+    String rate = '',
     String reason = '',
   }) async {
     final answer = await _client.post(
@@ -95,6 +97,11 @@ class SalesReturnService {
         'customer_id': customerId,
         'total_amount': total.toDecimalString(),
         'taxes': taxes,
+        // a sale billed in another money is reversed in that same money, at the same rate: without them the engine would
+        // hand the customer back a figure in the Book's money and reverse a dollar sale at par
+        if (currency.trim().isNotEmpty)
+          'currency': currency.trim().toUpperCase(),
+        if (rate.trim().isNotEmpty) 'exchange_rate': rate.trim(),
         if (reason.trim().isNotEmpty) 'reason': reason.trim(),
       }),
     );
