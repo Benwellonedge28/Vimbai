@@ -736,6 +736,8 @@ class InvoicingService {
     required DateTime invoiceDate,
     required DateTime dueDate,
     String notes = '',
+    String discountAmount = '',
+    List<String> discountRules = const [],
   }) async {
     final number = invoiceNumber.trim();
     if (number.isEmpty) {
@@ -765,6 +767,11 @@ class InvoicingService {
         'total_amount': total.toLedgerString(),
         'status': 'outstanding',
         'notes': notes,
+        // a discount is named rather than worked out here: the engine takes the compulsory rules that fit, then the
+        // offered ones named, and answers with what the customer actually owes
+        if (discountRules.isNotEmpty) 'discount_rules': discountRules,
+        if (discountAmount.trim().isNotEmpty)
+          'discount_amount': discountAmount.trim(),
       }),
     );
     if (answer.statusCode != 200 && answer.statusCode != 201) {

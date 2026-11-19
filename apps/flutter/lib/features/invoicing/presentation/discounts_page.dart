@@ -307,7 +307,17 @@ class _DiscountFormState extends State<_DiscountForm> {
   final _customers = TextEditingController();
   final _minTotal = TextEditingController();
   late final _from = TextEditingController(text: widget.today);
-  final _until = TextEditingController();
+
+  /// A year on, because a discount is given for a season rather than forever. It is a default to change, not a rule.
+  late final _until = TextEditingController(text: _aYearAfter(widget.today));
+
+  static String _aYearAfter(String day) {
+    final parts = day.split('-');
+    if (parts.length != 3) return '';
+    final year = int.tryParse(parts[0]);
+    if (year == null) return '';
+    return '${year + 1}-${parts[1]}-${parts[2]}';
+  }
 
   String _kind = 'percent';
   bool _compulsory = true;
@@ -344,6 +354,19 @@ class _DiscountFormState extends State<_DiscountForm> {
         () => _trouble = _kind == 'percent'
             ? 'Say the percentage it takes off, like 10.'
             : 'Say the sum of money it takes off, like 250.00.',
+      );
+      return;
+    }
+    if (_from.text.trim().isEmpty) {
+      setState(
+        () => _trouble = 'Say the day it starts applying, like 2026-01-01.',
+      );
+      return;
+    }
+    if (_until.text.trim().isEmpty) {
+      setState(
+        () => _trouble =
+            'Say the day it stops applying, like 2026-12-31. Every discount runs from a day to a day.',
       );
       return;
     }
@@ -470,7 +493,8 @@ class _DiscountFormState extends State<_DiscountForm> {
               controller: _until,
               decoration: const InputDecoration(
                 labelText: 'Stops applying',
-                hintText: 'leave empty while it still holds',
+                hintText: '2026-12-31',
+                helperText: 'Every discount runs from a day to a day.',
               ),
             ),
             if (_trouble != null) ...[

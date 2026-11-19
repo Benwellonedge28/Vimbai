@@ -16,7 +16,7 @@ const _twoRules = '''
 {"discounts":[
  {"id":"d1","name":"Trade terms","kind":"percent","value":"10.000000","compulsory":true,
   "all_customers":true,"customer_ids":[],"min_total":"0.000000",
-  "effective_from":"2026-01-01","effective_to":""},
+  "effective_from":"2026-01-01","effective_to":"2027-12-31"},
  {"id":"d2","name":"Loyalty","kind":"amount","value":"250.000000","compulsory":false,
   "all_customers":false,"customer_ids":["ACME-1"],"min_total":"5000.000000",
   "effective_from":"2026-11-01","effective_to":"2026-11-30"}]}
@@ -118,7 +118,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining('given automatically, from 2026-01-01'),
+        find.textContaining('given automatically, 2026-01-01 to 2027-12-31'),
         findsOneWidget,
       );
       // a rule that names its customers and waits for a figure says so rather than looking like everyone's
@@ -158,6 +158,11 @@ void main() {
       expect(body['customer_ids'], isEmpty);
       expect(body['min_total'], '5000');
       expect(body['effective_from'], '2026-11-19');
+      expect(
+        body['effective_to'],
+        '2027-11-19',
+        reason: 'the form offers a year, so a discount never runs on by itself',
+      );
     },
   );
 

@@ -90,7 +90,7 @@ class BookDiscount {
   String get howWord =>
       compulsory ? 'given automatically' : 'taken only when it is asked for';
 
-  /// "from 2026-01-01", or "2026-01-01 to 2026-06-30" once it has an end.
+  /// "2026-01-01 to 2026-12-31": every discount runs from a day to a day.
   String get datesWord => effectiveTo.isEmpty
       ? 'from $effectiveFrom'
       : '$effectiveFrom to $effectiveTo';
@@ -103,6 +103,10 @@ class BookDiscount {
   String get problem {
     if (effectiveFrom.isEmpty) {
       return '$name has no start date, so it never applies. Give it a day.';
+    }
+    if (effectiveTo.isEmpty) {
+      return '$name has no end date, so it would take money off invoices nobody meant it to reach. '
+          'Say the day it stops.';
     }
     if (!allCustomers && customerIds.isEmpty) {
       return '$name is not for every customer and names nobody, so it can never be given.';

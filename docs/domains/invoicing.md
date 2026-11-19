@@ -24,7 +24,9 @@ Crates: `rust/crates/domains/invoicing`, `rust/crates/domains/payables`
 
 ## Discounts
 
-A discount is a percentage or a sum of money, and it says who it is for. A rule is declared once, dated like a tax, and
+A discount is a percentage or a sum of money, and it says who it is for. A rule is declared once, and it runs from the
+day it starts to the day it stops: both days are required, because a discount that never ends takes money off invoices
+nobody meant it to reach. A rule is
 either compulsory - given on every invoice it fits without anybody asking - or offered, so the person raising an invoice
 may take it or leave it. It fits every customer, or only the customers it names, and it can wait until an invoice reaches
 a figure worth discounting.

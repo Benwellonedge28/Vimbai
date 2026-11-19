@@ -8,15 +8,19 @@ import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+import 'package:vimbai_mobile_client/features/invoicing/data/discounts.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_detail_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/who_owes_what_page.dart';
 
 class InvoicesPage extends StatefulWidget {
-  const InvoicesPage({super.key, this.service});
+  const InvoicesPage({super.key, this.service, this.discountService});
 
   /// A test passes its own service so the page can be exercised without a server.
   final InvoicingService? service;
+
+  /// The discounts a Book gives, so a test can hand the form its own rules.
+  final DiscountService? discountService;
 
   @override
   State<InvoicesPage> createState() => _InvoicesPageState();
@@ -25,6 +29,9 @@ class InvoicesPage extends StatefulWidget {
 class _InvoicesPageState extends State<InvoicesPage> {
   late final InvoicingService _invoices =
       widget.service ?? InvoicingService.instance;
+
+  late final DiscountService _discounts =
+      widget.discountService ?? DiscountService.instance;
 
   bool _loading = true;
   String? _error;
@@ -66,6 +73,7 @@ class _InvoicesPageState extends State<InvoicesPage> {
       isScrollControlled: true,
       builder: (ctx) => _RaiseInvoiceSheet(
         service: _invoices,
+        discounts: _discounts,
         customers: _customers,
         suggestedNumber: _invoices.nextNumberFor(_held ?? const []),
       ),
@@ -212,11 +220,15 @@ class _InvoicesPageState extends State<InvoicesPage> {
 class _RaiseInvoiceSheet extends StatefulWidget {
   const _RaiseInvoiceSheet({
     required this.service,
+    required this.discounts,
     required this.customers,
     required this.suggestedNumber,
   });
 
   final InvoicingService service;
+
+  /// The discounts this Book gives, read when the form opens.
+  final DiscountService discounts;
   final List<InvoiceCustomer> customers;
   final String suggestedNumber;
 
@@ -237,16 +249,71 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
   bool _working = false;
   String? _complaint;
 
+  /// The discounts this Book gives, read when the form opens. Empty until read, and left empty if the read fails,
+  /// because a discount the engine does not know about would be refused at the point the invoice is raised.
+  DiscountTable? _discounts;
+
+  /// The offered rules taken on this invoice. A compulsory rule is not here: the engine gives it without being asked.
+  final Set<String> _taken = {};
+
+  /// A figure given off this invoice by hand, off the total before tax.
+  final TextEditingController _oneOff = TextEditingController();
+
+  /// What the engine says would come off, in its own words. The app never works out a discount itself.
+  String? _quote;
+
   @override
   void initState() {
     super.initState();
     if (widget.customers.isNotEmpty) _customer = widget.customers.first;
+    _loadDiscounts();
+  }
+
+  Future<void> _loadDiscounts() async {
+    try {
+      final table = await widget.discounts.read();
+      if (!mounted) return;
+      setState(() {
+        _discounts = table;
+      });
+      _refreshQuote();
+    } catch (_) {
+      // a Book whose discounts could not be read still raises invoices; the engine refuses anything it does not hold
+    }
+  }
+
+  /// Ask the engine what this invoice would carry, so the figure shown is the one that will be posted.
+  Future<void> _refreshQuote() async {
+    final table = _discounts;
+    if (table == null || table.empty) return;
+    if (_total.isZero) {
+      if (mounted) setState(() => _quote = null);
+      return;
+    }
+    try {
+      final asked = [
+        for (final one in table.offered)
+          if (_taken.contains(one.name)) one.name,
+      ];
+      final answer = await widget.discounts.quote(
+        total: _total.toLedgerString(),
+        customerId: _customer?.customerId ?? 'anyone',
+        date: _short(_raised),
+        rules: asked,
+      );
+      if (!mounted) return;
+      setState(() => _quote = answer.reading);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _quote = CouldNotRead.reasonOf(error));
+    }
   }
 
   @override
   void dispose() {
     _number.dispose();
     _newCustomer.dispose();
+    _oneOff.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -310,6 +377,11 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
         lines: held,
         invoiceDate: _raised,
         dueDate: _due,
+        discountRules: [
+          for (final one in (_discounts?.offered ?? const <BookDiscount>[]))
+            if (_taken.contains(one.name)) one.name,
+        ],
+        discountAmount: _oneOff.text,
       );
       if (!mounted) return;
       Navigator.of(context).pop(invoice);
@@ -320,6 +392,61 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
         _complaint = CouldNotRead.reasonOf(failure);
       });
     }
+  }
+
+  /// What comes off this invoice: the rules the Book gives by itself, the ones offered here, and a figure given by hand.
+  Widget _discountSection(BuildContext context) {
+    final table = _discounts;
+    if (table == null || table.empty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final automatic = table.automatic;
+    final offered = table.offered;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        const Text('Discount', style: TextStyle(fontWeight: FontWeight.bold)),
+        for (final one in automatic)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              '${one.reading} The engine gives this without being asked.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        for (final one in offered)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _taken.contains(one.name),
+            onChanged: (on) {
+              setState(() {
+                if (on == true) {
+                  _taken.add(one.name);
+                } else {
+                  _taken.remove(one.name);
+                }
+              });
+              _refreshQuote();
+            },
+            title: Text(one.name),
+            subtitle: Text(one.reading),
+          ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: _oneOff,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'A one-off discount',
+            helperText: 'Off the total, before tax. Leave empty for none.',
+          ),
+          onChanged: (_) => _refreshQuote(),
+        ),
+        if (_quote != null) ...[
+          const SizedBox(height: 8),
+          Text(_quote!, style: theme.textTheme.bodySmall),
+        ],
+      ],
+    );
   }
 
   @override
@@ -360,7 +487,10 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
                       child: Text(customer.label),
                     ),
                 ],
-                onChanged: (chosen) => setState(() => _customer = chosen),
+                onChanged: (chosen) {
+                  setState(() => _customer = chosen);
+                  _refreshQuote();
+                },
               ),
             if (widget.customers.isEmpty) ...[
               const Text(
@@ -428,7 +558,10 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
                             decoration: const InputDecoration(
                               labelText: 'Quantity',
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) {
+                              setState(() {});
+                              _refreshQuote();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -441,7 +574,10 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
                             decoration: const InputDecoration(
                               labelText: 'Unit price',
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) {
+                              setState(() {});
+                              _refreshQuote();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -476,6 +612,7 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
                 ),
               ],
             ),
+            _discountSection(context),
             if (_complaint != null) ...[
               const SizedBox(height: 12),
               Text(

@@ -193,13 +193,20 @@ pub fn save_discount<G: Graph + ?Sized>(
             "Say the day {name} starts to apply, as a date like 2026-01-01."
         )));
     }
+    // a discount is a thing that runs its course: it says when it starts and when it stops, so a rule cannot sit in
+    // the Book taking money off invoices nobody meant it to reach
     let until = text(payload, "effective_to");
-    if !until.is_empty() && !is_day(&until) {
+    if until.is_empty() {
+        return Err(refused(&format!(
+            "Say the day {name} stops applying, as a date like 2026-12-31. Every discount runs from a day to a day."
+        )));
+    }
+    if !is_day(&until) {
         return Err(refused(
-            "The day a discount stops applying reads like 2026-12-31. Leave it empty while it still holds.",
+            "The day a discount stops applying reads like 2026-12-31.",
         ));
     }
-    if !until.is_empty() && until < from {
+    if until < from {
         return Err(refused(&format!(
             "{name} would stop applying on {until}, before it starts on {from}."
         )));
@@ -445,7 +452,7 @@ mod tests {
         rule(
             graph,
             json!({"name": name, "kind": "percent", "value": value, "compulsory": true,
-                   "effective_from": "2026-01-01"}),
+                   "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
     }
 
@@ -476,7 +483,7 @@ mod tests {
         rule(
             &graph,
             json!({"name": "Loyalty", "kind": "amount", "value": "250.00", "compulsory": true,
-                   "all_customers": false, "customer_ids": ["ACME-1"], "effective_from": "2026-01-01"}),
+                   "all_customers": false, "customer_ids": ["ACME-1"], "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
         let total = Money::parse("1000.00").expect("total");
         let for_acme =
@@ -499,7 +506,7 @@ mod tests {
         rule(
             &graph,
             json!({"name": "Bulk", "kind": "percent", "value": "5", "compulsory": true,
-                   "min_total": "5000.00", "effective_from": "2026-01-01"}),
+                   "min_total": "5000.00", "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
         let small = apply_for(
             &graph,
@@ -530,7 +537,7 @@ mod tests {
         rule(
             &graph,
             json!({"name": "Early settlement", "kind": "percent", "value": "2",
-                   "effective_from": "2026-01-01"}),
+                   "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
         let total = Money::parse("1000.00").expect("total");
         let unbidden =
@@ -556,7 +563,7 @@ mod tests {
         rule(
             &graph,
             json!({"name": "Delivery", "kind": "amount", "value": "100.00", "compulsory": true,
-                   "effective_from": "2026-01-01"}),
+                   "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
         let applied = apply_for(
             &graph,
@@ -579,7 +586,7 @@ mod tests {
         rule(
             &graph,
             json!({"name": "Grand opening", "kind": "amount", "value": "1000.00", "compulsory": true,
-                   "effective_from": "2026-01-01"}),
+                   "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         );
         let refused = apply_for(
             &graph,
@@ -604,7 +611,7 @@ mod tests {
             &graph,
             &talked(),
             &json!({"kind": "percent", "value": "5",
-            "effective_from": "2026-01-01"}),
+            "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect_err("no name");
         assert!(
@@ -616,7 +623,7 @@ mod tests {
             &graph,
             &talked(),
             &json!({"name": "Odd", "kind": "voucher",
-            "value": "5", "effective_from": "2026-01-01"}),
+            "value": "5", "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect_err("bad kind");
         assert!(
@@ -628,7 +635,7 @@ mod tests {
             &graph,
             &talked(),
             &json!({"name": "Everything", "kind": "percent",
-            "value": "120", "effective_from": "2026-01-01"}),
+            "value": "120", "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect_err("over 100");
         assert!(
@@ -640,7 +647,7 @@ mod tests {
             &graph,
             &talked(),
             &json!({"name": "Someone", "kind": "amount",
-            "value": "10", "all_customers": false, "effective_from": "2026-01-01"}),
+            "value": "10", "all_customers": false, "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect_err("no customers");
         assert!(
@@ -653,7 +660,7 @@ mod tests {
             &talked(),
             &json!({"name": "Stranger", "kind": "amount",
             "value": "10", "all_customers": false, "customer_ids": ["NOBODY-9"],
-            "effective_from": "2026-01-01"}),
+            "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect_err("unknown customer");
         assert!(
@@ -696,5 +703,30 @@ mod tests {
         assert_eq!(field(&quote, "discount"), "100.000000");
         assert_eq!(field(&quote, "after"), "900.000000");
         assert_eq!(quote["lines"].as_array().expect("lines").len(), 1);
+    }
+
+    #[test]
+    fn a_discount_that_never_stops_is_refused_because_it_would_outlive_its_reason() {
+        let graph = MemoryGraph::new();
+        let answer = save_discount(
+            &graph,
+            &talked(),
+            &json!({"name": "Forever", "kind": "percent", "value": "5", "compulsory": true,
+                    "effective_from": "2026-01-01"}),
+        );
+        let refusal = answer.expect_err("a discount with no end date");
+        assert!(
+            format!("{refusal}").contains("stops applying"),
+            "the refusal names the missing end: {refusal}"
+        );
+
+        let held = save_discount(
+            &graph,
+            &talked(),
+            &json!({"name": "Forever", "kind": "percent", "value": "5", "compulsory": true,
+                    "effective_from": "2026-01-01", "effective_to": "2026-12-31"}),
+        )
+        .expect("a discount from a day to a day");
+        assert_eq!(held["effective_to"], json!("2026-12-31"));
     }
 }

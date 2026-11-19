@@ -792,7 +792,7 @@ mod tests {
             &graph,
             &talked(),
             &json!({"name": "Trade terms", "kind": "percent", "value": "10", "compulsory": true,
-                    "effective_from": "2026-01-01"}),
+                    "effective_from": "2026-01-01", "effective_to": "2027-12-31"}),
         )
         .expect("a discount");
         let raised = create_invoice(
