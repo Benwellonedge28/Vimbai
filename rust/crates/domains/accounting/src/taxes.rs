@@ -19,7 +19,7 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 use vimbai_store::amounts::wire;
-use vimbai_store::read::{field, money, refused, text};
+use vimbai_store::read::{field, money, money_or_nothing, refused, text};
 use vimbai_store::{BookScope, Graph, Records, StoreError, TAX_RATE};
 
 use crate::ledger_book;
@@ -718,7 +718,36 @@ pub fn compute_tax<G: Graph + ?Sized>(
     if document.is_negative() {
         return Err(refused("A document cannot be less than nothing."));
     }
-    let net = document.clone();
+    // A discount comes off the gross figure first, and only then is the tax worked out: a customer who was given 5,000 off
+    // a 100,000 sale did not pay tax on the 5,000 they never paid. The sale posting has always deducted the discount before
+    // taking the tax out, so this reading does the same, and the two cannot disagree about what a document carries.
+    let discount = money_or_nothing(payload, "discount")?;
+    let discount = if discount.is_zero() {
+        money_or_nothing(payload, "discount_amount")?
+    } else {
+        discount
+    };
+    if discount.is_negative() {
+        return Err(refused(
+            "A discount is money taken off the document, so it cannot be less than nothing.",
+        ));
+    }
+    let taxable = document.minus(&discount);
+    if taxable.is_negative() || taxable.is_zero() {
+        return Err(refused(&format!(
+            "The discount of {} is the whole document of {}, so there is nothing left to carry tax. A discount leaves \
+             something to charge.",
+            discount.to_fixed(2),
+            document.to_fixed(2)
+        )));
+    }
+    // everything below works on the figure the tax is actually charged on
+    let gross_given = if gross_given.is_some() {
+        Some(taxable.clone())
+    } else {
+        None
+    };
+    let net = taxable.clone();
 
     let in_force = rules_in_force(graph, scope, &on, sale)?;
     let wanted: Vec<String> = payload
@@ -744,6 +773,8 @@ pub fn compute_tax<G: Graph + ?Sized>(
             "date": on,
             "direction": if sale { "sale" } else { "purchase" },
             "net": wire(&net),
+            "discount": wire(&discount),
+            "taxable": wire(&taxable),
             "tax_lines": [],
             "tax": wire(&Money::zero()),
             "gross": wire(&net),
@@ -799,6 +830,8 @@ pub fn compute_tax<G: Graph + ?Sized>(
             "date": on,
             "direction": if sale { "sale" } else { "purchase" },
             "net": wire(&net),
+            "discount": wire(&discount),
+            "taxable": wire(&taxable),
             "tax_lines": [],
             "tax": wire(&Money::zero()),
             "gross": wire(&net),
@@ -890,6 +923,8 @@ pub fn compute_tax<G: Graph + ?Sized>(
         "date": on,
         "direction": if sale { "sale" } else { "purchase" },
         "net": wire(&net_final),
+        "discount": wire(&discount),
+        "taxable": wire(&taxable),
         "tax_lines": lines,
         "tax": wire(&total),
         "gross": wire(&gross_final),
@@ -1209,5 +1244,77 @@ mod tests {
             .as_str()
             .expect("a note")
             .contains("until one is chosen"));
+    }
+
+    #[test]
+    fn a_discount_comes_off_the_gross_before_the_tax_is_worked_out() {
+        // a car sold for 100,000 with 5,000 knocked off: the customer pays tax on 95,000, not on the 100,000 they were
+        // never charged, and the tax is still taken out of what they do pay rather than added on top of it
+        let graph = charted();
+        vat(&graph);
+        let answer = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "100000.00",
+                    "discount": "5000.00", "taxes": ["VAT"]}),
+        )
+        .expect("computed");
+        assert_eq!(answer["discount"], json!("5000.000000"));
+        assert_eq!(answer["taxable"], json!("95000.000000"));
+        assert_eq!(answer["gross"], json!("95000.000000"));
+        assert_eq!(answer["tax"], json!("12748.920000"));
+        assert_eq!(answer["net"], json!("82251.080000"));
+        // and the net plus the tax is exactly the discounted figure, with nothing lost to rounding
+        let net = Money::parse(answer["net"].as_str().expect("net")).expect("net");
+        let tax = Money::parse(answer["tax"].as_str().expect("tax")).expect("tax");
+        assert_eq!(
+            net.plus(&tax).to_fixed(2),
+            "95000.00",
+            "the parts must add back to what the customer paid"
+        );
+    }
+
+    #[test]
+    fn a_discount_reads_the_same_whether_it_is_called_discount_or_discount_amount() {
+        let graph = charted();
+        vat(&graph);
+        let answer = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "1000.00",
+                    "discount_amount": "100.00", "taxes": ["VAT"]}),
+        )
+        .expect("computed");
+        assert_eq!(answer["taxable"], json!("900.000000"));
+    }
+
+    #[test]
+    fn a_discount_of_the_whole_document_is_refused_because_nothing_is_left_to_tax() {
+        let graph = charted();
+        vat(&graph);
+        let refused = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "1000.00",
+                    "discount": "1000.00", "taxes": ["VAT"]}),
+        )
+        .expect_err("nothing left to tax");
+        let words = refused.to_string();
+        assert!(words.contains("1000.00"), "{words}");
+        assert!(words.contains("nothing left"), "{words}");
+    }
+
+    #[test]
+    fn a_discount_below_nothing_is_refused_rather_than_raising_the_figure() {
+        let graph = charted();
+        vat(&graph);
+        let refused = compute_tax(
+            &graph,
+            &scope(),
+            &json!({"date": "2026-11-19", "direction": "sale", "gross": "1000.00",
+                    "discount": "-50.00", "taxes": ["VAT"]}),
+        )
+        .expect_err("a negative discount");
+        assert!(refused.to_string().contains("taken off"), "{refused}");
     }
 }
