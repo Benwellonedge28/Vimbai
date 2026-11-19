@@ -36,6 +36,64 @@ void main() {
   setUp(() => SessionToken.set('a-session-token'));
   tearDown(() => SessionToken.clear());
 
+  test('the money the customer is billed in travels with its rate', () async {
+    late Map<String, dynamic> sent;
+    final service = InvoicingService.fresh()
+      ..useClient(
+        MockClient((request) async {
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(jsonEncode(sent), 200);
+        }),
+      );
+
+    await service.raiseInvoice(
+      invoiceNumber: 'INV-0002',
+      customer: _customer,
+      invoiceDate: DateTime(2026, 11, 18),
+      dueDate: DateTime(2026, 12, 18),
+      lines: [
+        InvoiceLine(
+          description: 'Consulting',
+          quantity: ExactAmount.parse('1'),
+          unitPrice: ExactAmount.parse('100.00'),
+        ),
+      ],
+      currency: 'usd',
+      exchangeRate: '25.5',
+    );
+
+    expect(sent['currency'], 'USD', reason: 'trimmed and upper-cased: $sent');
+    expect(sent['exchange_rate'], '25.5', reason: '$sent');
+  });
+
+  test('an invoice in the Book\'s own money names no money at all', () async {
+    late Map<String, dynamic> sent;
+    final service = InvoicingService.fresh()
+      ..useClient(
+        MockClient((request) async {
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(jsonEncode(sent), 200);
+        }),
+      );
+
+    await service.raiseInvoice(
+      invoiceNumber: 'INV-0003',
+      customer: _customer,
+      invoiceDate: DateTime(2026, 11, 18),
+      dueDate: DateTime(2026, 12, 18),
+      lines: [
+        InvoiceLine(
+          description: 'Consulting',
+          quantity: ExactAmount.parse('1'),
+          unitPrice: ExactAmount.parse('100.00'),
+        ),
+      ],
+    );
+
+    expect(sent.containsKey('currency'), isFalse, reason: '$sent');
+    expect(sent.containsKey('exchange_rate'), isFalse, reason: '$sent');
+  });
+
   test(
     'the total sent is the sum of the lines, in exact six-place text',
     () async {

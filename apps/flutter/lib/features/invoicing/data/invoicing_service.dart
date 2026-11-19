@@ -738,6 +738,8 @@ class InvoicingService {
     String notes = '',
     String discountAmount = '',
     List<String> discountRules = const [],
+    String currency = '',
+    String exchangeRate = '',
   }) async {
     final number = invoiceNumber.trim();
     if (number.isEmpty) {
@@ -772,6 +774,12 @@ class InvoicingService {
         if (discountRules.isNotEmpty) 'discount_rules': discountRules,
         if (discountAmount.trim().isNotEmpty)
           'discount_amount': discountAmount.trim(),
+        // the money the customer is billed in, and the rate it was raised at. Both are read by the engine's one rule, so
+        // a rate it would refuse is refused here rather than posting a figure whose money nobody can tell
+        if (currency.trim().isNotEmpty)
+          'currency': currency.trim().toUpperCase(),
+        if (exchangeRate.trim().isNotEmpty)
+          'exchange_rate': exchangeRate.trim(),
       }),
     );
     if (answer.statusCode != 200 && answer.statusCode != 201) {

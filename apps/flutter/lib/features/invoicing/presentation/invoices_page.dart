@@ -259,6 +259,10 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
   /// A figure given off this invoice by hand, off the total before tax.
   final TextEditingController _oneOff = TextEditingController();
 
+  /// The money the customer is billed in, and the rate it was raised at. Empty means the Book's own money.
+  final TextEditingController _money = TextEditingController();
+  final TextEditingController _rate = TextEditingController();
+
   /// What the engine says would come off, in its own words. The app never works out a discount itself.
   String? _quote;
 
@@ -314,6 +318,8 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
     _number.dispose();
     _newCustomer.dispose();
     _oneOff.dispose();
+    _money.dispose();
+    _rate.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -382,6 +388,8 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
             if (_taken.contains(one.name)) one.name,
         ],
         discountAmount: _oneOff.text,
+        currency: _money.text,
+        exchangeRate: _rate.text,
       );
       if (!mounted) return;
       Navigator.of(context).pop(invoice);
@@ -445,6 +453,27 @@ class _RaiseInvoiceSheetState extends State<_RaiseInvoiceSheet> {
           const SizedBox(height: 8),
           Text(_quote!, style: theme.textTheme.bodySmall),
         ],
+        const SizedBox(height: 12),
+        TextField(
+          controller: _money,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Billed in another money',
+            helperText:
+                'A code such as USD. Leave empty when the customer pays in '
+                'the money this Book keeps.',
+          ),
+        ),
+        TextField(
+          controller: _rate,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'The rate',
+            helperText:
+                'What one unit of that money is worth in the Book\'s money. '
+                'Needed whenever a money is named.',
+          ),
+        ),
       ],
     );
   }
