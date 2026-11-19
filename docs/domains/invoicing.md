@@ -22,6 +22,20 @@ Crates: `rust/crates/domains/invoicing`, `rust/crates/domains/payables`
 | `purchases-ledger-control-service` | `/purchases-ledger-control` |
 | `subscription-plans-service` | `/subscription-plans` |
 
+## Discounts
+
+A discount is a percentage or a sum of money, and it says who it is for. A rule is declared once, dated like a tax, and
+either compulsory - given on every invoice it fits without anybody asking - or offered, so the person raising an invoice
+may take it or leave it. It fits every customer, or only the customers it names, and it can wait until an invoice reaches
+a figure worth discounting.
+
+Raising an invoice applies the compulsory rules that fit it, then any offered rule the caller named, in the order the
+Book declared them: a percentage is taken off what is left at that point, a sum of money as it stands. The invoice keeps
+one line per discount naming it and what it took off, so a customer can be told where their reduction came from, and the
+figure that is left is what the customer owes and what tax follows. No rule may take the whole invoice: a discount
+leaves something to pay. The rules are read at `/invoices/discounts`, and `/invoices/discounts/quote` answers what would
+come off without raising anything.
+
 ## What it does not own
 
 The posting. Raising an invoice produces a receivable; recording it in the ledger is `accounting.md`'s job, and the control account is derived from the entries rather than stored, so it cannot drift away from them. Nor does it take a payment - see `payments.md`.

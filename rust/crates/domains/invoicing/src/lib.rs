@@ -8,9 +8,13 @@
 //! *invoice-customers-service* - because a client reaches the wildcard door `/invoicing` by repeating a prefix it did not ask
 //! for, while `/invoices` and `/customers` are what its calls are actually written against.
 //!
+//! * The discounts a Book gives ([`discounts`]): a percentage or a sum of money, compulsory or offered, for every
+//!   customer or only the ones a rule names, published on `/invoices/discounts`.
+//!
 //! * *subscription-plans-service* ([`billing`]): the plans a Book sells on and the subscriptions taken against them.
 //!
 //! The service keeps its records on the store, scoped to the caller and the Book, and is safe Rust by construction.
 
 pub mod billing;
+pub mod discounts;
 pub mod invoices;

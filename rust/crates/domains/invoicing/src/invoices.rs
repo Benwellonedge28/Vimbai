@@ -42,6 +42,22 @@ pub const STATUSES: [&str; 5] = ["draft", "outstanding", "paid", "overdue", "voi
 /// One cent, the drift a total may have from its lines.
 const CENT: &str = "0.01";
 
+/// The field an invoice is dated by, which is what decides the discounts that were in force when it was raised.
+pub const INVOICE_DATE_KEY: &str = "invoice_date";
+
+/// Whether this Book bills a customer by this identifier. A discount that names a customer nobody here knows is a rule
+/// that could never be given, so it is refused where it is written rather than silently ignored.
+pub fn customer_known<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    customer_id: &str,
+) -> Result<bool, StoreError> {
+    Ok(Records::new(graph, CUSTOMER)
+        .list(scope, 500)?
+        .iter()
+        .any(|row| text(row, "customer_id") == customer_id))
+}
+
 fn stamp(payload: &Value) -> Value {
     match payload.get("now") {
         Some(stated) if !stated.is_null() => stated.clone(),
@@ -245,7 +261,30 @@ pub fn create_invoice(
     // A discount is money taken off what the lines come to, so it cannot be more than they come to: an invoice
     // discounted to nothing is not an invoice. What is left after the discount is what the customer owes, and it is
     // that figure, not the gross, that the sale carries to the ledger and that tax is worked out on.
-    let discount = amount_or_zero(payload, "discount_amount")?;
+    // The discounts this Book gives come off first: the compulsory ones that fit this customer and this figure, and
+    // any offered one the caller named. They are applied in the order the Book declared them, so a percentage and a sum
+    // of money can be given together and still add up the same way every time.
+    let applied = crate::discounts::apply_for(
+        graph,
+        scope,
+        &total,
+        &customer_id,
+        &crate::discounts::rule_date(payload),
+        &crate::discounts::asked_rules(payload),
+    )?;
+    let mut discounts = applied.lines;
+    let mut discount = applied.total;
+    // and then anything the person took off by hand, which is a discount given on this invoice alone
+    let given = amount_or_zero(payload, "discount_amount")?;
+    if !given.is_zero() {
+        discount = discount.plus(&given);
+        discounts.push(json!({
+            "name": "Discount given",
+            "kind": "amount",
+            "value": wire(&given),
+            "amount": wire(&given),
+        }));
+    }
     let due_after_discount = check_discount(&total, &discount)?;
 
     // an invoice that was overdue the moment it was raised is a data error, not a payment problem
@@ -280,6 +319,7 @@ pub fn create_invoice(
             "items": lines,
             "total_amount": wire(&total),
             "discount_amount": wire(&discount),
+            "discounts": discounts,
             "amount_due": wire(&due_after_discount),
             "paid_amount": wire(&Money::zero()),
             "status": status,
@@ -742,5 +782,44 @@ mod tests {
         .expect("updated");
         assert_eq!(changed["amount_due"], json!("100.000000"));
         assert_eq!(changed["total_amount"], json!("150.000000"));
+    }
+
+    #[test]
+    fn raising_an_invoice_gives_the_compulsory_discount_and_says_where_it_came_from() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        crate::discounts::save_discount(
+            &graph,
+            &talked(),
+            &json!({"name": "Trade terms", "kind": "percent", "value": "10", "compulsory": true,
+                    "effective_from": "2026-01-01"}),
+        )
+        .expect("a discount");
+        let raised = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-20", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00"}),
+        )
+        .expect("an invoice");
+        assert_eq!(raised["discount_amount"], json!("15.000000"));
+        assert_eq!(raised["amount_due"], json!("135.000000"));
+        assert_eq!(raised["discounts"][0]["name"], json!("Trade terms"));
+        assert_eq!(raised["discounts"][0]["amount"], json!("15.000000"));
+    }
+
+    #[test]
+    fn a_discount_given_by_hand_is_recorded_beside_the_rules_that_came_off() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        let raised = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-21", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00", "discount_amount": "10.00"}),
+        )
+        .expect("an invoice");
+        assert_eq!(raised["amount_due"], json!("140.000000"));
+        assert_eq!(raised["discounts"][0]["name"], json!("Discount given"));
     }
 }

@@ -13552,6 +13552,48 @@ async fn post_invoice(
     ))
 }
 
+async fn get_invoice_discounts(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoicing::discounts::discount_rules(graph.as_ref(), &scope))
+}
+
+async fn post_invoice_discount(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoicing::discounts::save_discount(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_invoice_discount_quote(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoicing::discounts::quote_discounts(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
 async fn get_invoices(State(graph): GraphState, headers: HeaderMap) -> Response {
     let scope = match scope_of(&headers) {
         Ok(scope) => scope,
@@ -17925,6 +17967,15 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_invoice_customer),
         )
         .route("/invoices", get(get_invoices).post(post_invoice))
+        // the discounts this Book gives, and what one would take off before an invoice is raised
+        .route(
+            "/invoices/discounts",
+            get(get_invoice_discounts).post(post_invoice_discount),
+        )
+        .route(
+            "/invoices/discounts/quote",
+            post(post_invoice_discount_quote),
+        )
         .route(
             "/invoices/:id",
             get(get_invoice).put(put_invoice).delete(delete_invoice),

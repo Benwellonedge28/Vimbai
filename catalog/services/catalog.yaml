@@ -1426,9 +1426,12 @@ services:
   endpoints:
   - DELETE /invoices/{}
   - GET /invoices
+  - GET /invoices/discounts
   - GET /invoices/{}
   - GET /invoices/{}/payments
   - POST /invoices
+  - POST /invoices/discounts
+  - POST /invoices/discounts/quote
   - POST /invoices/{}/record-payment
   - PUT /invoices/{}
 - name: invoicing-service
