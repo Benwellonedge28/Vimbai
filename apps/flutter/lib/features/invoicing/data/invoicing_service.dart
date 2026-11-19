@@ -83,6 +83,14 @@ class Invoice {
   final String invoiceDate;
   final String dueDate;
   final ExactAmount total;
+
+  /// Money taken off what the lines came to, given before the invoice was raised.
+  final ExactAmount discount;
+
+  /// What the customer owes once the discount is off, as the engine states it. Null on an invoice read from an older
+  /// record, where [due] works it out from the total instead.
+  final ExactAmount? amountDue;
+
   final ExactAmount paid;
   final String status;
   final List<InvoiceLine> lines;
@@ -93,6 +101,8 @@ class Invoice {
     required this.invoiceDate,
     required this.dueDate,
     required this.total,
+    this.discount = ExactAmount.zero,
+    this.amountDue,
     required this.paid,
     required this.status,
     required this.lines,
@@ -104,6 +114,10 @@ class Invoice {
     invoiceDate: (json['invoice_date'] as String?) ?? '',
     dueDate: (json['due_date'] as String?) ?? '',
     total: ExactAmount.fromJson(json['total_amount']),
+    discount: ExactAmount.fromJson(json['discount_amount']),
+    amountDue: json['amount_due'] == null
+        ? null
+        : ExactAmount.fromJson(json['amount_due']),
     paid: ExactAmount.fromJson(json['paid_amount']),
     status: (json['status'] as String?) ?? 'draft',
     lines: [
@@ -117,8 +131,12 @@ class Invoice {
     ],
   );
 
-  /// What has still to come in on this invoice.
-  ExactAmount get outstanding => total - paid;
+  /// What the customer owes once the discount is off, which is the figure the sale carries to the ledger and the figure
+  /// tax follows.
+  ExactAmount get due => amountDue ?? (total - discount);
+
+  /// What has still to come in on this invoice: what is owed once the discount is off, less what has been paid.
+  ExactAmount get outstanding => due - paid;
 
   /// Whether this invoice is money the customer has actually been asked for.
   ///

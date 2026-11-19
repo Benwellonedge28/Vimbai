@@ -91,6 +91,8 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           invoiceDate: _invoice.invoiceDate,
           dueDate: _invoice.dueDate,
           total: _invoice.total,
+          discount: _invoice.discount,
+          amountDue: _invoice.due,
           paid: result.paid,
           status: result.status,
           lines: _invoice.lines,
@@ -171,7 +173,9 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           'so the sale cannot be posted from here. Add one in Chart of accounts.',
         );
       }
-      final total = _invoice.total;
+      // the sale carries what the customer actually owes: a discount given before the invoice was raised is not revenue
+      // and, just as importantly, is not taxed, because they never paid it
+      final total = _invoice.due;
       // the taxes this Book charges on a sale on the invoice's own day. Which taxes hold, and at what rate, is the
       // Book's business, so the phone asks rather than assuming: a rate is a fact about somebody's registration.
       List<BookTax> onSales = const [];
@@ -198,8 +202,9 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
               try {
                 final answer = await _tax.preview(
                   date: _invoice.invoiceDate,
-                  gross: total.toDecimalString(),
+                  gross: _invoice.total.toDecimalString(),
                   taxes: chosen,
+                  discount: _invoice.discount.toDecimalString(),
                 );
                 setDialogState(() => carried = answer);
               } catch (failure) {
@@ -365,6 +370,10 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           Text('Raised ${_invoice.invoiceDate} · due ${_invoice.dueDate}'),
           const SizedBox(height: 16),
           _row('Total', _invoice.total.toDecimalString(), bold: true),
+          if (!_invoice.discount.isZero)
+            _row('Less discount', '-${_invoice.discount.toDecimalString()}'),
+          if (!_invoice.discount.isZero)
+            _row('Owed', _invoice.due.toDecimalString(), bold: true),
           _row('Paid', _invoice.paid.toDecimalString()),
           _row('Still owing', owing.toDecimalString(), bold: true),
           const Divider(height: 32),
@@ -393,7 +402,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
             subtitle: Text(
               _posted
                   ? 'This sale is in the ledger under reference ${_invoice.invoiceNumber}.'
-                  : 'Dr Accounts Receivable, Cr Sales, for ${_invoice.total.toDecimalString()}. '
+                  : 'Dr Accounts Receivable, Cr Sales, for ${_invoice.due.toDecimalString()}. '
                         'You will see the entry before it is posted.',
             ),
             trailing: _posted
@@ -407,7 +416,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
             leading: const Icon(Icons.undo),
             title: const Text('Take this sale back'),
             subtitle: Text(
-              'Goods come back: the customer is credited ${_invoice.total.toDecimalString()} in '
+              'Goods come back: the customer is credited ${_invoice.due.toDecimalString()} in '
               'full, and the tax the sale carried leaves its own expense and what you owe.',
             ),
             trailing: const Icon(Icons.chevron_right),

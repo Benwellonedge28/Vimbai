@@ -14,6 +14,25 @@ import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_det
 import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
 import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
 
+Invoice _discounted() => Invoice(
+  invoiceNumber: 'INV-0002',
+  customerId: 'acme',
+  invoiceDate: '2026-11-18',
+  dueDate: '2026-12-18',
+  total: ExactAmount.parse('100000.00'),
+  discount: ExactAmount.parse('5000.00'),
+  amountDue: ExactAmount.parse('95000.00'),
+  paid: ExactAmount.zero,
+  status: 'outstanding',
+  lines: [
+    InvoiceLine(
+      description: 'Car',
+      quantity: ExactAmount.parse('1'),
+      unitPrice: ExactAmount.parse('100000.00'),
+    ),
+  ],
+);
+
 Invoice _invoice() => Invoice(
   invoiceNumber: 'INV-0001',
   customerId: 'acme',
@@ -67,6 +86,7 @@ class _NoTax implements SaleTaxReads {
     required String date,
     required String gross,
     required List<String> taxes,
+    String discount = '0',
   }) async => throw UnimplementedError('nothing was chosen');
 }
 
@@ -76,6 +96,10 @@ class _VatBook implements SaleTaxReads {
 
   final ExactAmount gross;
   final List<String> asked = [];
+
+  /// What the page told the engine was taken off the invoice, so a test can pin that the tax followed the discounted
+  /// figure rather than the gross one.
+  String askedDiscount = '';
 
   @override
   Future<List<BookTax>> chargedOnSales(String date) async => [
@@ -98,9 +122,12 @@ class _VatBook implements SaleTaxReads {
     required String date,
     required String gross,
     required List<String> taxes,
+    String discount = '0',
   }) async {
     asked.addAll(taxes);
-    final total = ExactAmount.parse(gross);
+    askedDiscount = discount;
+    // this Book answers with the figure it was built for, which stands in for the engine taking the discount off first
+    final total = this.gross;
     final tax = ExactAmount.parse('13419.91');
     final net = total - tax;
     return TaxPreview(
@@ -124,6 +151,54 @@ class _VatBook implements SaleTaxReads {
 }
 
 void main() {
+  testWidgets(
+    'a discounted sale posts what the customer owes, and the tax is asked for on that figure',
+    (tester) async {
+      final ledger = _FakeLedger([
+        _account('1100', 'Accounts Receivable', 'asset'),
+        _account('4000', 'Sales', 'revenue'),
+      ]);
+      final book = _VatBook(ExactAmount.parse('95000.00'));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: InvoiceDetailPage(
+            invoice: _discounted(),
+            accounting: ledger,
+            tax: book,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // the discount is on the invoice where a person can see it, and what is owed is the figure after it
+      expect(find.textContaining('Less discount'), findsOneWidget);
+      expect(find.textContaining('95000.00'), findsWidgets);
+
+      await tester.tap(find.text('Post the sale to the ledger'));
+      await tester.pumpAndSettle();
+
+      // the tax is chosen, never typed, and the engine is asked what it comes to on the discounted figure
+      await tester.tap(find.text('VAT 15.5%'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Post it'));
+      await tester.pumpAndSettle();
+
+      expect(
+        book.askedDiscount,
+        '5000.00',
+        reason: 'the tax must follow the discounted figure, not the gross one',
+      );
+      final entry = ledger.written.single;
+      expect(
+        entry.lines.first.debit,
+        ExactAmount.parse('95000.00'),
+        reason:
+            'the customer owes what is left after the discount, not the gross invoice',
+      );
+    },
+  );
+
   testWidgets(
     'the sale is posted as a balanced entry, with the invoice number as its reference',
     (tester) async {

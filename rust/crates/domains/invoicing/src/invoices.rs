@@ -69,6 +69,30 @@ fn lines_total(items: &[Value]) -> Result<Money, StoreError> {
 }
 
 /// Check a total against its lines, allowing the one cent the shipped service allowed.
+/// What is left to pay once a discount comes off, or the reason the discount cannot stand.
+///
+/// A discount is checked here rather than in a screen so every route to an invoice says the same thing: it may be
+/// nothing, it may be less than the total, and it may not be negative - a negative discount is a surcharge pretending
+/// to be one, which would make the tax follow a figure nobody agreed to.
+fn check_discount(total: &Money, discount: &Money) -> Result<Money, StoreError> {
+    if discount.is_negative() {
+        return Err(StoreError::BadRequest(
+            "discount_amount is money taken off the invoice, so it cannot be less than nothing"
+                .into(),
+        ));
+    }
+    let left = total.minus(discount);
+    if left.is_negative() || left.is_zero() {
+        return Err(StoreError::BadRequest(format!(
+            "A discount of {} is the whole invoice of {}, so there would be nothing left to bill. A discount leaves \
+             something to pay.",
+            discount.to_fixed(2),
+            total.to_fixed(2)
+        )));
+    }
+    Ok(left)
+}
+
 fn check_total(stated: &Money, items: &[Value]) -> Result<(), StoreError> {
     let lines = lines_total(items)?;
     let drift = stated.minus(&lines);
@@ -218,6 +242,11 @@ pub fn create_invoice(
     }
     let total = amount_or_zero(payload, "total_amount")?;
     check_total(&total, &items)?;
+    // A discount is money taken off what the lines come to, so it cannot be more than they come to: an invoice
+    // discounted to nothing is not an invoice. What is left after the discount is what the customer owes, and it is
+    // that figure, not the gross, that the sale carries to the ledger and that tax is worked out on.
+    let discount = amount_or_zero(payload, "discount_amount")?;
+    let due_after_discount = check_discount(&total, &discount)?;
 
     // an invoice that was overdue the moment it was raised is a data error, not a payment problem
     let raised = text(payload, "invoice_date");
@@ -250,6 +279,8 @@ pub fn create_invoice(
             "due_date": json!(due),
             "items": lines,
             "total_amount": wire(&total),
+            "discount_amount": wire(&discount),
+            "amount_due": wire(&due_after_discount),
             "paid_amount": wire(&Money::zero()),
             "status": status,
             "notes": text(payload, "notes"),
@@ -299,6 +330,15 @@ pub fn update_invoice(
         let total = amount_or_zero(payload, "total_amount")?;
         check_total(&total, &items)?;
         change["total_amount"] = json!(wire(&total));
+    }
+    if payload.get("discount_amount").is_some() {
+        let discount = amount_or_zero(payload, "discount_amount")?;
+        let total = match payload.get("total_amount") {
+            Some(_) => amount_or_zero(payload, "total_amount")?,
+            None => amount_or_zero(&held, "total_amount")?,
+        };
+        change["discount_amount"] = json!(wire(&discount));
+        change["amount_due"] = json!(wire(&check_discount(&total, &discount)?));
     }
     if payload.get("status").is_some() {
         change["status"] = json!(status_of(payload, "draft")?);
@@ -620,5 +660,87 @@ mod tests {
         assert_eq!(voided["notes"], json!("raised in error"));
         delete_invoice(&graph, &talked(), "INV-1").expect("a delete");
         assert!(invoice(&graph, &talked(), "INV-1").is_err());
+    }
+
+    #[test]
+    fn a_discount_is_taken_off_what_the_customer_owes_and_never_more_than_the_invoice() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        // the lines come to 150, and 25 of it is knocked off, so 125 is what is owed and what tax will follow
+        let raised = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-9", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "due_date": "2026-12-19", "items": lines(), "total_amount": "150.00",
+                    "discount_amount": "25.00"}),
+        )
+        .expect("an invoice");
+        assert_eq!(raised["discount_amount"], json!("25.000000"));
+        assert_eq!(raised["amount_due"], json!("125.000000"));
+
+        // an invoice with no discount still says plainly what is owed
+        let plain = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-10", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00"}),
+        )
+        .expect("an invoice");
+        assert_eq!(plain["discount_amount"], json!("0.000000"));
+        assert_eq!(plain["amount_due"], json!("150.000000"));
+    }
+
+    #[test]
+    fn a_discount_of_the_whole_invoice_is_refused_because_nothing_is_left_to_bill() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        let refused = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-11", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00", "discount_amount": "150.00"}),
+        )
+        .expect_err("nothing left to bill");
+        let words = refused.to_string();
+        assert!(words.contains("nothing left to bill"), "{words}");
+    }
+
+    #[test]
+    fn a_discount_below_nothing_is_refused_rather_than_becoming_a_surcharge() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        let refused = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-12", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00", "discount_amount": "-10.00"}),
+        )
+        .expect_err("a negative discount");
+        assert!(
+            refused.to_string().contains("cannot be less than nothing"),
+            "{refused}"
+        );
+    }
+
+    #[test]
+    fn a_discount_can_be_changed_afterwards_and_what_is_owed_moves_with_it() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "INV-13", "customer_id": "ACME-1", "invoice_date": "2026-11-19",
+                    "items": lines(), "total_amount": "150.00"}),
+        )
+        .expect("an invoice");
+        let changed = update_invoice(
+            &graph,
+            &talked(),
+            "INV-13",
+            &json!({"discount_amount": "50.00"}),
+        )
+        .expect("updated");
+        assert_eq!(changed["amount_due"], json!("100.000000"));
+        assert_eq!(changed["total_amount"], json!("150.000000"));
     }
 }

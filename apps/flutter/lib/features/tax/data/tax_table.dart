@@ -373,6 +373,7 @@ class TaxTableService {
     required String direction,
     required String gross,
     List<String> taxes = const [],
+    String discount = '0',
   }) async {
     final answer = await _client.post(
       Uri.parse('$_base/taxes/compute'),
@@ -381,6 +382,7 @@ class TaxTableService {
         'date': date,
         'direction': direction,
         'gross': gross,
+        'discount': discount,
         'taxes': taxes,
       }),
     );

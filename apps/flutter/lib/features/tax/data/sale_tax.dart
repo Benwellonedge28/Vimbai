@@ -184,6 +184,7 @@ abstract class SaleTaxReads {
     required String date,
     required String gross,
     required List<String> taxes,
+    String discount = '0',
   });
 }
 
@@ -208,6 +209,12 @@ class EngineSaleTax implements SaleTaxReads {
     required String date,
     required String gross,
     required List<String> taxes,
-  }) =>
-      _table.preview(date: date, direction: 'sale', gross: gross, taxes: taxes);
+    String discount = '0',
+  }) => _table.preview(
+    date: date,
+    direction: 'sale',
+    gross: gross,
+    taxes: taxes,
+    discount: discount,
+  );
 }
