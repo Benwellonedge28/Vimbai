@@ -288,11 +288,35 @@ pub fn create_currency(
     if find_currency(&currencies(graph, scope)?, &code).is_some() {
         return Err(refused(&format!("Currency {code} already exists")));
     }
+    // a currency named by its code alone is filled in from the world's catalogue, so its money is rounded to the places
+    // that currency actually has rather than to a guess of two
+    let named = text(payload, "name");
+    let stated_places = vimbai_store::read::whole(payload, "decimal_places");
+    let (name, places) = match (named.is_empty(), payload.get("decimal_places")) {
+        (false, Some(_)) => (named, stated_places),
+        _ => match crate::iso_currencies::find(&code) {
+            Some(known) => (
+                if named.is_empty() {
+                    known.name.to_string()
+                } else {
+                    named
+                },
+                u32::try_from(known.minor_units).unwrap_or(2),
+            ),
+            None => {
+                return Err(refused(&format!(
+                    "{code} is not a currency the world uses, so the Book cannot keep money in it. Read the \
+                     catalogue at GET /currencies/catalogue and add one of those, or give a name and the decimal \
+                     places this money has."
+                )))
+            }
+        },
+    };
     let body = json!({
         "code": code,
-        "name": text(payload, "name"),
+        "name": name,
         "symbol": text(payload, "symbol"),
-        "decimal_places": vimbai_store::read::whole(payload, "decimal_places"),
+        "decimal_places": places,
         "is_active": true,
         "created_at": text(payload, "created_at"),
     });
@@ -926,5 +950,59 @@ mod tests {
             .find(|row| row.0 == "JPY")
             .expect("yen");
         assert_eq!(yen.3, 0);
+    }
+
+    #[test]
+    fn a_currency_named_by_its_code_takes_the_decimal_places_that_money_actually_has() {
+        // a real store in memory, so the create actually writes and the read actually finds it
+        let graph = vimbai_store::fake::MemoryGraph::new();
+        let scope = scope();
+
+        let dinar = create_currency(
+            &graph,
+            &scope,
+            &json!({"code": "kwd", "today": "2026-11-19"}),
+        )
+        .expect("the Kuwaiti dinar is a currency the world uses");
+        assert_eq!(dinar["code"], json!("KWD"));
+        assert_eq!(
+            dinar["decimal_places"],
+            json!(3),
+            "a dinar has three places, not two"
+        );
+        assert_eq!(dinar["name"], json!("Kuwaiti Dinar"));
+
+        let shilling = create_currency(
+            &graph,
+            &scope,
+            &json!({"code": "UGX", "today": "2026-11-19"}),
+        )
+        .expect("the Ugandan shilling is a currency the world uses");
+        assert_eq!(
+            shilling["decimal_places"],
+            json!(0),
+            "a shilling has no minor unit, so it is not rounded to cents"
+        );
+
+        // a code the world does not use is refused, and the refusal says where to read the list
+        let refused_code = create_currency(
+            &graph,
+            &scope,
+            &json!({"code": "ZZZ", "today": "2026-11-19"}),
+        )
+        .expect_err("ZZZ is not money");
+        assert!(
+            format!("{refused_code}").contains("catalogue"),
+            "{refused_code}"
+        );
+
+        // a Book that states its own places keeps them: some money is not what ISO says
+        let stated = create_currency(
+            &graph,
+            &scope,
+            &json!({"code": "ZZZ", "name": "Book token", "decimal_places": 4, "today": "2026-11-19"}),
+        )
+        .expect("a currency the Book names itself");
+        assert_eq!(stated["decimal_places"], json!(4));
     }
 }

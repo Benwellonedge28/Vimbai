@@ -25,5 +25,6 @@
 pub mod bank_feed;
 pub mod currency;
 pub mod integration;
+pub mod iso_currencies;
 pub mod reconciliation;
 pub mod relationship;

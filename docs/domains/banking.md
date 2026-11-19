@@ -36,3 +36,11 @@ caller to make the same statement twice - it is the app's one call, built out of
 Five HTTP tests cover the feed: an exact amount kept with a duplicate refused, a batch reporting both lines, an MT940 statement parsed into a credit and a debit read back with signs, a fuel rule meeting the line it names, and the feed listing with status. One more covers the app's path through it: a connection, a transaction
 imported against it, the feed listed for that connection only, and the transaction reconciled against an entry in one call,
 read back as reconciled with the entry recorded. The per-connection feed and sweep are covered by the address suite that closed the last method gaps, and currency conversion is unit-tested against exact amounts.
+
+## The currencies of the world
+
+A Book keeps money in the currencies it chooses, and the engine holds every currency the world uses as data rather
+than as code: `GET /currencies/catalogue` answers all 155 ISO 4217 codes with the decimal places each one's money has
+(a yen none, a Kuwaiti dinar three, a dollar two). Adding one by its code alone fills in the name and those places, so
+money is never rounded to a guess of two; a code the world does not use is refused, naming the catalogue. A Book that
+states its own name and places keeps them, because some money is not what ISO says.

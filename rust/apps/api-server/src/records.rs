@@ -18378,6 +18378,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
 
         // currency: the currencies a Book deals in, the rates between them and the conversions over them
         .route("/currencies", get(get_currencies).post(post_currency))
+        // the currencies of the world, so a Book chooses from them rather than typing a code and hoping
+        .route(
+            "/currencies/catalogue",
+            get(|| async { answer(Ok(banking::iso_currencies::catalogue())) }),
+        )
         .route(
             "/currencies/:code",
             get(get_currency).put(put_currency).delete(delete_currency),
