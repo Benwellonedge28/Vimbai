@@ -804,6 +804,11 @@ pub fn create_sales_return(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a document raised in another money is carried into the Book's own before a single line is posted, so the ledger
+    // never adds dollars to bond notes; the document keeps what it actually said
+    let (converted, document) = crate::document_currency::in_book_money(graph, scope, payload)?;
+    let payload = &converted;
+    let _ = &document;
     let total = money(payload, "total_amount")?;
     let reference = text(payload, "return_number");
     // what is credited back is what the customer paid, so the tax comes out of it exactly as it did on the sale
@@ -876,6 +881,9 @@ pub fn create_sales_return(
             "total_amount": wire(&total),
             "tax_amount": wire(&tax),
             "reason": text(payload, "reason"),
+            "document_currency": text(payload, "document_currency"),
+            "document_rate": text(payload, "document_rate"),
+            "document_total": text(payload, "document_total"),
             "status": or_default(payload, "status", "pending"),
             "notes": text(payload, "notes"),
             "journal_entry_id": entry_id,
@@ -890,6 +898,11 @@ pub fn create_purchases_return(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a document raised in another money is carried into the Book's own before a single line is posted, so the ledger
+    // never adds dollars to bond notes; the document keeps what it actually said
+    let (converted, document) = crate::document_currency::in_book_money(graph, scope, payload)?;
+    let payload = &converted;
+    let _ = &document;
     let total = money(payload, "total_amount")?;
     let reference = text(payload, "return_number");
     // what the supplier credits back is what was paid, so the tax comes out of it exactly as it did on the bill
@@ -962,6 +975,9 @@ pub fn create_purchases_return(
             "total_amount": wire(&total),
             "tax_amount": wire(&tax),
             "reason": text(payload, "reason"),
+            "document_currency": text(payload, "document_currency"),
+            "document_rate": text(payload, "document_rate"),
+            "document_total": text(payload, "document_total"),
             "status": or_default(payload, "status", "pending"),
             "notes": text(payload, "notes"),
             "journal_entry_id": entry_id,
@@ -1241,6 +1257,80 @@ mod tests {
                    "normal_balance": normal})
         })
         .collect()
+    }
+
+    /// A dollar sale in a bond Book, and its return, both land in bond money: the customer is charged 25,500.00 and
+    /// credited 25,500.00, never 1,000.00 beside 25,500.00 in the same ledger.
+    #[test]
+    fn a_dollar_sale_and_its_return_both_post_in_the_books_own_money() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        vimbai_store::Records::new(&graph, vimbai_store::STANDARDS_CONFIG)
+            .create(
+                &scope,
+                &json!({"organization_id": "org-1", "reporting_currency": "ZWL"}),
+            )
+            .expect("the Book keeps bond notes");
+        taxes::save_tax(
+            &graph,
+            &scope,
+            &json!({"name": "VAT", "rate": "15.5", "scope": "both",
+                    "collected_account": "2100", "effective_from": "2026-01-01"}),
+        )
+        .expect("VAT defined");
+
+        let sale = create_sale(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-19", "invoice_number": "USD-1",
+                    "customer_id": "c-1", "currency": "USD", "exchange_rate": "25.5",
+                    "total_amount": "1000.00", "taxes": ["VAT"]}),
+        )
+        .expect("posted");
+        // the register says what the customer was actually given, and what the Book posted for it
+        assert_eq!(field(&sale, "document_currency"), "USD");
+        assert_eq!(field(&sale, "currency"), "ZWL");
+        let entry = ledger_book::get_entry(&graph, &scope, field(&sale, "journal_entry_id"))
+            .expect("the entry");
+        let lines = entry["lines"].as_array().cloned().expect("lines");
+        let owed = lines
+            .iter()
+            .find(|line| field(line, "account_number") == "1100")
+            .expect("the customer's line");
+        assert_eq!(
+            money(owed, "debit").expect("owed"),
+            Money::parse("25500.00").expect("25,500 bond notes")
+        );
+
+        let back = create_sales_return(
+            &graph,
+            &scope,
+            &json!({"entry_date": "2026-11-20", "return_number": "RET-1",
+                    "original_invoice_number": "USD-1", "customer_id": "c-1",
+                    "currency": "USD", "exchange_rate": "25.5",
+                    "total_amount": "1000.00", "taxes": ["VAT"], "reason": "damaged"}),
+        )
+        .expect("taken back");
+        let reversed = ledger_book::get_entry(&graph, &scope, field(&back, "journal_entry_id"))
+            .expect("the return's entry");
+        let lines = reversed["lines"].as_array().cloned().expect("lines");
+        let owed = lines
+            .iter()
+            .find(|line| field(line, "account_number") == "1100")
+            .expect("the customer's line");
+        assert_eq!(
+            money(owed, "credit").expect("credited"),
+            Money::parse("25500.00").expect("the same bond figure comes back")
+        );
+        let credits: Money = lines.iter().fold(Money::zero(), |sum, line| {
+            sum.plus(&money(line, "credit").expect("credit"))
+        });
+        let debits: Money = lines.iter().fold(Money::zero(), |sum, line| {
+            sum.plus(&money(line, "debit").expect("debit"))
+        });
+        assert_eq!(debits, credits, "the return balances in bond money");
     }
 
     /// Runs a create against a chart and returns the journal entry that was posted.

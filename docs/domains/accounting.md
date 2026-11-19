@@ -48,5 +48,5 @@ A Book keeps one set of books, in one money. A customer may still be invoiced in
 names a currency other than the Book's must also give `exchange_rate` (how much one unit of that money is worth in the
 Book's), and its figures are carried into the Book's money before a line is posted, so a trial balance never adds
 dollars to bond notes. The register keeps both: the Book's figures, and `document_currency`, `document_rate` and
-`document_total` as the customer saw them. A foreign document with no rate is refused, naming the field; a rate of
+`document_total` as the customer saw them. Sales and purchases returns follow the same rule, so a dollar sale returned in a bond Book is reversed at 25,500.00, not 1,000.00. A foreign document with no rate is refused, naming the field; a rate of
 nothing or less is refused; a document already in the Book's own money cannot claim another rate.
