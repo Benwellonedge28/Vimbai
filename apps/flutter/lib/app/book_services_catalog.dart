@@ -30,6 +30,7 @@ import 'package:vimbai_mobile_client/features/overview/presentation/where_you_st
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/close_the_month_page.dart';
 import 'package:vimbai_mobile_client/features/tax/presentation/what_you_owe_page.dart';
+import 'package:vimbai_mobile_client/features/tax/presentation/tax_table_page.dart';
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
@@ -184,6 +185,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Tax charged on sales, tax reclaimed on purchases, and what is due',
           icon: Icons.receipt_long_outlined,
           page: (context) => const WhatYouOwePage(),
+        ),
+        BookServiceEntry(
+          title: 'The taxes you charge',
+          description:
+              'Each tax, its rate and account, and the day it starts applying',
+          icon: Icons.percent_outlined,
+          page: (context) => const TaxTablePage(),
         ),
         BookServiceEntry(
           title: 'Close the month',
