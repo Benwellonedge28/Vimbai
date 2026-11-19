@@ -34,6 +34,7 @@ pub mod company_accounting;
 pub mod departments;
 pub mod document_currency;
 pub mod fund_accounting;
+pub mod fx_settlement;
 pub mod ifrs_reports;
 pub mod intercompany;
 pub mod ledger_book;
