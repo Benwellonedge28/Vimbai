@@ -5,6 +5,7 @@ use accounting::ledger_book as book;
 use accounting::periods;
 use accounting::subsidiary_journals as journals;
 use accounting::tax;
+use accounting::taxes;
 use axum::{
     extract::{Path, RawQuery, State},
     http::HeaderMap,
@@ -252,6 +253,79 @@ async fn tax_due(
         &scope,
         &query_object(query.as_deref()),
     ))
+}
+
+/// `GET /accounting/taxes/`: the taxes this Book has defined, and which of them hold on a given day.
+async fn list_taxes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(taxes::list_taxes(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+/// `POST /accounting/taxes/`: define a tax, or change one that has not been used yet.
+async fn save_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(taxes::save_tax(graph.as_ref(), &scope, &body_of(payload)))
+}
+
+/// `POST /accounting/taxes/compute/`: what each tax on a document would be, in order, before anything is posted.
+async fn compute_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(taxes::compute_tax(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+/// `POST /accounting/taxes/retire/`: stop a tax applying from a day, keeping what it already posted.
+async fn retire_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(taxes::retire_tax(graph.as_ref(), &scope, &body_of(payload)))
+}
+
+/// `POST /accounting/taxes/seed/`: the usual taxes, posted to the accounts this Book already has.
+async fn seed_taxes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(taxes::seed_taxes(graph.as_ref(), &scope, &body_of(payload)))
 }
 
 /// `POST /accounting/closed-periods/`: lock a month so nothing more can be posted into it.
@@ -950,6 +1024,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
             // what the tax posted over a period adds up to, and whether the Book holds a tax account at all
             .route(&format!("{prefix}/tax"), get(tax_due))
+            // the taxes this Book charges, by rate and date, and what they come to on a document
+            .route(&format!("{prefix}/taxes"), post(save_tax).get(list_taxes))
+            .route(&format!("{prefix}/taxes/seed"), post(seed_taxes))
+            .route(&format!("{prefix}/taxes/compute"), post(compute_tax))
+            .route(&format!("{prefix}/taxes/retire"), post(retire_tax))
             // a month that has been reported on can be locked, and then nothing more is posted into it
             .route(
                 &format!("{prefix}/closed-periods"),

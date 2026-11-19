@@ -69,6 +69,7 @@
         "GET /accounting/subsidiary-ledgers/fixed-assets",
         "GET /accounting/subsidiary-ledgers/inventory",
         "GET /accounting/tax",
+        "GET /accounting/taxes",
         "GET /accounting/trial-balance",
         "POST /accounting/accounts",
         "POST /accounting/bank-reconciliation",
@@ -90,6 +91,10 @@
         "POST /accounting/sales-returns-journal",
         "POST /accounting/single-entry-conversions",
         "POST /accounting/statements-of-affairs",
+        "POST /accounting/taxes",
+        "POST /accounting/taxes/compute",
+        "POST /accounting/taxes/retire",
+        "POST /accounting/taxes/seed",
         "POST /accounting/vendor-bills",
         "PUT /accounting/accounts/{}",
         "PUT /accounting/journal-entries/{}"
