@@ -2,6 +2,7 @@
 //! Shared helpers for all Vimbai calculation libraries.
 
 pub mod clock;
+pub mod currencies;
 pub mod dates;
 pub mod document_money;
 pub mod hash;

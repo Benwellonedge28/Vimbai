@@ -138,14 +138,15 @@ fn seed_defaults(
     if !currencies(graph, scope)?.is_empty() {
         return Ok(());
     }
-    for (code, name, symbol, places) in DEFAULT_CURRENCIES {
+    for (code, name, symbol, _) in DEFAULT_CURRENCIES {
         Records::new(graph, CURRENCY).create(
             scope,
             &json!({
                 "code": code,
                 "name": name,
                 "symbol": symbol,
-                "decimal_places": places,
+                // how exact this money is comes from the one catalogue, never from a second table here
+                "decimal_places": vimbai_common::currencies::decimal_places(code),
                 "is_active": true,
                 "created_at": today,
             }),

@@ -40,7 +40,7 @@ read back as reconciled with the entry recorded. The per-connection feed and swe
 ## The currencies of the world
 
 A Book keeps money in the currencies it chooses, and the engine holds every currency the world uses as data rather
-than as code: `GET /currencies/catalogue` answers all 155 ISO 4217 codes with the decimal places each one's money has
+than as code: `GET /currencies/catalogue` answers all 156 currencies with the decimal places each one's money has, the Zimbabwean ZiG included beside the older ZWL that ISO 4217 still lists
 (a yen none, a Kuwaiti dinar three, a dollar two). Adding one by its code alone fills in the name and those places, so
 money is never rounded to a guess of two; a code the world does not use is refused, naming the catalogue. A Book that
 states its own name and places keeps them, because some money is not what ISO says.

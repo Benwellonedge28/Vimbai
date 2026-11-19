@@ -792,6 +792,14 @@ pub const ISO_4217: &[IsoCurrency] = &[
         minor_units: 2,
     },
     IsoCurrency {
+        // The money Zimbabwe actually uses since April 2024: the ZiG. ISO 4217 still lists only the old ZWL, so a
+        // catalogue copied from the standard alone would leave the country this product was built in unable to name its
+        // own money. Both are kept: ZWG for what is in use, ZWL as history.
+        code: "ZWG",
+        name: "Zimbabwe Gold",
+        minor_units: 2,
+    },
+    IsoCurrency {
         code: "ZWL",
         name: "Zimbabwean Dollar",
         minor_units: 2,
