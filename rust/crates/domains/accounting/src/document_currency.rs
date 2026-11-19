@@ -46,7 +46,7 @@ pub fn in_book_money(
     payload: &Value,
 ) -> Result<(Value, Option<DocumentMoney>), StoreError> {
     // a document that says nothing about money is already in the Book's own, and asking the Book costs a read
-    let stated_currency = text(payload, "currency").trim().to_uppercase();
+    let stated_currency = vimbai_common::document_money::named_currency(payload.get("currency"));
     if stated_currency.is_empty() && payload.get("exchange_rate").is_none() {
         return Ok((payload.clone(), None));
     }
@@ -71,21 +71,16 @@ pub fn in_book_money(
         return Ok((payload.clone(), None));
     }
 
-    let rate = match money(payload, "exchange_rate") {
-        Ok(rate) => rate,
-        Err(_) => {
+    let rate = match vimbai_common::document_money::exchange_rate(&currency, payload.get("exchange_rate")) {
+        Ok(Some(rate)) => rate,
+        Ok(None) => {
             return Err(refused(&format!(
                 "This document is in {currency} but this Book keeps its books in {book}, so the rate is needed: give \
                  exchange_rate as how much one {currency} is worth in {book}, and the journal will post {book}."
             )))
         }
+        Err(why) => return Err(refused(&why)),
     };
-    if rate.is_zero() || rate.is_negative() {
-        return Err(refused(&format!(
-            "The exchange rate from {currency} to {book} must be more than nothing; it was {}.",
-            wire(&rate)
-        )));
-    }
 
     let total = money(payload, "total_amount")?;
     let discount = money_or_nothing(payload, "discount_amount")?;

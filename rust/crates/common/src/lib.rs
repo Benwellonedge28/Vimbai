@@ -3,6 +3,7 @@
 
 pub mod clock;
 pub mod dates;
+pub mod document_money;
 pub mod hash;
 pub mod ids;
 pub mod ledger;

@@ -45,3 +45,12 @@ The posting. Raising an invoice produces a receivable; recording it in the ledge
 ## Tests
 
 Contract tests cover an invoice raised against a customer and settled by a payment, and the settle path is exercised through the published address rather than the internal one. The purchases control reconciliation is tested against a subledger that deliberately disagrees, so the finding is proven to appear.
+
+## The money an invoice was raised in
+
+An invoice may name the money it was raised in (`currency`) and the rate it was raised at (`exchange_rate`), kept
+trimmed and upper-cased. Both are read through `vimbai_common::document_money`, the same reading the ledger uses when it
+carries a document into the Book's money, so an invoice cannot be raised at a rate the ledger would refuse: a rate of
+nothing, less than nothing, or not a figure at all is refused at the point the invoice is raised, naming
+`exchange_rate`. An invoice that names no money keeps an empty currency and no rate, so nothing is invented for the
+ordinary case.

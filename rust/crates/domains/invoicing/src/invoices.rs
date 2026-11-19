@@ -258,6 +258,13 @@ pub fn create_invoice(
     }
     let total = amount_or_zero(payload, "total_amount")?;
     check_total(&total, &items)?;
+    // the money this invoice was raised in, kept so the customer's own document can be shown beside the Book's figures
+    // when the sale is carried to the ledger. The rate is read here so a document that cannot be posted is refused at
+    // the point it is raised, with one wording shared with the ledger's own reading of the same field.
+    let raised_in = vimbai_common::document_money::named_currency(payload.get("currency"));
+    let exchange_rate =
+        vimbai_common::document_money::exchange_rate(&raised_in, payload.get("exchange_rate"))
+            .map_err(StoreError::BadRequest)?;
     // A discount is money taken off what the lines come to, so it cannot be more than they come to: an invoice
     // discounted to nothing is not an invoice. What is left after the discount is what the customer owes, and it is
     // that figure, not the gross, that the sale carries to the ledger and that tax is worked out on.
@@ -319,6 +326,8 @@ pub fn create_invoice(
             "items": lines,
             "total_amount": wire(&total),
             "discount_amount": wire(&discount),
+            "currency": raised_in.clone(),
+            "exchange_rate": exchange_rate.as_ref().map(wire),
             "discounts": discounts,
             "amount_due": wire(&due_after_discount),
             "paid_amount": wire(&Money::zero()),
@@ -505,6 +514,57 @@ mod tests {
             {"description": "Consulting", "quantity": 2, "unit_price": 50, "amount": 100},
             {"description": "Support", "quantity": 1, "unit_price": 50, "amount": 50}
         ])
+    }
+
+    #[test]
+    fn an_invoice_keeps_the_money_it_was_raised_in_and_the_rate() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        let raised = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "USD-1", "customer_id": "ACME-1",
+                    "invoice_date": "2026-11-19", "due_date": "2026-12-19",
+                    "items": lines(), "total_amount": 150,
+                    "currency": "usd", "exchange_rate": "25.5"}),
+        )
+        .expect("raised in dollars");
+        // the money is kept as stated, trimmed and upper-cased, with the rate the customer was billed at
+        assert_eq!(raised["currency"], json!("USD"));
+        assert_eq!(raised["exchange_rate"], json!("25.500000"));
+        // an invoice in the Book's own money names no rate, so nothing is invented for it
+        let plain = create_invoice(
+            &graph,
+            &talked(),
+            &json!({"invoice_number": "LOCAL-1", "customer_id": "ACME-1",
+                    "invoice_date": "2026-11-19", "due_date": "2026-12-19",
+                    "items": lines(), "total_amount": 150}),
+        )
+        .expect("raised at home");
+        assert_eq!(plain["currency"], json!(""));
+        assert_eq!(plain["exchange_rate"], json!(null));
+    }
+
+    #[test]
+    fn a_rate_that_is_not_a_rate_is_refused_when_the_invoice_is_raised() {
+        let graph = MemoryGraph::new();
+        customer(&graph);
+        for bad in ["0", "-25.5", "not a number"] {
+            let answer = create_invoice(
+                &graph,
+                &talked(),
+                &json!({"invoice_number": format!("USD-{bad}"), "customer_id": "ACME-1",
+                        "invoice_date": "2026-11-19", "due_date": "2026-12-19",
+                        "items": lines(), "total_amount": 150,
+                        "currency": "USD", "exchange_rate": bad}),
+            );
+            match answer {
+                Err(StoreError::BadRequest(why)) => {
+                    assert!(why.contains("exchange rate"), "named the field: {why}");
+                }
+                other => panic!("a rate of {bad} was taken: {other:?}"),
+            }
+        }
     }
 
     #[test]
