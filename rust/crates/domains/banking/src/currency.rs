@@ -391,6 +391,40 @@ pub fn get_latest_rates(
     Ok(Value::Array(latest_rates(graph, scope)?))
 }
 
+/// The rate in force on a day, for a document dated that day (ADR-012).
+///
+/// A document raised in the past is carried at the rate that was in force then, never at today's rate, so a book can be
+/// audited months later and still say what it said on the day. The pair is answered from the Book's own stated rates: the
+/// official rate posts, and a market rate is a separate row rather than an overwrite.
+pub fn rate_as_at(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    from: &str,
+    to: &str,
+    day: &str,
+    today: &str,
+) -> Result<Money, StoreError> {
+    seed_defaults(graph, scope, today)?;
+    let table = vimbai_common::fx::RateTable::new(
+        rates(graph, scope)?
+            .into_iter()
+            .filter_map(|rate| {
+                Some(vimbai_common::fx::Rate::new(
+                    field(&rate, "from_currency"),
+                    field(&rate, "to_currency"),
+                    stored_amount(&rate, "rate").ok()?,
+                    field(&rate, "effective_date"),
+                    field(&rate, "source"),
+                ))
+            })
+            .collect(),
+    );
+    match table.in_force(from, to, day) {
+        Ok(row) => Ok(row.rate.clone()),
+        Err(why) => Err(refused(&why)),
+    }
+}
+
 /// `GET /rates/{from}/{to}`: the newest stated rate for one pair.
 pub fn get_exchange_rate(
     graph: &(impl Graph + ?Sized),

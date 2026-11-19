@@ -225,3 +225,203 @@ mod tests {
         assert_eq!(wide.to_fixed(2), "25.00");
     }
 }
+
+/// A rate as it was stated: which two monies, the figure, the day it applies from, and who says so.
+///
+/// A rate is never overwritten, only superseded. Keeping the day and the source on the rate is what lets a document
+/// dated three months ago be re-read at the rate that was in force then, rather than at today's rate - which is the
+/// difference between a book that can be audited and one that only looks right on the day it is read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rate {
+    /// The money being converted from, as a code.
+    pub from: String,
+    /// The money being converted into, as a code.
+    pub to: String,
+    /// How much one unit of `from` is worth in `to`.
+    pub rate: Money,
+    /// The day this rate applies from, as `YYYY-MM-DD`.
+    pub day: String,
+    /// Who says so: `official`, `bank`, `market`, `manual`, `default`.
+    pub source: String,
+}
+
+impl Rate {
+    /// A rate row, with its codes normalised so a lower-case code cannot become a second pair.
+    pub fn new(from: &str, to: &str, rate: Money, day: &str, source: &str) -> Self {
+        Self {
+            from: from.trim().to_uppercase(),
+            to: to.trim().to_uppercase(),
+            rate,
+            day: day.trim().to_string(),
+            source: source.trim().to_lowercase(),
+        }
+    }
+
+    /// Whether this rate is for exactly this pair of monies.
+    pub fn is_for(&self, from: &str, to: &str) -> bool {
+        self.from.eq_ignore_ascii_case(from.trim()) && self.to.eq_ignore_ascii_case(to.trim())
+    }
+}
+
+/// Every rate a Book has been told, from which the rate in force on a day is read.
+#[derive(Debug, Clone, Default)]
+pub struct RateTable {
+    rows: Vec<Rate>,
+}
+
+/// Whether a day is written the one way rates are dated, `YYYY-MM-DD`.
+fn dated(day: &str) -> bool {
+    let bytes = day.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(at, byte)| at == 4 || at == 7 || byte.is_ascii_digit())
+}
+
+impl RateTable {
+    /// A table of the rates stated so far.
+    pub fn new(rows: Vec<Rate>) -> Self {
+        Self { rows }
+    }
+
+    /// Every rate held, in the order they were stated.
+    pub fn rows(&self) -> &[Rate] {
+        &self.rows
+    }
+
+    /// The rate in force on [day]: the newest one that applies on or before that day.
+    ///
+    /// A rate stated after the day is never used, so a document cannot be carried at a rate that did not exist when it
+    /// was raised. When nothing was in force, the refusal names the day and the pair, because that is what a person can
+    /// act on.
+    pub fn in_force(&self, from: &str, to: &str, day: &str) -> Result<&Rate, String> {
+        let day = day.trim();
+        if !dated(day) {
+            return Err(format!(
+                "{day} is not a day. A rate is asked for as a day written YYYY-MM-DD, such as 2026-11-19."
+            ));
+        }
+        self.rows
+            .iter()
+            .filter(|row| row.is_for(from, to) && row.day.as_str() <= day)
+            .max_by(|left, right| left.day.cmp(&right.day))
+            .ok_or_else(|| {
+                format!(
+                    "No rate from {} to {} was in force on {day}. State the rate that applied on or before that day.",
+                    from.trim().to_uppercase(),
+                    to.trim().to_uppercase()
+                )
+            })
+    }
+
+    /// The newest rate held for this pair, whatever day it applies from.
+    pub fn latest(&self, from: &str, to: &str) -> Option<&Rate> {
+        self.rows
+            .iter()
+            .filter(|row| row.is_for(from, to))
+            .max_by(|left, right| left.day.cmp(&right.day))
+    }
+
+    /// The official and market rates in force on a day, and the gap between them when it is wide enough to matter.
+    pub fn official_against_market(
+        &self,
+        from: &str,
+        to: &str,
+        day: &str,
+    ) -> Option<(Money, Option<Money>)> {
+        let official = self
+            .rows
+            .iter()
+            .filter(|row| {
+                row.is_for(from, to) && row.day.as_str() <= day.trim() && row.source == "official"
+            })
+            .max_by(|left, right| left.day.cmp(&right.day))?;
+        let market = self
+            .rows
+            .iter()
+            .filter(|row| {
+                row.is_for(from, to) && row.day.as_str() <= day.trim() && row.source == "market"
+            })
+            .max_by(|left, right| left.day.cmp(&right.day));
+        Some((official.rate.clone(), market.map(|row| row.rate.clone())))
+    }
+}
+
+#[cfg(test)]
+mod rate_tests {
+    use super::*;
+
+    fn money(text: &str) -> Money {
+        Money::parse(text).expect("a figure")
+    }
+
+    fn table() -> RateTable {
+        RateTable::new(vec![
+            Rate::new("GBP", "ZWG", money("36"), "2026-10-01", "official"),
+            Rate::new("GBP", "ZWG", money("38"), "2026-10-30", "official"),
+            Rate::new("GBP", "ZWG", money("45"), "2026-11-01", "market"),
+        ])
+    }
+
+    #[test]
+    fn a_document_is_carried_at_the_rate_in_force_on_its_own_day() {
+        let table = table();
+        let first = table
+            .in_force("GBP", "ZWG", "2026-10-01")
+            .expect("a rate was in force");
+        assert_eq!(first.rate.to_fixed(2), "36.00");
+        let later = table
+            .in_force("gbp", "zwg", "2026-10-30")
+            .expect("a rate was in force");
+        assert_eq!(
+            later.rate.to_fixed(2),
+            "38.00",
+            "a lower-case code asks the same question"
+        );
+        let between = table
+            .in_force("GBP", "ZWG", "2026-10-15")
+            .expect("a rate was in force");
+        assert_eq!(
+            between.rate.to_fixed(2),
+            "36.00",
+            "the rate that was in force, not the newest"
+        );
+    }
+
+    #[test]
+    fn a_rate_stated_later_is_never_used_for_an_earlier_document() {
+        let table = table();
+        let early = table.in_force("GBP", "ZWG", "2026-09-30");
+        assert!(early.is_err(), "nothing was in force yet");
+        assert!(early.unwrap_err().contains("2026-09-30"));
+    }
+
+    #[test]
+    fn a_day_that_is_not_a_day_is_refused_rather_than_guessed() {
+        let table = table();
+        assert!(table.in_force("GBP", "ZWG", "30/10/2026").is_err());
+        assert!(table.in_force("GBP", "ZWG", "").is_err());
+    }
+
+    #[test]
+    fn the_official_rate_is_the_one_that_posts_and_the_market_rate_sits_beside_it() {
+        let table = table();
+        let (official, market) = table
+            .official_against_market("GBP", "ZWG", "2026-11-05")
+            .expect("an official rate was in force");
+        assert_eq!(official.to_fixed(2), "38.00", "the official rate posts");
+        let market = market.expect("a market rate was in force");
+        assert_eq!(
+            market.to_fixed(2),
+            "45.00",
+            "the market rate is shown beside it"
+        );
+        assert_eq!(
+            gap(&official, &market).expect("a wide gap").to_fixed(2),
+            "18.42"
+        );
+    }
+}
