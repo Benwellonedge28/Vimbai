@@ -21,6 +21,7 @@ class AppConfig {
   static const String identityRoute = '$apiUrl/identity';
   static const String accountingRoute = '$apiUrl/accounting';
   static const String bankingRoute = '$apiUrl/bank-feed';
+  static const String currencyRoute = '$apiUrl/currency';
   static const String budgetsRoute = '$apiUrl/budget';
 
   /// The cash and bank book: accounts with balances, and the receipts and payments against them.
