@@ -78,6 +78,8 @@
         "POST /accounting/cash-receipts-journal",
         "POST /accounting/closed-periods",
         "POST /accounting/control-accounts",
+        "POST /accounting/fx-revaluation",
+        "POST /accounting/fx-settlement",
         "POST /accounting/journal-entries",
         "POST /accounting/journal-entries/{}/post",
         "POST /accounting/journal-entries/{}/reverse",

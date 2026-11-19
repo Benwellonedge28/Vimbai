@@ -1,6 +1,8 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::bookkeeping as papers;
+use accounting::fx_revaluation;
+use accounting::fx_settlement;
 use accounting::ledger_book as book;
 use accounting::periods;
 use accounting::subsidiary_journals as journals;
@@ -326,6 +328,40 @@ async fn seed_taxes(
         Err(response) => return *response,
     };
     answer(taxes::seed_taxes(graph.as_ref(), &scope, &body_of(payload)))
+}
+
+/// `POST /accounting/fx-settlement`: record that a foreign debt was paid, and what the rate did to it.
+async fn settle_foreign(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(fx_settlement::settle_foreign(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+/// `POST /accounting/fx-revaluation`: restate foreign balances at a closing rate and post what the rate did.
+async fn revalue_foreign(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(fx_revaluation::revalue(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
 }
 
 /// `POST /accounting/closed-periods/`: lock a month so nothing more can be posted into it.
@@ -1034,6 +1070,10 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/closed-periods"),
                 post(close_period).get(closed_periods),
             )
+            // a foreign debt paid at a different rate records the difference, and a period end restates what is held:
+            // both are records of what happened, never a movement of money
+            .route(&format!("{prefix}/fx-settlement"), post(settle_foreign))
+            .route(&format!("{prefix}/fx-revaluation"), post(revalue_foreign))
             .route(&format!("{prefix}/ledgers/:account_number"), get(ledger))
             .route(
                 &format!("{prefix}/sales-journal"),
