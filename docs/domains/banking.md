@@ -10,7 +10,7 @@ Crate: `rust/crates/domains/banking`
 2. Bank reconciliation, including the two steps a reconciliation is actually made of, so a partial reconciliation says which step it is at.
 3. The bank relationship: mandates, signatories, limits and the changes to them.
 4. Banking integration: per-connection transaction feeds and per-connection sweeps, so one connection's import cannot sweep another's.
-5. Currency: exchange rates, the conversions they imply, and the currency catalogue a multi-currency Book works in.
+5. Currency: exchange rates, the conversions they imply, and the currency catalogue a multi-currency Book works in. A rate is a dated, sourced row rather than a value that is overwritten, so a document can always be re-read at the rate it was raised under. The catalogue itself is not banking's own: it lives in `vimbai_common`, because how exact a currency's money is is a question every crate asks. What an item is, and therefore which rate restates it, is answered by `vimbai_common::fx` (ADR-012).
 
 ## Services and addresses
 

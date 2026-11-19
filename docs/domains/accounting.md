@@ -50,3 +50,11 @@ Book's), and its figures are carried into the Book's money before a line is post
 dollars to bond notes. The register keeps both: the Book's figures, and `document_currency`, `document_rate` and
 `document_total` as the customer saw them. Sales and purchases returns follow the same rule, so a dollar sale returned in a bond Book is reversed at 25,500.00, not 1,000.00. A foreign document with no rate is refused, naming the field; a rate of
 nothing or less is refused; a document already in the Book's own money cannot claim another rate.
+
+## Exchange differences
+
+Books are kept in one money. A document in another money names its rate, and the engine carries its total, its discount
+and each tax into the Book's own money before a line posts. The differences that arise afterwards are recognised rather
+than absorbed: on settlement at a later rate, on restatement of foreign balances at a period end, and on translation for
+consolidation as a cumulative adjustment in equity. Which rate applies to which item, and the three differences
+themselves, are `vimbai_common::fx`, per ADR-012; no domain crate carries its own opinion about a rate.

@@ -5,6 +5,7 @@ pub mod clock;
 pub mod currencies;
 pub mod dates;
 pub mod document_money;
+pub mod fx;
 pub mod hash;
 pub mod ids;
 pub mod iso_currencies;
