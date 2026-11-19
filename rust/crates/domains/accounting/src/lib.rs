@@ -32,6 +32,7 @@ pub mod cashbook;
 pub mod chart;
 pub mod company_accounting;
 pub mod departments;
+pub mod document_currency;
 pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;

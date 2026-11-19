@@ -41,3 +41,12 @@ Posting integrity. Balance enforcement, immutability and the hash chain belong t
 ## Tests
 
 Every module carries its own tests over the arithmetic and the records, and the HTTP suite in the api-server's tests walks the published addresses so a client's call is proven, not assumed. The journal-line migration is pinned by tests that read lines back joined to their entry, and the balance refusal is exercised with a one-unit difference in the thirtieth decimal place.
+
+## A document raised in another money
+
+A Book keeps one set of books, in one money. A customer may still be invoiced in another. A sale, purchase or bill that
+names a currency other than the Book's must also give `exchange_rate` (how much one unit of that money is worth in the
+Book's), and its figures are carried into the Book's money before a line is posted, so a trial balance never adds
+dollars to bond notes. The register keeps both: the Book's figures, and `document_currency`, `document_rate` and
+`document_total` as the customer saw them. A foreign document with no rate is refused, naming the field; a rate of
+nothing or less is refused; a document already in the Book's own money cannot claim another rate.

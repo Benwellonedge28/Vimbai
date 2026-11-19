@@ -638,6 +638,22 @@ pub fn compliance_history<G: Graph + ?Sized>(
     Ok(Value::Array(rows))
 }
 
+/// The money this Book keeps its own books in, as the Book stated it; a Book that never said keeps USD, which is what
+/// the shipped settings defaulted to.
+pub fn reporting_currency(graph: &(impl Graph + ?Sized), scope: &BookScope) -> String {
+    Records::new(graph, STANDARDS_CONFIG)
+        .list(scope, 1000)
+        .map(|rows| {
+            rows.into_iter()
+                .map(|row| text(&row, "reporting_currency"))
+                .find(|one| !one.trim().is_empty())
+                .unwrap_or_else(|| "USD".to_string())
+                .trim()
+                .to_uppercase()
+        })
+        .unwrap_or_else(|_| "USD".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

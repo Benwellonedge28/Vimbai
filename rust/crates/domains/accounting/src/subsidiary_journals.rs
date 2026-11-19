@@ -446,6 +446,11 @@ pub fn create_sale(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a document raised in another money is carried into the Book's own before a single line is posted, so the ledger
+    // never adds dollars to bond notes; the document keeps what it actually said
+    let (converted, document) = crate::document_currency::in_book_money(graph, scope, payload)?;
+    let payload = &converted;
+    let _ = &document;
     let total = money(payload, "total_amount")?;
     let discount = money_or_nothing(payload, "discount_amount")?;
     let net = total.minus(&discount);
@@ -517,6 +522,9 @@ pub fn create_sale(
             "tax_amount": wire(&tax),
             "discount_amount": wire(&discount),
             "currency": or_default(payload, "currency", "USD"),
+            "document_currency": text(payload, "document_currency"),
+            "document_rate": text(payload, "document_rate"),
+            "document_total": text(payload, "document_total"),
             "status": or_default(payload, "status", "pending"),
             "notes": text(payload, "notes"),
             "journal_entry_id": entry_id,
@@ -556,6 +564,11 @@ pub fn create_purchase(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a document raised in another money is carried into the Book's own before a single line is posted, so the ledger
+    // never adds dollars to bond notes; the document keeps what it actually said
+    let (converted, document) = crate::document_currency::in_book_money(graph, scope, payload)?;
+    let payload = &converted;
+    let _ = &document;
     let total = money(payload, "total_amount")?;
     let discount = money_or_nothing(payload, "discount_amount")?;
     let net = total.minus(&discount);
@@ -626,6 +639,9 @@ pub fn create_purchase(
             "tax_amount": wire(&tax),
             "discount_amount": wire(&discount),
             "currency": or_default(payload, "currency", "USD"),
+            "document_currency": text(payload, "document_currency"),
+            "document_rate": text(payload, "document_rate"),
+            "document_total": text(payload, "document_total"),
             "status": or_default(payload, "status", "pending"),
             "notes": text(payload, "notes"),
             "journal_entry_id": entry_id,
@@ -960,6 +976,11 @@ pub fn create_vendor_bill(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
+    // a document raised in another money is carried into the Book's own before a single line is posted, so the ledger
+    // never adds dollars to bond notes; the document keeps what it actually said
+    let (converted, document) = crate::document_currency::in_book_money(graph, scope, payload)?;
+    let payload = &converted;
+    let _ = &document;
     let total = money(payload, "total_amount")?;
     let bill = text(payload, "bill_number");
 
@@ -987,6 +1008,9 @@ pub fn create_vendor_bill(
             "due_date": payload.get("due_date").cloned().unwrap_or(Value::Null),
             "total_amount": wire(&total),
             "currency": or_default(payload, "currency", "USD"),
+            "document_currency": text(payload, "document_currency"),
+            "document_rate": text(payload, "document_rate"),
+            "document_total": text(payload, "document_total"),
             "status": or_default(payload, "status", "pending"),
             "description": text(payload, "description"),
             "linked_purchase_order_ids": payload
