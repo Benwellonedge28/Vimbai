@@ -13,17 +13,13 @@ info:
 
     The addresses this file covers, by prefix group:
     * `/authorized-share-capital`
-    * `/benefit-plans`
     * `/bonus-shares`
     * `/capital-reconstruction`
     * `/capital-redemption-reserve`
     * `/debentures`
-    * `/employee`
-    * `/enroll`
     * `/general-reserve`
     * `/initial-investment`
     * `/issued-share-capital`
-    * `/leave`
     * `/ordinary-shares`
     * `/preference-shares`
     * `/retained-profits`
@@ -125,15 +121,6 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getAuthorizedShareCapitalSummary
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /benefit-plans:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    get:
-      operationId: getBenefitPlans
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-    post:
-      operationId: postBenefitPlans
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /bonus-shares/issue:
     parameters:
@@ -279,24 +266,6 @@ paths:
     get:
       operationId: getDebenturesIssues
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /employee/{}/enrollments:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    get:
-      operationId: getEmployeeEnrollments
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /employee/{}/leave:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    get:
-      operationId: getEmployeeLeave
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /enroll:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    post:
-      operationId: postEnroll
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /general-reserve/reserves:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -395,12 +364,6 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getIssuedShareCapitalSummary
-      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
-  /leave/accrue:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-    post:
-      operationId: postLeaveAccrue
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /ordinary-shares/dividends:
     parameters:

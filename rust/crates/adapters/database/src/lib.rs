@@ -184,6 +184,9 @@ pub const ACCRUAL: RecordKind = RecordKind::new("Accrual", "OWNS_ACCRUAL");
 /// Money paid now for something the business will use over several months.
 pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMENT");
 
+/// A month's wages: what it cost, what was withheld, what the staff are owed, and the entry that posted it.
+pub const PAYROLL_RUN: RecordKind = RecordKind::new("PayrollRun", "OWNS_PAYROLL_RUN");
+
 /// The fixed asset register fixed-assets-register-service owns.
 pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_ASSET");
 pub const DEPRECIATION_ENTRY: RecordKind =

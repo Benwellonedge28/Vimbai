@@ -7,6 +7,7 @@ use accounting::expenses;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
 use accounting::ledger_book as book;
+use accounting::payroll;
 use accounting::periods;
 use accounting::subsidiary_journals as journals;
 use accounting::tax;
@@ -659,6 +660,34 @@ async fn list_expenses(
         Err(response) => return *response,
     };
     answer(expenses::list_expenses(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn post_payroll(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payroll::post_run(graph.as_ref(), &scope, &body_of(payload)))
+}
+
+async fn list_payroll(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payroll::list_runs(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1372,6 +1401,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/depreciation/unposted"),
                 get(unposted_depreciation),
+            )
+            // a month's wages: what the work cost, what the staff are owed, and what is held for somebody else
+            .route(
+                &format!("{prefix}/payroll"),
+                post(post_payroll).get(list_payroll),
             )
             .route(
                 &format!("{prefix}/cash-receipts-journal"),

@@ -83,6 +83,41 @@ pub(crate) fn post(
     Ok(field(&posted, "id").to_string())
 }
 
+/// Posts an entry with one line per account it names, and returns the entry's id.
+///
+/// Payroll is the reason this exists: a month's wages move more than two accounts, so the two-line [`post`] cannot carry
+/// it. Keeping the shape in one place means every journal that needs more than a pair writes its lines the same way, and
+/// the balance the ledger insists on is checked once rather than by each caller.
+pub(crate) fn post_lines(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    payload: &Value,
+    description: String,
+    reference: &str,
+    source_module: &str,
+    lines: &[(String, Money, Money, String)],
+) -> Result<String, StoreError> {
+    let entry = json!({
+        "entry_date": text(payload, "entry_date"),
+        "description": description,
+        "reference_number": reference,
+        "source_module": source_module,
+        "status": "posted",
+        "created_at": text(payload, "created_at"),
+        "lines": lines
+            .iter()
+            .map(|(account, debit, credit, note)| json!({
+                "account_number": account,
+                "debit": wire(debit),
+                "credit": wire(credit),
+                "description": note,
+            }))
+            .collect::<Vec<Value>>(),
+    });
+    let posted = ledger_book::create_entry(graph, scope, &entry)?;
+    Ok(field(&posted, "id").to_string())
+}
+
 /// A document's tax cannot be more than the document. A tax larger than the net is not a rate anybody charges; it is a
 /// total typed into the tax field, and posting it would leave the sale earning less than nothing.
 pub(crate) fn check_tax_fits(tax: &Money, net: &Money, what: &str) -> Result<(), StoreError> {

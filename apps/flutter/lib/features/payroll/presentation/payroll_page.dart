@@ -5,28 +5,21 @@
 // pension and NSSA contributions are counted. The second is putting the month into the ledger, because a business that
 // has paid everybody and whose books have never heard of it has a payroll that only exists in the bank.
 //
-// The arithmetic is the engine's, in both parts: the totals come from its payroll calculator, and the accounts are the
-// Book's own chart, matched to the calculator's lines by name. Nothing here adds a salary up. That is deliberate - the
-// figure a person is shown has to be the figure that will be posted, or the screen is decoration.
+// The arithmetic is the engine's, in both parts: the totals come from its payroll calculator, and the posting is its
+// payroll journal, which finds the accounts in the Book's own chart and dates the entry in the month it belongs to.
+// Nothing here adds a salary up and nothing here builds a journal entry. That is deliberate - the figure a person is
+// shown has to be the figure that will be posted, or the screen is decoration.
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
-import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
-import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
-import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
-import 'package:vimbai_mobile_client/features/payroll/data/payroll_posting.dart';
 import 'package:vimbai_mobile_client/features/payroll/data/payroll_service.dart';
 
 class PayrollPage extends StatefulWidget {
-  const PayrollPage({super.key, this.service, this.accounting, this.clock});
+  const PayrollPage({super.key, this.service, this.clock});
 
   /// A test passes its own service so the page can be exercised without a server.
   final PayrollService? service;
-
-  /// The ledger the run posts to, injectable for the same reason.
-  final AccountingApiService? accounting;
 
   /// A test fixes the month, so "this month" does not depend on the day it runs.
   final DateTime? clock;
@@ -61,8 +54,6 @@ class _PersonRow {
 class _PayrollPageState extends State<PayrollPage> {
   late final PayrollService _payroll =
       widget.service ?? PayrollService.instance;
-  late final AccountingApiService _ledger =
-      widget.accounting ?? AccountingApiService();
 
   late final TextEditingController _period;
   final List<_PersonRow> _people = [_PersonRow()];
@@ -71,6 +62,9 @@ class _PayrollPageState extends State<PayrollPage> {
   bool _working = false;
   bool _posting = false;
   bool _posted = false;
+
+  /// What the engine answered when it posted, so the page repeats its figures rather than its own.
+  PostedPayroll? _postedRun;
   String? _problem;
 
   @override
@@ -151,13 +145,16 @@ class _PayrollPageState extends State<PayrollPage> {
     }
   }
 
-  /// Put the month into the ledger.
+  /// Put the month into the books.
   ///
-  /// Every line the calculator proposed is matched to an account in this Book's own chart by name; the accounts proposed
-  /// are shown before anything is written, because a payroll posts nine lines and a person should see where each one
-  /// lands. A chart that lacks any of them is not a dead end: the missing accounts are named, and one tap adds them with
-  /// numbers the chart does not already use. The period travels as the entry's reference, so the same month cannot be
-  /// posted twice - the engine refuses the second by name rather than paying everybody again.
+  /// The run's own figures are what is sent. The engine's payroll journal posts what the work cost, what the staff are
+  /// owed and what the business is holding for the tax authority, the pension fund and everybody else a payslip withholds
+  /// for, dated the last day of the month it belongs to. It finds the accounts by name in this Book's own chart, so a
+  /// business that calls its wage account "Wages and Salaries" still posts its payroll, and a chart with none of them is
+  /// refused in words that say which account to name rather than by a status code.
+  ///
+  /// Nothing here moves money: the wages that were actually paid belong in the cash book, and this says what the month
+  /// cost and what it owes.
   Future<void> _postTheRun() async {
     final run = _run;
     if (run == null || _posting || _posted) return;
@@ -171,69 +168,19 @@ class _PayrollPageState extends State<PayrollPage> {
           'The run the engine worked out does not add up to the same on both sides, so it was not posted.',
         );
       }
-      final chart = await _ledger.getAllAccounts();
-      final needs = neededAccounts(run.postableLines);
-      var matched = matchAccounts(needs, chart);
-      final missing = missingAccounts(needs, matched);
-      if (missing.isNotEmpty) {
-        if (!mounted) return;
-        final add = await _askToAddAccounts(missing);
-        if (add != true) {
-          setState(() => _posting = false);
-          return;
-        }
-        final taken = {for (final account in chart) account.accountNumber};
-        for (final need in missing) {
-          final number = freeAccountNumber(need.seed, taken);
-          taken.add(number);
-          await _ledger.createAccount(
-            AccountCreate(
-              accountNumber: number,
-              accountName: need.name,
-              accountType: need.accountType,
-              currentBalance: ExactAmount.zero,
-              description: need.description,
-            ),
-          );
-        }
-        matched = matchAccounts(needs, await _ledger.getAllAccounts());
-        final stillMissing = missingAccounts(needs, matched);
-        if (stillMissing.isNotEmpty) {
-          throw Exception(
-            'The chart still has no ${stillMissing.map((need) => need.name).join(', ')} account, '
-            'so the payroll was not posted.',
-          );
-        }
-      }
-      if (!mounted) return;
-      final confirmed = await _showProposal(run, matched);
+      final confirmed = await _showProposal(run);
       if (confirmed != true || !mounted) {
         setState(() => _posting = false);
         return;
       }
-      await _ledger.createJournalEntry(
-        buildJournalEntry(
-          id: const Uuid().v4(),
-          entryDate: DateTime.parse('${run.period}-01'),
-          description: 'Payroll for ${run.period}',
-          referenceNumber: run.reference,
-          lines: [
-            for (final line in run.postableLines)
-              JournalLine(
-                accountNumber: matched[line.account]!.accountNumber,
-                description: line.account,
-                debit: line.debit,
-                credit: line.credit,
-              ),
-          ],
-        ),
-      );
+      final posted = await _payroll.postRun(run);
       if (!mounted) return;
       setState(() {
         _posting = false;
         _posted = true;
+        _postedRun = posted;
       });
-      _say('The payroll for ${run.period} is in the ledger.');
+      _say('The payroll for ${posted.period} is in the books.');
     } catch (failure) {
       if (!mounted) return;
       setState(() => _posting = false);
@@ -241,66 +188,30 @@ class _PayrollPageState extends State<PayrollPage> {
     }
   }
 
-  Future<bool?> _askToAddAccounts(
-    List<PayrollAccountNeed> missing,
-  ) => showDialog<bool>(
+  /// What the month will say, in the terms of the business rather than the ledger, before it is written.
+  Future<bool?> _showProposal(PayrollRun run) => showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Accounts this Book does not have yet'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'A payroll posts to these accounts, and the chart has no account with that name:',
-          ),
-          const SizedBox(height: 8),
-          for (final need in missing)
-            Text('${need.name} (${need.accountType})'),
-          const SizedBox(height: 12),
-          Text(
-            'Adding them creates one account each, numbered where the chart has room.',
-            style: Theme.of(ctx).textTheme.bodySmall,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('Not now'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('Add them'),
-        ),
-      ],
-    ),
-  );
-
-  Future<bool?> _showProposal(
-    PayrollRun run,
-    Map<String, Account> matched,
-  ) => showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('Post the payroll for ${run.period}'),
+      title: Text('Post the wages for ${run.period}'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final line in run.postableLines)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  line.debit.isZero
-                      ? 'Cr ${matched[line.account]!.accountNumber} ${line.account}  ${line.credit.toDecimalString()}'
-                      : 'Dr ${matched[line.account]!.accountNumber} ${line.account}  ${line.debit.toDecimalString()}',
-                ),
-              ),
+            Text(
+              'The work cost ${run.costToCompany.toDecimalString()}: '
+              '${run.gross.toDecimalString()} of wages and '
+              '${run.employerContributions.toDecimalString()} the business adds on top.',
+            ),
             const SizedBox(height: 8),
             Text(
-              'Reference ${run.reference}. Posted entries are corrected by reversing them, never edited.',
+              '${run.net.toDecimalString()} is owed to the staff, and '
+              '${(run.paye + run.nassa + run.pension + run.medical + run.other + run.employerContributions).toDecimalString()} '
+              'is held for the tax authority, the pension fund and anybody else the payslips withhold for.',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No money moves. Reference ${run.reference}; a posted entry is corrected by reversing it, never edited.',
               style: Theme.of(ctx).textTheme.bodySmall,
             ),
           ],
@@ -443,30 +354,25 @@ class _PayrollPageState extends State<PayrollPage> {
         for (final slip in run.payslips) _payslip(slip),
       ],
       const SizedBox(height: 20),
-      Text(
-        'The entry it posts',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
+      Text('What this posts', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
-      for (final line in run.postableLines)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Text(
-            line.debit.isZero
-                ? 'Cr ${line.account}  ${line.credit.toDecimalString()}'
-                : 'Dr ${line.account}  ${line.debit.toDecimalString()}',
-          ),
-        ),
-      if (run.postableLines.length != run.lines.length)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            'A payroll with nothing in a component still names its account, so '
-            '${run.lines.length - run.postableLines.length} line(s) with nothing on them are left out: '
-            'the ledger does not take a line that moves no money.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+      // the four facts the journal writes, in the terms of the business: what the work cost, what the staff are owed, and
+      // what is being held for somebody else. The accounts are found by name in this Book's chart, so they are not listed
+      // by number here - a chart that numbers its own accounts would make the numbers meaningless to read.
+      Text(
+        'The work cost ${run.costToCompany.toDecimalString()}, which is '
+        '${run.gross.toDecimalString()} of wages and '
+        '${run.employerContributions.toDecimalString()} the business adds on top. '
+        '${run.net.toDecimalString()} is owed to the staff, and '
+        '${(run.paye + run.nassa + run.pension + run.medical + run.other + run.employerContributions).toDecimalString()} '
+        'is held for the tax authority, the pension fund and anybody else the payslips withhold for.',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      const SizedBox(height: 6),
+      Text(
+        'Dated the last day of ${run.period}. No money moves: the wages that were paid belong in the cash book.',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
       if (!run.balanced)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -480,12 +386,45 @@ class _PayrollPageState extends State<PayrollPage> {
         onPressed: (_posted || _posting || !run.balanced) ? null : _postTheRun,
         child: Text(
           _posted
-              ? 'In the ledger'
+              ? 'In the books'
               : _posting
               ? 'Posting'
-              : 'Post it to the ledger',
+              : 'Post it to the books',
         ),
       ),
+      // the engine's answer, not a second sum: the net owed and the total cost are worked out where the entry is posted
+      if (_postedRun != null) ...[
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'The books now say',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${_postedRun!.period} · reference ${_postedRun!.reference}, dated '
+                  '${_postedRun!.entryDate}. Gross wages ${_postedRun!.grossWages}, '
+                  '${_postedRun!.withheld} withheld, ${_postedRun!.netPay} owed to staff.',
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Employing people cost ${_postedRun!.totalCost} once the employer\'s own '
+                  '${_postedRun!.employerContributions} is counted. The wages sit in account '
+                  '${_postedRun!.wagesAccount}, what is held for others in '
+                  '${_postedRun!.deductionsAccount}, and what the staff are owed in '
+                  '${_postedRun!.netAccount}.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     ],
   );
 

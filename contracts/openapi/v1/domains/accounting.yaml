@@ -15,13 +15,17 @@ info:
     * `/accounting`
     * `/accounting-standards`
     * `/balance-sheet`
+    * `/benefit-plans`
     * `/cash-flow`
     * `/cashbook`
     * `/company-accounting`
     * `/departmental-accounting`
+    * `/employee`
+    * `/enroll`
     * `/fund-accounting`
     * `/ifrs-reporting`
     * `/intercompany`
+    * `/leave`
     * `/records`
     * `/revenue-recognition`
     * `/trading-account`
@@ -421,6 +425,15 @@ paths:
     get:
       operationId: getAccountingLedgers
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/payroll:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAccountingPayroll
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postAccountingPayroll
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /accounting/petty-cash-entries:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -627,6 +640,15 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getBalanceSheetRatios
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /benefit-plans:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getBenefitPlans
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postBenefitPlans
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /cash-flow/create:
     parameters:
@@ -988,6 +1010,24 @@ paths:
     post:
       operationId: postDepartmentalAccountingReportsDepartmentComparison
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /employee/{}/enrollments:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getEmployeeEnrollments
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /employee/{}/leave:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getEmployeeLeave
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /enroll:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postEnroll
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /fund-accounting/funds:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -1071,6 +1111,12 @@ paths:
       - $ref: "#/components/parameters/BookId"
     post:
       operationId: postIntercompanyTransactionsMatch
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /leave/accrue:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postLeaveAccrue
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/absorption-costing/product-costs:
     parameters:
@@ -1431,6 +1477,15 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getRecordsAccountingLedgers
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/payroll:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsAccountingPayroll
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postRecordsAccountingPayroll
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/accounting/petty-cash-entries:
     parameters:

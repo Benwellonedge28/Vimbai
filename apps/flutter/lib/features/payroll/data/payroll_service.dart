@@ -127,17 +127,6 @@ class PayrollRun {
     required this.payslips,
   });
 
-  /// The lines that actually move money, which are the lines the ledger will take.
-  ///
-  /// The calculator lists every component of a payroll whether or not anything went to it, so a month with no medical aid
-  /// comes back with a Medical Aid Payable line of nothing on both sides. The ledger refuses such a line by name ("line 6
-  /// moves no money"), and it is right to: an entry that says somebody is owed nothing is a line to explain later. So the
-  /// empties are dropped here, once, rather than each caller remembering to.
-  List<PayrollLine> get postableLines => [
-    for (final line in lines)
-      if (!line.debit.isZero || !line.credit.isZero) line,
-  ];
-
   /// What the run costs beyond the wages: the employer's own contributions.
   ExactAmount get employerContributions => employerPension + employerNassa;
 
@@ -178,6 +167,63 @@ class PayrollRun {
         PayrollLine.fromJson(line as Map<String, dynamic>),
     ],
     payslips: payslips,
+  );
+}
+
+/// A month's wages, as the engine's payroll journal posted it.
+///
+/// The figures are the engine's own: the net owed and the total cost are worked out where the entry is posted, from the
+/// run's stated amounts, so what the screen shows after posting is what the books now say rather than a second sum.
+class PostedPayroll {
+  const PostedPayroll({
+    required this.period,
+    required this.reference,
+    required this.grossWages,
+    required this.withheld,
+    required this.employerContributions,
+    required this.netPay,
+    required this.totalCost,
+    required this.wagesAccount,
+    required this.deductionsAccount,
+    required this.netAccount,
+    required this.journalEntryId,
+    required this.entryDate,
+  });
+
+  final String period;
+  final String reference;
+  final String grossWages;
+
+  /// Everything withheld from the payslips, added up by the engine.
+  final String withheld;
+  final String employerContributions;
+
+  /// What the staff are still owed.
+  final String netPay;
+
+  /// What the month cost the business: the gross plus the employer's own contribution.
+  final String totalCost;
+  final String wagesAccount;
+  final String deductionsAccount;
+  final String netAccount;
+  final String journalEntryId;
+
+  /// The last day of the month the entry is dated in.
+  final String entryDate;
+
+  factory PostedPayroll.fromJson(Map<String, dynamic> json) => PostedPayroll(
+    period: (json['period'] as String?) ?? '',
+    reference: (json['reference_number'] as String?) ?? '',
+    grossWages: (json['gross_wages'] as String?) ?? '',
+    withheld: (json['withheld'] as String?) ?? '',
+    employerContributions: (json['employer_contributions'] as String?) ?? '',
+    netPay: (json['net_pay'] as String?) ?? '',
+    totalCost: (json['total_cost'] as String?) ?? '',
+    wagesAccount: (json['wages_account'] as String?) ?? '',
+    deductionsAccount: (json['deductions_account'] as String?) ?? '',
+    netAccount: (json['net_account'] as String?) ?? '',
+    journalEntryId: (json['journal_entry_id'] as String?) ?? '',
+    entryDate: (json['entry_date'] as String?) ?? '',
   );
 }
 
@@ -241,6 +287,56 @@ class PayrollService {
     return PayrollRun.fromJson(totals, payslips: payslips);
   }
 
+  /// Put the month into the books.
+  ///
+  /// The run was worked out by the engine's calculator, so its totals are what is sent: the journal posts what the work
+  /// cost, what the staff are owed and what is held for the tax authority, the pension fund and everybody else a payslip
+  /// withholds for. The accounts are the Book's own, found by name in its chart rather than fixed here, and a chart that
+  /// has none of them is refused by the engine in words that say which account to name.
+  ///
+  /// The run's own reference travels with it, so the same month cannot be posted twice: the engine refuses the second by
+  /// name rather than paying everybody again.
+  Future<PostedPayroll> postRun(PayrollRun run) async {
+    final answer = await _client.post(
+      Uri.parse('$_base/accounting/payroll'),
+      headers: _headers,
+      body: jsonEncode({
+        'period': run.period.trim(),
+        'reference': run.reference,
+        'gross': run.gross.toDecimalString(),
+        if (!run.paye.isZero) 'paye': run.paye.toDecimalString(),
+        if (!run.nassa.isZero) 'nassa': run.nassa.toDecimalString(),
+        if (!run.pension.isZero) 'pension': run.pension.toDecimalString(),
+        if (!run.medical.isZero) 'medical_aid': run.medical.toDecimalString(),
+        if (!run.other.isZero) 'other_deductions': run.other.toDecimalString(),
+        if (!run.employerContributions.isZero)
+          'employer_contributions': run.employerContributions.toDecimalString(),
+      }),
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 201) {
+      throw Exception(_refusalOf(answer));
+    }
+    return PostedPayroll.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// The engine's own sentence when it refuses, rather than a status code and a wall of JSON.
+  String _refusalOf(http.Response answer) {
+    try {
+      final body = jsonDecode(answer.body);
+      if (body is Map<String, dynamic>) {
+        for (final key in ['detail', 'message', 'error']) {
+          final words = body[key];
+          if (words is String && words.trim().isNotEmpty) return words;
+        }
+      }
+    } catch (_) {
+      // the body was not the engine's envelope, so the status is all there is to say
+    }
+    return 'The engine answered ${answer.statusCode}.';
+  }
+
   Future<Map<String, dynamic>> _calculate(
     String period,
     List<PayrollPerson> people,
@@ -264,9 +360,7 @@ class PayrollService {
       }),
     );
     if (answer.statusCode != 200) {
-      throw Exception(
-        'The engine answered ${answer.statusCode}: ${answer.body}',
-      );
+      throw Exception(_refusalOf(answer));
     }
     return jsonDecode(answer.body) as Map<String, dynamic>;
   }
