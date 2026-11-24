@@ -330,6 +330,23 @@ async fn seed_taxes(
     answer(taxes::seed_taxes(graph.as_ref(), &scope, &body_of(payload)))
 }
 
+/// `GET /accounting/exchange-differences/`: what the rate did over a period, settled and unsettled told apart.
+async fn exchange_differences(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::exchange::exchange_differences(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 /// `POST /accounting/fx-settlement`: record that a foreign debt was paid, and what the rate did to it.
 async fn settle_foreign(
     State(graph): GraphState,
@@ -1074,6 +1091,11 @@ pub fn router(graph: GraphHandle) -> Router {
             // both are records of what happened, never a movement of money
             .route(&format!("{prefix}/fx-settlement"), post(settle_foreign))
             .route(&format!("{prefix}/fx-revaluation"), post(revalue_foreign))
+            // what the rate did over a period, read from what the ledger posted rather than worked out here
+            .route(
+                &format!("{prefix}/exchange-differences"),
+                get(exchange_differences),
+            )
             .route(&format!("{prefix}/ledgers/:account_number"), get(ledger))
             .route(
                 &format!("{prefix}/sales-journal"),

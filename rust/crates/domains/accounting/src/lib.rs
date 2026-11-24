@@ -33,6 +33,7 @@ pub mod chart;
 pub mod company_accounting;
 pub mod departments;
 pub mod document_currency;
+pub mod exchange;
 pub mod fund_accounting;
 pub mod fx_revaluation;
 pub mod fx_settlement;

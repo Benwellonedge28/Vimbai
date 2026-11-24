@@ -179,6 +179,7 @@ services:
   - GET /accounting/cash-receipts-journal
   - GET /accounting/closed-periods
   - GET /accounting/control-accounts
+  - GET /accounting/exchange-differences
   - GET /accounting/income-statement
   - GET /accounting/journal-entries
   - GET /accounting/journal-entries/{}
