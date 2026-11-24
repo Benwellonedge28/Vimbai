@@ -25,6 +25,7 @@
 #![forbid(unsafe_code)]
 
 pub mod accruals;
+pub mod bad_debts;
 pub mod balance_sheet;
 pub mod bookkeeping;
 pub mod cash_flow;

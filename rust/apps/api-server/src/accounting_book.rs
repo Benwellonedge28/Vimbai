@@ -1,6 +1,7 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::accruals;
+use accounting::bad_debts;
 use accounting::bookkeeping as papers;
 use accounting::depreciation;
 use accounting::expenses;
@@ -689,6 +690,38 @@ async fn list_payroll(
         Err(response) => return *response,
     };
     answer(payroll::list_runs(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn write_off_bad_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(bad_debts::write_off(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_bad_debts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(bad_debts::list_written_off(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1401,6 +1434,11 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
             // paid now for something used later
+            // a customer who will not pay is a cost of trading: the debt comes out of receivables and into the month
+            .route(
+                &format!("{prefix}/bad-debts"),
+                post(write_off_bad_debt).get(list_bad_debts),
+            )
             // a Book has one first day: what the business already held and already owed, stated once
             .route(
                 &format!("{prefix}/opening-balances"),

@@ -21,6 +21,7 @@ services:
   - GET /accounting/accounts/{}/period-activity
   - GET /accounting/accounts/{}/postings
   - GET /accounting/accruals
+  - GET /accounting/bad-debts
   - GET /accounting/balance-sheet
   - GET /accounting/bank-reconciliation
   - GET /accounting/bank-reconciliation/latest/{}
@@ -65,6 +66,7 @@ services:
   - POST /accounting/accounts
   - POST /accounting/accruals
   - POST /accounting/accruals/reverse
+  - POST /accounting/bad-debts
   - POST /accounting/bank-reconciliation
   - POST /accounting/capital-calculations
   - POST /accounting/cash-disbursements-journal

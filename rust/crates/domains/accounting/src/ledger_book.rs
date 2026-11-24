@@ -56,7 +56,7 @@ use vimbai_store::{
 };
 
 /// The source modules whose reference numbers the service keeps unique.
-const REFERENCE_CHECKED: [&str; 12] = [
+const REFERENCE_CHECKED: [&str; 13] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -74,6 +74,9 @@ const REFERENCE_CHECKED: [&str; 12] = [
     // a Book has one first day, so the opening set is stated once: a second set must be refused rather than quietly
     // moving the starting point every later month is measured from
     "OpeningBalances",
+    // giving up on a debt is a decision with a day: the reference names the debtor and the day, so a second press cannot
+    // take the same debt out of the books twice
+    "BadDebts",
     "Invoicing",
     "Multimodal",
     "SupplyChain",

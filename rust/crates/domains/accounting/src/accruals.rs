@@ -39,55 +39,7 @@ use vimbai_store::{BookScope, Graph, Records, StoreError, ACCRUAL, PREPAYMENT};
 use crate::cashbook;
 use crate::ledger_book;
 use crate::periods;
-use crate::subsidiary_journals::post;
-
-/// An account the Book already keeps, or the one its chart calls this.
-fn account_named<G: Graph + ?Sized>(
-    graph: &G,
-    scope: &BookScope,
-    payload: &Value,
-    key: &str,
-    called: &str,
-    kind: &str,
-) -> Result<String, StoreError> {
-    let named = text(payload, key);
-    let accounts = ledger_book::accounts(graph, scope)?;
-    if !named.trim().is_empty() {
-        if !accounts
-            .iter()
-            .any(|account| field(account, "account_number") == named.trim())
-        {
-            return Err(refused(&format!(
-                "Account {named} is not in this Book's chart, so nothing can be posted to it."
-            )));
-        }
-        return Ok(named.trim().to_string());
-    }
-    accounts
-        .iter()
-        .find(|account| {
-            field(account, "account_type") == kind
-                && account_name(account)
-                    .to_lowercase()
-                    .contains(&called.to_lowercase())
-        })
-        .map(|account| field(account, "account_number").to_string())
-        .ok_or_else(|| {
-            refused(&format!(
-                "This Book has no account for {called}, so say which account it belongs in."
-            ))
-        })
-}
-
-/// What the chart calls an account: its own records say `name`, a ledger view says `account_name`, and both are one fact.
-fn account_name(account: &Value) -> String {
-    let named = field(account, "account_name");
-    if named.trim().is_empty() {
-        field(account, "name").to_string()
-    } else {
-        named.to_string()
-    }
-}
+use crate::subsidiary_journals::{account_named, must_be_open, positive, post};
 
 /// The month a document belongs to, as a period, and the day it is dated in the books.
 fn month_of(payload: &Value, key: &str) -> Result<(String, String), StoreError> {
@@ -101,28 +53,6 @@ fn month_of(payload: &Value, key: &str) -> Result<(String, String), StoreError> 
         return Err(refused("That period does not read as a month."));
     };
     Ok((period, last))
-}
-
-/// A month that has been closed is not written into: the entry belongs in the month that is still open.
-fn must_be_open<G: Graph + ?Sized>(
-    graph: &G,
-    scope: &BookScope,
-    entry_date: &str,
-) -> Result<(), StoreError> {
-    match periods::refusal_for(graph, scope, entry_date)? {
-        Some(refusal) => Err(refused(&refusal)),
-        None => Ok(()),
-    }
-}
-
-fn positive(payload: &Value, key: &str, what: &str) -> Result<Money, StoreError> {
-    let amount = money(payload, key)?;
-    if amount.is_zero() || amount.is_negative() {
-        return Err(refused(&format!(
-            "{what} has to be more than nothing: say what it is."
-        )));
-    }
-    Ok(amount)
 }
 
 // ---------------------------------------------------------------------------------------------------------------

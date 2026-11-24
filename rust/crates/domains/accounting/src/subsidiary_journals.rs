@@ -46,11 +46,91 @@ use vimbai_store::{
 };
 
 use crate::ledger_book;
+use crate::periods;
 use crate::taxes;
 use vimbai_store::read::{field, money, money_or_nothing, optional, or_default, refused, text};
 use vimbai_store::write::remember;
 
+/// An account the Book already keeps, named by the caller, or the one its chart calls this.
+///
+/// Every journal needs the same three answers: is the account the caller named really in this Book's chart, does the chart
+/// have an account that goes by this name and type, and what does the chart call an account at all. They live here rather
+/// than in each journal so a refusal about a missing account reads the same wherever it comes from.
+pub(crate) fn account_named<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+    key: &str,
+    called: &str,
+    kind: &str,
+) -> Result<String, StoreError> {
+    let named = text(payload, key);
+    let accounts = ledger_book::accounts(graph, scope)?;
+    if !named.trim().is_empty() {
+        if !accounts
+            .iter()
+            .any(|account| field(account, "account_number") == named.trim())
+        {
+            return Err(refused(&format!(
+                "Account {named} is not in this Book's chart, so nothing can be posted to it."
+            )));
+        }
+        return Ok(named.trim().to_string());
+    }
+    accounts
+        .iter()
+        .find(|account| {
+            field(account, "account_type") == kind
+                && account_name(account)
+                    .to_lowercase()
+                    .contains(&called.to_lowercase())
+        })
+        .map(|account| field(account, "account_number").to_string())
+        .ok_or_else(|| {
+            refused(&format!(
+                "This Book has no account for {called}, so say which account it belongs in."
+            ))
+        })
+}
+
+/// What the chart calls an account: its own records say `name`, a ledger view says `account_name`, and both are one fact.
+pub(crate) fn account_name(account: &Value) -> String {
+    let named = field(account, "account_name");
+    if named.trim().is_empty() {
+        field(account, "name").to_string()
+    } else {
+        named.to_string()
+    }
+}
+
+/// A month that has been closed is not written into: the entry belongs in the month that is still open.
+pub(crate) fn must_be_open<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    entry_date: &str,
+) -> Result<(), StoreError> {
+    match periods::refusal_for(graph, scope, entry_date)? {
+        Some(refusal) => Err(refused(&refusal)),
+        None => Ok(()),
+    }
+}
+
+/// A figure a journal is about: something it states has to be more than nothing.
+pub(crate) fn positive(payload: &Value, key: &str, what: &str) -> Result<Money, StoreError> {
+    let amount = money(payload, key)?;
+    if amount.is_zero() || amount.is_negative() {
+        return Err(refused(&format!(
+            "{what} has to be more than nothing: say what it is."
+        )));
+    }
+    Ok(amount)
+}
+
 /// Posts a document's double entry and returns the entry's id.
+///
+/// A journal that posts through here with a reference it means to be unique must also be named in
+/// `ledger_book::REFERENCE_CHECKED`, or the ledger will post the same reference twice without noticing. The names used so
+/// far are `ExpensesJournal`, `AccrualsJournal`, `PrepaymentsJournal`, `Payroll`, `BadDebts` and `OpeningBalances`.
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
 pub(crate) fn post(
     graph: &(impl Graph + ?Sized),

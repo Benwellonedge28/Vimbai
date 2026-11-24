@@ -187,6 +187,9 @@ pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMEN
 /// A month's wages: what it cost, what was withheld, what the staff are owed, and the entry that posted it.
 pub const PAYROLL_RUN: RecordKind = RecordKind::new("PayrollRun", "OWNS_PAYROLL_RUN");
 
+/// A debt the business has given up on: who owed it, what it came to, and the entry that took it out of the books.
+pub const BAD_DEBT: RecordKind = RecordKind::new("BadDebt", "OWNS_BAD_DEBT");
+
 /// What a business already held and already owed on the day its books start, and the entry that posted it.
 pub const OPENING_BALANCE: RecordKind = RecordKind::new("OpeningBalance", "OWNS_OPENING_BALANCE");
 

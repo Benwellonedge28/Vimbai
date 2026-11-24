@@ -65,7 +65,7 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 16] = [
+pub const BUSINESS: [StandardAccount; 17] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
     // money already paid for something not yet used: it is the business's, but it is not this month's cost
@@ -86,6 +86,9 @@ pub const BUSINESS: [StandardAccount; 16] = [
     account("5800", "Exchange Loss", "expense", "debit"),
     // the wear on what the business keeps is a cost of trading, and it belongs to a business rather than a household
     account("6200", "Depreciation", "expense", "debit"),
+    // a customer who will not pay is a cost of trading, not a loss of sales: the money was earned and is now gone, and a
+    // reader of the accounts is entitled to see it apart from the trading that earned it
+    account("6350", "Bad Debts", "expense", "debit"),
     // what it costs to employ people, and what is owed to them and on their behalf once a month's wages are worked out.
     // Three accounts rather than one because the three are different facts: what the work cost, what the staff are still
     // owed, and what the business holds for somebody else - the revenue authority, the pension fund, a garnishee.

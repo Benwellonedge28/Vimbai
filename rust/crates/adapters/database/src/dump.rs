@@ -143,6 +143,7 @@ pub const KINDS: &[RecordKind] = &[
     ACCRUAL,
     PREPAYMENT,
     OPENING_BALANCE,
+    BAD_DEBT,
     LEDGER_ACCOUNT,
     JOURNAL_ENTRY,
     JOURNAL_DRAFT,
