@@ -9,6 +9,7 @@ import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts
 import 'package:vimbai_mobile_client/features/accounting/presentation/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/budgets_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/cash_flow_statement_page.dart';
+import 'package:vimbai_mobile_client/features/accounting/presentation/currency_exposure_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/exchange_differences_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/fx_restatement_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/chart_of_accounts_page.dart';
@@ -326,6 +327,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Foreign balances at the closing rate, and the difference',
           icon: Icons.sync_alt,
           page: (context) => const FxRestatementPage(),
+        ),
+        BookServiceEntry(
+          title: 'What you hold in each money',
+          description:
+              'Still owed to you, and still owed by you, money by money',
+          icon: Icons.account_balance_wallet_outlined,
+          page: (context) => const CurrencyExposurePage(),
         ),
         BookServiceEntry(
           title: 'What the rate did',
