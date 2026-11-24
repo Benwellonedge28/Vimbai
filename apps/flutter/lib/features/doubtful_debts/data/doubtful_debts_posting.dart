@@ -15,6 +15,40 @@ import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/core/api/session_token.dart';
 import 'package:vimbai_mobile_client/features/books/data/book_context.dart';
 
+/// What the debtors register worked out for a period: the engine's own figure, not one worked out on the phone.
+class RegisterFigure {
+  const RegisterFigure({
+    required this.periodEnd,
+    required this.required,
+    required this.debtors,
+    required this.outstanding,
+  });
+
+  /// The day the register was read to.
+  final String periodEnd;
+
+  /// What the register says the provision should stand at.
+  final String required;
+
+  /// How many debtors it read.
+  final int debtors;
+
+  /// What those debtors owe in total.
+  final String outstanding;
+
+  /// Whether the register found nothing to provide for.
+  bool get isNothing =>
+      required.trim().isEmpty ||
+      required.startsWith('0.0') && !required.contains(RegExp(r'[1-9]'));
+
+  factory RegisterFigure.fromJson(Map<String, dynamic> json) => RegisterFigure(
+    periodEnd: (json['period_end'] as String?) ?? '',
+    required: (json['total_provision_required'] as String?) ?? '',
+    debtors: (json['total_debtors'] as num?)?.toInt() ?? 0,
+    outstanding: (json['total_outstanding'] as String?) ?? '',
+  );
+}
+
 /// One adjustment to the estimate: what it was raised or lowered to, and what moved.
 class ProvisionAdjustment {
   const ProvisionAdjustment({
@@ -115,6 +149,24 @@ class DoubtfulDebtsPostingService extends ChangeNotifier {
     final answer = await _http.get(uri, headers: _headers);
     if (answer.statusCode != 200) throw Exception(_refusalOf(answer));
     return ProvisionLadder.fromJson(
+      jsonDecode(answer.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// What the debtors register works out for the period ending [periodEnd].
+  ///
+  /// The register is the engine's own reading of who is overdue and by how much, so the figure it returns is the one the
+  /// phone offers. Nothing is calculated here: the phone carries the engine's answer to the journal.
+  Future<RegisterFigure> fromRegister({required String periodEnd}) async {
+    final answer = await _http.post(
+      Uri.parse('$_base/provision-doubtful-debts/calculate-provision'),
+      headers: _headers,
+      body: jsonEncode({'period_end': periodEnd.trim()}),
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 201) {
+      throw Exception(_refusalOf(answer));
+    }
+    return RegisterFigure.fromJson(
       jsonDecode(answer.body) as Map<String, dynamic>,
     );
   }

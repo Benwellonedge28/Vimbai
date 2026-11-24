@@ -39,6 +39,8 @@ class _ProvisionPageState extends State<ProvisionPage> {
   );
   bool _reading = true;
   bool _saving = false;
+  bool _asking = false;
+  RegisterFigure? _register;
   String? _trouble;
 
   @override
@@ -105,6 +107,45 @@ class _ProvisionPageState extends State<ProvisionPage> {
       }
     }
     return null;
+  }
+
+  /// Asks the debtors register what it works the provision out to for the month the day falls in.
+  Future<void> _askRegister() async {
+    final day = _day.text.trim();
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(day)) {
+      setState(
+        () => _trouble =
+            'Say the day the provision was decided first, as 2026-11-20.',
+      );
+      return;
+    }
+    setState(() {
+      _asking = true;
+      _trouble = null;
+    });
+    try {
+      final worked = await _posting.fromRegister(periodEnd: _monthEnd(day));
+      if (!mounted) return;
+      setState(() {
+        _register = worked;
+        _asking = false;
+      });
+    } catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _asking = false;
+        _trouble = CouldNotRead.reasonOf(failure);
+      });
+    }
+  }
+
+  /// The last day of the month a day falls in, which is the period the register is read to.
+  static String _monthEnd(String day) {
+    final year = int.parse(day.substring(0, 4));
+    final month = int.parse(day.substring(5, 7));
+    final last = DateTime(year, month + 1, 0);
+    return '${last.year}-${last.month.toString().padLeft(2, '0')}-'
+        '${last.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _provide() async {
@@ -199,6 +240,37 @@ class _ProvisionPageState extends State<ProvisionPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: _asking ? null : _askRegister,
+                  child: Text(
+                    _asking
+                        ? 'Reading the register...'
+                        : 'Work it out from the debtors register',
+                  ),
+                ),
+                if (_register != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _register!.debtors == 0
+                        ? 'The register has nothing for the period ending ${_register!.periodEnd}: no debtor is on it.'
+                        : 'The register read ${_register!.debtors} '
+                              '${_register!.debtors == 1 ? 'debtor' : 'debtors'} owing '
+                              '${_register!.outstanding} to ${_register!.periodEnd} and works the provision out to '
+                              '${_register!.required}.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  if (_register!.debtors > 0)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          _figure.text = _register!.required;
+                        }),
+                        child: Text('Use ${_register!.required}'),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _saving ? null : _provide,

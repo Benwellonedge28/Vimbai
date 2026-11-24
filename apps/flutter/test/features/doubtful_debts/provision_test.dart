@@ -25,9 +25,26 @@ class _FakePosting extends DoubtfulDebtsPostingService {
 
   final List<Map<String, Object?>> posted = [];
 
+  /// The period the register was asked about, so a test can pin what the phone asked for.
+  final List<String> registerAsked = [];
+
+  /// What the register works out, or nothing at all when it has no debtors.
+  RegisterFigure register = const RegisterFigure(
+    periodEnd: '2026-11-30',
+    required: '1250.000000',
+    debtors: 3,
+    outstanding: '12500.000000',
+  );
+
   @override
   Future<ProvisionLadder> read({String period = ''}) async =>
       ProvisionLadder(standing: standing, adjustments: adjustments);
+
+  @override
+  Future<RegisterFigure> fromRegister({required String periodEnd}) async {
+    registerAsked.add(periodEnd);
+    return register;
+  }
 
   @override
   Future<ProvisionAdjustment> provide({
@@ -194,6 +211,61 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'the register is read to the month end and its own figure is offered',
+    (tester) async {
+      final posting = _FakePosting();
+      await open(tester, posting);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'The day it was decided'),
+        '2026-11-20',
+      );
+      await tester.tap(find.text('Work it out from the debtors register'));
+      await tester.pumpAndSettle();
+
+      // the register is read to the last day of the month the estimate belongs to
+      expect(posting.registerAsked, ['2026-11-30']);
+      expect(
+        find.textContaining('3 debtors owing 12500.000000'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('works the provision out to 1250.000000'),
+        findsOneWidget,
+      );
+
+      // taking the figure only fills the box: the engine still posts the movement, not the phone
+      await tester.tap(find.text('Use 1250.000000'));
+      await tester.pumpAndSettle();
+      expect(posting.posted, isEmpty);
+
+      await tester.tap(find.text('Record the estimate'));
+      await tester.pumpAndSettle();
+      expect(posting.posted.single['provision'], '1250.000000');
+    },
+  );
+
+  testWidgets(
+    'a register with nothing on it says so rather than offering a figure',
+    (tester) async {
+      final posting = _FakePosting()
+        ..register = const RegisterFigure(
+          periodEnd: '2026-11-30',
+          required: '0.000000',
+          debtors: 0,
+          outstanding: '0.000000',
+        );
+      await open(tester, posting);
+
+      await tester.tap(find.text('Work it out from the debtors register'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('no debtor is on it'), findsOneWidget);
+      expect(find.textContaining('Use 0.000000'), findsNothing);
+    },
+  );
 
   testWidgets(
     'what stands today leads, and the ladder of estimates is read back',
