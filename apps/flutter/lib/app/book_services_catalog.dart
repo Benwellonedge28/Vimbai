@@ -24,6 +24,7 @@ import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_pa
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
 import 'package:vimbai_mobile_client/features/assets/presentation/fixed_assets_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/spending_plan_page.dart';
+import 'package:vimbai_mobile_client/features/payables/presentation/buy_stock_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/due_plan_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
@@ -327,6 +328,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Foreign balances at the closing rate, and the difference',
           icon: Icons.sync_alt,
           page: (context) => const FxRestatementPage(),
+        ),
+        BookServiceEntry(
+          title: 'Stock bought on account',
+          description: 'A credit purchase, into inventory and payables',
+          icon: Icons.inventory_2_outlined,
+          page: (context) => const BuyStockPage(),
         ),
         BookServiceEntry(
           title: 'What you hold in each money',
