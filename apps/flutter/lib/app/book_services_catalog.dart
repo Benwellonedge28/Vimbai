@@ -27,6 +27,7 @@ import 'package:vimbai_mobile_client/features/budgeting/presentation/spending_pl
 import 'package:vimbai_mobile_client/features/payables/presentation/buy_stock_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/due_plan_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
+import 'package:vimbai_mobile_client/features/payables/presentation/return_to_supplier_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
@@ -334,6 +335,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A credit purchase, into inventory and payables',
           icon: Icons.inventory_2_outlined,
           page: (context) => const BuyStockPage(),
+        ),
+        BookServiceEntry(
+          title: 'Goods back to a supplier',
+          description: 'A return, taking the cost back out of what you owe',
+          icon: Icons.assignment_return_outlined,
+          page: (context) => const ReturnToSupplierPage(),
         ),
         BookServiceEntry(
           title: 'What you hold in each money',
