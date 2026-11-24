@@ -52,6 +52,35 @@ fn month_written_as_a_period(period: &str) -> Option<String> {
     month_of(&format!("{period}-01"))
 }
 
+/// A period as a person writes it, or nothing when it does not read as one.
+///
+/// A month is the unit everything here is stated in, so a caller that has been handed `2026-11` should not have to know how
+/// the engine spells it.
+pub fn period_of(period: &str) -> Option<String> {
+    month_written_as_a_period(period)
+}
+
+/// The last day of a period, as the date its charge belongs to: `2026-11` reads as `2026-11-30`.
+///
+/// Depreciation is a charge for a month, and a month has no single day, so it is dated at the end of the month it belongs
+/// to. That is also the date a reader expects to find it under in the journal.
+pub fn last_day_of(period: &str) -> Option<String> {
+    let period = period_of(period)?;
+    let year: u32 = period[0..4].parse().ok()?;
+    let month: u32 = period[5..7].parse().ok()?;
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        // February has a day more in a leap year: a charge dated 29 February in a year without one would be a date that
+        // does not exist
+        _ if (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400) => {
+            29
+        }
+        _ => 28,
+    };
+    Some(format!("{period}-{days:02}"))
+}
+
 /// The months this Book has closed, oldest first.
 pub fn closed_months<G: Graph + ?Sized>(
     graph: &G,

@@ -1,6 +1,7 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::bookkeeping as papers;
+use accounting::depreciation;
 use accounting::expenses;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
@@ -663,6 +664,62 @@ async fn list_expenses(
     ))
 }
 
+async fn post_depreciation_month(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(depreciation::post_month(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn post_depreciation_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(depreciation::post_one(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_depreciation_posted(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(depreciation::list_posted(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn unposted_depreciation(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(depreciation::unposted(graph.as_ref(), &scope))
+}
+
 async fn create_receipt(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1190,6 +1247,19 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/expenses-journal"),
                 post(create_expense).get(list_expenses),
+            )
+            // the wear on what the business keeps, read from the asset register and posted to the books
+            .route(
+                &format!("{prefix}/depreciation"),
+                post(post_depreciation_month).get(list_depreciation_posted),
+            )
+            .route(
+                &format!("{prefix}/depreciation/one"),
+                post(post_depreciation_entry),
+            )
+            .route(
+                &format!("{prefix}/depreciation/unposted"),
+                get(unposted_depreciation),
             )
             .route(
                 &format!("{prefix}/cash-receipts-journal"),

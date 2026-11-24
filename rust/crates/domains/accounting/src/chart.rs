@@ -65,10 +65,13 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 8] = [
+pub const BUSINESS: [StandardAccount; 10] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
     account("1500", "Equipment", "asset", "debit"),
+    // what an asset has been used up by is kept beside it rather than taken off it, so a reader can see both what the
+    // business paid for the thing and how much of it is gone
+    account("1510", "Accumulated Depreciation", "asset", "credit"),
     account("2100", "VAT Payable", "liability", "credit"),
     account("4050", "Sales Returns", "revenue", "debit"),
     // A business that trades in another money makes and loses money on the rate itself. That is not trading income, so
@@ -77,6 +80,8 @@ pub const BUSINESS: [StandardAccount; 8] = [
     account("4800", "Exchange Gain", "revenue", "credit"),
     account("5050", "Purchases Returns", "expense", "credit"),
     account("5800", "Exchange Loss", "expense", "debit"),
+    // the wear on what the business keeps is a cost of trading, and it belongs to a business rather than a household
+    account("6200", "Depreciation", "expense", "debit"),
 ];
 
 /// A person's own money, and what living costs.

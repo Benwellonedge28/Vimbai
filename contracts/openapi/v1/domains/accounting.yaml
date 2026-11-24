@@ -295,6 +295,27 @@ paths:
     post:
       operationId: postAccountingControlAccounts
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/depreciation:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAccountingDepreciation
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postAccountingDepreciation
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/depreciation/one:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postAccountingDepreciationOne
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/depreciation/unposted:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAccountingDepreciationUnposted
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /accounting/exchange-differences:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -1254,6 +1275,27 @@ paths:
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
     post:
       operationId: postRecordsAccountingControlAccounts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/depreciation:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsAccountingDepreciation
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postRecordsAccountingDepreciation
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/depreciation/one:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postRecordsAccountingDepreciationOne
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/depreciation/unposted:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsAccountingDepreciationUnposted
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/accounting/exchange-differences:
     parameters:

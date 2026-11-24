@@ -32,6 +32,7 @@ pub mod cashbook;
 pub mod chart;
 pub mod company_accounting;
 pub mod departments;
+pub mod depreciation;
 pub mod document_currency;
 pub mod exchange;
 pub mod expenses;

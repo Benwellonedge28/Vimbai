@@ -179,6 +179,8 @@ services:
   - GET /accounting/cash-receipts-journal
   - GET /accounting/closed-periods
   - GET /accounting/control-accounts
+  - GET /accounting/depreciation
+  - GET /accounting/depreciation/unposted
   - GET /accounting/exchange-differences
   - GET /accounting/expenses-journal
   - GET /accounting/fx-balances
@@ -212,6 +214,8 @@ services:
   - POST /accounting/cash-receipts-journal
   - POST /accounting/closed-periods
   - POST /accounting/control-accounts
+  - POST /accounting/depreciation
+  - POST /accounting/depreciation/one
   - POST /accounting/expenses-journal
   - POST /accounting/fx-difference
   - POST /accounting/fx-revaluation
