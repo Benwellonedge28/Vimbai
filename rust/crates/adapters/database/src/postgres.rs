@@ -268,6 +268,13 @@ impl Drop for PostgresGraph {
 }
 
 impl Graph for PostgresGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "postgres",
+            edges: true,
+            transactions: true,
+        }
+    }
     /// Refused on purpose, for the same reason the device store refuses it.
     fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
         Err(StoreError::Graph(

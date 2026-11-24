@@ -62,6 +62,13 @@ impl FakeGraph {
 }
 
 impl Graph for FakeGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "memory",
+            edges: true,
+            transactions: false,
+        }
+    }
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
         let index = self.seen.borrow().len();
         self.seen.borrow_mut().push((cypher.to_owned(), params));
@@ -235,6 +242,13 @@ impl MemoryGraph {
 }
 
 impl Graph for MemoryGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "memory",
+            edges: true,
+            transactions: false,
+        }
+    }
     fn store_list_after(
         &self,
         kind: RecordKind,

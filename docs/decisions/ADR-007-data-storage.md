@@ -110,3 +110,14 @@ for a managed database whose credentials cannot create tables: the store is expe
 deployed, and a store found behind is refused with the version it is at and the one expected, naming the way out, rather
 than half-migrated by an application that was never given the right. Both stores now decide through one function
 (`migrations::decide`), so the device and the deployment cannot drift in what they do about a schema.
+
+### Amendment, 2026-11-25: a store says what it can do
+
+Portability without a capability vocabulary is a promise the stores cannot keep, because they are not equally capable
+and the difference would surface as a Book that is quietly incomplete rather than as a refusal. A store now states three
+things: its name as a refusal uses it, whether it can hold a relationship between records, and whether two writes can
+stand or fall together. A store that says nothing is taken at the minimum, records only.
+
+The first use is the move: a destination that cannot hold what the source carries is refused before anything is written,
+naming what it lacks. That is the rule that detection advises and never decides, in the one place the engine already has
+to make the choice.

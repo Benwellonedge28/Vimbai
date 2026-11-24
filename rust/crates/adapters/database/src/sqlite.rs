@@ -217,6 +217,13 @@ fn rollback(connection: &mut Connection) -> Result<(), StoreError> {
 }
 
 impl Graph for SqliteGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "sqlite",
+            edges: true,
+            transactions: true,
+        }
+    }
     /// Refused on purpose.
     ///
     /// This store answers the semantic doors and nothing else. Keeping the refusal here means the trait's escape hatch

@@ -765,12 +765,59 @@ impl std::fmt::Display for StoreError {
 
 impl std::error::Error for StoreError {}
 
+/// What a store can do, asked rather than assumed.
+///
+/// Vimbai offers more than one database on purpose, and they are not equally capable. A store that quietly could not
+/// hold a relationship, or could not put two writes in one transaction, would be a different system of record wearing the
+/// same trait, and the difference would show up as a Book that is missing something rather than as a refusal. So a store
+/// states what it can do, and anything that needs more than the store offers refuses in words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Capabilities {
+    /// What the operator sees in a refusal: "the deployment store", "the device store".
+    pub name: &'static str,
+    /// Whether a record can be joined to another record by a named edge that survives a dump.
+    pub edges: bool,
+    /// Whether more than one write can be made to stand or fall together.
+    pub transactions: bool,
+}
+
+impl Capabilities {
+    /// What any store can be relied on for: records in a Book, in and out.
+    pub const fn records_only(name: &'static str) -> Self {
+        Self {
+            name,
+            edges: false,
+            transactions: false,
+        }
+    }
+
+    /// What this store lacks of what another store carries, as the words a refusal uses.
+    ///
+    /// A move asks this of its destination before it writes anything: a destination that cannot hold what the source
+    /// holds would arrive looking like a faithful copy of a smaller Book.
+    pub fn lacking(&self, carried: &Self) -> Option<&'static str> {
+        if carried.edges && !self.edges {
+            return Some("relationships between records");
+        }
+        if carried.transactions && !self.transactions {
+            return Some("transactions that stand or fall together");
+        }
+        None
+    }
+}
+
 /// The one thing the store needs from a database: run a parameterised statement, get rows back.
 ///
 /// Keeping this to a single method is what lets the store be tested without a server, and keeps
 /// the driver quiet in exactly one file.
 pub trait Graph {
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError>;
+
+    /// What this store can do. A store that does not say is taken at the minimum, which is records and nothing else:
+    /// guessing in a store's favour is how a Book ends up quietly incomplete.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::records_only("this store")
+    }
 
     /// Every edge the store holds, as `(from id, label, to id)`.
     ///
@@ -1640,6 +1687,42 @@ pub fn created_id(created: &Value) -> Value {
 
 /// A stable local id. Not a real UUID: the store only needs uniqueness within a Book, and
 /// pulling in a uuid dependency for that is not worth it.
+#[cfg(test)]
+mod capabilities_tests {
+    use super::Capabilities;
+
+    #[test]
+    fn a_store_at_the_minimum_lacks_what_a_full_store_carries() {
+        let least = Capabilities::records_only("the plain store");
+        let full = Capabilities {
+            name: "the full store",
+            edges: true,
+            transactions: true,
+        };
+        assert_eq!(least.lacking(&full), Some("relationships between records"));
+        assert_eq!(least.lacking(&least), None);
+        assert_eq!(full.lacking(&full), None);
+    }
+
+    #[test]
+    fn a_store_that_keeps_edges_but_not_transactions_says_only_the_second() {
+        let partial = Capabilities {
+            name: "the partial store",
+            edges: true,
+            transactions: false,
+        };
+        let full = Capabilities {
+            name: "the full store",
+            edges: true,
+            transactions: true,
+        };
+        assert_eq!(
+            partial.lacking(&full),
+            Some("transactions that stand or fall together")
+        );
+    }
+}
+
 #[cfg(test)]
 mod platform_tests {
     use super::*;

@@ -85,6 +85,13 @@ fn changes_something(cypher: &str) -> bool {
 }
 
 impl Graph for FileGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "file",
+            edges: true,
+            transactions: false,
+        }
+    }
     fn store_list_after(
         &self,
         kind: RecordKind,

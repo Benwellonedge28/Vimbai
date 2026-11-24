@@ -33,6 +33,16 @@ fn an_account(book: &str, id: &str, number: &str, name: &str) -> Value {
 /// Every rule a store must keep, run against one open store.
 pub fn every_rule(graph: &(impl Graph + ?Sized), book: &str) {
     let scope = book_scope(book);
+    // a store Vimbai runs on says what it can do, and can hold a relationship: a Book whose records are not joined to
+    // each other is not a Book Vimbai can move or dump faithfully
+    let can = graph.capabilities();
+    assert!(!can.name.is_empty(), "a store names itself in a refusal");
+    assert!(
+        can.edges,
+        "{} must hold relationships between records",
+        can.name
+    );
+
     let elsewhere = book_scope(&format!("{book}-elsewhere"));
 
     // a record arrives as it was written, under the Book it was written in

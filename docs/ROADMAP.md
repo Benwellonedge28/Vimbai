@@ -330,6 +330,10 @@ Tasks, in the order they were done:
   and the deployment store: apply brings a store up (the default), verify refuses a store that is behind, naming its
   version, the expected one and the way out, which is what a managed database whose credentials cannot create tables needs.
   Four tests pin it, including that a store written by a newer build is refused in either mode.
+- P8.9 **Done.** A store states what it can do - its name, whether it keeps relationships, whether two writes can stand
+  or fall together - and a store that says nothing is taken at the minimum. The move refuses a destination that cannot
+  hold what the source carries before it writes anything, so detection advises and never decides. The conformance suite
+  checks every store can hold a relationship, which is what a Book that can be dumped faithfully needs.
 - P8.8 **Done.** One conformance suite, every store. `rust/crates/adapters/database/tests/conformance/mod.rs` holds the
   rules a provider must keep, and `tests/every_store_keeps_the_same_rules.rs` runs them against the memory graph, the file
   store, SQLite, and Postgres wherever a server is available. It pins, naming no dialect: a record reads back as written,

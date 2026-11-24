@@ -115,7 +115,26 @@ impl Cutover {
 }
 
 /// Count what a move would carry, and whether the destination already holds anything.
+/// Refuse a destination that cannot hold what the source carries, before anything is written.
+///
+/// Detection is allowed to advise and never to decide: a move into a store that cannot keep relationships would arrive
+/// looking like a faithful copy of a smaller Book, so the operator is told what the destination lacks rather than being
+/// handed a migration that quietly dropped something.
+fn refuse_a_destination_that_cannot_hold_it(from: &Store, to: &Store) -> Result<(), StoreError> {
+    let carried = from.graph().capabilities();
+    let offered = to.graph().capabilities();
+    match offered.lacking(&carried) {
+        Some(missing) => Err(StoreError::Invalid(format!(
+            "{} cannot hold what {} carries: it has no {missing}. Move into a store that keeps it, or the books would \
+             arrive missing it and report success.",
+            offered.name, carried.name
+        ))),
+        None => Ok(()),
+    }
+}
+
 pub fn cutover(from: &str, to: &str, limit_per_kind: usize) -> Result<Cutover, StoreError> {
+    refuse_a_destination_that_cannot_hold_it(&Store::open(from)?, &Store::open(to)?)?;
     let source = Store::open(from)?;
     let destination = Store::open(to)?;
     let taken = Dump::take(source.graph(), limit_per_kind)?;

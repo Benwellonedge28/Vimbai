@@ -94,6 +94,13 @@ impl Neo4jGraph {
 }
 
 impl Graph for Neo4jGraph {
+    fn capabilities(&self) -> crate::Capabilities {
+        crate::Capabilities {
+            name: "neo4j",
+            edges: true,
+            transactions: false,
+        }
+    }
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
         let result = self
             .driver
