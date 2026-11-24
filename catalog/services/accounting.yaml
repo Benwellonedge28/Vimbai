@@ -41,6 +41,7 @@ services:
   - GET /accounting/journal-entries/{}
   - GET /accounting/ledger/integrity
   - GET /accounting/ledgers/{}
+  - GET /accounting/opening-balances
   - GET /accounting/payroll
   - GET /accounting/petty-cash-entries
   - GET /accounting/petty-cash-funds
@@ -79,6 +80,7 @@ services:
   - POST /accounting/journal-entries
   - POST /accounting/journal-entries/{}/post
   - POST /accounting/journal-entries/{}/reverse
+  - POST /accounting/opening-balances
   - POST /accounting/payroll
   - POST /accounting/petty-cash-entries
   - POST /accounting/petty-cash-funds

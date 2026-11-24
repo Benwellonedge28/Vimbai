@@ -7,6 +7,7 @@ use accounting::expenses;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
 use accounting::ledger_book as book;
+use accounting::opening_balances;
 use accounting::payroll;
 use accounting::periods;
 use accounting::subsidiary_journals as journals;
@@ -694,6 +695,30 @@ async fn list_payroll(
     ))
 }
 
+async fn post_opening_balances(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(opening_balances::post_opening_balances(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn read_opening_balances(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(opening_balances::opening_balances(graph.as_ref(), &scope))
+}
+
 async fn record_accrual(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1376,6 +1401,11 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
             // paid now for something used later
+            // a Book has one first day: what the business already held and already owed, stated once
+            .route(
+                &format!("{prefix}/opening-balances"),
+                post(post_opening_balances).get(read_opening_balances),
+            )
             .route(
                 &format!("{prefix}/accruals"),
                 post(record_accrual).get(list_accruals),

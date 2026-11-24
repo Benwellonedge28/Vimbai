@@ -187,6 +187,9 @@ pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMEN
 /// A month's wages: what it cost, what was withheld, what the staff are owed, and the entry that posted it.
 pub const PAYROLL_RUN: RecordKind = RecordKind::new("PayrollRun", "OWNS_PAYROLL_RUN");
 
+/// What a business already held and already owed on the day its books start, and the entry that posted it.
+pub const OPENING_BALANCE: RecordKind = RecordKind::new("OpeningBalance", "OWNS_OPENING_BALANCE");
+
 /// The fixed asset register fixed-assets-register-service owns.
 pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_ASSET");
 pub const DEPRECIATION_ENTRY: RecordKind =
