@@ -50,6 +50,7 @@
         "GET /accounting/closed-periods",
         "GET /accounting/control-accounts",
         "GET /accounting/exchange-differences",
+        "GET /accounting/fx-balances",
         "GET /accounting/income-statement",
         "GET /accounting/journal-entries",
         "GET /accounting/journal-entries/{}",
