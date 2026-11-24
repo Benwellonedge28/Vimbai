@@ -179,9 +179,108 @@ pub fn settle_foreign(
     }))
 }
 
+/// `POST /accounting/fx-difference/`: the difference the rate made, posted on its own.
+///
+/// A payment is recorded once, by whatever recorded the money moving: the cash book owns that entry, and it clears the debt
+/// at the amount that left. When the debt was carried at an earlier rate, that leaves the document account standing at the
+/// wrong figure, and the difference between the two is what this posts. Nothing about the money is recorded twice: only the
+/// side the rate moved, against the account it moved on and the Book's own exchange account.
+pub fn settle_difference<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let carried = amount(payload, "carried")?;
+    let received = amount(payload, "received")?;
+    if carried.is_zero() || received.is_zero() {
+        return Err(StoreError::BadRequest(
+            "carried and received must both be more than nothing: they are the two rates the difference is between"
+                .into(),
+        ));
+    }
+    let side = DocumentSide::named(payload);
+    let (gain, loss) = settled_on(side, &carried, &received);
+    if gain.is_zero() && loss.is_zero() {
+        return Err(StoreError::BadRequest(
+            "The rate made no difference on this settlement, so there is nothing to post.".into(),
+        ));
+    }
+
+    let accounts = SettlementAccounts {
+        bank: or_default(payload, "bank_account", "1010"),
+        receivable: match side {
+            DocumentSide::Receivable => or_default(payload, "receivable_account", "1100"),
+            DocumentSide::Payable => or_default(payload, "payable_account", "2000"),
+        },
+        gain: or_default(payload, "exchange_gain_account", "4800"),
+        loss: or_default(payload, "exchange_loss_account", "5800"),
+    };
+    let zero = Money::zero();
+    let reference = text(payload, "reference_number");
+    let _ = &accounts.bank;
+
+    // the document account is standing at the wrong figure by exactly the difference, and it is put right on the side that
+    // moves it back: a gain on a debt owed to the business leaves receivables short, a loss on a debt it owes leaves payables
+    // over-cleared
+    let mut lines = Vec::new();
+    match (side, gain.is_zero()) {
+        (DocumentSide::Receivable, false) => {
+            lines.push(json!({"account_number": accounts.receivable, "debit": wire(&gain), "credit": wire(&zero),
+                              "description": "Debt put right for the rate it was paid at"}));
+            lines.push(
+                json!({"account_number": accounts.gain, "debit": wire(&zero), "credit": wire(&gain),
+                              "description": "Gain on the rate when the debt was paid"}),
+            );
+        }
+        (DocumentSide::Receivable, true) => {
+            lines.push(json!({"account_number": accounts.receivable, "debit": wire(&zero), "credit": wire(&loss),
+                              "description": "Debt put right for the rate it was paid at"}));
+            lines.push(
+                json!({"account_number": accounts.loss, "debit": wire(&loss), "credit": wire(&zero),
+                              "description": "Loss on the rate when the debt was paid"}),
+            );
+        }
+        (DocumentSide::Payable, false) => {
+            lines.push(json!({"account_number": accounts.receivable, "debit": wire(&gain), "credit": wire(&zero),
+                              "description": "Debt put right for the rate it was paid at"}));
+            lines.push(
+                json!({"account_number": accounts.gain, "debit": wire(&zero), "credit": wire(&gain),
+                              "description": "Gain on the rate when the debt was paid"}),
+            );
+        }
+        (DocumentSide::Payable, true) => {
+            lines.push(json!({"account_number": accounts.receivable, "debit": wire(&zero), "credit": wire(&loss),
+                              "description": "Debt put right for the rate it was paid at"}));
+            lines.push(
+                json!({"account_number": accounts.loss, "debit": wire(&loss), "credit": wire(&zero),
+                              "description": "Loss on the rate when the debt was paid"}),
+            );
+        }
+    }
+
+    let entry = json!({
+        "entry_date": text(payload, "entry_date"),
+        "description": format!("Rate difference on {reference}"),
+        "reference_number": reference,
+        "source_module": "ExchangeSettlement",
+        "status": "posted",
+        "created_at": text(payload, "created_at"),
+        "lines": lines,
+    });
+    let posted = ledger_book::create_entry(graph, scope, &entry)?;
+    Ok(json!({
+        "reference_number": reference,
+        "document_side": match side { DocumentSide::Receivable => "receivable", DocumentSide::Payable => "payable" },
+        "exchange_gain": wire(&gain),
+        "exchange_loss": wire(&loss),
+        "journal_entry_id": posted["id"].clone(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vimbai_store::fake::FakeGraph;
 
     fn money(text: &str) -> Money {
         Money::parse(text).expect("a figure")
@@ -209,6 +308,24 @@ mod tests {
     fn a_settlement_at_the_carried_figure_leaves_no_difference() {
         let (gain, loss) = settled(&money("36000"), &money("36000"));
         assert!(gain.is_zero() && loss.is_zero());
+    }
+
+    #[test]
+    fn a_settlement_that_the_rate_did_not_move_is_refused_rather_than_posted_as_nothing() {
+        let graph = FakeGraph::queue(vec![]);
+        let payload = json!({
+            "entry_date": "2026-11-20",
+            "reference_number": "RC-1",
+            "carried": "25500",
+            "received": "25500",
+            "document_side": "payable",
+        });
+        let refused = settle_difference(&graph, &BookScope::new("user-1", "book-1"), &payload);
+        let message = match refused {
+            Ok(_) => String::new(),
+            Err(error) => error.to_string(),
+        };
+        assert!(message.contains("made no difference"), "{message}");
     }
 
     #[test]

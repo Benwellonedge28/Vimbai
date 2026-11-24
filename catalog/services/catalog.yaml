@@ -210,6 +210,7 @@ services:
   - POST /accounting/cash-receipts-journal
   - POST /accounting/closed-periods
   - POST /accounting/control-accounts
+  - POST /accounting/fx-difference
   - POST /accounting/fx-revaluation
   - POST /accounting/fx-settlement
   - POST /accounting/journal-entries

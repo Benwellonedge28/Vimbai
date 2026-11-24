@@ -330,6 +330,23 @@ async fn seed_taxes(
     answer(taxes::seed_taxes(graph.as_ref(), &scope, &body_of(payload)))
 }
 
+/// `POST /accounting/fx-difference/`: the difference the rate made on a payment, posted on its own.
+async fn fx_difference(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(fx_settlement::settle_difference(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
 /// `GET /accounting/fx-balances/`: the documents this Book holds in another money, by currency.
 async fn fx_balances(State(graph): GraphState, headers: HeaderMap) -> Response {
     let scope = match scope_of(&headers) {
@@ -1102,6 +1119,8 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(&format!("{prefix}/fx-revaluation"), post(revalue_foreign))
             // the documents held in another money, so a restatement can start from the books rather than from memory
             .route(&format!("{prefix}/fx-balances"), get(fx_balances))
+            // the rate difference alone, for a payment the cash book already recorded
+            .route(&format!("{prefix}/fx-difference"), post(fx_difference))
             // what the rate did over a period, read from what the ledger posted rather than worked out here
             .route(
                 &format!("{prefix}/exchange-differences"),

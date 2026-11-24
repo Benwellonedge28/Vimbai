@@ -307,6 +307,12 @@ paths:
     get:
       operationId: getAccountingFxBalances
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/fx-difference:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postAccountingFxDifference
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /accounting/fx-revaluation:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -1248,6 +1254,12 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getRecordsAccountingFxBalances
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/fx-difference:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postRecordsAccountingFxDifference
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/accounting/fx-revaluation:
     parameters:
