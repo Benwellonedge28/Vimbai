@@ -83,6 +83,7 @@
         "GET /accounting/taxes",
         "GET /accounting/trial-balance",
         "GET /accounting/vendor-bills",
+        "GET /accounting/year-end-close",
         "POST /accounting/accounts",
         "POST /accounting/accruals",
         "POST /accounting/accruals/reverse",
@@ -122,6 +123,7 @@
         "POST /accounting/taxes/retire",
         "POST /accounting/taxes/seed",
         "POST /accounting/vendor-bills",
+        "POST /accounting/year-end-close",
         "PUT /accounting/accounts/{}",
         "PUT /accounting/journal-entries/{}"
       ]

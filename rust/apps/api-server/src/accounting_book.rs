@@ -15,6 +15,7 @@ use accounting::stock_adjustments;
 use accounting::subsidiary_journals as journals;
 use accounting::tax;
 use accounting::taxes;
+use accounting::year_end_close;
 use axum::{
     extract::{Path, RawQuery, State},
     http::HeaderMap,
@@ -691,6 +692,38 @@ async fn list_payroll(
         Err(response) => return *response,
     };
     answer(payroll::list_runs(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn close_the_year(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(year_end_close::close_year(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_closed_years(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(year_end_close::list_closed_years(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1467,6 +1500,11 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
             // paid now for something used later
+            // a year's profit moved to equity, once its months are closed
+            .route(
+                &format!("{prefix}/year-end-close"),
+                post(close_the_year).get(list_closed_years),
+            )
             // stock that is not what the books say: a shortage charges the month, a surplus puts it back
             .route(
                 &format!("{prefix}/stock-adjustments"),

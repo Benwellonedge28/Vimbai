@@ -65,7 +65,7 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 18] = [
+pub const BUSINESS: [StandardAccount; 19] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
     // money already paid for something not yet used: it is the business's, but it is not this month's cost
@@ -86,6 +86,9 @@ pub const BUSINESS: [StandardAccount; 18] = [
     account("5800", "Exchange Loss", "expense", "debit"),
     // the wear on what the business keeps is a cost of trading, and it belongs to a business rather than a household
     account("6200", "Depreciation", "expense", "debit"),
+    // what the business has earned and not taken out: a year's profit is moved here when the year is closed, so the year's
+    // trading accounts start the next year at nothing and equity states what the business has kept
+    account("3100", "Retained Earnings", "equity", "credit"),
     // what counting the stock has cost the business: a shortage is charged here and a surplus found is credited back to it,
     // so the account says what counting has done over time rather than hiding a gain among the sales
     account("6400", "Stock Adjustments", "expense", "debit"),

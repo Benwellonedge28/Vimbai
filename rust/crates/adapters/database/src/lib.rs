@@ -187,6 +187,9 @@ pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMEN
 /// A month's wages: what it cost, what was withheld, what the staff are owed, and the entry that posted it.
 pub const PAYROLL_RUN: RecordKind = RecordKind::new("PayrollRun", "OWNS_PAYROLL_RUN");
 
+/// A year that has been closed: what it earned, what it spent, and the entry that moved the profit to equity.
+pub const YEAR_END_CLOSE: RecordKind = RecordKind::new("YearEndClose", "OWNS_YEAR_END_CLOSE");
+
 /// What a count found the stock to be: the item, which way it went, and the entry that posted it.
 pub const STOCK_ADJUSTMENT: RecordKind =
     RecordKind::new("StockAdjustment", "OWNS_STOCK_ADJUSTMENT");

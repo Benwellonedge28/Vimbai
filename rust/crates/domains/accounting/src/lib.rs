@@ -56,6 +56,7 @@ pub mod suspense;
 pub mod tax;
 pub mod taxes;
 pub mod trading_account;
+pub mod year_end_close;
 pub use balance_sheet::{
     generate as generate_balance_sheet, history as balance_sheet_history, latest_sheet,
     ratios as balance_sheet_ratios, totals as balance_sheet_totals,

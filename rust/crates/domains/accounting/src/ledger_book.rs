@@ -56,7 +56,11 @@ use vimbai_store::{
 };
 
 /// The source modules whose reference numbers the service keeps unique.
-const REFERENCE_CHECKED: [&str; 14] = [
+/// The module that closes a year. Its entries are not trading: they move a year's profit to equity, so no report of what
+/// an account did should count them as though the business had traded again.
+pub const CLOSING_ENTRY_MODULE: &str = "YearEndClose";
+
+const REFERENCE_CHECKED: [&str; 15] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -80,6 +84,8 @@ const REFERENCE_CHECKED: [&str; 14] = [
     // a count is a document with a day: the reference names the thing counted and the day, so a second press cannot take
     // the same shortage out of the books twice
     "StockAdjustments",
+    // a year is closed once: the reference is the year, so a second press cannot move the year's profit to equity twice
+    CLOSING_ENTRY_MODULE,
     "Invoicing",
     "Multimodal",
     "SupplyChain",
@@ -377,6 +383,11 @@ pub fn posted_activity<G: Graph + ?Sized>(
     let mut moved: BTreeMap<String, (Money, Money)> = BTreeMap::new();
     for entry in entries(graph, scope)?.iter().filter(|entry| posted(entry)) {
         if !dated_on_or_after(entry, from) || !dated_on_or_before(entry, until) {
+            continue;
+        }
+        // closing a year is not trading: its entry empties the year's revenue and cost accounts, so counting it would
+        // report a year that earned nothing because it had just been closed
+        if field(entry, "source_module") == CLOSING_ENTRY_MODULE {
             continue;
         }
         for line in entry_lines(entry) {

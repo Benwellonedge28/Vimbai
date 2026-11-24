@@ -48,6 +48,7 @@ import 'package:vimbai_mobile_client/features/tax/presentation/tax_table_page.da
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
+import 'package:vimbai_mobile_client/features/year_end/presentation/close_the_year_page.dart';
 
 /// One service entry available to a Book type.
 class BookServiceEntry {
@@ -372,6 +373,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A month of use on your assets, into the books',
           icon: Icons.trending_down,
           page: (context) => const PostDepreciationPage(),
+        ),
+        BookServiceEntry(
+          title: 'Closing the year',
+          description: 'The year\'s profit moved to the owners\' equity',
+          icon: Icons.event_available_outlined,
+          page: (context) => const CloseTheYearPage(),
         ),
         BookServiceEntry(
           title: 'Stock that is not what the books say',
