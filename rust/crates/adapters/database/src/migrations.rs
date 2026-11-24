@@ -63,6 +63,56 @@ pub fn plan(found: i64, steps: &[Step]) -> Plan {
     }
 }
 
+/// Whether this process is allowed to change a store's schema, or only to check it.
+///
+/// A deployment whose database credentials cannot create tables - which is most managed databases, and the right way to
+/// run one - must not have the engine try. `verify` says so: the schema is expected to be brought up by whatever deploys
+/// the engine, and a store found behind is refused with the version it is at, rather than half-migrated by an application
+/// that was never given the right to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SchemaMode {
+    Apply,
+    Verify,
+}
+
+/// What this process was told to do about schemas: `VIMBAI_SCHEMA_MODE=apply|verify`, applying by default.
+///
+/// The default is apply because that is what a laptop, a device and a self-hosted deployment want, and because a store
+/// that silently stays behind is worse than one that upgrades itself. A managed deployment sets `verify` once and the
+/// engine stops trying to be its database administrator.
+pub fn mode_from_env() -> SchemaMode {
+    match std::env::var("VIMBAI_SCHEMA_MODE") {
+        Ok(value) if value.trim().eq_ignore_ascii_case("verify") => SchemaMode::Verify,
+        _ => SchemaMode::Apply,
+    }
+}
+
+/// What to do about a store's schema, given what it reports and what this process is allowed to do.
+///
+/// `None` means there is nothing to run. `Some((from, to))` means run those steps. A store written by a newer build is
+/// refused either way; a store behind, in verify mode, is refused with the version it is at and the one expected, so an
+/// operator knows what to run without opening the database by hand.
+pub fn decide(
+    found: i64,
+    steps: &[Step],
+    mode: SchemaMode,
+    store: &str,
+) -> Result<Option<(usize, usize)>, StoreError> {
+    match plan(found, steps) {
+        Plan::UpToDate { .. } => Ok(None),
+        Plan::Apply { from, to } => match mode {
+            SchemaMode::Apply => Ok(Some((from, to))),
+            SchemaMode::Verify => Err(StoreError::Graph(format!(
+                "the {store} schema is at {found} and this build expects {}; this process is set to verify only \
+                 (VIMBAI_SCHEMA_MODE=verify), so it will not change it. Bring the schema up where the engine is \
+                 deployed, or run once with VIMBAI_SCHEMA_MODE=apply.",
+                steps.len()
+            ))),
+        },
+        Plan::WrittenByNewer { found, known } => Err(newer_than_this_build(found, known)),
+    }
+}
+
 /// The refusal a store written by a newer build gets, worded once so both backends say the same thing.
 pub fn newer_than_this_build(found: i64, known: usize) -> StoreError {
     StoreError::Graph(format!(
@@ -118,5 +168,48 @@ mod tests {
         // A backend that cannot read a version row at all answers -1 rather than failing: the schema steps are written to
         // be safe to re-run, so creating what is missing is better than refusing to open a store.
         assert_eq!(plan(-1, STEPS), Plan::Apply { from: 0, to: 2 });
+    }
+
+    #[test]
+    fn a_store_behind_is_refused_when_this_process_may_only_verify() {
+        let refused = decide(0, STEPS, SchemaMode::Verify, "deployment")
+            .expect_err("verify mode refuses a store that is behind");
+        let said = refused.to_string();
+        assert!(said.contains("deployment schema is at 0"), "{said}");
+        assert!(said.contains("VIMBAI_SCHEMA_MODE=verify"), "{said}");
+        assert!(
+            said.contains("run once with VIMBAI_SCHEMA_MODE=apply"),
+            "the way out is named: {said}"
+        );
+    }
+
+    #[test]
+    fn a_store_behind_is_brought_up_when_this_process_may_apply() {
+        assert_eq!(
+            decide(0, STEPS, SchemaMode::Apply, "device").expect("apply"),
+            Some((0, STEPS.len()))
+        );
+        assert_eq!(
+            decide(1, STEPS, SchemaMode::Apply, "device").expect("apply"),
+            Some((1, STEPS.len()))
+        );
+    }
+
+    #[test]
+    fn a_store_at_this_build_has_nothing_to_do_in_either_mode() {
+        let steps = STEPS.len() as i64;
+        assert_eq!(decide(steps, STEPS, SchemaMode::Apply, "device"), Ok(None));
+        assert_eq!(decide(steps, STEPS, SchemaMode::Verify, "device"), Ok(None));
+    }
+
+    #[test]
+    fn a_store_written_by_a_newer_build_is_refused_in_both_modes() {
+        let ahead = STEPS.len() as i64 + 1;
+        for mode in [SchemaMode::Apply, SchemaMode::Verify] {
+            let said = decide(ahead, STEPS, mode, "device")
+                .expect_err("a newer store is refused")
+                .to_string();
+            assert!(said.contains("newer build"), "{said}");
+        }
     }
 }

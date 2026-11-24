@@ -321,6 +321,15 @@ Tasks, in the order they were done:
   wrote, moved into the trait so the behaviour did not change while the shape did. A backend that refuses `run` outright
   and answers only the doors serves every caller, which is what the Postgres implementation has to be, and that is a test
   rather than a claim. A gate over the crate's own source fails if a caller goes back to writing statements.
+- P8.9 **Done.** `vimbai-store-move` is a cutover verb with a receipt: `--plan` counts what would move by kind and says
+  whether the destination is empty, a destination that already holds records is refused in words rather than allowed to mix
+  two books (`--into-occupied` to mean it), `--receipt` writes what happened, and `--rehearse` marks a receipt so it cannot
+  be read as a cutover. Four tests over a file store: the plan's counts, the occupied-destination refusal, a faithful
+  receipt naming both stores, and a rehearsal that says so on its first line.
+- P8.10 **Done.** `VIMBAI_SCHEMA_MODE=apply|verify` with one decision point, `migrations::decide`, used by both the device
+  and the deployment store: apply brings a store up (the default), verify refuses a store that is behind, naming its
+  version, the expected one and the way out, which is what a managed database whose credentials cannot create tables needs.
+  Four tests pin it, including that a store written by a newer build is refused in either mode.
 - P8.8 **Done.** One conformance suite, every store. `rust/crates/adapters/database/tests/conformance/mod.rs` holds the
   rules a provider must keep, and `tests/every_store_keeps_the_same_rules.rs` runs them against the memory graph, the file
   store, SQLite, and Postgres wherever a server is available. It pins, naming no dialect: a record reads back as written,

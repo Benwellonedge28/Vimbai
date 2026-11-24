@@ -168,12 +168,10 @@ fn ensure_version_table(connection: &Connection) -> Result<(), StoreError> {
 fn apply(connection: &mut Connection) -> Result<(), StoreError> {
     ensure_version_table(connection)?;
     let found = version_of(connection)?;
-    let (from, to) = match crate::migrations::plan(found, SCHEMA) {
-        crate::migrations::Plan::UpToDate { .. } => return Ok(()),
-        crate::migrations::Plan::Apply { from, to } => (from, to),
-        crate::migrations::Plan::WrittenByNewer { found, known } => {
-            return Err(crate::migrations::newer_than_this_build(found, known))
-        }
+    let Some((from, to)) =
+        crate::migrations::decide(found, SCHEMA, crate::migrations::mode_from_env(), "device")?
+    else {
+        return Ok(());
     };
     for (version, step) in SCHEMA.iter().enumerate().take(to).skip(from) {
         // one transaction per step: a step that fails half way leaves the previous version, not a half-schema

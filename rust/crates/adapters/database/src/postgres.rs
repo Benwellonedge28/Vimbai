@@ -25,7 +25,7 @@ use postgres::{Client, GenericClient, NoTls, Row};
 use serde_json::{json, Value};
 
 use crate::columns::{checked_property, id_of};
-use crate::migrations::{self, Plan, Step};
+use crate::migrations::{self, Step};
 use crate::{
     BookScope, Graph, RecordKind, StoreError, JOURNAL_ENTRY, JOURNAL_LINE, LEDGER_ACCOUNT,
 };
@@ -926,12 +926,14 @@ fn migrate(client: &mut Client) -> Result<(), StoreError> {
                  SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM schema_version);",
         )
         .map_err(fault)?;
-    let (from, to) = match migrations::plan(version_of(client)?, SCHEMA) {
-        Plan::UpToDate { .. } => return Ok(()),
-        Plan::Apply { from, to } => (from, to),
-        Plan::WrittenByNewer { found, known } => {
-            return Err(migrations::newer_than_this_build(found, known))
-        }
+    let Some((from, to)) = migrations::decide(
+        version_of(client)?,
+        SCHEMA,
+        migrations::mode_from_env(),
+        "deployment",
+    )?
+    else {
+        return Ok(());
     };
     for (version, step) in SCHEMA.iter().enumerate().take(to).skip(from) {
         let mut transaction = client.transaction().map_err(fault)?;

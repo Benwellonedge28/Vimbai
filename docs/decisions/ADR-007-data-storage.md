@@ -92,3 +92,21 @@ Two rules follow from the amendment and bind future work.
 Still open, deliberately: read/write routing, replication and failover are delegated to the provider's own tooling rather
 than built here, and managed-database schema handling (apply at deploy, or verify at boot and refuse when behind) is
 recorded as intent rather than built.
+
+### Amendment, 2026-11-25: the move is a verb, and a deployment may only verify its schema
+
+Two gaps stood between "the store is swappable" and "a business can change database with ease".
+
+**The move is a verb, not a script.** `vimbai-store-move` now says what it would carry before it carries it (`--plan`,
+counts per kind and whether the destination is empty), refuses to pour a store into one that already holds records, because
+restoring into an occupied store does not merge two books, it mixes them under ids that mean different things on each side
+(`--into-occupied` is the only way past, and it has to be said), and writes a receipt (`--receipt`) naming both stores, what
+arrived, what did not match and whether it was a rehearsal (`--rehearse`). A move that leaves no record of itself is a
+claim, not evidence.
+
+**A deployment may only verify its schema.** `VIMBAI_SCHEMA_MODE=apply|verify` decides whether this process may change a
+store's shape. The default is apply, because a device and a self-hosted deployment should bring themselves up. `verify` is
+for a managed database whose credentials cannot create tables: the store is expected to be migrated where the engine is
+deployed, and a store found behind is refused with the version it is at and the one expected, naming the way out, rather
+than half-migrated by an application that was never given the right. Both stores now decide through one function
+(`migrations::decide`), so the device and the deployment cannot drift in what they do about a schema.
