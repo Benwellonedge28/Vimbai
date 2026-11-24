@@ -731,6 +731,11 @@ pub fn create_receipt(
             "description": text(payload, "description"),
             "source_type": or_default(payload, "source_type", "other"),
             "status": or_default(payload, "status", "posted"),
+            // what a settlement cleared, kept so the foreign balance it reduced can be followed rather than guessed: the
+            // money the receipt was in, how much of it arrived, and the document it was against
+            "document_currency": text(payload, "document_currency"),
+            "document_units": text(payload, "document_units"),
+            "document_reference": text(payload, "document_reference"),
             "journal_entry_id": entry_id,
             "created_at": text(payload, "created_at"),
         }),

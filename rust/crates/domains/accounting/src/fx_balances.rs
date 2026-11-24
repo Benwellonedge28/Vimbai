@@ -5,16 +5,22 @@
 //! already in the books: a sale or a bill raised in another money recorded its own currency, its own total and the rate it
 //! was carried at, and kept them beside the Book's figures rather than instead of them.
 //!
-//! What this route does not claim is that a document listed here is still outstanding. A settlement records the money that
-//! arrived and the difference the rate made, but not how much of the foreign money it cleared, so nothing here can subtract
-//! one from the other honestly. The listing says so in its own answer rather than presenting a document as a balance and
-//! letting somebody restate a debt that has already been paid.
+//! What is still owed is worked out by subtraction, and only where the books recorded enough to subtract honestly. A receipt
+//! against a foreign document keeps the money it was in, how much of that money arrived and which document it was against,
+//! so a settlement reduces the document it names. What is left of the Book's figure is allocated in proportion to what is
+//! left of the foreign money, which is the ordinary simplification and is stated in the answer rather than left for a
+//! reader to assume.
+//!
+//! A receipt that names no document is reported as unmatched instead of being spread across the others: money that arrived
+//! without saying what it was for has not told anybody which debt it cleared.
 use serde_json::{json, Value};
 
 use vimbai_common::Money;
 use vimbai_store::amounts::wire;
 use vimbai_store::read::{field, money_or_nothing, text};
-use vimbai_store::{BookScope, Graph, Records, StoreError, SALES_JOURNAL, VENDOR_BILL};
+use vimbai_store::{
+    BookScope, Graph, Records, StoreError, CASH_RECEIPTS_JOURNAL, SALES_JOURNAL, VENDOR_BILL,
+};
 
 /// One document raised in another money, as the books recorded it.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +39,55 @@ pub struct ForeignDocument {
     pub units: Money,
     /// What it was carried at, in the Book's money.
     pub carried: Money,
+}
+
+/// Money that arrived against a document raised in another money.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Settled {
+    /// The money it arrived in.
+    pub currency: String,
+    /// The document it was against, as the books named it.
+    pub document: String,
+    /// How much of that money arrived.
+    pub units: Money,
+}
+
+/// What is left of a document after the settlements recorded against it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Outstanding {
+    /// How much of the foreign money is still owed.
+    pub units: Money,
+    /// What that is carried at in the Book's money, allocated in proportion to what is left.
+    pub carried: Money,
+}
+
+/// What is left of [document] once [settled] of its money has arrived.
+///
+/// The Book's figure is reduced in proportion to the foreign money that is left, because a settlement clears part of a debt
+/// and not a slice of a rate. A document settled in full leaves nothing, whatever the arithmetic of rounding would say.
+pub fn outstanding_after(document: &ForeignDocument, settled: &Money) -> Outstanding {
+    if settled.is_zero() || settled.is_negative() {
+        return Outstanding {
+            units: document.units.clone(),
+            carried: document.carried.clone(),
+        };
+    }
+    if settled >= &document.units {
+        return Outstanding {
+            units: Money::zero(),
+            carried: Money::zero(),
+        };
+    }
+    let left = document.units.minus(settled);
+    let carried = if document.units.is_zero() {
+        Money::zero()
+    } else {
+        document.carried.times(&left).over(&document.units).round(2)
+    };
+    Outstanding {
+        units: left,
+        carried,
+    }
 }
 
 /// What one currency's documents come to.
@@ -115,28 +170,103 @@ fn abroad(
     Ok(documents)
 }
 
+/// The settlements the receipts journal recorded against foreign documents.
+fn settlements(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+) -> Result<Vec<Settled>, StoreError> {
+    let mut settled: Vec<Settled> = Vec::new();
+    for record in Records::new(graph, CASH_RECEIPTS_JOURNAL).list(scope, 4000)? {
+        let currency = text(&record, "document_currency").trim().to_uppercase();
+        if currency.is_empty() {
+            continue;
+        }
+        let units = money_or_nothing(&record, "document_units")?;
+        if units.is_zero() {
+            // the money arrived without saying how much of the foreign money it cleared, so it is not counted here
+            continue;
+        }
+        settled.push(Settled {
+            currency,
+            document: field(&record, "document_reference").to_string(),
+            units,
+        });
+    }
+    Ok(settled)
+}
+
 /// `GET /accounting/fx-balances/`: the documents this Book holds in another money, by currency.
 pub fn fx_balances<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value, StoreError> {
     let mut documents = abroad(graph, scope, "sale", SALES_JOURNAL, "invoice_number")?;
     documents.extend(abroad(graph, scope, "bill", VENDOR_BILL, "bill_number")?);
-    let totals = by_currency(documents);
+    let settled = settlements(graph, scope)?;
+
+    // what each document still owes, and which settlements named nothing this Book can find
+    let mut left: Vec<(ForeignDocument, Outstanding)> = Vec::with_capacity(documents.len());
+    let mut unmatched: Vec<Value> = Vec::new();
+    for document in documents {
+        let mut cleared = Money::zero();
+        for settlement in &settled {
+            if settlement.currency != document.currency {
+                continue;
+            }
+            if settlement.document.is_empty() || settlement.document != document.reference {
+                continue;
+            }
+            cleared = cleared.plus(&settlement.units);
+        }
+        let outstanding = outstanding_after(&document, &cleared);
+        left.push((document, outstanding));
+    }
+    for settlement in &settled {
+        let found = left.iter().any(|(document, _)| {
+            document.reference == settlement.document && document.currency == settlement.currency
+        });
+        if !found {
+            unmatched.push(json!({
+                "currency": settlement.currency,
+                "document": settlement.document,
+                "units": wire(&settlement.units),
+            }));
+        }
+    }
+    let totals = by_currency(left.iter().map(|(document, _)| document.clone()).collect());
 
     Ok(json!({
-        "currencies": totals.iter().map(|total| json!({
-            "currency": total.currency,
-            "units": wire(&total.units),
-            "carried": wire(&total.carried),
-            "documents": total.documents.iter().map(|document| json!({
-                "reference": document.reference,
-                "kind": document.kind,
-                "date": document.day,
-                "rate": wire(&document.rate),
-                "units": wire(&document.units),
-                "carried": wire(&document.carried),
-            })).collect::<Vec<Value>>(),
-        })).collect::<Vec<Value>>(),
-        "note": "What the books recorded, not what is still owed: a settlement does not record how much of the foreign \
-                 money it cleared, so a document here may already be partly paid. Restate the balances still held.",
+        "currencies": totals.iter().map(|total| {
+            let rows: Vec<Value> = total.documents.iter().map(|document| {
+                let outstanding = left.iter()
+                    .find(|(held, _)| held.reference == document.reference && held.currency == document.currency)
+                    .map(|(_, outstanding)| outstanding.clone())
+                    .unwrap_or(Outstanding { units: document.units.clone(), carried: document.carried.clone() });
+                json!({
+                    "reference": document.reference,
+                    "kind": document.kind,
+                    "date": document.day,
+                    "rate": wire(&document.rate),
+                    "units": wire(&document.units),
+                    "carried": wire(&document.carried),
+                    "outstanding_units": wire(&outstanding.units),
+                    "outstanding_carried": wire(&outstanding.carried),
+                })
+            }).collect();
+            let units = rows.iter().fold(Money::zero(), |sum, row| {
+                sum.plus(&money_or_nothing(row, "outstanding_units").unwrap_or_else(|_| Money::zero()))
+            });
+            let carried = rows.iter().fold(Money::zero(), |sum, row| {
+                sum.plus(&money_or_nothing(row, "outstanding_carried").unwrap_or_else(|_| Money::zero()))
+            });
+            json!({
+                "currency": total.currency,
+                "units": wire(&units),
+                "carried": wire(&carried),
+                "documents": rows,
+            })
+        }).collect::<Vec<Value>>(),
+        "unmatched_settlements": unmatched,
+        "note": "What is still owed, worked out by subtraction where a receipt named the document it cleared. What is left \
+                 of the Book's figure is allocated in proportion to what is left of the foreign money. A receipt that named \
+                 no document is listed as unmatched rather than spread across the others.",
     }))
 }
 
@@ -181,8 +311,37 @@ mod tests {
     }
 
     #[test]
+    fn a_part_payment_leaves_the_rest_of_the_foreign_money_and_its_carried_figure() {
+        let document = document("USD", "2026-11-02", "1000", "25500");
+        let left = outstanding_after(&document, &money("400"));
+        assert_eq!(left.units.to_fixed(2), "600.00");
+        // 25,500 carried against 1,000 dollars: 600 of them are carried at 15,300
+        assert_eq!(left.carried.to_fixed(2), "15300.00");
+    }
+
+    #[test]
+    fn a_document_settled_in_full_owes_nothing_whatever_the_rounding_says() {
+        let document = document("USD", "2026-11-02", "1000", "25500");
+        let left = outstanding_after(&document, &money("1000"));
+        assert!(left.units.is_zero() && left.carried.is_zero());
+        let overpaid = outstanding_after(&document, &money("1200"));
+        assert!(
+            overpaid.units.is_zero(),
+            "paying more than was owed does not leave a negative debt"
+        );
+    }
+
+    #[test]
+    fn nothing_settled_leaves_the_document_exactly_as_it_was() {
+        let document = document("USD", "2026-11-02", "1000", "25500");
+        let left = outstanding_after(&document, &Money::zero());
+        assert_eq!(left.units.to_fixed(2), "1000.00");
+        assert_eq!(left.carried.to_fixed(2), "25500.00");
+    }
+
+    #[test]
     fn a_book_with_nothing_abroad_says_nothing_rather_than_inventing_a_currency() {
-        let graph = FakeGraph::queue(vec![vec![], vec![]]);
+        let graph = FakeGraph::queue(vec![vec![], vec![], vec![]]);
         let listed = fx_balances(&graph, &BookScope::new("user-1", "book-1")).expect("listed");
         assert_eq!(listed["currencies"].as_array().map(Vec::len), Some(0));
     }

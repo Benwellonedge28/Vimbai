@@ -24,7 +24,10 @@ class ForeignDocument {
     required this.rate,
     required this.units,
     required this.carried,
-  });
+    ExactAmount? outstandingUnits,
+    ExactAmount? outstandingCarried,
+  }) : outstandingUnits = outstandingUnits ?? units,
+       outstandingCarried = outstandingCarried ?? carried;
 
   final String reference;
 
@@ -39,17 +42,26 @@ class ForeignDocument {
   /// What it was carried at, in the Book's money.
   final ExactAmount carried;
 
+  /// How much of the foreign money is still owed, once what has arrived against this document is taken off.
+  final ExactAmount outstandingUnits;
+
+  /// What is still owed, carried at the rate the document was raised at. Allocated in proportion to what is left.
+  final ExactAmount outstandingCarried;
+
   /// The account the balance sits in: what is owed to the business for a sale, what it owes for a bill.
   String get account => kind == 'bill' ? '2000' : '1100';
 
   /// The balance as the restatement must see it: a debt owed to the business is positive, a debt it owes is negative, so a
   /// stronger foreign money raises what is owed to it and raises what it owes in the same movement of the rate.
-  ExactAmount get signedUnits => kind == 'bill' ? units.negated() : units;
-  ExactAmount get signedCarried => kind == 'bill' ? carried.negated() : carried;
+  ExactAmount get signedUnits =>
+      kind == 'bill' ? outstandingUnits.negated() : outstandingUnits;
+  ExactAmount get signedCarried =>
+      kind == 'bill' ? outstandingCarried.negated() : outstandingCarried;
 
   /// What this document would be worth at [closing].
-  ExactAmount restatedAt(ExactAmount closing) =>
-      kind == 'bill' ? units * closing.negated() : units * closing;
+  ExactAmount restatedAt(ExactAmount closing) => kind == 'bill'
+      ? outstandingUnits * closing.negated()
+      : outstandingUnits * closing;
 
   /// What the rate would do to it: positive is a gain, negative a loss.
   ExactAmount differenceAt(ExactAmount closing) =>

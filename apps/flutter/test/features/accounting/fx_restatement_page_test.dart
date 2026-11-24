@@ -70,7 +70,68 @@ ForeignHoldings _books() => ForeignHoldings(
   note: 'What the books recorded, not what is still owed.',
 );
 
+ForeignHoldings _partlyPaid() => ForeignHoldings(
+  currencies: [
+    CurrencyHolding(
+      currency: 'USD',
+      units: ExactAmount.parse('600.00'),
+      carried: ExactAmount.parse('15300.00'),
+      documents: [
+        ForeignDocument(
+          reference: 'INV-1',
+          kind: 'sale',
+          date: '2026-11-02',
+          rate: ExactAmount.parse('25.5'),
+          units: ExactAmount.parse('1000.00'),
+          carried: ExactAmount.parse('25500.00'),
+          outstandingUnits: ExactAmount.parse('600.00'),
+          outstandingCarried: ExactAmount.parse('15300.00'),
+        ),
+      ],
+    ),
+  ],
+  note: '',
+);
+
 void main() {
+  testWidgets(
+    'a document already partly paid is restated for what is left, not for what it said',
+    (tester) async {
+      final fx = _FakeFx(_partlyPaid());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FxRestatementPage(
+            service: fx,
+            entryDate: DateTime(2026, 11, 30),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'What one USD is worth'),
+        '27',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Restate at 2026-11-30'));
+      await tester.pumpAndSettle();
+
+      final balances = (fx.asked.single['balances'] as List)
+          .cast<Map<String, Object>>();
+      expect(
+        balances.single['units'],
+        '600.00',
+        reason:
+            '400 dollars were already paid, so only what is left is restated',
+      );
+      expect(
+        balances.single['carried'],
+        '15300.00',
+        reason: 'the Book\'s figure follows the foreign money that is left',
+      );
+    },
+  );
+
   testWidgets(
     'nothing is posted until a rate is given, and both sides carry their sign',
     (tester) async {
