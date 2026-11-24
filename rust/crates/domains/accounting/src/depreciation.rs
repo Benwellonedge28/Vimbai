@@ -25,7 +25,7 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 use vimbai_store::read::{field, money, refused, text};
-use vimbai_store::{BookScope, Graph, Records, StoreError, DEPRECIATION_ENTRY};
+use vimbai_store::{BookScope, Graph, Records, StoreError, DEPRECIATION_ENTRY, FIXED_ASSET};
 
 use crate::ledger_book;
 use crate::periods;
@@ -132,6 +132,40 @@ fn accounts_for<G: Graph + ?Sized>(
     })
 }
 
+/// What the register calls its assets, so a charge can be spoken about as the thing it belongs to rather than by an id
+/// nobody recognises.
+///
+/// The register owns the name; this only reads it, so there is one place a thing is named.
+fn asset_names<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+) -> Result<Vec<(String, String)>, StoreError> {
+    Ok(Records::new(graph, FIXED_ASSET)
+        .list(scope, 1000)?
+        .iter()
+        .map(|asset| {
+            (
+                field(asset, "id").to_string(),
+                field(asset, "asset_name").to_string(),
+            )
+        })
+        .collect())
+}
+
+/// The same row with the name of the thing it is about.
+fn with_asset_name(mut row: Value, names: &[(String, String)]) -> Value {
+    let id = field(&row, "asset_id").to_string();
+    let named = names
+        .iter()
+        .find(|(asset, _)| *asset == id)
+        .map(|(_, name)| name.clone())
+        .unwrap_or_default();
+    if let Some(object) = row.as_object_mut() {
+        object.insert("asset_name".to_string(), json!(named));
+    }
+    row
+}
+
 /// Every depreciation row the register recorded for a period, newest row last.
 fn rows_for<G: Graph + ?Sized>(
     graph: &G,
@@ -218,6 +252,7 @@ pub fn post_month<G: Graph + ?Sized>(
         )));
     }
     let accounts = accounts_for(graph, scope, payload)?;
+    let names = asset_names(graph, scope)?;
     let created_at = text(payload, "created_at");
     let mut posted = Vec::new();
     let mut already = Vec::new();
@@ -226,12 +261,17 @@ pub fn post_month<G: Graph + ?Sized>(
         match post_row(graph, scope, row, &accounts, &entry_date, &created_at)? {
             Some(stamped) => {
                 total = total.plus(&money(&stamped, "depreciation_amount")?);
-                posted.push(stamped);
+                posted.push(with_asset_name(stamped, &names));
             }
-            None => already.push(json!({
-                "asset_id": field(row, "asset_id"),
-                "journal_entry_id": field(row, "journal_entry_id"),
-            })),
+            None => already.push(with_asset_name(
+                json!({
+                    "asset_id": field(row, "asset_id"),
+                    "period": field(row, "period"),
+                    "depreciation_amount": field(row, "depreciation_amount"),
+                    "journal_entry_id": field(row, "journal_entry_id"),
+                }),
+                &names,
+            )),
         }
     }
     Ok(json!({
@@ -297,7 +337,12 @@ pub fn list_posted<G: Graph + ?Sized>(
             .cmp(field(a, "period"))
             .then_with(|| field(a, "asset_id").cmp(field(b, "asset_id")))
     });
-    Ok(Value::Array(rows))
+    let names = asset_names(graph, scope)?;
+    Ok(Value::Array(
+        rows.into_iter()
+            .map(|row| with_asset_name(row, &names))
+            .collect(),
+    ))
 }
 
 /// What the Book still owes the register: the months recorded and not yet in the books.
@@ -319,8 +364,12 @@ pub fn unposted<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value
     for row in &waiting {
         total = total.plus(&money(row, "depreciation_amount")?);
     }
+    let names = asset_names(graph, scope)?;
     Ok(json!({
-        "unposted": waiting,
+        "unposted": waiting
+            .into_iter()
+            .map(|row| with_asset_name(row, &names))
+            .collect::<Vec<Value>>(),
         "total": total.to_fixed(2),
     }))
 }
@@ -511,6 +560,33 @@ mod tests {
         let again = post_one(&graph, &scope, &json!({"depreciation_entry_id": row_id}))
             .expect_err("already posted");
         assert!(format!("{again}").contains("already been posted"));
+    }
+
+    /// A charge is spoken about as the thing it belongs to, not by an id nobody recognises: the register owns the name and
+    /// this only reads it.
+    #[test]
+    fn a_charge_is_named_after_the_thing_it_is_about() {
+        let (graph, scope) = business();
+        remember(
+            &graph,
+            &scope,
+            FIXED_ASSET,
+            json!({"asset_name": "Delivery van", "acquisition_cost": "12000.00"}),
+        )
+        .expect("an asset");
+        let asset_id = Records::new(&graph, FIXED_ASSET)
+            .list(&scope, 10)
+            .expect("assets")[0]["id"]
+            .as_str()
+            .expect("an id")
+            .to_string();
+        register_row(&graph, &scope, &asset_id, "2026-11", "200.00");
+
+        let waiting = unposted(&graph, &scope).expect("read");
+        assert_eq!(field(&waiting["unposted"][0], "asset_name"), "Delivery van");
+
+        let posted = post_month(&graph, &scope, &json!({"period": "2026-11"})).expect("posted");
+        assert_eq!(field(&posted["posted"][0], "asset_name"), "Delivery van");
     }
 
     /// What the register has recorded and the books have not is stated as a figure, so a Book that is behind says by how

@@ -20,6 +20,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/income_sta
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/discounts_page.dart';
+import 'package:vimbai_mobile_client/features/depreciation/presentation/post_depreciation_page.dart';
 import 'package:vimbai_mobile_client/features/expenses/presentation/record_expense_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/return_from_customer_page.dart';
@@ -343,6 +344,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'Rent, fuel, wages: paid now or still owed',
           icon: Icons.receipt_outlined,
           page: (context) => const RecordExpensePage(),
+        ),
+        BookServiceEntry(
+          title: 'Wear on what you own',
+          description: 'A month of use on your assets, into the books',
+          icon: Icons.trending_down,
+          page: (context) => const PostDepreciationPage(),
         ),
         BookServiceEntry(
           title: 'Goods back from a customer',
