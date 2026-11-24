@@ -36,6 +36,7 @@ pub mod company_accounting;
 pub mod departments;
 pub mod depreciation;
 pub mod document_currency;
+pub mod doubtful_debts;
 pub mod exchange;
 pub mod expenses;
 pub mod fund_accounting;

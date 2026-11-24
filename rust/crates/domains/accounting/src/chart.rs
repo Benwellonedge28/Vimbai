@@ -65,7 +65,7 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 19] = [
+pub const BUSINESS: [StandardAccount; 21] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
     // money already paid for something not yet used: it is the business's, but it is not this month's cost
@@ -92,6 +92,12 @@ pub const BUSINESS: [StandardAccount; 19] = [
     // what counting the stock has cost the business: a shortage is charged here and a surplus found is credited back to it,
     // so the account says what counting has done over time rather than hiding a gain among the sales
     account("6400", "Stock Adjustments", "expense", "debit"),
+    // the part of what customers owe that the business does not expect to see: carried against receivables as a credit, so
+    // what is owed can be read both as it stands and as the business expects it to come to
+    account("1120", "Allowance for Doubtful Debts", "asset", "credit"),
+    // what doubt about customers has cost the business: a provision raised is charged here and one released is credited back
+    // to it, so the account says what doubt has cost over time rather than hiding a release among the sales
+    account("6510", "Doubtful Debts", "expense", "debit"),
     // a customer who will not pay is a cost of trading, not a loss of sales: the money was earned and is now gone, and a
     // reader of the accounts is entitled to see it apart from the trading that earned it
     account("6350", "Bad Debts", "expense", "debit"),

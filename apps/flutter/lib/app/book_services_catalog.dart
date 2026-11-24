@@ -24,6 +24,7 @@ import 'package:vimbai_mobile_client/features/accruals/presentation/a_cost_not_y
 import 'package:vimbai_mobile_client/features/accruals/presentation/paid_up_front_page.dart';
 import 'package:vimbai_mobile_client/features/opening_balances/presentation/your_first_day_page.dart';
 import 'package:vimbai_mobile_client/features/depreciation/presentation/post_depreciation_page.dart';
+import 'package:vimbai_mobile_client/features/doubtful_debts/presentation/provision_page.dart';
 import 'package:vimbai_mobile_client/features/expenses/presentation/record_expense_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/return_from_customer_page.dart';
@@ -373,6 +374,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A month of use on your assets, into the books',
           icon: Icons.trending_down,
           page: (context) => const PostDepreciationPage(),
+        ),
+        BookServiceEntry(
+          title: 'What you expect not to be paid',
+          description: 'An estimate standing against what customers owe',
+          icon: Icons.assignment_late_outlined,
+          page: (context) => const ProvisionPage(),
         ),
         BookServiceEntry(
           title: 'Closing the year',

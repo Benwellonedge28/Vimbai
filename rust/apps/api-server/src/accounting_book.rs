@@ -4,6 +4,7 @@ use accounting::accruals;
 use accounting::bad_debts;
 use accounting::bookkeeping as papers;
 use accounting::depreciation;
+use accounting::doubtful_debts;
 use accounting::expenses;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
@@ -692,6 +693,38 @@ async fn list_payroll(
         Err(response) => return *response,
     };
     answer(payroll::list_runs(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn provide_for_doubtful_debts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(doubtful_debts::provide(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_doubtful_debt_provisions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(doubtful_debts::list_provisions(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1500,6 +1533,11 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
             // paid now for something used later
+            // the part of what customers owe the business does not expect to see: an estimate, adjusted rather than re-posted
+            .route(
+                &format!("{prefix}/doubtful-debts"),
+                post(provide_for_doubtful_debts).get(list_doubtful_debt_provisions),
+            )
             // a year's profit moved to equity, once its months are closed
             .route(
                 &format!("{prefix}/year-end-close"),

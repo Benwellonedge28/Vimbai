@@ -60,7 +60,7 @@ use vimbai_store::{
 /// an account did should count them as though the business had traded again.
 pub const CLOSING_ENTRY_MODULE: &str = "YearEndClose";
 
-const REFERENCE_CHECKED: [&str; 15] = [
+const REFERENCE_CHECKED: [&str; 16] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -81,6 +81,8 @@ const REFERENCE_CHECKED: [&str; 15] = [
     // giving up on a debt is a decision with a day: the reference names the debtor and the day, so a second press cannot
     // take the same debt out of the books twice
     "BadDebts",
+    // a provision is adjusted once a day: the reference names the day, so a second press cannot charge the month twice
+    "DoubtfulDebts",
     // a count is a document with a day: the reference names the thing counted and the day, so a second press cannot take
     // the same shortage out of the books twice
     "StockAdjustments",

@@ -187,6 +187,14 @@ pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMEN
 /// A month's wages: what it cost, what was withheld, what the staff are owed, and the entry that posted it.
 pub const PAYROLL_RUN: RecordKind = RecordKind::new("PayrollRun", "OWNS_PAYROLL_RUN");
 
+/// The posting of an estimate of what customers will not pay: the figure it was raised to, what stood before, and the entry
+/// that moved it. The estimate itself is the receivables domain's `DOUBTFUL_PROVISION`; this is the journal that puts one
+/// into the books, so the two are named apart rather than one standing in for the other.
+pub const DOUBTFUL_DEBT_PROVISION_JOURNAL: RecordKind = RecordKind::new(
+    "DoubtfulDebtProvisionJournal",
+    "OWNS_DOUBTFUL_DEBT_PROVISION_JOURNAL",
+);
+
 /// A year that has been closed: what it earned, what it spent, and the entry that moved the profit to equity.
 pub const YEAR_END_CLOSE: RecordKind = RecordKind::new("YearEndClose", "OWNS_YEAR_END_CLOSE");
 

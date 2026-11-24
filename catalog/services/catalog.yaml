@@ -183,6 +183,7 @@ services:
   - GET /accounting/control-accounts
   - GET /accounting/depreciation
   - GET /accounting/depreciation/unposted
+  - GET /accounting/doubtful-debts
   - GET /accounting/exchange-differences
   - GET /accounting/expenses-journal
   - GET /accounting/fx-balances
@@ -226,6 +227,7 @@ services:
   - POST /accounting/control-accounts
   - POST /accounting/depreciation
   - POST /accounting/depreciation/one
+  - POST /accounting/doubtful-debts
   - POST /accounting/expenses-journal
   - POST /accounting/fx-difference
   - POST /accounting/fx-revaluation
