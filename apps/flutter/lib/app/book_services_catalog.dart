@@ -22,6 +22,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_pag
 import 'package:vimbai_mobile_client/features/invoicing/presentation/discounts_page.dart';
 import 'package:vimbai_mobile_client/features/accruals/presentation/a_cost_not_yet_billed_page.dart';
 import 'package:vimbai_mobile_client/features/accruals/presentation/paid_up_front_page.dart';
+import 'package:vimbai_mobile_client/features/opening_balances/presentation/your_first_day_page.dart';
 import 'package:vimbai_mobile_client/features/depreciation/presentation/post_depreciation_page.dart';
 import 'package:vimbai_mobile_client/features/expenses/presentation/record_expense_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
@@ -334,6 +335,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Foreign balances at the closing rate, and the difference',
           icon: Icons.sync_alt,
           page: (context) => const FxRestatementPage(),
+        ),
+        BookServiceEntry(
+          title: 'Your first day',
+          description: 'What the business already had and owed, stated once',
+          icon: Icons.flag_outlined,
+          page: (context) => const YourFirstDayPage(),
         ),
         BookServiceEntry(
           title: 'Stock bought on account',
