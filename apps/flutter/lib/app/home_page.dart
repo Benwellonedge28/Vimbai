@@ -22,6 +22,7 @@ import 'package:vimbai_mobile_client/app/book_services_catalog.dart';
 import 'package:vimbai_mobile_client/app/profile_banner.dart';
 import 'package:vimbai_mobile_client/core/api/machine_profile.dart';
 import 'package:vimbai_mobile_client/core/api/machine_profile_service.dart';
+import 'package:vimbai_mobile_client/features/find/presentation/find_page.dart';
 
 /// The features worth naming when a machine does not serve them, in the words their screens use.
 ///
@@ -360,6 +361,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Vimbai Home (Offline Ready)'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Find in this Book',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const FindPage())),
+          ),
           IconButton(
             icon: const Icon(Icons.apartment),
             tooltip: 'Your organisations',

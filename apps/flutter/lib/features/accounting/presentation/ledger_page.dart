@@ -8,10 +8,14 @@ import 'package:vimbai_mobile_client/features/accounting/models/accounting_model
 /// A stranger has no way of knowing an account number, so the account is picked from the Book's own chart rather than
 /// typed from memory. Typing a number still works, because a person who knows their chart should not be slowed down.
 class LedgerPage extends StatefulWidget {
-  const LedgerPage({super.key, this.service});
+  const LedgerPage({super.key, this.service, this.account});
 
   /// The engine this screen talks to. A test hands in its own so the screen can be read without a phone.
   final AccountingApiService? service;
+
+  /// An account to open on, so a search that found one arrives with it already looked up rather than asking the person to
+  /// type the number they were just shown.
+  final String? account;
 
   @override
   State<LedgerPage> createState() => _LedgerPageState();
@@ -31,6 +35,14 @@ class _LedgerPageState extends State<LedgerPage> {
   @override
   void initState() {
     super.initState();
+    final opening = widget.account?.trim() ?? '';
+    if (opening.isNotEmpty) {
+      _accountNumberController.text = opening;
+      // the balance is read once the first frame is on screen, so a failed read can be shown rather than thrown
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _fetchLedgerBalance(),
+      );
+    }
     _loadAccounts();
   }
 

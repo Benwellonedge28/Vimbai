@@ -6,6 +6,7 @@ use accounting::bookkeeping as papers;
 use accounting::depreciation;
 use accounting::doubtful_debts;
 use accounting::expenses;
+use accounting::find;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
 use accounting::ledger_book as book;
@@ -693,6 +694,22 @@ async fn list_payroll(
         Err(response) => return *response,
     };
     answer(payroll::list_runs(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn find_in_the_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(find::find(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1533,6 +1550,8 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
             // paid now for something used later
+            // one thing in a Book, by the words or the reference somebody remembers
+            .route(&format!("{prefix}/find"), get(find_in_the_book))
             // the part of what customers owe the business does not expect to see: an estimate, adjusted rather than re-posted
             .route(
                 &format!("{prefix}/doubtful-debts"),

@@ -39,6 +39,7 @@ pub mod document_currency;
 pub mod doubtful_debts;
 pub mod exchange;
 pub mod expenses;
+pub mod find;
 pub mod fund_accounting;
 pub mod fx_balances;
 pub mod fx_revaluation;
