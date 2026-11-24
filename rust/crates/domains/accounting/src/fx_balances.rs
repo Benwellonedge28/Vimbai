@@ -171,6 +171,27 @@ fn abroad(
     Ok(documents)
 }
 
+/// How much of [document]'s foreign money has already arrived, as the cash journals recorded it.
+///
+/// A caller that needs to know what a single document still owes asks this rather than reading the journals itself: the rule
+/// for what counts as a settlement lives in one place, so a listing and a balance can never disagree about it.
+pub fn settled_for<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    currency: &str,
+    document: &str,
+) -> Result<Money, StoreError> {
+    let currency = currency.trim().to_uppercase();
+    let mut cleared = Money::zero();
+    for settlement in settlements(graph, scope)? {
+        if settlement.currency != currency || settlement.document != document {
+            continue;
+        }
+        cleared = cleared.plus(&settlement.units);
+    }
+    Ok(cleared)
+}
+
 /// The settlements the receipts journal recorded against foreign documents.
 fn settlements(
     graph: &(impl Graph + ?Sized),

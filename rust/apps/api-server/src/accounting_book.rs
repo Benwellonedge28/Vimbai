@@ -330,6 +330,23 @@ async fn seed_taxes(
     answer(taxes::seed_taxes(graph.as_ref(), &scope, &body_of(payload)))
 }
 
+/// `GET /accounting/vendor-bills/`: the bills received, and what each still owes when raised in another money.
+async fn list_vendor_bills(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(journals::list_vendor_bills(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 /// `POST /accounting/fx-difference/`: the difference the rate made on a payment, posted on its own.
 async fn fx_difference(
     State(graph): GraphState,
@@ -1152,7 +1169,10 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/purchases-returns-journal"),
                 post(create_purchases_return),
             )
-            .route(&format!("{prefix}/vendor-bills"), post(create_vendor_bill))
+            .route(
+                &format!("{prefix}/vendor-bills"),
+                post(create_vendor_bill).get(list_vendor_bills),
+            )
             .route(
                 &format!("{prefix}/subsidiary-ledgers/accounts-receivable"),
                 get(receivables),

@@ -1092,6 +1092,62 @@ pub fn create_vendor_bill(
     )
 }
 
+/// `GET /vendor-bills/`: the bills received, and what each still owes when it was raised in another money.
+///
+/// A bill in another money is listed with what it said and what is still owed of it, so a payment screen does not have to
+/// work either out for itself: the currency, the rate it was carried at, and the money that has already gone against it.
+pub fn list_vendor_bills(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Value, StoreError> {
+    let listed = listing(
+        graph,
+        scope,
+        VENDOR_BILL,
+        query,
+        "invoice_date",
+        Some(("vendor_id", "vendor_id")),
+    )?;
+    let rows = match listed.get("entries").and_then(Value::as_array) {
+        Some(rows) => rows.clone(),
+        None => return Ok(listed),
+    };
+    let mut enriched: Vec<Value> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let currency = text(&row, "document_currency").trim().to_uppercase();
+        let mut row = row;
+        if !currency.is_empty() {
+            let rate = money_or_nothing(&row, "document_rate")?;
+            let document = crate::fx_balances::ForeignDocument {
+                reference: text(&row, "bill_number").to_string(),
+                kind: "bill",
+                day: text(&row, "invoice_date").to_string(),
+                currency: currency.clone(),
+                rate: rate.clone(),
+                units: money_or_nothing(&row, "document_total")?,
+                carried: money_or_nothing(&row, "total_amount")?,
+            };
+            let cleared =
+                crate::fx_balances::settled_for(graph, scope, &currency, &document.reference)?;
+            let outstanding = crate::fx_balances::outstanding_after(&document, &cleared);
+            if let Some(object) = row.as_object_mut() {
+                object.insert("outstanding_units".into(), json!(wire(&outstanding.units)));
+                object.insert(
+                    "outstanding_carried".into(),
+                    json!(wire(&outstanding.carried)),
+                );
+            }
+        }
+        enriched.push(row);
+    }
+    let mut answered = listed;
+    if let Some(object) = answered.as_object_mut() {
+        object.insert("entries".into(), Value::Array(enriched));
+    }
+    Ok(answered)
+}
+
 /// Days between two ISO business dates, negative when the later one is first.
 ///
 /// The count itself lives in `vimbai_common::dates`; this keeps the shape the ageing here wants - a date

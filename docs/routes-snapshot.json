@@ -73,6 +73,7 @@
         "GET /accounting/tax",
         "GET /accounting/taxes",
         "GET /accounting/trial-balance",
+        "GET /accounting/vendor-bills",
         "POST /accounting/accounts",
         "POST /accounting/bank-reconciliation",
         "POST /accounting/capital-calculations",
