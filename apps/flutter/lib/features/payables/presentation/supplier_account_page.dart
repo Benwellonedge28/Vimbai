@@ -16,7 +16,9 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_drafting.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
+import 'package:vimbai_mobile_client/features/banking/data/currencies.dart';
 import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
+import 'package:vimbai_mobile_client/features/payables/data/vendor_bill_posting.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/pay_supplier_out_sheet.dart';
 import 'package:vimbai_mobile_client/features/tax/data/taxed_amounts.dart';
@@ -26,6 +28,8 @@ class SupplierAccountPage extends StatefulWidget {
     super.key,
     required this.supplierId,
     this.supplierName,
+    this.bills,
+    this.currencies,
     this.service,
     this.ledger,
     this.cash,
@@ -33,6 +37,12 @@ class SupplierAccountPage extends StatefulWidget {
 
   final String supplierId;
   final String? supplierName;
+
+  /// The engine's vendor bills route, for a bill a supplier raised in another money.
+  final VendorBillPostingService? bills;
+
+  /// The currencies this Book keeps, so a bill can name the money it was raised in.
+  final CurrencyService? currencies;
 
   /// A test passes its own service so the page can be exercised without a server.
   final SupplierAccountService? service;
@@ -56,9 +66,25 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
 
   bool _posting = false;
 
+  late final VendorBillPostingService _bills =
+      widget.bills ?? VendorBillPostingService.instance;
+
+  late final CurrencyService _currencies =
+      widget.currencies ?? CurrencyService.instance;
+
+  /// The rate typed for a bill in another money. Kept here rather than in the dialog, because a controller disposed while
+  /// its field is still on screen is a field that throws as it leaves.
+  final TextEditingController _moneyRate = TextEditingController();
+
   bool _loading = true;
   String? _error;
   SupplierAccount? _account;
+
+  @override
+  void dispose() {
+    _moneyRate.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -87,6 +113,84 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
     }
   }
 
+  /// Which money a bill was raised in, and at what rate, or nothing when the person steps away.
+  ///
+  /// The first answer is the Book's own money, which is the ordinary case and sends no currency at all. A currency the Book
+  /// keeps is offered by its code and name, and the rate is asked for beside it: the engine refuses a foreign bill without
+  /// one, by name, rather than guessing a rate nobody stated.
+  Future<({String code, String rate})?> _askMoney() async {
+    List<IsoCurrency> held = const [];
+    try {
+      held = (await _currencies.read()).held;
+    } catch (_) {
+      // a Book whose currencies could not be read still bills in its own money; that is the first answer below
+    }
+    if (!mounted) return null;
+    _moneyRate.clear();
+    String code = '';
+    final answered = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => AlertDialog(
+          title: const Text('Which money is this bill in?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: code,
+                  decoration: const InputDecoration(labelText: 'Money'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('This Book\'s own money'),
+                    ),
+                    for (final currency in held)
+                      DropdownMenuItem(
+                        value: currency.code,
+                        child: Text('${currency.code} · ${currency.name}'),
+                      ),
+                  ],
+                  onChanged: (picked) => setSheet(() => code = picked ?? ''),
+                ),
+                if (code.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _moneyRate,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Rate on the day of the bill',
+                      helperText:
+                          'How much one $code is worth in this Book\'s money. '
+                          'The engine converts the bill at this rate and keeps '
+                          'what the supplier showed.',
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Next'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final answer = _moneyRate.text.trim();
+    if (answered != true) return null;
+    return (code: code, rate: answer);
+  }
+
   /// Put a bill, or a payment, into the accounts.
   ///
   /// The purchases ledger answers who is owed what; the accounts answer what the Book earned and what it holds. A bill
@@ -112,6 +216,33 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       final reference = line.reference.trim().isEmpty
           ? '${isBill ? 'BILL' : 'PAY'}-${line.date}-${widget.supplierId}'
           : line.reference.trim();
+
+      // A supplier may have billed in another money. The engine carries such a bill into the Book's own money at the rate
+      // the bill states, so the money is asked for before any line is proposed: proposing dollars as though they were the
+      // Book's money would be the one mistake this screen must never make.
+      final abroad = await _askMoney();
+      if (!mounted) return;
+      if (abroad == null) {
+        setState(() => _posting = false);
+        return;
+      }
+      if (abroad.code.isNotEmpty) {
+        final posted = await _bills.post(
+          entryDate: line.date,
+          billNumber: reference,
+          vendorId: widget.supplierId,
+          total: line.amount,
+          currency: abroad.code,
+          rate: abroad.rate,
+        );
+        if (!mounted) return;
+        setState(() => _posting = false);
+        _say(
+          '${posted.billNumber} is in the books, carried at '
+          '${posted.totalAmount} in this Book\'s money.',
+        );
+        return;
+      }
       final taxField = TextEditingController();
       Account? chosen;
       if (isBill) {

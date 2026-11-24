@@ -294,6 +294,11 @@ void main() {
     await tester.tap(find.text('Bill received'));
     await tester.pumpAndSettle();
 
+    // the money is asked for first: a bill in the Book's own money is the ordinary case, and sends no currency at all
+    expect(find.text('Which money is this bill in?'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Post this bill'), findsOneWidget);
     expect(find.textContaining('Dr 5000 Purchases'), findsOneWidget);
     expect(find.textContaining('Cr 2000 Accounts Payable'), findsOneWidget);
@@ -404,6 +409,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bill received'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('no Accounts Payable account'), findsOneWidget);
