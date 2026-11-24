@@ -772,18 +772,41 @@ pub fn create_disbursement(
         return Err(refused("expense_account is required"));
     }
 
-    let entry_id = post(
-        graph,
-        scope,
-        payload,
-        format!("Cash Disbursement: {payment}"),
-        &payment,
-        "CashDisbursementsJournal",
-        &expense_account,
-        &cash_account,
-        &amount,
-        &text(payload, "description"),
-    )?;
+    // A payment against a bill raised in another money clears a debt that was posted at an earlier rate. Vimbai does not
+    // move the money: it records what left, from an account the business already holds. When the caller names the money and
+    // what the debt was posted at, the difference the rate made is posted to its own account, on the payable side, where a
+    // stronger foreign money is a loss rather than income.
+    let foreign = !text(payload, "document_currency").trim().is_empty();
+    let entry_id = if foreign {
+        let carried = money(payload, "carried")?;
+        let mut settlement = payload.clone();
+        if let Value::Object(ref mut fields) = settlement {
+            fields.insert("carried".into(), wire(&carried));
+            fields.insert("received".into(), wire(&amount));
+            fields.insert("reference_number".into(), json!(payment));
+            fields.insert("bank_account".into(), json!(cash_account));
+            fields.insert("document_side".into(), json!("payable"));
+            fields.insert("payable_account".into(), json!(expense_account));
+        }
+        let posted = crate::fx_settlement::settle_foreign(graph, scope, &settlement)?;
+        posted["journal_entry_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    } else {
+        post(
+            graph,
+            scope,
+            payload,
+            format!("Cash Disbursement: {payment}"),
+            &payment,
+            "CashDisbursementsJournal",
+            &expense_account,
+            &cash_account,
+            &amount,
+            &text(payload, "description"),
+        )?
+    };
 
     remember(
         graph,
@@ -802,6 +825,10 @@ pub fn create_disbursement(
             "expense_account": expense_account,
             "source_type": or_default(payload, "source_type", "other"),
             "status": or_default(payload, "status", "posted"),
+            // what a settlement cleared, kept so the foreign bill it reduced can be followed rather than guessed
+            "document_currency": text(payload, "document_currency"),
+            "document_units": text(payload, "document_units"),
+            "document_reference": text(payload, "document_reference"),
             "journal_entry_id": entry_id,
             "created_at": text(payload, "created_at"),
         }),

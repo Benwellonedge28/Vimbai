@@ -19,7 +19,8 @@ use vimbai_common::Money;
 use vimbai_store::amounts::wire;
 use vimbai_store::read::{field, money_or_nothing, text};
 use vimbai_store::{
-    BookScope, Graph, Records, StoreError, CASH_RECEIPTS_JOURNAL, SALES_JOURNAL, VENDOR_BILL,
+    BookScope, Graph, Records, StoreError, CASH_DISBURSEMENTS_JOURNAL, CASH_RECEIPTS_JOURNAL,
+    SALES_JOURNAL, VENDOR_BILL,
 };
 
 /// One document raised in another money, as the books recorded it.
@@ -175,8 +176,23 @@ fn settlements(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
 ) -> Result<Vec<Settled>, StoreError> {
+    // money coming in clears what a customer owed; money going out clears what the business owes, and a bill paid at a
+    // different rate has been settled just as a sale paid at a different rate has
     let mut settled: Vec<Settled> = Vec::new();
-    for record in Records::new(graph, CASH_RECEIPTS_JOURNAL).list(scope, 4000)? {
+    for journal in [CASH_RECEIPTS_JOURNAL, CASH_DISBURSEMENTS_JOURNAL] {
+        settled.extend(recorded_against(graph, scope, journal)?);
+    }
+    Ok(settled)
+}
+
+/// The settlements one cash journal recorded against foreign documents.
+fn recorded_against(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    journal: vimbai_store::RecordKind,
+) -> Result<Vec<Settled>, StoreError> {
+    let mut settled: Vec<Settled> = Vec::new();
+    for record in Records::new(graph, journal).list(scope, 4000)? {
         let currency = text(&record, "document_currency").trim().to_uppercase();
         if currency.is_empty() {
             continue;

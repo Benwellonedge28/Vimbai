@@ -17,6 +17,29 @@ use vimbai_store::{BookScope, Graph, StoreError};
 
 use crate::ledger_book;
 
+/// Which side of the books a foreign document sits on: what a customer owes the business, or what the business owes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DocumentSide {
+    /// A sale: the business is owed, and the money arriving clears a receivable.
+    Receivable,
+    /// A bill: the business owes, and the money leaving clears a payable.
+    Payable,
+}
+
+impl DocumentSide {
+    /// The side a caller named, or the receivable side when it named none, which is the ordinary case for a receipt.
+    pub fn named(payload: &Value) -> Self {
+        match text(payload, "document_side")
+            .trim()
+            .to_lowercase()
+            .as_str()
+        {
+            "payable" | "bill" | "purchase" => Self::Payable,
+            _ => Self::Receivable,
+        }
+    }
+}
+
 /// The accounts a settlement posts to, and where the difference goes.
 #[derive(Debug, Clone)]
 pub struct SettlementAccounts {
@@ -47,11 +70,24 @@ impl SettlementAccounts {
 /// The two figures are returned separately rather than as one signed number, so a caller cannot post a negative credit
 /// and hope the ledger reads it as a debit.
 pub fn settled(carried: &Money, received: &Money) -> (Money, Money) {
+    settled_on(DocumentSide::Receivable, carried, received)
+}
+
+/// What the rate did to a settlement, on whichever side of the books it happened.
+///
+/// The same movement of the rate is good news on one side and bad on the other: a stronger foreign money means a customer
+/// pays more than was carried (a gain) and a supplier must be paid more than was carried (a loss). Working that out from
+/// the side rather than from a sign the caller chose is what stops a payable being reported as income.
+pub fn settled_on(side: DocumentSide, carried: &Money, received: &Money) -> (Money, Money) {
     let difference = vimbai_common::fx::difference(carried, received);
-    if difference.is_negative() {
-        (Money::zero(), difference.abs())
+    let gain = match side {
+        DocumentSide::Receivable => difference,
+        DocumentSide::Payable => difference.negate(),
+    };
+    if gain.is_negative() {
+        (Money::zero(), gain.abs())
     } else {
-        (difference, Money::zero())
+        (gain, Money::zero())
     }
 }
 
@@ -80,20 +116,34 @@ pub fn settle_foreign(
 
     let accounts = SettlementAccounts {
         bank: or_default(payload, "bank_account", "1010"),
-        receivable: or_default(payload, "receivable_account", "1100"),
+        receivable: match DocumentSide::named(payload) {
+            DocumentSide::Receivable => or_default(payload, "receivable_account", "1100"),
+            DocumentSide::Payable => or_default(payload, "payable_account", "2000"),
+        },
         gain: or_default(payload, "exchange_gain_account", "4800"),
         loss: or_default(payload, "exchange_loss_account", "5800"),
     };
-    let (gain, loss) = settled(&carried, &received);
+    let side = DocumentSide::named(payload);
+    let (gain, loss) = settled_on(side, &carried, &received);
     let zero = Money::zero();
     let reference = text(payload, "reference_number");
 
-    let mut lines = vec![
-        json!({"account_number": accounts.bank, "debit": wire(&received), "credit": wire(&zero),
-               "description": "Money received"}),
-        json!({"account_number": accounts.receivable, "debit": wire(&zero), "credit": wire(&carried),
-               "description": "Debt cleared at the rate it was raised at"}),
-    ];
+    let mut lines = match side {
+        // a sale: the money arrives, and the debt the customer owed is cleared
+        DocumentSide::Receivable => vec![
+            json!({"account_number": accounts.bank, "debit": wire(&received), "credit": wire(&zero),
+                   "description": "Money received"}),
+            json!({"account_number": accounts.receivable, "debit": wire(&zero), "credit": wire(&carried),
+                   "description": "Debt cleared at the rate it was raised at"}),
+        ],
+        // a bill: the debt the business owed is cleared, and the money leaves
+        DocumentSide::Payable => vec![
+            json!({"account_number": accounts.receivable, "debit": wire(&carried), "credit": wire(&zero),
+                   "description": "Debt cleared at the rate it was raised at"}),
+            json!({"account_number": accounts.bank, "debit": wire(&zero), "credit": wire(&received),
+                   "description": "Money paid"}),
+        ],
+    };
     if !gain.is_zero() {
         lines.push(
             json!({"account_number": accounts.gain, "debit": wire(&zero), "credit": wire(&gain),
@@ -120,6 +170,7 @@ pub fn settle_foreign(
 
     Ok(json!({
         "reference_number": reference,
+        "document_side": match side { DocumentSide::Receivable => "receivable", DocumentSide::Payable => "payable" },
         "carried": wire(&carried),
         "received": wire(&received),
         "exchange_gain": wire(&gain),
@@ -158,6 +209,27 @@ mod tests {
     fn a_settlement_at_the_carried_figure_leaves_no_difference() {
         let (gain, loss) = settled(&money("36000"), &money("36000"));
         assert!(gain.is_zero() && loss.is_zero());
+    }
+
+    #[test]
+    fn the_same_rate_movement_is_a_gain_on_one_side_and_a_loss_on_the_other() {
+        // 25,500 carried, 27,000 paid: a customer paying more is income, a supplier being paid more is a cost
+        let (gain, loss) = settled_on(DocumentSide::Receivable, &money("25500"), &money("27000"));
+        assert_eq!(gain.to_fixed(2), "1500.00");
+        assert!(loss.is_zero());
+        let (gain, loss) = settled_on(DocumentSide::Payable, &money("25500"), &money("27000"));
+        assert!(
+            gain.is_zero(),
+            "paying more than was carried never reads as income"
+        );
+        assert_eq!(loss.to_fixed(2), "1500.00");
+    }
+
+    #[test]
+    fn a_cheaper_settlement_gains_on_the_payable_side() {
+        let (gain, loss) = settled_on(DocumentSide::Payable, &money("25500"), &money("24000"));
+        assert_eq!(gain.to_fixed(2), "1500.00");
+        assert!(loss.is_zero());
     }
 
     #[test]
