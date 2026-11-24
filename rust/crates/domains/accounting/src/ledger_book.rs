@@ -56,8 +56,11 @@ use vimbai_store::{
 };
 
 /// The source modules whose reference numbers the service keeps unique.
-const REFERENCE_CHECKED: [&str; 6] = [
+const REFERENCE_CHECKED: [&str; 7] = [
     "Banking",
+    // an expense is typed from a receipt by a person, like a manual entry, so its reference has to be unique or the same
+    // cost can be recorded twice without anything noticing
+    "ExpensesJournal",
     "Invoicing",
     "Multimodal",
     "SupplyChain",

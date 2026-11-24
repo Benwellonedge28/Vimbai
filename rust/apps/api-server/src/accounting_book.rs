@@ -1,6 +1,7 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::bookkeeping as papers;
+use accounting::expenses;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
 use accounting::ledger_book as book;
@@ -630,6 +631,38 @@ async fn list_purchases(
     ))
 }
 
+async fn create_expense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(expenses::create_expense(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_expenses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(expenses::list_expenses(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 async fn create_receipt(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1152,6 +1185,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/purchases-journal"),
                 post(create_purchase).get(list_purchases),
+            )
+            // the ordinary costs of being open: rent, fuel, wages, bank charges, a licence
+            .route(
+                &format!("{prefix}/expenses-journal"),
+                post(create_expense).get(list_expenses),
             )
             .route(
                 &format!("{prefix}/cash-receipts-journal"),

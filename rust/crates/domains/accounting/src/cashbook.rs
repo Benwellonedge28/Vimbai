@@ -219,7 +219,10 @@ pub fn create_entry<G: Graph + ?Sized>(
     } else {
         Money::parse("1").map_err(|error| StoreError::Invalid(format!("{error}")))?
     };
-    let base = if currency == "USD" {
+    // the Book's own money is what a balance is kept in, and it is not always dollars: a Book keeping bond notes that
+    // records a dollar entry has to carry it at the rate, or the account's balance adds the two as though they were one
+    let book = crate::document_currency::book_currency(graph, scope);
+    let base = if currency == book {
         amount_value.clone()
     } else {
         amount_value.times(&rate)
@@ -897,6 +900,7 @@ mod tests {
     #[test]
     fn a_debit_raises_the_account_and_a_credit_lowers_it() {
         let graph = FakeGraph::queue(vec![
+            vec![json!({"reporting_currency": "USD"})],
             vec![account("1000", "bank", "USD", "500", "500")],
             vec![json!({"id": "acc-1000"})],
             vec![json!({"id": "e-1"})],
@@ -910,13 +914,14 @@ mod tests {
                     "posted_by": "clerk"}),
         )
         .expect("written");
-        let (_, patch) = graph.statement(1);
+        let (_, patch) = graph.statement(2);
         assert_eq!(patch["patch"]["current_balance"], json!("750.250000"));
     }
 
     #[test]
     fn a_foreign_entry_is_converted_before_it_touches_the_balance() {
         let graph = FakeGraph::queue(vec![
+            vec![json!({"reporting_currency": "USD"})],
             vec![account("1000", "bank", "USD", "0", "0")],
             vec![json!({"id": "acc-1000"})],
             vec![json!({"id": "e-1"})],
@@ -928,9 +933,9 @@ mod tests {
                     "exchange_rate": "1.35", "is_debit": false, "bank_account": "1000"}),
         )
         .expect("written");
-        let (_, patch) = graph.statement(1);
+        let (_, patch) = graph.statement(2);
         assert_eq!(patch["patch"]["current_balance"], json!("-135.000000"));
-        let (_, created) = graph.statement(2);
+        let (_, created) = graph.statement(3);
         assert_eq!(created["props"]["base_amount"], json!("135.000000"));
         assert_eq!(created["props"]["reconciled"], json!(false));
     }

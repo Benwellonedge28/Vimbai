@@ -1683,6 +1683,8 @@ async fn a_published_ifrs_report_cannot_be_approved_again() {
 #[tokio::test]
 async fn a_cash_entry_moves_the_account_it_is_written_against() {
     let graph = Scripted::queue(vec![
+        // the money the Book keeps its books in, which an entry in another money is carried into
+        vec![json!({"reporting_currency": "USD"})],
         vec![
             json!({"id": "acc-1", "account_code": "1000", "account_type": "bank",
                     "currency": "USD", "opening_balance": "500", "current_balance": "500",
@@ -1705,7 +1707,7 @@ async fn a_cash_entry_moves_the_account_it_is_written_against() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let (_, patch) = seen.statement(1);
+    let (_, patch) = seen.statement(2);
     assert_eq!(
         patch["patch"]["current_balance"],
         json!("123456789012345679401.550000")

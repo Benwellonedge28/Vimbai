@@ -34,6 +34,7 @@ pub mod company_accounting;
 pub mod departments;
 pub mod document_currency;
 pub mod exchange;
+pub mod expenses;
 pub mod fund_accounting;
 pub mod fx_balances;
 pub mod fx_revaluation;

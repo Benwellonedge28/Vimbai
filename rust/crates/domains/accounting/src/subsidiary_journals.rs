@@ -52,7 +52,7 @@ use vimbai_store::write::remember;
 
 /// Posts a document's double entry and returns the entry's id.
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
-fn post(
+pub(crate) fn post(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
     payload: &Value,
@@ -85,7 +85,7 @@ fn post(
 
 /// A document's tax cannot be more than the document. A tax larger than the net is not a rate anybody charges; it is a
 /// total typed into the tax field, and posting it would leave the sale earning less than nothing.
-fn check_tax_fits(tax: &Money, net: &Money, what: &str) -> Result<(), StoreError> {
+pub(crate) fn check_tax_fits(tax: &Money, net: &Money, what: &str) -> Result<(), StoreError> {
     if *tax > *net {
         return Err(refused(&format!(
             "The tax on {what} is {} which is more than the {} the document comes to. Check which figure is the tax.",
@@ -151,24 +151,27 @@ fn tax_account<G: Graph + ?Sized>(
 /// The total on each side is still the document's net, so the entry balances exactly as it did before.
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
 /// One tax on a document: its name, the account it posts to, and how much it is.
-type TaxLine = (String, String, String, Money);
+pub(crate) type TaxLine = (String, String, String, Money);
 
 /// Which way a taxed document moves, so one posting helper serves a sale, a purchase and their reversals.
 ///
 /// A return is the exact mirror of the document it returns, so it is posted by building the forward lines and turning
 /// each one round. That way a change to how a sale posts cannot leave its return posting something else.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum TaxedDocument {
+pub(crate) enum TaxedDocument {
     Sale,
     SalesReturn,
     Purchase,
     PurchaseReturn,
+    /// A general expense: money going out to somebody who is not a supplier of stock. It carries its tax the way a
+    /// purchase does, because the tax inside a cost is reclaimed rather than charged again.
+    Expense,
 }
 
 impl TaxedDocument {
     /// True where the document is money going out to a supplier rather than coming in from a customer.
-    fn is_purchase(self) -> bool {
-        matches!(self, Self::Purchase | Self::PurchaseReturn)
+    pub(crate) fn is_purchase(self) -> bool {
+        matches!(self, Self::Purchase | Self::PurchaseReturn | Self::Expense)
     }
 
     /// True where the document takes back one already posted, so every line moves the other way.
@@ -213,7 +216,7 @@ fn named_taxes(payload: &Value) -> Vec<String> {
 /// The tax comes out of that figure rather than being added on top, so a car sold for 100,000 has its tax taken out of
 /// the 100,000. Each tax is returned with its own account, because each is owed to a different place and appears on a
 /// different return, and one line per tax is what the journal posts.
-fn tax_from_total(
+pub(crate) fn tax_from_total(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
     payload: &Value,
@@ -258,7 +261,7 @@ fn tax_from_total(
 /// A single tax still goes through here, so the account posted to is the tax's own rather than whichever account the
 /// Book happens to call VAT.
 #[allow(clippy::too_many_arguments)]
-fn post_taxed_lines(
+pub(crate) fn post_taxed_lines(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
     payload: &Value,
@@ -331,7 +334,7 @@ fn post_taxed_lines(
 }
 
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
-fn post_taxed(
+pub(crate) fn post_taxed(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
     payload: &Value,

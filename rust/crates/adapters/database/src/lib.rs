@@ -392,6 +392,9 @@ pub const SALES_RETURNS_JOURNAL: RecordKind =
 pub const PURCHASES_RETURNS_JOURNAL: RecordKind =
     RecordKind::new("PurchasesReturnsJournalEntry", "OWNS_PURCHASES_RETURN");
 pub const VENDOR_BILL: RecordKind = RecordKind::new("VendorBill", "OWNS_VENDOR_BILL");
+/// General expenses: the ordinary costs of being open, paid or still owed.
+pub const EXPENSES_JOURNAL: RecordKind =
+    RecordKind::new("ExpensesJournalEntry", "OWNS_EXPENSES_JOURNAL_ENTRY");
 
 /// The records accounting-service owns: the chart of accounts and the journal written against it.
 pub const LEDGER_ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_LEDGER_ACCOUNT");
