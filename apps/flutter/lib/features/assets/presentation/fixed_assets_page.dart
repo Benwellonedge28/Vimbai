@@ -449,7 +449,7 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AssetCategory>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(labelText: 'Kind'),
               items: [
                 for (final category in AssetCategory.values)
@@ -519,7 +519,7 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<DepreciationMethod>(
-              value: _method,
+              initialValue: _method,
               decoration: const InputDecoration(labelText: 'Written off'),
               items: [
                 for (final method in DepreciationMethod.values)

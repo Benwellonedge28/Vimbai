@@ -532,7 +532,7 @@ class _DisposeAssetSheetState extends State<DisposeAssetSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _method,
+              initialValue: _method,
               decoration: const InputDecoration(labelText: 'How it went'),
               items: const [
                 DropdownMenuItem(value: 'sale', child: Text('Sold')),

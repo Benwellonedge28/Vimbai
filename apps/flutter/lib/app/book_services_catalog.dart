@@ -20,6 +20,8 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/income_sta
 import 'package:vimbai_mobile_client/features/accounting/presentation/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/discounts_page.dart';
+import 'package:vimbai_mobile_client/features/accruals/presentation/a_cost_not_yet_billed_page.dart';
+import 'package:vimbai_mobile_client/features/accruals/presentation/paid_up_front_page.dart';
 import 'package:vimbai_mobile_client/features/depreciation/presentation/post_depreciation_page.dart';
 import 'package:vimbai_mobile_client/features/expenses/presentation/record_expense_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
@@ -344,6 +346,18 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'Rent, fuel, wages: paid now or still owed',
           icon: Icons.receipt_outlined,
           page: (context) => const RecordExpensePage(),
+        ),
+        BookServiceEntry(
+          title: 'A cost not yet billed',
+          description: 'A month that used something, before the bill comes',
+          icon: Icons.schedule_outlined,
+          page: (context) => const ACostNotYetBilledPage(),
+        ),
+        BookServiceEntry(
+          title: 'Paid up front',
+          description: 'Money paid now for months the business has not used',
+          icon: Icons.savings_outlined,
+          page: (context) => const PaidUpFrontPage(),
         ),
         BookServiceEntry(
           title: 'Wear on what you own',

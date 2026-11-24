@@ -241,7 +241,7 @@ class _PersonalFinancePageState extends State<PersonalFinancePage> {
                 keyboardType: TextInputType.number,
               ),
               DropdownButtonFormField<String>(
-                value: freq,
+                initialValue: freq,
                 items: ['weekly', 'monthly', 'quarterly', 'yearly']
                     .map((f) => DropdownMenuItem(value: f, child: Text(f)))
                     .toList(),
