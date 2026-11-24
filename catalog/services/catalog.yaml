@@ -204,6 +204,7 @@ services:
   - GET /accounting/single-entry-conversions
   - GET /accounting/statements-of-affairs
   - GET /accounting/statements-of-affairs/{}
+  - GET /accounting/stock-adjustments
   - GET /accounting/subsidiary-ledgers/accounts-payable
   - GET /accounting/subsidiary-ledgers/accounts-receivable
   - GET /accounting/subsidiary-ledgers/fixed-assets
@@ -245,6 +246,7 @@ services:
   - POST /accounting/sales-returns-journal
   - POST /accounting/single-entry-conversions
   - POST /accounting/statements-of-affairs
+  - POST /accounting/stock-adjustments
   - POST /accounting/taxes
   - POST /accounting/taxes/compute
   - POST /accounting/taxes/retire

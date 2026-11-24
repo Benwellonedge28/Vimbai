@@ -50,6 +50,7 @@ pub mod payroll;
 pub mod periods;
 pub mod revenue_recognition;
 pub mod standards;
+pub mod stock_adjustments;
 pub mod subsidiary_journals;
 pub mod suspense;
 pub mod tax;

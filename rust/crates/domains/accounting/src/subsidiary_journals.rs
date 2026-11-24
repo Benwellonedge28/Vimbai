@@ -130,7 +130,7 @@ pub(crate) fn positive(payload: &Value, key: &str, what: &str) -> Result<Money, 
 ///
 /// A journal that posts through here with a reference it means to be unique must also be named in
 /// `ledger_book::REFERENCE_CHECKED`, or the ledger will post the same reference twice without noticing. The names used so
-/// far are `ExpensesJournal`, `AccrualsJournal`, `PrepaymentsJournal`, `Payroll`, `BadDebts` and `OpeningBalances`.
+/// far are `ExpensesJournal`, `AccrualsJournal`, `PrepaymentsJournal`, `Payroll`, `BadDebts`, `StockAdjustments` and `OpeningBalances`.
 #[allow(clippy::too_many_arguments)] // one argument per posting decision, mirroring the document
 pub(crate) fn post(
     graph: &(impl Graph + ?Sized),

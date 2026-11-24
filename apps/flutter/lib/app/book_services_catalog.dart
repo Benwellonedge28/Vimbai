@@ -34,6 +34,7 @@ import 'package:vimbai_mobile_client/features/payables/presentation/buy_stock_pa
 import 'package:vimbai_mobile_client/features/payables/presentation/due_plan_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/return_to_supplier_page.dart';
+import 'package:vimbai_mobile_client/features/stock_adjustments/presentation/stock_count_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
@@ -371,6 +372,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A month of use on your assets, into the books',
           icon: Icons.trending_down,
           page: (context) => const PostDepreciationPage(),
+        ),
+        BookServiceEntry(
+          title: 'Stock that is not what the books say',
+          description: 'What a count found: a shortage, or stock found',
+          icon: Icons.inventory_outlined,
+          page: (context) => const StockCountPage(),
         ),
         BookServiceEntry(
           title: 'Goods back from a customer',
