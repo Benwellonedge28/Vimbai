@@ -170,7 +170,7 @@ pub fn list_periods<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<V
 }
 
 /// The first day of the month after `2026-11`, as a date: `2026-12-01`.
-fn first_day_after(month: &str) -> String {
+pub fn first_day_after(month: &str) -> String {
     let year: i32 = month[..4].parse().unwrap_or(0);
     let number: u32 = month[5..7].parse().unwrap_or(1);
     if number == 12 {

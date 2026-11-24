@@ -178,6 +178,12 @@ pub const OAR_ANALYSIS: RecordKind = RecordKind::new("OARAnalysis", "OWNS_OAR_AN
 /// The cost-volume-profit analyses cvp-analysis-service owns.
 pub const CVP_ANALYSIS: RecordKind = RecordKind::new("CVPAnalysis", "OWNS_CVP_ANALYSIS");
 
+/// A cost charged to a month it has not been billed for, with the entry that posted it and the one that took it back.
+pub const ACCRUAL: RecordKind = RecordKind::new("Accrual", "OWNS_ACCRUAL");
+
+/// Money paid now for something the business will use over several months.
+pub const PREPAYMENT: RecordKind = RecordKind::new("Prepayment", "OWNS_PREPAYMENT");
+
 /// The fixed asset register fixed-assets-register-service owns.
 pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_ASSET");
 pub const DEPRECIATION_ENTRY: RecordKind =

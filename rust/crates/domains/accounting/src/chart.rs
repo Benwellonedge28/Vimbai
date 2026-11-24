@@ -65,14 +65,18 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 10] = [
+pub const BUSINESS: [StandardAccount; 12] = [
     account("1100", "Accounts Receivable", "asset", "debit"),
     account("1200", "Inventory", "asset", "debit"),
+    // money already paid for something not yet used: it is the business's, but it is not this month's cost
+    account("1300", "Prepaid Expenses", "asset", "debit"),
     account("1500", "Equipment", "asset", "debit"),
     // what an asset has been used up by is kept beside it rather than taken off it, so a reader can see both what the
     // business paid for the thing and how much of it is gone
     account("1510", "Accumulated Depreciation", "asset", "credit"),
     account("2100", "VAT Payable", "liability", "credit"),
+    // a cost used this month that nobody has billed yet: the month carries it and the business owes it
+    account("2200", "Accrued Expenses", "liability", "credit"),
     account("4050", "Sales Returns", "revenue", "debit"),
     // A business that trades in another money makes and loses money on the rate itself. That is not trading income, so
     // it gets its own pair rather than being folded into sales or costs: a gain is revenue, a loss is an expense, and a

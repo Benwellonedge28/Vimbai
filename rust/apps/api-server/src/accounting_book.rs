@@ -1,5 +1,6 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
+use accounting::accruals;
 use accounting::bookkeeping as papers;
 use accounting::depreciation;
 use accounting::expenses;
@@ -664,6 +665,102 @@ async fn list_expenses(
     ))
 }
 
+async fn record_accrual(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::record_accrual(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn reverse_accrual(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::reverse_accrual(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_accruals(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::list_accruals(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn record_prepayment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::record_prepayment(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn release_prepayment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::release_prepayment(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
+async fn list_prepayments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accruals::list_prepayments(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 async fn post_depreciation_month(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1247,6 +1344,21 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/expenses-journal"),
                 post(create_expense).get(list_expenses),
+            )
+            // a month's profit has to be true even when the paperwork is late: a cost used but not billed, and money
+            // paid now for something used later
+            .route(
+                &format!("{prefix}/accruals"),
+                post(record_accrual).get(list_accruals),
+            )
+            .route(&format!("{prefix}/accruals/reverse"), post(reverse_accrual))
+            .route(
+                &format!("{prefix}/prepayments"),
+                post(record_prepayment).get(list_prepayments),
+            )
+            .route(
+                &format!("{prefix}/prepayments/release"),
+                post(release_prepayment),
             )
             // the wear on what the business keeps, read from the asset register and posted to the books
             .route(

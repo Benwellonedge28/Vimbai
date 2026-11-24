@@ -169,6 +169,7 @@ services:
   - GET /accounting/accounts/{}
   - GET /accounting/accounts/{}/period-activity
   - GET /accounting/accounts/{}/postings
+  - GET /accounting/accruals
   - GET /accounting/balance-sheet
   - GET /accounting/bank-reconciliation
   - GET /accounting/bank-reconciliation/latest/{}
@@ -191,6 +192,7 @@ services:
   - GET /accounting/ledgers/{}
   - GET /accounting/petty-cash-entries
   - GET /accounting/petty-cash-funds
+  - GET /accounting/prepayments
   - GET /accounting/profit-estimations
   - GET /accounting/purchases-journal
   - GET /accounting/receipts-payments
@@ -208,6 +210,8 @@ services:
   - GET /accounting/trial-balance
   - GET /accounting/vendor-bills
   - POST /accounting/accounts
+  - POST /accounting/accruals
+  - POST /accounting/accruals/reverse
   - POST /accounting/bank-reconciliation
   - POST /accounting/capital-calculations
   - POST /accounting/cash-disbursements-journal
@@ -225,6 +229,8 @@ services:
   - POST /accounting/journal-entries/{}/reverse
   - POST /accounting/petty-cash-entries
   - POST /accounting/petty-cash-funds
+  - POST /accounting/prepayments
+  - POST /accounting/prepayments/release
   - POST /accounting/profit-estimations
   - POST /accounting/purchases-journal
   - POST /accounting/purchases-returns-journal

@@ -56,7 +56,7 @@ use vimbai_store::{
 };
 
 /// The source modules whose reference numbers the service keeps unique.
-const REFERENCE_CHECKED: [&str; 8] = [
+const REFERENCE_CHECKED: [&str; 10] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -64,6 +64,10 @@ const REFERENCE_CHECKED: [&str; 8] = [
     // an expense is typed from a receipt by a person, like a manual entry, so its reference has to be unique or the same
     // cost can be recorded twice without anything noticing
     "ExpensesJournal",
+    // an estimate is one per cost per month and a prepayment's month is released once, so the reference says which cost
+    // and which month: a second press must be refused rather than charging or spending the same month twice
+    "AccrualsJournal",
+    "PrepaymentsJournal",
     "Invoicing",
     "Multimodal",
     "SupplyChain",
