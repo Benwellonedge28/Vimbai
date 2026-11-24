@@ -21,6 +21,7 @@ import 'package:vimbai_mobile_client/features/accounting/presentation/journal_en
 import 'package:vimbai_mobile_client/features/accounting/presentation/ledger_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/discounts_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
+import 'package:vimbai_mobile_client/features/invoicing/presentation/return_from_customer_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
 import 'package:vimbai_mobile_client/features/assets/presentation/fixed_assets_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/spending_plan_page.dart';
@@ -335,6 +336,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A credit purchase, into inventory and payables',
           icon: Icons.inventory_2_outlined,
           page: (context) => const BuyStockPage(),
+        ),
+        BookServiceEntry(
+          title: 'Goods back from a customer',
+          description: 'A return, taking the sale back and what they owe down',
+          icon: Icons.keyboard_return_outlined,
+          page: (context) => const ReturnFromCustomerPage(),
         ),
         BookServiceEntry(
           title: 'Goods back to a supplier',
