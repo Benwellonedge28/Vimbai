@@ -10,6 +10,7 @@ import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/data/sale_posting.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoice_detail_page.dart';
 import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
 import 'package:vimbai_mobile_client/features/tax/data/tax_table.dart';
@@ -71,6 +72,40 @@ class _FakeLedger extends AccountingApiService {
   Future<JournalEntry> createJournalEntry(JournalEntry entry) async {
     written.add(entry);
     return entry;
+  }
+}
+
+/// Stands in for the engine's sales journal: it remembers what it was asked to post.
+class _FakeSales extends SalePostingService {
+  _FakeSales() : super.fresh();
+
+  final List<Map<String, Object>> posted = [];
+
+  @override
+  Future<SalePosted> post({
+    required String entryDate,
+    required String invoiceNumber,
+    required String customerId,
+    required ExactAmount total,
+    required List<String> taxes,
+    ExactAmount? discount,
+    String currency = '',
+    String rate = '',
+    String status = 'outstanding',
+  }) async {
+    posted.add({
+      'invoice_number': invoiceNumber,
+      'total': total.toDecimalString(),
+      'currency': currency,
+      'rate': rate,
+      'taxes': taxes,
+    });
+    return SalePosted(
+      invoiceNumber: invoiceNumber,
+      totalAmount: '2550000.00',
+      taxAmount: '0',
+      journalEntryId: 'je-usd',
+    );
   }
 }
 
@@ -361,12 +396,13 @@ void main() {
   );
 
   testWidgets(
-    'a sale billed abroad is not posted from here as if its money were the Book\'s',
+    'a sale billed abroad is posted through the engine, at the rate it was raised at',
     (tester) async {
       final ledger = _FakeLedger([
         _account('1100', 'Accounts Receivable', 'asset'),
         _account('4000', 'Sales', 'revenue'),
       ]);
+      final sales = _FakeSales();
       final abroad = Invoice(
         invoiceNumber: 'USD-1',
         customerId: 'acme',
@@ -392,6 +428,7 @@ void main() {
             invoice: abroad,
             accounting: ledger,
             tax: const _NoTax(),
+            sales: sales,
           ),
         ),
       );
@@ -402,11 +439,18 @@ void main() {
       await tester.tap(find.text('Post it'));
       await tester.pumpAndSettle();
 
-      // nothing was written: 100,000 dollars are not 100,000 of the Book's money
-      expect(ledger.written, isEmpty);
-      expect(find.textContaining('billed in USD'), findsOneWidget);
-      // the money line on the invoice and the refusal both say the rate
-      expect(find.textContaining('at 25.5'), findsWidgets);
+      // the engine converts: the phone sends the dollars and the rate, never a converted figure of its own
+      final sent = sales.posted.single;
+      expect(sent['total'], '100000.00', reason: 'the customer\'s own figure');
+      expect(sent['currency'], 'USD');
+      expect(sent['rate'], '25.500000');
+      expect(
+        ledger.written,
+        isEmpty,
+        reason:
+            'no line is built here, so a dollar sale can never land as Book money',
+      );
+      expect(find.textContaining('2550000.00'), findsWidgets);
     },
   );
 }

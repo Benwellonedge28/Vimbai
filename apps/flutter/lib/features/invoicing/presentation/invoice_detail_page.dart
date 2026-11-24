@@ -14,6 +14,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_dr
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/invoicing_service.dart';
+import 'package:vimbai_mobile_client/features/invoicing/data/sale_posting.dart';
 import 'package:vimbai_mobile_client/features/invoicing/data/sales_return.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/take_a_sale_back_sheet.dart';
 import 'package:vimbai_mobile_client/features/tax/data/sale_tax.dart';
@@ -29,6 +30,7 @@ class InvoiceDetailPage extends StatefulWidget {
     this.cash,
     this.tax,
     this.returns,
+    this.sales,
   });
 
   final Invoice invoice;
@@ -48,6 +50,9 @@ class InvoiceDetailPage extends StatefulWidget {
   /// The returns route, injectable for the same reason.
   final SalesReturnService? returns;
 
+  /// The sales journal, which posts a sale billed in another money, injectable for the same reason.
+  final SalePostingService? sales;
+
   @override
   State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
 }
@@ -62,6 +67,9 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
   late final CashBookService _cash = widget.cash ?? CashBookService();
 
   late final SaleTaxReads _tax = widget.tax ?? EngineSaleTax();
+
+  late final SalePostingService _sales =
+      widget.sales ?? SalePostingService.instance;
 
   late Invoice _invoice = widget.invoice;
   bool _recording = false;
@@ -287,18 +295,34 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
         return;
       }
       // A sale billed in another money is carried into the Book's own money by the engine, at the rate the invoice was
-      // raised at. This screen builds its lines from the figures the customer sees, so posting from here would carry
-      // 100,000 dollars as if they were 100,000 of the Book's money. Rather than post a figure nobody can reconcile, it
-      // says so and leaves the posting to the engine's own sale route, which converts.
+      // raised at, so it is posted through the sales journal rather than built here from the figures the customer sees.
+      // Building the lines here would carry 100,000 dollars as if they were 100,000 of the Book's money.
       if (_invoice.billedAbroad) {
-        setState(() => _posting = false);
-        _say(
-          '${_invoice.invoiceNumber} was billed in ${_invoice.currency} '
-          '${_invoice.moneyWord.isEmpty ? '' : 'at ${_invoice.rate.trim().replaceFirst(RegExp(r'\.?0+\$'), '')}'}'
-          ', so its sale is posted in this Book\'s own money at that rate. '
-          'Posting it from here would carry '
-          '${total.toDecimalString()} as if it were ${_invoice.currency}.',
-        );
+        try {
+          final posted = await _sales.post(
+            entryDate: _invoice.invoiceDate,
+            invoiceNumber: _invoice.invoiceNumber,
+            customerId: _invoice.customerId,
+            total: _invoice.total,
+            discount: _invoice.discount.isZero ? null : _invoice.discount,
+            taxes: chosen,
+            currency: _invoice.currency,
+            rate: _invoice.rate,
+          );
+          if (!mounted) return;
+          setState(() {
+            _posting = false;
+            _posted = true;
+          });
+          _say(
+            '${_invoice.invoiceNumber} is in the ledger, carried at '
+            '${posted.totalAmount} in this Book\'s money.',
+          );
+        } catch (failure) {
+          if (!mounted) return;
+          setState(() => _posting = false);
+          _say(CouldNotRead.reasonOf(failure));
+        }
         return;
       }
       final lines = carried != null
