@@ -17,6 +17,7 @@ import 'package:vimbai_mobile_client/features/accounting/data/accounting_api_ser
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
+import 'package:vimbai_mobile_client/features/payables/data/foreign_bill_payment.dart';
 
 class PaySupplierOutSheet extends StatefulWidget {
   const PaySupplierOutSheet({
@@ -27,6 +28,8 @@ class PaySupplierOutSheet extends StatefulWidget {
     required this.ledger,
     this.reference = '',
     this.onDate,
+    this.vendorId = '',
+    this.bills,
   });
 
   final ExactAmount amount;
@@ -40,6 +43,12 @@ class PaySupplierOutSheet extends StatefulWidget {
   /// For a test to fix the day; today otherwise.
   final String? onDate;
 
+  /// The supplier, so the bill behind this payment can be found and asked what money it was in.
+  final String vendorId;
+
+  /// The bills route, injectable so a test can answer without a server.
+  final ForeignBillPaymentService? bills;
+
   static Future<CashEntry?> show(
     BuildContext context, {
     required ExactAmount amount,
@@ -47,6 +56,8 @@ class PaySupplierOutSheet extends StatefulWidget {
     required CashBookService cash,
     required AccountingApiService ledger,
     String reference = '',
+    String vendorId = '',
+    ForeignBillPaymentService? bills,
   }) => showModalBottomSheet<CashEntry>(
     context: context,
     isScrollControlled: true,
@@ -56,6 +67,8 @@ class PaySupplierOutSheet extends StatefulWidget {
       cash: cash,
       ledger: ledger,
       reference: reference,
+      vendorId: vendorId,
+      bills: bills,
     ),
   );
 
@@ -72,10 +85,45 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
   Account? _against;
   CashAccount? _place;
 
+  late final ForeignBillPaymentService _bills =
+      widget.bills ?? ForeignBillPaymentService.instance;
+
+  /// The bill behind this payment, when the supplier raised it in another money.
+  BillInAnotherMoney? _abroad;
+
+  /// What one of that money is worth the day it is paid, as the person gives it.
+  final TextEditingController _todayRate = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _todayRate.dispose();
+    super.dispose();
+  }
+
+  /// The rate on the day, or nothing when it does not read as a figure.
+  ExactAmount? get _rateToday {
+    final typed = _todayRate.text.trim();
+    if (typed.isEmpty) return null;
+    try {
+      final rate = ExactAmount.parse(typed);
+      return rate.isZero ? null : rate;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// What paying the bill would cost in the Book's money at the rate given, or nothing yet.
+  ExactAmount? get _worthPaying {
+    final abroad = _abroad;
+    final rate = _rateToday;
+    if (abroad == null || rate == null) return null;
+    return abroad.worthAt(rate);
   }
 
   Future<void> _load() async {
@@ -86,6 +134,17 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
     try {
       final places = await widget.cash.accounts();
       final chart = await widget.ledger.getAllAccounts();
+      // a bill raised in another money needs its own money and its own rate; a bill in this Book's money answers nothing,
+      // and a read that fails leaves the ordinary payment exactly as it was
+      BillInAnotherMoney? abroad;
+      try {
+        abroad = await _bills.find(
+          vendorId: widget.vendorId,
+          reference: widget.reference,
+        );
+      } catch (_) {
+        abroad = null;
+      }
       if (!mounted) return;
       setState(() {
         _places = [
@@ -94,6 +153,7 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
         ];
         _against = payableAccount(chart);
         _place = _places.isEmpty ? null : _places.first;
+        _abroad = abroad;
         _loading = false;
       });
     } catch (failure) {
@@ -124,21 +184,50 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
       );
       return;
     }
+    // a bill in another money is paid in its own money at the rate of the day, and the difference between what the books
+    // carried and what actually left is posted on the payable side
+    final abroad = _abroad;
+    final rate = _rateToday;
+    if (abroad != null && rate == null) {
+      setState(
+        () => _complaint =
+            'Say what one ${abroad.currency} is worth today, so the payment can be '
+            'recorded in the money it was billed in.',
+      );
+      return;
+    }
+    final worth = abroad == null ? null : abroad.worthAt(rate!);
     setState(() {
       _saving = true;
       _complaint = null;
     });
+    final day =
+        widget.onDate ?? DateTime.now().toIso8601String().substring(0, 10);
     try {
       final entry = await widget.cash.record(
         account: place,
         moneyIn: false,
-        amount: widget.amount,
+        amount: abroad?.outstandingUnits ?? widget.amount,
         description: 'Paid ${widget.supplierName}'.trim(),
-        date:
-            widget.onDate ?? DateTime.now().toIso8601String().substring(0, 10),
+        date: day,
         voucher: widget.reference,
         againstAccount: against.accountNumber,
+        currency: abroad?.currency ?? '',
+        rate: abroad == null ? '' : rate!.toDecimalString(),
       );
+      if (!mounted) return;
+      if (abroad != null &&
+          worth != null &&
+          worth != abroad.outstandingCarried) {
+        // the money has left, so the difference is posted after it: a posting that failed here must not stop the payment
+        // having been recorded, and the message says which of the two happened
+        await _bills.recordDifference(
+          entryDate: day,
+          reference: widget.reference,
+          carried: abroad.outstandingCarried,
+          received: worth,
+        );
+      }
       if (!mounted) return;
       Navigator.of(context).pop(entry);
     } catch (failure) {
@@ -175,6 +264,32 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
             ),
             const SizedBox(height: 12),
             if (_loading) const LinearProgressIndicator(),
+            if (!_loading && _abroad != null) ...[
+              Text(
+                '${_abroad!.billNumber} was billed in ${_abroad!.currency}: '
+                '${_abroad!.outstandingUnits.toDecimalString()} '
+                '${_abroad!.currency} still owed, carried at '
+                '${_abroad!.outstandingCarried.toDecimalString()}.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _todayRate,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'What one ${_abroad!.currency} is worth today',
+                  helperText: _worthPaying == null
+                      ? 'The payment is recorded in the money it was billed in.'
+                      : 'Paying the rest costs '
+                            '${_worthPaying!.toDecimalString()} in this '
+                            "Book's money.",
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 8),
+            ],
             if (_error != null)
               CouldNotRead(
                 what: 'Where the money could have left from',

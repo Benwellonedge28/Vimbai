@@ -262,6 +262,8 @@ class CashBookService {
     required String date,
     String voucher = '',
     String againstAccount = '',
+    String currency = '',
+    String rate = '',
   }) async {
     if (amount.isZero) {
       throw Exception('An entry has to be more than nothing.');
@@ -280,6 +282,11 @@ class CashBookService {
         'description': description.trim(),
         'account_code': againstAccount.trim(),
         'amount': amount.toLedgerString(),
+        // a movement in another money says so, and the rate it moved at, so the account's balance moves by the Book's own
+        // figure while the entry keeps what actually changed hands
+        if (currency.trim().isNotEmpty)
+          'currency': currency.trim().toUpperCase(),
+        if (rate.trim().isNotEmpty) 'exchange_rate': rate.trim(),
         'is_debit': moneyIn,
         'bank_account': account.code,
         'book_type': moneyIn ? 'receipts' : 'payments',

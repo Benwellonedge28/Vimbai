@@ -19,8 +19,8 @@ use vimbai_common::Money;
 use vimbai_store::amounts::wire;
 use vimbai_store::read::{field, money_or_nothing, text};
 use vimbai_store::{
-    BookScope, Graph, Records, StoreError, CASH_DISBURSEMENTS_JOURNAL, CASH_RECEIPTS_JOURNAL,
-    SALES_JOURNAL, VENDOR_BILL,
+    BookScope, Graph, Records, StoreError, CASH_DISBURSEMENTS_JOURNAL, CASH_ENTRY,
+    CASH_RECEIPTS_JOURNAL, SALES_JOURNAL, VENDOR_BILL,
 };
 
 /// One document raised in another money, as the books recorded it.
@@ -202,6 +202,43 @@ fn settlements(
     let mut settled: Vec<Settled> = Vec::new();
     for journal in [CASH_RECEIPTS_JOURNAL, CASH_DISBURSEMENTS_JOURNAL] {
         settled.extend(recorded_against(graph, scope, journal)?);
+    }
+    settled.extend(cash_book_settlements(graph, scope)?);
+    Ok(settled)
+}
+
+/// The settlements the cash book recorded, which keeps the money it was in and the rate it was recorded at.
+///
+/// A cash book entry already says what money it was in, how much of that money moved and which voucher it was against, so a
+/// payment recorded there clears a foreign bill as surely as one recorded in a journal does. An entry in the Book's own
+/// money is not a foreign settlement and is skipped, and so is one with no voucher, because a movement that names no
+/// document has not said which debt it cleared.
+fn cash_book_settlements(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+) -> Result<Vec<Settled>, StoreError> {
+    let book = crate::document_currency::book_currency(graph, scope)
+        .trim()
+        .to_uppercase();
+    let mut settled: Vec<Settled> = Vec::new();
+    for record in Records::new(graph, CASH_ENTRY).list(scope, 4000)? {
+        let currency = text(&record, "currency").trim().to_uppercase();
+        if currency.is_empty() || currency == book {
+            continue;
+        }
+        let document = text(&record, "voucher_number").trim().to_string();
+        if document.is_empty() {
+            continue;
+        }
+        let units = money_or_nothing(&record, "amount")?;
+        if units.is_zero() {
+            continue;
+        }
+        settled.push(Settled {
+            currency,
+            document,
+            units,
+        });
     }
     Ok(settled)
 }

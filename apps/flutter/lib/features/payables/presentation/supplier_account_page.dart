@@ -18,6 +18,7 @@ import 'package:vimbai_mobile_client/features/accounting/models/journal_entry_dr
 import 'package:vimbai_mobile_client/features/cashbook/data/cashbook_service.dart';
 import 'package:vimbai_mobile_client/features/banking/data/currencies.dart';
 import 'package:vimbai_mobile_client/features/payables/data/bill_posting.dart';
+import 'package:vimbai_mobile_client/features/payables/data/foreign_bill_payment.dart';
 import 'package:vimbai_mobile_client/features/payables/data/vendor_bill_posting.dart';
 import 'package:vimbai_mobile_client/features/payables/data/supplier_account.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/pay_supplier_out_sheet.dart';
@@ -68,6 +69,11 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
 
   late final VendorBillPostingService _bills =
       widget.bills ?? VendorBillPostingService.instance;
+
+  /// The bills route that tells a payment what money the bill was in. A test that has not replaced it gets the app's own,
+  /// which answers nothing when the bill is in this Book's money.
+  late final ForeignBillPaymentService _foreignBills =
+      ForeignBillPaymentService.instance;
 
   late final CurrencyService _currencies =
       widget.currencies ?? CurrencyService.instance;
@@ -401,6 +407,8 @@ class _SupplierAccountPageState extends State<SupplierAccountPage> {
       cash: _cash,
       ledger: _ledger,
       reference: line.reference.trim(),
+      vendorId: widget.supplierId,
+      bills: widget.bills == null ? null : _foreignBills,
     );
     if (!mounted) return;
     if (entry == null) return;

@@ -134,6 +134,8 @@ class _FakeCash extends CashBookService {
     required String date,
     String voucher = '',
     String againstAccount = '',
+    String currency = '',
+    String rate = '',
   }) async {
     written.add({
       'account': account.code,
