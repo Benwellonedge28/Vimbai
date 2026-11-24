@@ -9,6 +9,7 @@ import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts
 import 'package:vimbai_mobile_client/features/accounting/presentation/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/budgets_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/cash_flow_statement_page.dart';
+import 'package:vimbai_mobile_client/features/accounting/presentation/exchange_differences_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/chart_of_accounts_page.dart';
 import 'package:vimbai_mobile_client/features/reporting/presentation/financial_ratios_page.dart';
 import 'package:vimbai_mobile_client/features/group_savings/presentation/group_savings_page.dart';
@@ -317,6 +318,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'Where the money went, and what for',
           icon: Icons.currency_exchange,
           page: (context) => const CashFlowStatementPage(),
+        ),
+        BookServiceEntry(
+          title: 'What the rate did',
+          description: 'Gains and losses from trading in another money',
+          icon: Icons.currency_exchange,
+          page: (context) => const ExchangeDifferencesPage(),
         ),
         BookServiceEntry(
           title: 'Financial ratios',
