@@ -299,8 +299,9 @@ Exit criteria
 
 ### P8. Data layer
 
-**Decided in ADR-007.** Postgres is the system of record for a deployment, SQLite on a device, and Neo4j stays behind the
-trait as a working backend and a possible read model rather than something to build on.
+**Decided in ADR-007**, and narrowed on 2026-11-25: Postgres is the system of record for a deployment and SQLite on a
+device, Neo4j is frozen rather than extended, several stores in one deployment is deferred, and every provider Vimbai
+offers has to pass one conformance suite (`tests/every_store_keeps_the_same_rules.rs`).
 
 Tasks, in the order they were done:
 
@@ -320,6 +321,15 @@ Tasks, in the order they were done:
   wrote, moved into the trait so the behaviour did not change while the shape did. A backend that refuses `run` outright
   and answers only the doors serves every caller, which is what the Postgres implementation has to be, and that is a test
   rather than a claim. A gate over the crate's own source fails if a caller goes back to writing statements.
+- P8.8 **Done.** One conformance suite, every store. `rust/crates/adapters/database/tests/conformance/mod.rs` holds the
+  rules a provider must keep, and `tests/every_store_keeps_the_same_rules.rs` runs them against the memory graph, the file
+  store, SQLite, and Postgres wherever a server is available. It pins, naming no dialect: a record reads back as written,
+  another Book sees nothing and cannot reach a record by id, another kind holds nothing, an update changes only what it
+  named, a figure survives to the last digit, a listing holds every record of the Book once, a page from a place holds
+  exactly the rows after it in id order, a delete removes the record and a second delete is refused, and an edge written is
+  an edge reported. Portability was a claim made by one trait; it is now a fact a provider has to pass. ADR-007 carries the
+  amendment: Postgres and SQLite are the two targets, Neo4j is frozen rather than extended, and several stores in one
+  deployment is deferred with the seam kept ready for it.
 - P8.7 **Done.** SQLite is the device store, answering the semantic doors natively instead of through statements: a real
   schema with foreign keys and indexes, WAL so a reader never waits on a writer, and a migration that applies in numbered
   steps and rolls each one back, so a laptop that is upgraded can also be put back. A whole-file rewrite per change is what

@@ -59,3 +59,36 @@ What it does not give us, and a ledger needs:
   reverse.
 - One thing this ADR does *not* decide: ownership of the 180 prefix groups with no catalogue entry. That is a documentation
   gap, not a storage one.
+
+## Amendment, 2026-11-25: two targets, one suite, many stores later
+
+The decision above was ratified, and narrowed by the owner in three ways.
+
+1. **Two targets, not four.** PostgreSQL for a deployment and SQLite for a device are the providers Vimbai offers and
+   supports. Neo4j is frozen where the decision left it: not deleted, not extended, no new feature built on it, and it
+   does not define the contract. It stays reachable through `vimbai-store-move`, which is how a Book written into an old
+   Neo4j install is lifted out. Nothing is removed until the suite below passes without it.
+2. **Many stores in one deployment is deferred, and the seam must stay ready for it.** Today one process opens one store
+   and every Book lives in it. The shape that makes several possible later is a placement of Book to store resolved per
+   request rather than at startup, which is only honest if a cross-store operation is refused in words instead of half
+   done. No code may assume the store it holds is the only one a deployment will ever hold.
+3. **Portability is proved by one suite, not claimed by one trait.** `rust/crates/adapters/database/tests/conformance/mod.rs`
+   holds the rules every provider must keep, and `tests/every_store_keeps_the_same_rules.rs` runs them against the memory
+   graph, the file store, SQLite, and Postgres wherever a server is available. It pins, in the store's own terms and
+   naming no dialect: a record reads back as written; another Book sees nothing and cannot reach a record by id; another
+   kind holds nothing; an update changes what it named and leaves the rest; a figure survives to the last digit; a listing
+   holds every record of the Book once; a page from a place holds exactly the rows after it, in id order; a delete removes
+   the record and a second delete is refused; an edge written is an edge reported, or the store refuses rather than
+   answering nothing. A provider that fails any of these is not a provider Vimbai will run on.
+
+Two rules follow from the amendment and bind future work.
+
+- **A capability gap refuses; it does not degrade.** A store that cannot hold edges says so loudly, because a dump that
+  quietly came out without relationships looks like a migration and is not one.
+- **No general query or DDL translator, and no posting authority.** The portable surface is operations plus a declared
+  capability, not SQL spanning vendors. `ledger-core` remains the only judge of a balanced entry; a storage layer that
+  starts doing arithmetic is the failure this decision exists to prevent.
+
+Still open, deliberately: read/write routing, replication and failover are delegated to the provider's own tooling rather
+than built here, and managed-database schema handling (apply at deploy, or verify at boot and refuse when behind) is
+recorded as intent rather than built.
