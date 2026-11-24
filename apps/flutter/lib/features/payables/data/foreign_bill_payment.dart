@@ -40,8 +40,12 @@ class BillInAnotherMoney {
   /// What that is carried at in the Book's money.
   final ExactAmount outstandingCarried;
 
-  /// What paying the rest of it is worth in the Book's money, at [closing].
-  ExactAmount worthAt(ExactAmount closing) => outstandingUnits * closing;
+  /// What paying [units] of it is worth in the Book's money, at [closing].
+  ExactAmount worthAt(ExactAmount closing, {ExactAmount? units}) =>
+      (units ?? outstandingUnits) * closing;
+
+  /// True when [units] is a part payment rather than all of what is left.
+  bool isPart(ExactAmount units) => units < outstandingUnits;
 
   factory BillInAnotherMoney.fromJson(Map<String, dynamic> json) =>
       BillInAnotherMoney(
@@ -121,15 +125,18 @@ class ForeignBillPaymentService {
     return null;
   }
 
-  /// Post what the rate did to a bill when it was paid.
+  /// Post what the rate did to a bill when part or all of it was paid.
   ///
-  /// [carried] is what the books held the debt at and [received] what actually left; the engine decides which way the
-  /// difference goes, because on a bill a stronger foreign money is a loss rather than income.
+  /// The bill's own figures and the share being paid are handed over, and the engine works out what that share clears and
+  /// what it costs, so a part payment is exact to the ledger's unit instead of being rounded on the phone. The engine
+  /// decides which way the difference goes, because on a bill a stronger foreign money is a loss rather than income.
   Future<void> recordDifference({
     required String entryDate,
     required String reference,
-    required ExactAmount carried,
-    required ExactAmount received,
+    required ExactAmount unitsPaid,
+    required ExactAmount unitsTotal,
+    required ExactAmount carriedTotal,
+    required ExactAmount rate,
   }) async {
     final answer = await _client.post(
       Uri.parse('$_base/accounting/fx-difference'),
@@ -138,8 +145,10 @@ class ForeignBillPaymentService {
         'entry_date': entryDate,
         'reference_number': reference,
         'document_side': 'payable',
-        'carried': carried.toDecimalString(),
-        'received': received.toDecimalString(),
+        'units_paid': unitsPaid.toDecimalString(),
+        'units_total': unitsTotal.toDecimalString(),
+        'carried_total': carriedTotal.toDecimalString(),
+        'rate': rate.toDecimalString(),
       }),
     );
     if (answer.statusCode != 200 && answer.statusCode != 201) {

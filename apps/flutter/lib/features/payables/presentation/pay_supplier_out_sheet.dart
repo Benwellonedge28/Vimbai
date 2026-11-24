@@ -94,6 +94,9 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
   /// What one of that money is worth the day it is paid, as the person gives it.
   final TextEditingController _todayRate = TextEditingController();
 
+  /// How much of the bill's own money is being paid, which may be less than all of it.
+  final TextEditingController _unitsPaying = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +106,20 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
   @override
   void dispose() {
     _todayRate.dispose();
+    _unitsPaying.dispose();
     super.dispose();
+  }
+
+  /// How much of the bill's money is being paid, or nothing when it does not read as a figure.
+  ExactAmount? get _units {
+    final typed = _unitsPaying.text.trim();
+    if (typed.isEmpty) return null;
+    try {
+      final units = ExactAmount.parse(typed);
+      return units.isZero || units.isNegative ? null : units;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// The rate on the day, or nothing when it does not read as a figure.
@@ -118,12 +134,13 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
     }
   }
 
-  /// What paying the bill would cost in the Book's money at the rate given, or nothing yet.
+  /// What paying this much of the bill would cost in the Book's money at the rate given, or nothing yet.
   ExactAmount? get _worthPaying {
     final abroad = _abroad;
     final rate = _rateToday;
-    if (abroad == null || rate == null) return null;
-    return abroad.worthAt(rate);
+    final units = _units;
+    if (abroad == null || rate == null || units == null) return null;
+    return abroad.worthAt(rate, units: units);
   }
 
   Future<void> _load() async {
@@ -154,6 +171,10 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
         _against = payableAccount(chart);
         _place = _places.isEmpty ? null : _places.first;
         _abroad = abroad;
+        if (abroad != null && _unitsPaying.text.trim().isEmpty) {
+          // all of it, until the person says otherwise
+          _unitsPaying.text = abroad.outstandingUnits.toDecimalString();
+        }
         _loading = false;
       });
     } catch (failure) {
@@ -196,7 +217,24 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
       );
       return;
     }
-    final worth = abroad == null ? null : abroad.worthAt(rate!);
+    final units = _units;
+    if (abroad != null && units == null) {
+      setState(
+        () => _complaint =
+            'Say how much of the ${abroad.currency} is being paid, which cannot be more '
+            'than the ${abroad.outstandingUnits.toDecimalString()} still owed.',
+      );
+      return;
+    }
+    if (abroad != null && units! > abroad.outstandingUnits) {
+      setState(
+        () => _complaint =
+            'Only ${abroad.outstandingUnits.toDecimalString()} ${abroad.currency} is '
+            'still owed on ${abroad.billNumber}, so more than that cannot be paid '
+            'against it.',
+      );
+      return;
+    }
     setState(() {
       _saving = true;
       _complaint = null;
@@ -207,7 +245,7 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
       final entry = await widget.cash.record(
         account: place,
         moneyIn: false,
-        amount: abroad?.outstandingUnits ?? widget.amount,
+        amount: abroad == null ? widget.amount : units!,
         description: 'Paid ${widget.supplierName}'.trim(),
         date: day,
         voucher: widget.reference,
@@ -216,17 +254,29 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
         rate: abroad == null ? '' : rate!.toDecimalString(),
       );
       if (!mounted) return;
-      if (abroad != null &&
-          worth != null &&
-          worth != abroad.outstandingCarried) {
+      if (abroad != null) {
         // the money has left, so the difference is posted after it: a posting that failed here must not stop the payment
-        // having been recorded, and the message says which of the two happened
-        await _bills.recordDifference(
-          entryDate: day,
-          reference: widget.reference,
-          carried: abroad.outstandingCarried,
-          received: worth,
-        );
+        // having been recorded, and the message says which of the two happened. The engine works out what this share of
+        // the bill cleared, and posts nothing when the rate did not move.
+        try {
+          await _bills.recordDifference(
+            entryDate: day,
+            reference: widget.reference,
+            unitsPaid: units!,
+            unitsTotal: abroad.outstandingUnits,
+            carriedTotal: abroad.outstandingCarried,
+            rate: rate!,
+          );
+        } catch (posting) {
+          if (!mounted) return;
+          setState(() {
+            _saving = false;
+            _complaint =
+                'The payment is recorded, but the rate difference could not be '
+                'posted: ${CouldNotRead.reasonOf(posting)}';
+          });
+          return;
+        }
       }
       if (!mounted) return;
       Navigator.of(context).pop(entry);
@@ -271,6 +321,20 @@ class _PaySupplierOutSheetState extends State<PaySupplierOutSheet> {
                 '${_abroad!.currency} still owed, carried at '
                 '${_abroad!.outstandingCarried.toDecimalString()}.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _unitsPaying,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'How much ${_abroad!.currency} is being paid',
+                  helperText:
+                      'All of it, unless less is being paid now. '
+                      '${_abroad!.outstandingUnits.toDecimalString()} is left.',
+                ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 8),
               TextField(

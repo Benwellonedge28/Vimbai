@@ -190,8 +190,7 @@ pub fn settle_difference<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let carried = amount(payload, "carried")?;
-    let received = amount(payload, "received")?;
+    let (carried, received) = settlement_figures(payload)?;
     if carried.is_zero() || received.is_zero() {
         return Err(StoreError::BadRequest(
             "carried and received must both be more than nothing: they are the two rates the difference is between"
@@ -277,6 +276,43 @@ pub fn settle_difference<G: Graph + ?Sized>(
     }))
 }
 
+/// What a settlement cleared, worked out from what the document said when the caller is paying part of it.
+///
+/// A part payment of a foreign bill clears a share of the debt, not all of it, and the share has to be exact: the same
+/// largest-remainder split the rest of the ledger uses, so a bill paid in three parts carries exactly what it said rather
+/// than a few thousandths over or under. A caller that already knows both figures hands them over as they are.
+fn settlement_figures(payload: &Value) -> Result<(Money, Money), StoreError> {
+    let paying = payload.get("units_paid").filter(|value| !value.is_null());
+    let Some(units_paid) = paying.map(|_| amount(payload, "units_paid")).transpose()? else {
+        return Ok((amount(payload, "carried")?, amount(payload, "received")?));
+    };
+    let units_total = amount(payload, "units_total")?;
+    let carried_total = amount(payload, "carried_total")?;
+    let rate = amount(payload, "rate")?;
+    if units_total.is_zero() || units_total.is_negative() {
+        return Err(StoreError::BadRequest(
+            "units_total must be more than nothing: it is what the document was billed for".into(),
+        ));
+    }
+    if units_paid.is_zero() || units_paid.is_negative() || units_paid > units_total {
+        return Err(StoreError::BadRequest(
+            "units_paid must be more than nothing and no more than the document was billed for"
+                .into(),
+        ));
+    }
+    if rate.is_zero() || rate.is_negative() {
+        return Err(StoreError::BadRequest(
+            "rate must be more than nothing: it is what the money was worth when it was paid"
+                .into(),
+        ));
+    }
+    // the debt cleared is this payment's share of what was carried, to the ledger's own unit
+    let left = units_total.minus(&units_paid);
+    let share = carried_total.allocate(&[units_paid.clone(), left], 2);
+    let carried = share.first().cloned().unwrap_or_else(Money::zero);
+    Ok((carried, units_paid.times(&rate)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,6 +344,63 @@ mod tests {
     fn a_settlement_at_the_carried_figure_leaves_no_difference() {
         let (gain, loss) = settled(&money("36000"), &money("36000"));
         assert!(gain.is_zero() && loss.is_zero());
+    }
+
+    #[test]
+    fn part_of_a_bill_clears_its_share_of_what_was_carried() {
+        // 1,000 USD carried at 25.5 is 25,500; paying 400 of it clears 10,200 and costs 10,800 at 27
+        let payload = json!({
+            "units_paid": "400",
+            "units_total": "1000",
+            "carried_total": "25500",
+            "rate": "27",
+        });
+        let (carried, received) = settlement_figures(&payload).expect("a part payment reads");
+        assert_eq!(carried.to_fixed(2), "10200.00");
+        assert_eq!(received.to_fixed(2), "10800.00");
+    }
+
+    #[test]
+    fn a_part_payment_never_clears_more_than_the_document_carried() {
+        // a third of a bill whose carried figure does not divide evenly still adds back to exactly what was carried
+        let payload = json!({
+            "units_paid": "333.33",
+            "units_total": "1000",
+            "carried_total": "25500",
+            "rate": "26",
+        });
+        let (first, _) = settlement_figures(&payload).expect("a part payment reads");
+        let rest = json!({
+            "units_paid": "666.67",
+            "units_total": "1000",
+            "carried_total": "25500",
+            "rate": "26",
+        });
+        let (second, _) = settlement_figures(&rest).expect("the rest reads");
+        assert_eq!(
+            first.plus(&second).to_fixed(2),
+            "25500.00",
+            "the two parts together are the debt, not a penny more or less"
+        );
+    }
+
+    #[test]
+    fn paying_more_than_the_document_was_billed_for_is_refused() {
+        let payload = json!({
+            "units_paid": "1001",
+            "units_total": "1000",
+            "carried_total": "25500",
+            "rate": "27",
+        });
+        let refused = settlement_figures(&payload);
+        let message = match refused {
+            Ok(_) => String::new(),
+            Err(error) => error.to_string(),
+        };
+        assert!(
+            message.contains("no more than the document was billed for"),
+            "{message}"
+        );
     }
 
     #[test]

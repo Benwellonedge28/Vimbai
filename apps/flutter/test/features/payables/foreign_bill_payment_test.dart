@@ -34,13 +34,17 @@ class _FakeBills extends ForeignBillPaymentService {
   Future<void> recordDifference({
     required String entryDate,
     required String reference,
-    required ExactAmount carried,
-    required ExactAmount received,
+    required ExactAmount unitsPaid,
+    required ExactAmount unitsTotal,
+    required ExactAmount carriedTotal,
+    required ExactAmount rate,
   }) async {
     differences.add({
       'reference': reference,
-      'carried': carried.toDecimalString(),
-      'received': received.toDecimalString(),
+      'units_paid': unitsPaid.toDecimalString(),
+      'units_total': unitsTotal.toDecimalString(),
+      'carried_total': carriedTotal.toDecimalString(),
+      'rate': rate.toDecimalString(),
       'entry_date': entryDate,
     });
   }
@@ -154,11 +158,110 @@ void main() {
       expect(entry['rate'], '27.00');
       expect(entry['voucher'], 'BILL-1');
 
-      // and the rate difference is posted: 15,300 carried against 16,200 paid is a loss of 900
+      // and the rate difference is posted for the share that was paid, worked out by the engine
       final difference = bills.differences.single;
-      expect(difference['carried'], '15300.00');
-      expect(difference['received'], '16200.00');
+      expect(difference['units_paid'], '600.00');
+      expect(difference['units_total'], '600.00');
+      expect(difference['carried_total'], '15300.00');
+      expect(difference['rate'], '27.00');
       expect(difference['entry_date'], '2026-11-20');
+    },
+  );
+
+  testWidgets(
+    'paying part of a dollar bill records the part and asks for its share',
+    (tester) async {
+      final cash = _FakeCash();
+      final bills = _FakeBills();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PaySupplierOutSheet(
+              amount: ExactAmount.parse('15300.00'),
+              supplierName: 'China Co',
+              cash: cash,
+              ledger: _FakeLedger(),
+              reference: 'BILL-1',
+              vendorId: 'chinaco',
+              bills: bills,
+              onDate: '2026-11-20',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // all of it is offered until the person says less
+      expect(find.text('600.00'), findsWidgets);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'How much USD is being paid'),
+        '200',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'What one USD is worth today'),
+        '27',
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('5400.00'), findsWidgets);
+
+      await tester.tap(find.text('Record it'));
+      await tester.pumpAndSettle();
+
+      expect(cash.written.single['amount'], '200.00');
+      final difference = bills.differences.single;
+      expect(difference['units_paid'], '200.00');
+      expect(difference['units_total'], '600.00');
+      expect(difference['carried_total'], '15300.00');
+    },
+  );
+
+  testWidgets(
+    'more than the bill still owes is refused before anything is written',
+    (tester) async {
+      final cash = _FakeCash();
+      final bills = _FakeBills();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PaySupplierOutSheet(
+              amount: ExactAmount.parse('15300.00'),
+              supplierName: 'China Co',
+              cash: cash,
+              ledger: _FakeLedger(),
+              reference: 'BILL-1',
+              vendorId: 'chinaco',
+              bills: bills,
+              onDate: '2026-11-20',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'How much USD is being paid'),
+        '700',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'What one USD is worth today'),
+        '27',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Record it'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Only 600.00 USD is still owed'),
+        findsOneWidget,
+      );
+      expect(
+        cash.written,
+        isEmpty,
+        reason: 'nothing is recorded when it cannot be',
+      );
+      expect(bills.differences, isEmpty);
     },
   );
 
