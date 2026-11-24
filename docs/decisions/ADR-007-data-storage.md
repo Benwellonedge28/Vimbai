@@ -121,3 +121,15 @@ stand or fall together. A store that says nothing is taken at the minimum, recor
 The first use is the move: a destination that cannot hold what the source carries is refused before anything is written,
 naming what it lacks. That is the rule that detection advises and never decides, in the one place the engine already has
 to make the choice.
+
+### Amendment, 2026-11-25: Neo4j is read from, never written to
+
+The engine still fell back to Neo4j whenever `VIMBAI_POSTGRES_URL` was unset, so a host that set neither variable landed
+on the store this decision had already frozen, silently. That fallback is gone: a deployment is Postgres or it refuses to
+start, naming the setting it wants. Neo4j stays reachable as a source for `vimbai-store-move`, which is what a business
+still running one needs to get out, and is refused as a destination so a Book cannot be moved into a store the engine
+will not open.
+
+What this leaves: the statement door (`run(cypher)`) now exists for exactly one caller, the move tool reading an old
+install. Deleting it would shrink the store contract to operations alone, and it is the one change that should be made
+when no supported path reads Neo4j any more.

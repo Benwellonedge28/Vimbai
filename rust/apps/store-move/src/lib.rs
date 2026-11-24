@@ -120,6 +120,21 @@ impl Cutover {
 /// Detection is allowed to advise and never to decide: a move into a store that cannot keep relationships would arrive
 /// looking like a faithful copy of a smaller Book, so the operator is told what the destination lacks rather than being
 /// handed a migration that quietly dropped something.
+/// Refuse a store that is only read from, as a place to write books into.
+///
+/// Neo4j is not a deployment store any more (ADR-007). It stays a source, so a business that still runs one can lift its
+/// books out, but pointing a move at it would put a Book somewhere the engine will not open.
+fn refuse_a_frozen_destination(to: &str) -> Result<(), StoreError> {
+    if to == "neo4j" {
+        return Err(StoreError::Invalid(
+            "neo4j is not a destination: it is read from, not written to, so a Book can be lifted out of one but not \
+             moved into one. Name postgres:<dsn>, sqlite:<path> or file:<path> instead."
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
 fn refuse_a_destination_that_cannot_hold_it(from: &Store, to: &Store) -> Result<(), StoreError> {
     let carried = from.graph().capabilities();
     let offered = to.graph().capabilities();
@@ -134,6 +149,7 @@ fn refuse_a_destination_that_cannot_hold_it(from: &Store, to: &Store) -> Result<
 }
 
 pub fn cutover(from: &str, to: &str, limit_per_kind: usize) -> Result<Cutover, StoreError> {
+    refuse_a_frozen_destination(to)?;
     refuse_a_destination_that_cannot_hold_it(&Store::open(from)?, &Store::open(to)?)?;
     let source = Store::open(from)?;
     let destination = Store::open(to)?;

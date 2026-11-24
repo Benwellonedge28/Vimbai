@@ -106,3 +106,20 @@ fn a_rehearsal_says_so_on_its_receipt() {
         "a rehearsal says so: {said}"
     );
 }
+
+#[test]
+fn neo4j_is_read_from_and_never_written_into() {
+    // a business that still runs one lifts its books out; nothing puts a Book back into a store the engine will not open
+    let from = place("frozen-source");
+    seed(&from, &["1010"]);
+
+    let said = move_guarded(&from, "neo4j", 10, None, false, false)
+        .expect_err("neo4j as a destination is refused")
+        .to_string();
+
+    assert!(said.contains("not a destination"), "{said}");
+    assert!(
+        said.contains("postgres:<dsn>"),
+        "it says what to name instead: {said}"
+    );
+}

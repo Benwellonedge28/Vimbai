@@ -330,6 +330,10 @@ Tasks, in the order they were done:
   and the deployment store: apply brings a store up (the default), verify refuses a store that is behind, naming its
   version, the expected one and the way out, which is what a managed database whose credentials cannot create tables needs.
   Four tests pin it, including that a store written by a newer build is refused in either mode.
+- P8.10 **Done.** Neo4j is read from and never written to. A deployment with no `VIMBAI_POSTGRES_URL` refuses to start and
+  names the setting it wants instead of falling back to the frozen store, and the move tool refuses Neo4j as a
+  destination while still lifting books out of one. The statement door now has exactly one caller, which is the condition
+  for deleting it later.
 - P8.9 **Done.** A store states what it can do - its name, whether it keeps relationships, whether two writes can stand
   or fall together - and a store that says nothing is taken at the minimum. The move refuses a destination that cannot
   hold what the source carries before it writes anything, so detection advises and never decides. The conformance suite

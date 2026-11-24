@@ -30,10 +30,12 @@ store to open, so if one of them reports this, both will.
 
 Two settings choose the store, and the order is the deployment decision (ADR-007), made in one place:
 
-`VIMBAI_POSTGRES_URL` is the system of record. When it is set, it wins.
+`VIMBAI_POSTGRES_URL` is the system of record, and the only deployment store. A host without it refuses to start rather
+than falling back to whatever is installed, and says which setting it wants.
 
-`NEO4J_URI` (with `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` when the server needs them) is the older backend,
-still supported for a deployment that runs it.
+`NEO4J_URI` (with `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` when the server needs them) is read by
+`vimbai-store-move` only: a business still running Neo4j lifts its books out with `vimbai-store-move neo4j
+postgres:<dsn>` and then points the engine at the new database. Neo4j is never a destination.
 
 `VIMBAI_STORE_FILE` is the on-device store, for the runtime that keeps a machine's records in a file. It is not a fallback
 for a deployment: a machine with neither a database nor a file is told so, rather than given an empty store that looks
