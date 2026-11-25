@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/features/aged_receivables/presentation/aged_receivables_page.dart';
+import 'package:vimbai_mobile_client/features/bank_reconciliation/presentation/bank_reconciliation_page.dart';
 import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/budgets_page.dart';
@@ -333,6 +334,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Every account over a period: opening, movements, closing',
           icon: Icons.table_chart_outlined,
           page: (context) => const GeneralLedgerPage(),
+        ),
+        BookServiceEntry(
+          title: 'Bank statement',
+          description: 'Match a statement against what your books hold',
+          icon: Icons.compare_arrows,
+          page: (context) => const BankReconciliationPage(),
         ),
         BookServiceEntry(
           title: 'Who owes you',
