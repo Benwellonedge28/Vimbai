@@ -2,6 +2,7 @@
 
 use accounting::accruals;
 use accounting::bad_debts;
+use accounting::bank_reconciliation;
 use accounting::bookkeeping as papers;
 use accounting::depreciation;
 use accounting::doubtful_debts;
@@ -506,6 +507,26 @@ async fn close_period(
         Err(response) => return *response,
     };
     answer(periods::close_period(graph.as_ref(), &scope, &payload))
+}
+
+/// `POST /accounting/bank-reconciliation/match`: match the statement a bank sent against what the cash book holds.
+///
+/// The answer names what matches, what the statement carries and the books do not, and what the books hold and the
+/// statement does not, then proves that the difference between the two balances is exactly those lines.
+async fn reconcile_bank(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(bank_reconciliation::reconcile(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
 }
 
 /// `GET /accounting/measures/`: what this Book measures itself by, worked out over a window.
@@ -1695,6 +1716,12 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(&format!("{prefix}/tax-ledger"), get(tax_ledger))
             .route(&format!("{prefix}/tax-ledger/settle"), post(settle_tax))
             // how the business is doing to any day: what it made, what it is owed, what it holds and what is not yet posted
+            // matching a statement against the cash book: the working paper the older door records is not the
+            // matching itself, so the proof has an address of its own
+            .route(
+                &format!("{prefix}/bank-reconciliation/match"),
+                post(reconcile_bank),
+            )
             .route(&format!("{prefix}/progress"), get(progress))
             // the taxes this Book charges, by rate and date, and what they come to on a document
             .route(&format!("{prefix}/taxes"), post(save_tax).get(list_taxes))

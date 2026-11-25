@@ -96,6 +96,7 @@
         "POST /accounting/accruals/reverse",
         "POST /accounting/bad-debts",
         "POST /accounting/bank-reconciliation",
+        "POST /accounting/bank-reconciliation/match",
         "POST /accounting/capital-calculations",
         "POST /accounting/cash-disbursements-journal",
         "POST /accounting/cash-receipts-journal",

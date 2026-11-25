@@ -171,7 +171,7 @@ pub fn update_account<G: Graph + ?Sized>(
     records.update(scope, account_id, &patch)
 }
 
-fn account_by_code<G: Graph + ?Sized>(
+pub(crate) fn account_by_code<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     code: &str,
