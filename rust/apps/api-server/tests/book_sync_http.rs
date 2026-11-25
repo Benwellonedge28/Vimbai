@@ -138,11 +138,13 @@ async fn a_book_that_has_just_been_opened_already_has_the_clock_work_done_for_it
         json!("month"),
         "{depreciation}"
     );
+    // and closing the month ships on: the clock work happens without a person remembering it, and a month closed by
+    // mistake is reopened by a recorded act rather than by leaving every month open
     let closing = rows
         .iter()
         .find(|row| row["name"] == json!("Close the month"))
         .expect("the closing rule");
-    assert_eq!(closing["enabled"], json!(false));
+    assert_eq!(closing["enabled"], json!(true));
 
     // asking for them again adds nothing: a person who switches one off does not find it switched back on
     let (status, _) = client

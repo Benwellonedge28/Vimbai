@@ -219,3 +219,78 @@ async fn a_rule_runs_its_steps_and_a_broken_dependency_stops_it() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+/// The month a Book's clock work closes is a month a late bill can still reach, because reopening is an act with a
+/// record rather than a setting nobody can find.
+#[tokio::test]
+async fn a_month_the_clock_work_closed_is_reopened_through_the_route_and_the_late_entry_belongs_in_it(
+) {
+    let router = router();
+    let (status, closed) = call(
+        &router,
+        Method::POST,
+        "/accounting/closed-periods",
+        json!({"period": "2026-10", "closes_on": "2026-11-01", "closed_by": "the clock"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+
+    let (_, periods) = call(
+        &router,
+        Method::GET,
+        "/accounting/closed-periods",
+        json!({}),
+    )
+    .await;
+    assert_eq!(periods["closed_months"], json!(["2026-10"]), "{periods}");
+
+    // the way out is named by the door that refuses, and it is one request away
+    let (status, reopened) = call(
+        &router,
+        Method::POST,
+        "/accounting/closed-periods/reopen",
+        json!({
+            "period": "2026-10",
+            "reopened_on": "2026-11-03",
+            "reopened_by": "Samuel",
+            "reason": "a supplier bill arrived late",
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reopened}");
+
+    let (_, after) = call(
+        &router,
+        Method::GET,
+        "/accounting/closed-periods",
+        json!({}),
+    )
+    .await;
+    assert_eq!(after["closed_months"], json!([]), "{after}");
+    // the close is still on the record, with the reopening and its reason beside it
+    assert_eq!(
+        after["closed"][0]["closes_on"],
+        json!("2026-11-01"),
+        "{after}"
+    );
+    assert_eq!(
+        after["closed"][0]["reopened_on"],
+        json!("2026-11-03"),
+        "{after}"
+    );
+    assert_eq!(
+        after["closed"][0]["reopen_reason"],
+        json!("a supplier bill arrived late"),
+        "{after}"
+    );
+
+    // a reopening with no reason is refused, because the record is the point of it
+    let (status, refused) = call(
+        &router,
+        Method::POST,
+        "/accounting/closed-periods/reopen",
+        json!({"period": "2026-10", "reopened_on": "2026-11-04", "reason": ""}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+}

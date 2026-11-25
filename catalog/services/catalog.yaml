@@ -228,6 +228,7 @@ services:
   - POST /accounting/cash-disbursements-journal
   - POST /accounting/cash-receipts-journal
   - POST /accounting/closed-periods
+  - POST /accounting/closed-periods/reopen
   - POST /accounting/control-accounts
   - POST /accounting/depreciation
   - POST /accounting/depreciation/one
