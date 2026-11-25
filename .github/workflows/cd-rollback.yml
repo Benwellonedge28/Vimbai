@@ -23,7 +23,7 @@ jobs:
     env:
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Check for kubeconfig
         id: check
@@ -37,11 +37,11 @@ jobs:
 
       - name: Set up kubectl
         if: steps.check.outputs.has_kubeconfig == 'true'
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede
 
       - name: Configure Kubernetes context
         if: steps.check.outputs.has_kubeconfig == 'true'
-        uses: azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@ae59a723ba9abe7a9655538854a025448dbab4aa
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 

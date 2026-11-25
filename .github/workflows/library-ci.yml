@@ -29,7 +29,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           # The catalogue is partly read out of history: each retired service's last published addresses live in the commit
           # before its deletion. A depth-1 checkout has neither that commit nor its parent, and the catalogue tests then
@@ -37,7 +37,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca
         with:
           components: rustfmt, clippy
 

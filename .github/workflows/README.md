@@ -46,6 +46,11 @@ documentation-only pull request then started neither workflow: its required chec
 request could never merge. The jobs inside still decide what work is worth doing, so a change that touches no Rust skips
 the Rust job rather than failing it.
 
+Every action these workflows use is pinned to a full commit rather than a tag, because the repository requires pinning:
+a tag reference is a name that can be moved to different code, and GitHub refuses to start a workflow that uses one.
+That refusal is a startup failure with no jobs and no error message on the run, so a pinning change looks exactly like a
+broken pipeline. When every workflow suddenly stops starting, check this before anything else.
+
 This is the shape that lets an outside agent write to the repository. It may do anything; it may land nothing the gates
 would refuse.
 
