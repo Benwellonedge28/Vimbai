@@ -4,8 +4,9 @@
 use std::sync::{Arc, Mutex};
 
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{Method, Request, StatusCode};
 use serde_json::{json, Value};
+use store::fake::MemoryGraph;
 use store::{BookScope, Graph, StoreError};
 use tower::ServiceExt;
 
@@ -622,6 +623,37 @@ async fn the_apportionment_routes_answer_under_the_records_prefix_too() {
     let (status, body) = call(graph, "/records/apportionment/rules", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["rules"].as_array().unwrap().len(), 0);
+}
+
+/// The same request, against a Book that answers like a Book rather than a script.
+async fn call_memory(
+    graph: Arc<MemoryGraph>,
+    method: Method,
+    uri: &str,
+    payload: Option<Value>,
+) -> (StatusCode, Value) {
+    let router = vimbai_api::records::router(graph);
+    let request = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json")
+        .header("x-user-id", "user-1")
+        .header("x-book-id", "book-1");
+    let body = match payload {
+        Some(value) => Body::from(value.to_string()),
+        None => Body::empty(),
+    };
+    let response = router.oneshot(request.body(body).unwrap()).await.unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 2_000_000)
+        .await
+        .unwrap();
+    let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, value)
+}
+
+fn scope() -> BookScope {
+    BookScope::new("user-1", "book-1")
 }
 
 /// A request with the method the service publishes, since not every route here is a POST.
@@ -1339,53 +1371,61 @@ async fn a_contract_is_created_on_the_revenue_recognition_path() {
     );
 }
 
-#[tokio::test]
-async fn recognising_on_the_path_writes_the_contract_back() {
-    let graph = Scripted::queue(vec![
-        vec![json!({
-            "id": "con-1", "total_transaction_price": "2000",
+/// A Book with a chart, and a contract in it, reached through the routes rather than a scripted graph: recognising
+/// revenue now reads the chart and the periods and posts an entry, so the store has to answer like one.
+async fn book_with_a_contract() -> (Arc<MemoryGraph>, String) {
+    let graph = Arc::new(MemoryGraph::new());
+    accounting::chart::seed_opening_chart(graph.as_ref(), &scope(), "business").expect("a chart");
+    let (status, contract) = call_memory(
+        Arc::clone(&graph),
+        Method::POST,
+        "/revenue-recognition/contracts",
+        Some(json!({
+            "company_id": "co-1", "customer_name": "Acme", "contract_date": "2026-03-01",
             "obligations": [
                 {"description": "Install", "transaction_price": "1200", "standalone_selling_price": "1200"}
             ]
-        })],
-        vec![json!({"id": "con-1"})],
-    ]);
-    let seen = Arc::clone(&graph);
-    let (status, body) = call_with(
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{contract}");
+    let id = contract["id"].as_str().expect("an id").to_string();
+    (graph, id)
+}
+
+#[tokio::test]
+async fn recognising_on_the_path_writes_the_contract_back() {
+    let (graph, contract) = book_with_a_contract().await;
+    let (status, body) = call_memory(
         graph,
-        "POST",
-        "/revenue-recognition/contracts/con-1/recognize?obligation_id=0&amount=500",
+        Method::POST,
+        &format!("/revenue-recognition/contracts/{contract}/recognize?obligation_id=0&amount=500"),
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["deferred"], json!("1500.000000"));
-    let (_, params) = seen.statement(1);
-    assert_eq!(
-        params["patch"]["total_revenue_recognized"],
-        json!("500.000000")
-    );
+    assert_eq!(status, StatusCode::OK, "{body}");
+    // the contract is worth 1200 and 500 of it is now earned, so 700 is still deferred
+    assert_eq!(body["deferred"], json!("700.000000"));
+    assert_eq!(body["contract_total_recognized"], json!("500.000000"));
+    // and the books moved: the customer owes 500 and the business earned it
+    assert_ne!(body["journal_entry_id"], Value::Null);
 }
 
 #[tokio::test]
 async fn an_empty_amount_recognises_the_obligation_in_full() {
-    let graph = Scripted::queue(vec![
-        vec![json!({
-            "id": "con-1", "total_transaction_price": "40",
-            "obligations": [{"description": "One", "transaction_price": "40", "standalone_selling_price": "0"}]
-        })],
-        vec![json!({"id": "con-1"})],
-    ]);
-    let (status, body) = call_with(
+    let (graph, contract) = book_with_a_contract().await;
+    let (status, body) = call_memory(
         graph,
-        "POST",
-        "/revenue-recognition/contracts/con-1/recognize?obligation_id=0",
+        Method::POST,
+        &format!("/revenue-recognition/contracts/{contract}/recognize?obligation_id=0"),
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["recognized"], json!("40.000000"));
+    assert_eq!(status, StatusCode::OK, "{body}");
+    // the contract's only obligation was priced at 1200, so no amount means the whole of it
+    assert_eq!(body["recognized"], json!("1200.000000"));
     assert_eq!(body["is_satisfied"], json!(true));
+    assert_eq!(body["deferred"], json!("0.000000"));
 }
 
 #[tokio::test]

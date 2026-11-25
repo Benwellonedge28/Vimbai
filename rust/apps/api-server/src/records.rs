@@ -5897,6 +5897,7 @@ async fn recognise_revenue(
     headers: HeaderMap,
     Path(contract_id): Path<String>,
     RawQuery(query): RawQuery,
+    body: Option<Json<Value>>,
 ) -> Response {
     let scope = match scope_of(&headers) {
         Ok(scope) => scope,
@@ -5911,12 +5912,15 @@ async fn recognise_revenue(
         },
         None => Money::zero(),
     };
+    // the body may name the day and the accounts; a call that says none of it still recognises, on the contract's day
+    let said = body.map(|Json(value)| value).unwrap_or(Value::Null);
     answer(accounting::recognise_revenue(
         graph.as_ref(),
         &scope,
         &contract_id,
         &obligation,
         &asked,
+        &said,
     ))
 }
 

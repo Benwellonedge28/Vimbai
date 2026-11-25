@@ -60,7 +60,7 @@ use vimbai_store::{
 /// an account did should count them as though the business had traded again.
 pub const CLOSING_ENTRY_MODULE: &str = "YearEndClose";
 
-const REFERENCE_CHECKED: [&str; 16] = [
+const REFERENCE_CHECKED: [&str; 17] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -88,6 +88,10 @@ const REFERENCE_CHECKED: [&str; 16] = [
     "StockAdjustments",
     // a year is closed once: the reference is the year, so a second press cannot move the year's profit to equity twice
     CLOSING_ENTRY_MODULE,
+    // revenue is earned once per instalment: the reference names the contract, the obligation and the figure now
+    // recognised, so a repeat of the same recognition cannot count the same revenue twice while a further instalment,
+    // being a different figure, posts as its own entry
+    "RevenueRecognition",
     "Invoicing",
     "Multimodal",
     "SupplyChain",
