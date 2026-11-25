@@ -1,6 +1,6 @@
 # The pipelines
 
-There are thirteen workflows, and each one is here for a reason that can be stated in a sentence. This page used to describe a Python
+There are fourteen workflows, and each one is here for a reason that can be stated in a sentence. This page used to describe a Python
 matrix over 300+ microservices, `ruff` and `bandit`, Codecov, Helm and Terraform. None of that is true any more: the services
 are Rust (ADR-001), the deployment story is kustomize, and there is no Terraform to format. A stale index is worse than no
 index, because it makes work look gated when it is not - so this page is checked. `workflows::documented_workflows` fails the
@@ -23,6 +23,7 @@ build when a workflow file is not named here, or when this page names one that n
 | `registry-cleanup.yml` | schedule, and by hand | Prunes old images from the registry. |
 | `repo-management.yml` | schedule, and on a pull request | Stale-issue sweep, and pull-request validation. |
 | `cd-rollback.yml` | by hand only | Rolls a deployment back to a named version. |
+| `documentation-import.yml` | by hand only | Takes a package of Markdown documents, writes only the ones whose paths stay inside `docs/`, and opens a pull request for review rather than writing to `main`. |
 
 ## Releases and images
 
