@@ -64,6 +64,13 @@ pull request.
 - `architecture/android-pilot-release.md` - Build, distribute and verify the Android pilot.
 - `architecture/commercial-subscriptions.md` - Grant one Vimbai subscription across Android, Windows and web.
 - `architecture/referral-awards.md` - Record referral awards and partner commissions.
+- `architecture/design-continuation-order.md` - reading order and dependencies for packages 09–14.
+- `architecture/windows-offline-release.md` - Ship an offline Windows build with the local accounting engine.
+- `domains/accounting-policy-evidence.md` - Version accounting standards and preserve evidence for each report.
+- `domains/jurisdiction-tax-rule-versions.md` - Use explicitly approved tax rules for each jurisdiction and effective date.
+- `domains/statement-import-and-replay.md` - Import a bank statement with a reviewable receipt.
+- `domains/government-budget-control-pilot.md` - Approve and account for one department’s budget commitments.
+- `architecture/partner-event-delivery.md` - Deliver one partner event safely after the integration trigger.
 
 ## Operations
 
@@ -81,7 +88,7 @@ pull request.
 ## Domains
 
 `domains/` documents each business domain as built: what it owns, the services and gateway prefixes it answers on, and
-what it deliberately does not own. The directory contains 25 pages including the proposed financial report design.
+what it deliberately does not own. The directory contains 29 pages, including proposed work packages.
 The command `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate
 the catalogue does not have, or if a page leaves out one of its own prefixes.
 
