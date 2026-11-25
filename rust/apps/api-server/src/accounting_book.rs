@@ -1,6 +1,7 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::accruals;
+use accounting::aged_payables;
 use accounting::aged_receivables;
 use accounting::bad_debts;
 use accounting::bank_reconciliation;
@@ -508,6 +509,26 @@ async fn close_period(
         Err(response) => return *response,
     };
     answer(periods::close_period(graph.as_ref(), &scope, &payload))
+}
+
+/// `GET /accounting/aged-payables`: what the business owes, to whom, how late, and a sentence saying what to pay.
+///
+/// The mirror of the receivables ageing. Each supplier is listed with what is still owed after the money that has
+/// actually gone out, split by how late it is, and one plain sentence naming the oldest unpaid bill.
+async fn list_aged_payables(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(aged_payables::aged_payables(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
 }
 
 /// `GET /accounting/aged-receivables`: who owes the business, how late they are, and a sentence to send them.
@@ -1768,6 +1789,8 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/aged-receivables"),
                 get(list_aged_receivables),
             )
+            // the other side of the same question: what this business owes, to whom, and how late
+            .route(&format!("{prefix}/aged-payables"), get(list_aged_payables))
             .route(&format!("{prefix}/progress"), get(progress))
             // the taxes this Book charges, by rate and date, and what they come to on a document
             .route(&format!("{prefix}/taxes"), post(save_tax).get(list_taxes))

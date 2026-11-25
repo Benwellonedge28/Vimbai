@@ -171,6 +171,7 @@ services:
   - GET /accounting/accounts/{}/period-activity
   - GET /accounting/accounts/{}/postings
   - GET /accounting/accruals
+  - GET /accounting/aged-payables
   - GET /accounting/aged-receivables
   - GET /accounting/bad-debts
   - GET /accounting/balance-sheet

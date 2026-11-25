@@ -212,6 +212,28 @@ fn owing<G: Graph + ?Sized>(
     Ok(None)
 }
 
+/// The supplier the words name who is still owed money on this day, with the oldest bill left unpaid.
+///
+/// Read from the same payables reader the report uses, so what a fact pays and what the Book says is owed cannot
+/// disagree. Words are matched inside the name or the id, ignoring case.
+fn owing_supplier<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    words: &str,
+    as_of: &str,
+) -> Result<Option<crate::aged_payables::BillOwed>, StoreError> {
+    let wanted = words.trim().to_lowercase();
+    if wanted.is_empty() {
+        return Ok(None);
+    }
+    let owed = crate::aged_payables::open_bills(graph, scope, as_of)?;
+    let answers = |said: &str| !said.trim().is_empty() && said.to_lowercase().contains(&wanted);
+    Ok(owed
+        .bills
+        .into_iter()
+        .find(|bill| answers(&bill.vendor) || answers(&bill.display)))
+}
+
 /// One account, or a refusal saying why the words did not settle it.
 fn settled(
     chart: &measures::Chart,
@@ -369,6 +391,75 @@ pub fn record_fact<G: Graph + ?Sized>(
                 "what": what,
                 "entry_date": entry_date,
                 "settles": {"customer": customer, "customer_name": display, "document": document},
+                "entry_id": recorded.get("journal_entry_id").cloned().unwrap_or(Value::Null),
+                "posting": stated,
+            }));
+        }
+    }
+
+    // The same rule on the other side of the Book: if a supplier is still owed money, this is their bill being paid, and
+    // charging the cost again would count the same purchase twice while the bill looked unpaid. What is owed comes from
+    // the same reader the payables report uses.
+    if what == "spent" {
+        let said = text(payload, "account");
+        if let Some(owed) = owing_supplier(graph, scope, &said, &entry_date)? {
+            let money_name = chart.names.get(money.as_str()).cloned().unwrap_or_default();
+            let payable = crate::subsidiary_journals::account_named(
+                graph,
+                scope,
+                payload,
+                "expense_account",
+                "payable",
+                "liability",
+            )?;
+            let payable_name = chart
+                .names
+                .get(payable.as_str())
+                .cloned()
+                .unwrap_or_default();
+            let description = format!("{} paid {} into {money_name}", owed.display, owed.number);
+            let stated = json!({
+                "debit": {"number": payable, "name": payable_name},
+                "credit": {"number": money, "name": money_name},
+                "amount": wire(&amount),
+                "description": description,
+            });
+            if payload
+                .get("rehearse")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                return Ok(json!({
+                    "posted": false,
+                    "what": what,
+                    "entry_date": entry_date,
+                    "pays": {"vendor": owed.vendor, "vendor_name": owed.display, "document": owed.number},
+                    "would_post": stated,
+                }));
+            }
+            let reference = match text(payload, "reference_number").trim() {
+                "" => format!("PAID-{}-{entry_date}", owed.vendor),
+                given => given.to_string(),
+            };
+            let recorded = crate::subsidiary_journals::create_disbursement(
+                graph,
+                scope,
+                &json!({
+                    "payment_number": reference,
+                    "vendor_id": owed.vendor,
+                    "entry_date": entry_date,
+                    "amount": wire(&amount),
+                    "bank_account": money,
+                    "document_reference": owed.number,
+                    "description": description,
+                    "expense_account": payable,
+                }),
+            )?;
+            return Ok(json!({
+                "posted": true,
+                "what": what,
+                "entry_date": entry_date,
+                "pays": {"vendor": owed.vendor, "vendor_name": owed.display, "document": owed.number},
                 "entry_id": recorded.get("journal_entry_id").cloned().unwrap_or(Value::Null),
                 "posting": stated,
             }));
@@ -804,6 +895,74 @@ mod tests {
         assert!(
             again.is_err(),
             "the same receipt number cannot be recorded twice"
+        );
+    }
+
+    /// A bill the Book owes, so a fact can then pay it.
+    fn a_bill(graph: &MemoryGraph, number: &str, vendor: &str, date: &str, total: &str) {
+        Records::new(graph, vimbai_store::VENDOR_BILL)
+            .create(
+                &scope(),
+                &json!({"bill_number": number, "vendor_id": vendor,
+                        "vendor_name": format!("{vendor} Traders"), "invoice_date": date,
+                        "due_date": date, "total_amount": total, "status": "pending"}),
+            )
+            .expect("a bill");
+    }
+
+    #[test]
+    fn money_to_a_supplier_who_is_owed_pays_the_bill_instead_of_charging_the_cost_again() {
+        let graph = with_a_bank();
+        a_bill(&graph, "B-1", "steel", "2026-11-01", "300.00");
+        let answer = record_fact(
+            &graph,
+            &scope(),
+            &json!({"what": "spent", "amount": "300.00", "account": "steel",
+                    "entry_date": "2026-11-20"}),
+        )
+        .expect("a paid bill");
+        assert_eq!(answer["posted"], json!(true));
+        assert_eq!(answer["pays"]["vendor"], json!("steel"));
+        assert_eq!(answer["pays"]["document"], json!("B-1"));
+        // the cost was charged when the bill was raised, so paying it gives up the debt, not the money twice
+        assert_eq!(
+            answer["posting"]["debit"]["name"],
+            json!("Accounts Payable")
+        );
+        assert_eq!(answer["posting"]["credit"]["name"], json!("Bank"));
+
+        let owed = crate::aged_payables::aged_payables(
+            &graph,
+            &scope(),
+            &json!({"as_of_date": "2026-11-25"}),
+        )
+        .expect("what is owed");
+        assert_eq!(owed["totals"]["owed"], json!("0.000000"));
+    }
+
+    #[test]
+    fn a_rehearsed_payment_names_the_bill_it_would_pay_and_pays_nothing() {
+        let graph = with_a_bank();
+        a_bill(&graph, "B-1", "steel", "2026-11-01", "300.00");
+        let answer = record_fact(
+            &graph,
+            &scope(),
+            &json!({"what": "spent", "amount": "100.00", "account": "steel Traders",
+                    "entry_date": "2026-11-20", "rehearse": true}),
+        )
+        .expect("a rehearsal");
+        assert_eq!(answer["posted"], json!(false));
+        assert_eq!(answer["pays"]["document"], json!("B-1"));
+        let owed = crate::aged_payables::aged_payables(
+            &graph,
+            &scope(),
+            &json!({"as_of_date": "2026-11-25"}),
+        )
+        .expect("what is owed");
+        assert_eq!(
+            owed["totals"]["owed"],
+            json!("300.000000"),
+            "a rehearsal moves nothing"
         );
     }
 }
