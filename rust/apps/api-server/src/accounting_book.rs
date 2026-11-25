@@ -500,6 +500,22 @@ async fn account_postings(
     ))
 }
 
+async fn general_ledger(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book::general_ledger(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
 async fn trial_balance(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1733,6 +1749,8 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/profit-estimations"),
                 post(create_estimation).get(list_estimations),
             )
+            // the book itself: every account's movements over one window, with what it opened and closed on
+            .route(&format!("{prefix}/general-ledger"), get(general_ledger))
             .route(&format!("{prefix}/trial-balance"), get(trial_balance))
             .route(&format!("{prefix}/income-statement"), get(income_statement))
             .route(&format!("{prefix}/balance-sheet"), get(balance_sheet))

@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:vimbai_mobile_client/app/config.dart';
 import 'package:vimbai_mobile_client/core/api/api_client.dart';
 import 'package:vimbai_mobile_client/features/accounting/data/cash_movement.dart';
+import 'package:vimbai_mobile_client/features/accounting/data/general_ledger.dart';
 import 'package:vimbai_mobile_client/features/accounting/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/core/local_db/database_helper.dart';
@@ -491,6 +492,37 @@ class AccountingApiService {
       );
     }
     throw Exception('Failed to get balance sheet: ${response.body}');
+  }
+
+  /// The general ledger: every account over one window, with what it opened on, what moved it, and what it closed on.
+  ///
+  /// The window is optional. Without one the engine reports everything the Book holds, which is the report a person wants
+  /// when they have not decided on a period yet; a start or an end alone is passed as given rather than completed here.
+  Future<GeneralLedgerReport> getGeneralLedger({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? accountNumber,
+  }) async {
+    final query = <String>[
+      if (startDate != null) 'start_date=${startDate.toIso8601String()}',
+      if (endDate != null) 'end_date=${endDate.toIso8601String()}',
+      if (accountNumber != null && accountNumber.trim().isNotEmpty)
+        'account_number=${Uri.encodeQueryComponent(accountNumber.trim())}',
+    ];
+    // the `?` is always there, even when nothing follows it: the address a caller reads is the route, and an empty query
+    // is the same request as no query at all
+    final response = await _client.get(
+      Uri.parse(
+        '$_baseUrl/general-ledger?${query.isEmpty ? '' : query.join('&')}',
+      ),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode == 200) {
+      return GeneralLedgerReport.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw Exception('Failed to read the general ledger: ${response.body}');
   }
 
   /// Ledger account balance for a single account. Maps the backend's

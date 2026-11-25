@@ -49,6 +49,7 @@ import 'package:vimbai_mobile_client/features/banking/presentation/currencies_pa
 import 'package:vimbai_mobile_client/features/tax/presentation/tax_table_page.dart';
 import 'package:vimbai_mobile_client/features/trend/presentation/year_trend_page.dart';
 import 'package:vimbai_mobile_client/features/integrity/presentation/ledger_integrity_page.dart';
+import 'package:vimbai_mobile_client/features/accounting/presentation/general_ledger_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/trial_balance_page.dart';
 import 'package:vimbai_mobile_client/features/year_end/presentation/close_the_year_page.dart';
 
@@ -308,6 +309,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'Account-by-account transaction history',
           icon: Icons.menu_book_outlined,
           page: (context) => const LedgerPage(),
+        ),
+        BookServiceEntry(
+          title: 'General ledger',
+          description:
+              'Every account over a period: opening, movements, closing',
+          icon: Icons.table_chart_outlined,
+          page: (context) => const GeneralLedgerPage(),
         ),
         BookServiceEntry(
           title: 'Trial balance',

@@ -58,6 +58,7 @@
         "GET /accounting/expenses-journal",
         "GET /accounting/find",
         "GET /accounting/fx-balances",
+        "GET /accounting/general-ledger",
         "GET /accounting/income-statement",
         "GET /accounting/journal-entries",
         "GET /accounting/journal-entries/{}",

@@ -1155,26 +1155,50 @@ pub fn ledger_report<G: Graph + ?Sized>(
     query: &Value,
 ) -> Result<Value, StoreError> {
     let account = require_account(graph, scope, account_number)?;
-    let from = optional(query, "start_date");
-    let until = optional(query, "end_date");
     let all = entries(graph, scope)?;
-    let number = field(&account, "account_number").to_string();
+    let report = account_ledger(
+        &account,
+        &all,
+        optional(query, "start_date").as_deref(),
+        optional(query, "end_date").as_deref(),
+    )?;
+    Ok(report.0)
+}
+
+/// One account over one window: what it opened on, everything that moved it, and what it closed on.
+///
+/// This is the whole of a ledger report, and the general ledger is this same answer for every account in the Book, so
+/// the two cannot disagree about what an account did: `GET /ledgers/{number}` answers one of these and
+/// `GET /general-ledger/` answers them all. The two totals come back beside the report so a caller summing the Book does
+/// not have to read them back out of the wire form it just wrote.
+fn account_ledger(
+    account: &Value,
+    all: &[Value],
+    from: Option<&str>,
+    until: Option<&str>,
+) -> Result<(Value, Money, Money), StoreError> {
+    let number = field(account, "account_number").to_string();
+    let debit_normal = field(account, "normal_balance") == "debit";
 
     // everything before the window opens it
-    let opening_rows = before(&all, &number, from.as_deref())?;
+    let opening_rows = before(all, &number, from)?;
     let (opening_debit, opening_credit) = totals(&opening_rows);
-    let opening = balance_of(&account, &opening_debit, &opening_credit);
+    let opening = balance_of(account, &opening_debit, &opening_credit);
 
     let mut running = opening.clone();
+    let mut moved_debit = zero();
+    let mut moved_credit = zero();
     let mut rows = Vec::new();
-    for entry in within(&all, from.as_deref(), until.as_deref()) {
+    for entry in within(all, from, until) {
         for line in entry_lines(&entry) {
             if field(&line, "account_number") != number {
                 continue;
             }
             let debit = money_or_nothing(&line, "debit")?;
             let credit = money_or_nothing(&line, "credit")?;
-            running = if field(&account, "normal_balance") == "debit" {
+            moved_debit = moved_debit.plus(&debit);
+            moved_credit = moved_credit.plus(&credit);
+            running = if debit_normal {
                 running.plus(&debit).minus(&credit)
             } else {
                 running.plus(&credit).minus(&debit)
@@ -1193,40 +1217,99 @@ pub fn ledger_report<G: Graph + ?Sized>(
 
     // the closing balance is the account's balance as of the window's end, which is the running one
     // when the window has no end
-    let end_balance = match until.as_deref() {
+    let end_balance = match until {
         Some(bound) => {
-            let rows = movements(&all, &number, None, Some(bound))?;
+            let rows = movements(all, &number, None, Some(bound))?;
             let (debit, credit) = totals(&rows);
-            balance_of(&account, &debit, &credit)
+            balance_of(account, &debit, &credit)
         }
         None => running.clone(),
     };
 
-    Ok(json!({
+    let report = json!({
         "account_number": number,
-        "account_name": field(&account, "name"),
+        "account_name": field(account, "name"),
         // the type is what a person reads above the rows: a ledger screen that only knows the normal side
         // still has to say whether the account it opened is an asset, a liability or revenue
-        "account_type": field(&account, "account_type"),
-        "normal_balance": field(&account, "normal_balance"),
+        "account_type": field(account, "account_type"),
+        "normal_balance": field(account, "normal_balance"),
         "start_balance": wire(&opening),
+        // what moved the account inside the window, which is what makes the opening and closing figures reconcile
+        "total_debit": wire(&moved_debit),
+        "total_credit": wire(&moved_credit),
         "entries": rows,
         "end_balance": wire(&end_balance),
+    });
+    Ok((report, moved_debit, moved_credit))
+}
+
+/// `GET /general-ledger/`: every account's movements over one window, in one report.
+///
+/// The general ledger is the book itself: each account with what it opened on, what moved it, and what it closed on.
+/// `account_number` narrows it to one account for a caller that would rather page than carry the Book, and an account
+/// that is not in the chart is refused rather than answered with an empty report, so a mistyped number cannot be read as
+/// an account that did nothing. Drafts are left out, exactly as they are everywhere else: a report of what the Book holds
+/// is a report of what has been posted.
+pub fn general_ledger<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Value, StoreError> {
+    let from = optional(query, "start_date");
+    let until = optional(query, "end_date");
+    let all = entries(graph, scope)?;
+    let chart = match optional(query, "account_number") {
+        Some(number) => vec![require_account(graph, scope, &number)?],
+        None => accounts(graph, scope)?,
+    };
+
+    let mut accounts_held = Vec::new();
+    let mut total_debit = zero();
+    let mut total_credit = zero();
+    let mut movements = 0usize;
+    for account in &chart {
+        let (report, debit, credit) =
+            account_ledger(account, &all, from.as_deref(), until.as_deref())?;
+        total_debit = total_debit.plus(&debit);
+        total_credit = total_credit.plus(&credit);
+        movements += report
+            .get("entries")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0);
+        accounts_held.push(report);
+    }
+
+    Ok(json!({
+        "start_date": from.unwrap_or_default(),
+        "end_date": until.unwrap_or_default(),
+        "accounts": accounts_held,
+        "account_count": accounts_held.len(),
+        "movement_count": movements,
+        // the proof a general ledger has to carry: over the window, what was debited is what was credited
+        "total_debit": wire(&total_debit),
+        "total_credit": wire(&total_credit),
+        "is_balanced": total_debit == total_credit,
     }))
 }
 
 /// Movements strictly before a business date, which is what opens a window.
+///
+/// A window with no start has nothing before it: the report runs from the Book's first entry, so the account opens on
+/// nothing. Reading the whole history as an opening balance and then walking it again counted every movement twice, which
+/// is what a ledger with no start date used to answer.
 fn before(
     entries: &[Value],
     account_number: &str,
     bound: Option<&str>,
 ) -> Result<Vec<(Money, Money)>, StoreError> {
+    let Some(bound) = bound else {
+        return Ok(Vec::new());
+    };
     let mut rows = Vec::new();
     for entry in entries.iter().filter(|entry| posted(entry)) {
-        if let Some(bound) = bound {
-            if field(entry, "entry_date") >= bound {
-                continue;
-            }
+        if field(entry, "entry_date") >= bound {
+            continue;
         }
         for line in entry_lines(entry) {
             if field(&line, "account_number") != account_number {
@@ -2279,6 +2362,168 @@ mod tests {
         assert_eq!(answer["entries"][0]["balance"], json!("70.000000"));
         assert_eq!(answer["entries"][1]["balance"], json!("75.000000"));
         assert_eq!(answer["end_balance"], json!("75.000000"));
+    }
+
+    #[test]
+    fn a_ledger_with_no_start_opens_on_nothing_and_counts_each_movement_once() {
+        // the whole history is the window, so the opening balance is nothing. Reading the history as the opening and then
+        // walking it again answered 260 for a Book that holds 130, which is the defect this pins.
+        let graph = FakeGraph::queue(vec![
+            vec![account("1000", "asset", "debit")],
+            vec![
+                json!({"id": "e-1", "entry_date": "2026-02-20", "status": "posted",
+                       "created_at": "2026-02-20T09:00:00",
+                       "lines": [{"account_number": "1000", "debit": "100.00", "credit": "0"}]}),
+                json!({"id": "e-2", "entry_date": "2026-03-05", "status": "posted",
+                       "created_at": "2026-03-05T09:00:00",
+                       "lines": [{"account_number": "1000", "debit": "30.00", "credit": "0"}]}),
+            ],
+        ]);
+        let answer = ledger_report(&graph, &scope(), "1000", &json!({})).expect("ledger");
+        assert_eq!(answer["start_balance"], json!("0.000000"));
+        assert_eq!(answer["entries"].as_array().expect("rows").len(), 2);
+        assert_eq!(answer["end_balance"], json!("130.000000"));
+    }
+
+    #[test]
+    fn the_general_ledger_runs_every_account_over_one_window() {
+        // the whole book for March: 1000 opened on 100 and closed on 75, 4000 opened on nothing and closed on 75, and
+        // what one account was debited is what the other was credited
+        let graph = FakeGraph::queue(vec![
+            vec![
+                json!({"id": "e-1", "entry_date": "2026-02-20", "status": "posted",
+                       "created_at": "2026-02-20T09:00:00",
+                       "lines": [{"account_number": "1000", "debit": "100.00", "credit": "0"}]}),
+                json!({"id": "e-2", "entry_date": "2026-03-05", "status": "posted",
+                       "created_at": "2026-03-05T09:00:00", "description": "sale",
+                       "lines": [{"account_number": "1000", "debit": "0", "credit": "30.00"},
+                                 {"account_number": "4000", "debit": "30.00", "credit": "0"}]}),
+                json!({"id": "e-3", "entry_date": "2026-03-20", "status": "posted",
+                       "created_at": "2026-03-20T09:00:00", "description": "sale",
+                       "lines": [{"account_number": "1000", "debit": "0", "credit": "45.00"},
+                                 {"account_number": "4000", "debit": "45.00", "credit": "0"}]}),
+            ],
+            vec![
+                account("1000", "asset", "debit"),
+                account("4000", "revenue", "credit"),
+            ],
+        ]);
+        let answer = general_ledger(
+            &graph,
+            &scope(),
+            &json!({"start_date": "2026-03-01", "end_date": "2026-03-31"}),
+        )
+        .expect("general ledger");
+
+        let accounts = answer["accounts"].as_array().expect("accounts");
+        assert_eq!(accounts.len(), 2);
+        assert_eq!(answer["account_count"], json!(2));
+        assert_eq!(answer["movement_count"], json!(4));
+
+        // the asset: it opened on what happened in February, moved by two credits, and closed on what is left
+        assert_eq!(accounts[0]["account_number"], json!("1000"));
+        assert_eq!(accounts[0]["start_balance"], json!("100.000000"));
+        assert_eq!(accounts[0]["total_debit"], json!("0.000000"));
+        assert_eq!(accounts[0]["total_credit"], json!("75.000000"));
+        assert_eq!(accounts[0]["entries"].as_array().expect("rows").len(), 2);
+        assert_eq!(accounts[0]["entries"][0]["balance"], json!("70.000000"));
+        assert_eq!(accounts[0]["entries"][1]["balance"], json!("25.000000"));
+        assert_eq!(accounts[0]["end_balance"], json!("25.000000"));
+
+        // the revenue: nothing before March, so it opens on nothing and its normal side is credit
+        assert_eq!(accounts[1]["account_number"], json!("4000"));
+        assert_eq!(accounts[1]["start_balance"], json!("0.000000"));
+        assert_eq!(accounts[1]["total_debit"], json!("75.000000"));
+        assert_eq!(accounts[1]["end_balance"], json!("-75.000000"));
+
+        // and the proof the report has to carry: over the window, debits equal credits
+        assert_eq!(answer["total_debit"], json!("75.000000"));
+        assert_eq!(answer["total_credit"], json!("75.000000"));
+        assert_eq!(answer["is_balanced"], json!(true));
+    }
+
+    #[test]
+    fn the_general_ledger_says_so_when_the_window_does_not_balance() {
+        // one line and no other side: the report states the imbalance rather than rounding it away
+        let graph = FakeGraph::queue(vec![
+            vec![entry(
+                "posted",
+                json!([{"account_number": "1000", "debit": "10.00", "credit": "0"}]),
+            )],
+            vec![account("1000", "asset", "debit")],
+        ]);
+        let answer = general_ledger(&graph, &scope(), &json!({})).expect("general ledger");
+        assert_eq!(answer["total_debit"], json!("10.000000"));
+        assert_eq!(answer["total_credit"], json!("0.000000"));
+        assert_eq!(answer["is_balanced"], json!(false));
+    }
+
+    #[test]
+    fn the_general_ledger_leaves_out_what_has_not_been_posted() {
+        let graph = FakeGraph::queue(vec![
+            vec![entry(
+                "draft",
+                json!([{"account_number": "1000", "debit": "10.00", "credit": "0"}]),
+            )],
+            vec![account("1000", "asset", "debit")],
+        ]);
+        let answer = general_ledger(&graph, &scope(), &json!({})).expect("general ledger");
+        assert_eq!(answer["movement_count"], json!(0));
+        // the account is still listed, at nothing: a chart account that has not moved is not a missing account
+        assert_eq!(answer["account_count"], json!(1));
+        assert_eq!(answer["accounts"][0]["entries"], json!([]));
+        assert_eq!(answer["accounts"][0]["end_balance"], json!("0.000000"));
+    }
+
+    #[test]
+    fn the_general_ledger_narrows_to_the_account_it_was_asked_for() {
+        let graph = FakeGraph::queue(vec![
+            vec![entry(
+                "posted",
+                json!([{"account_number": "4000", "debit": "0", "credit": "20.00"}]),
+            )],
+            vec![
+                account("1000", "asset", "debit"),
+                account("4000", "revenue", "credit"),
+            ],
+        ]);
+        let answer =
+            general_ledger(&graph, &scope(), &json!({"account_number": "4000"})).expect("ledger");
+        assert_eq!(answer["account_count"], json!(1));
+        assert_eq!(answer["accounts"][0]["account_number"], json!("4000"));
+    }
+
+    #[test]
+    fn the_general_ledger_refuses_an_account_the_chart_does_not_hold() {
+        // an empty report would read as "this account did nothing", which is a different statement
+        let graph = FakeGraph::queue(vec![vec![], vec![account("1000", "asset", "debit")]]);
+        assert!(general_ledger(&graph, &scope(), &json!({"account_number": "9999"})).is_err());
+    }
+
+    #[test]
+    fn one_account_reads_the_same_in_the_general_ledger_as_in_its_own() {
+        // the two reports share one body, and this is what says so: the same Book, the same window, the same answer
+        let chart = vec![account("1000", "asset", "debit")];
+        let journal = vec![
+            json!({"id": "e-1", "entry_date": "2026-02-20", "status": "posted",
+                   "created_at": "2026-02-20T09:00:00",
+                   "lines": [{"account_number": "1000", "debit": "100.00", "credit": "0"}]}),
+            json!({"id": "e-2", "entry_date": "2026-03-05", "status": "posted",
+                   "created_at": "2026-03-05T09:00:00", "description": "sale",
+                   "source_module": "Sales",
+                   "lines": [{"account_number": "1000", "debit": "0", "credit": "30.00"}]}),
+        ];
+        // the two doors read in their own order: one account looks up the account first, the book reads the journal first
+        let alone_script = || vec![chart.clone(), journal.clone()];
+        let book_script = || vec![journal.clone(), chart.clone()];
+        let window = json!({"start_date": "2026-03-01", "end_date": "2026-03-31"});
+        let alone = ledger_report(&FakeGraph::queue(alone_script()), &scope(), "1000", &window)
+            .expect("one account");
+        let mut asked = window.clone();
+        asked["account_number"] = json!("1000");
+        let among =
+            general_ledger(&FakeGraph::queue(book_script()), &scope(), &asked).expect("the book");
+        assert_eq!(alone, among["accounts"][0]);
     }
 
     #[test]

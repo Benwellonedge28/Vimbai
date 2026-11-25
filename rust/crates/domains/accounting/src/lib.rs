@@ -114,8 +114,9 @@ pub use intercompany::{
 };
 pub use ledger_book::{
     account_balance, account_period_activity, balance_sheet, create_account, create_entry,
-    delete_account, delete_entry, get_account, get_entry, income_statement, ledger_report,
-    list_accounts, list_entries, trial_balance, update_account, update_entry, verify_chain,
+    delete_account, delete_entry, general_ledger, get_account, get_entry, income_statement,
+    ledger_report, list_accounts, list_entries, trial_balance, update_account, update_entry,
+    verify_chain,
 };
 pub use revenue_recognition::{
     allocate_price, create_contract as create_revenue_contract,
