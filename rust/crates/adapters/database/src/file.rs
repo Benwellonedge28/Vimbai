@@ -102,8 +102,9 @@ impl Graph for FileGraph {
         self.held.store_list_after(kind, scope, after, limit)
     }
 
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
-        let rows = self.held.run(cypher, params)?;
+    fn run(&self, statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
+        let (cypher, params) = statement.into_parts();
+        let rows = self.held.run(crate::Statement::new(cypher, params))?;
         if changes_something(cypher) {
             self.write_out()?;
         }

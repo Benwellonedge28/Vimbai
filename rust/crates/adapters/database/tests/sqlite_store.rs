@@ -191,18 +191,6 @@ fn a_platform_record_is_stored_found_changed_and_swept() {
 }
 
 #[test]
-fn the_device_store_answers_operations_and_refuses_statements() {
-    let store = SqliteGraph::in_memory().expect("a store");
-    let refused = store
-        .run("MATCH (x) RETURN x", json!({}))
-        .expect_err("the device store read a statement");
-    assert!(
-        refused.to_string().contains("operations, not statements"),
-        "{refused}"
-    );
-}
-
-#[test]
 fn the_schema_applies_rolls_back_and_applies_again_over_a_real_book() {
     let directory = tempfile::tempdir().expect("a directory");
     let path = directory.path().join("store.db");

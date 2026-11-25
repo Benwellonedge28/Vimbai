@@ -1100,3 +1100,72 @@ fn the_answer_check_knows_a_trailing_slash_from_a_parameter() {
         "an empty segment is not a parameter"
     );
 }
+
+#[test]
+fn no_caller_can_hand_the_store_a_statement_of_its_own() {
+    // ADR-007's closing move: the store answers operations, and the one raw door it keeps - the statement a driver runs -
+    // takes a `Statement` that only the store crate can mint. That is a property of the types, and a type can be widened
+    // by a single careless edit, so the shape is pinned here: no `fn run` anywhere in the workspace may take a bare
+    // string again, and the token's fields must stay private with no public constructor.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut reopened = Vec::new();
+    let mut stack = vec![
+        root.join("rust/crates"),
+        root.join("rust/apps"),
+        root.join("rust/xtask"),
+    ];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().and_then(|name| name.to_str()) == Some("target") {
+                    continue;
+                }
+                stack.push(path);
+            } else if path.extension().and_then(|kind| kind.to_str()) == Some("rs") {
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                for line in text.lines() {
+                    let line = line.trim();
+                    if line.starts_with("fn run(")
+                        && (line.contains("cypher: &str") || line.contains("_cypher: &str"))
+                    {
+                        reopened.push(format!(
+                            "{}: {line}",
+                            path.strip_prefix(&root).unwrap_or(&path).display()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        reopened.is_empty(),
+        "a statement door took a bare string again, so any caller can send its own Cypher: {reopened:?}"
+    );
+
+    let token = std::fs::read_to_string(root.join("rust/crates/adapters/database/src/lib.rs"))
+        .expect("the store crate");
+    let start = token.find("pub struct Statement<'a>").expect("the token");
+    let end = start + token[start..].find("\n}\n").expect("the token's end");
+    let declaration = &token[start..end];
+    assert!(
+        declaration.contains("    cypher: &'a str") && declaration.contains("    params: Value"),
+        "the token's fields must stay private, or anyone can make one: {declaration}"
+    );
+    assert!(
+        token.contains("pub(crate) fn new(cypher: &'a str, params: Value)")
+            && !token.contains("    pub fn new(cypher:"),
+        "the token must be mintable only inside the store crate"
+    );
+    // and the door itself has to be the shape that was just checked for
+    assert!(
+        token
+            .contains("fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError>;"),
+        "the trait's raw door is not the one this gate describes"
+    );
+}

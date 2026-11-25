@@ -280,13 +280,16 @@ fn the_deployment_store_answers_operations_and_refuses_statements() {
         return skip("the_deployment_store_answers_operations_and_refuses_statements");
     };
     let store = PostgresGraph::connect(database.dsn(), 4).expect("a store");
-    // the whole point of the semantic doors: a Postgres backend is not a Cypher interpreter with a SQL accent
-    let refused = store.run("MATCH (x:Book) RETURN x", json!({}));
-    assert!(refused.is_err(), "a statement was answered: {refused:?}");
-    assert!(
-        format!("{}", refused.unwrap_err()).contains("operations, not statements"),
-        "the refusal did not say why"
-    );
+    // the whole point of the semantic doors: a Postgres backend is not a Cypher interpreter with a SQL accent.
+    // The refusal itself is pinned in the store crate, where a statement can be minted; out here the door cannot even be
+    // asked, so what is worth proving is that the operations answer.
+    let scope = BookScope::new("user-1", "book-1");
+    Records::new(&store, LEDGER_ACCOUNT)
+        .create(
+            &scope,
+            &json!({"number": "9999", "name": "an account the deployment store holds"}),
+        )
+        .expect("the deployment store answered an operation");
 }
 
 #[test]

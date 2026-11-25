@@ -276,7 +276,7 @@ impl Graph for PostgresGraph {
         }
     }
     /// Refused on purpose, for the same reason the device store refuses it.
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, _statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
         Err(StoreError::Graph(
             "the deployment store answers operations, not statements".into(),
         ))

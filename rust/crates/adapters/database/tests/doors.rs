@@ -12,8 +12,8 @@ use std::cell::RefCell;
 use serde_json::{json, Map, Value};
 
 use vimbai_store::{
-    BookScope, Graph, PlatformRecords, RecordKind, Records, StoreError, EXPENSE, JOURNAL_ENTRY,
-    JOURNAL_LINE,
+    BookScope, Graph, PlatformRecords, RecordKind, Records, Statement, StoreError, EXPENSE,
+    JOURNAL_ENTRY, JOURNAL_LINE,
 };
 
 /// A store with no query language: it holds records in a map and answers the doors, refusing everything else.
@@ -30,7 +30,7 @@ impl RecordsOnly {
 }
 
 impl Graph for RecordsOnly {
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, _statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
         *self.refused.borrow_mut() += 1;
         Err(StoreError::Graph(
             "this store does not read statements".into(),

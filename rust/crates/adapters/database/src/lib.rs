@@ -806,12 +806,53 @@ impl Capabilities {
     }
 }
 
+/// One parameterised statement, ready to run.
+///
+/// This is the only thing `Graph::run` accepts, and nothing outside this crate can make one: the
+/// fields are private and the constructor is crate-only. That is the whole point. A caller holding a
+/// store can create, read, update, list and delete records, and cannot hand the database a statement
+/// of its own, so no service, no handler and no script can reach past the store's rules. The
+/// statements this crate runs are written in `query`, `read`, `write` and `dump`, which is where the
+/// scoping rules live.
+///
+/// A store that is being implemented elsewhere - a scripted fake in a test, a driver in another
+/// crate - can still read what it is being asked: [`Statement::cypher`] and [`Statement::params`]
+/// are public. Reading a statement is not the same as writing one.
+#[derive(Debug, Clone)]
+pub struct Statement<'a> {
+    cypher: &'a str,
+    params: Value,
+}
+
+impl<'a> Statement<'a> {
+    /// Mint a statement. Crate-only, deliberately: this is the door being closed.
+    pub(crate) fn new(cypher: &'a str, params: Value) -> Self {
+        Self { cypher, params }
+    }
+
+    /// The statement's text, as the store is asked to run it.
+    pub fn cypher(&self) -> &'a str {
+        self.cypher
+    }
+
+    /// The values the statement refers to, by name.
+    pub fn params(&self) -> &Value {
+        &self.params
+    }
+
+    /// The text and the values together, for a driver that wants to own them.
+    pub fn into_parts(self) -> (&'a str, Value) {
+        (self.cypher, self.params)
+    }
+}
+
 /// The one thing the store needs from a database: run a parameterised statement, get rows back.
 ///
 /// Keeping this to a single method is what lets the store be tested without a server, and keeps
-/// the driver quiet in exactly one file.
+/// the driver quiet in exactly one file. The statement arrives as a [`Statement`], which only this
+/// crate can mint, so the store contract every service sees is operations and nothing else.
 pub trait Graph {
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError>;
+    fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError>;
 
     /// What this store can do. A store that does not say is taken at the minimum, which is records and nothing else:
     /// guessing in a store's favour is how a Book ends up quietly incomplete.
@@ -983,7 +1024,7 @@ pub trait Graph {
         );
         let mut params = scope.params();
         params["limit"] = json!(limit as i64);
-        let rows = self.run(&cypher, params)?;
+        let rows = self.run(Statement::new(&cypher, params))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1013,7 +1054,7 @@ pub trait Graph {
         let mut params = scope.params();
         params["after"] = json!(after);
         params["limit"] = json!(limit as i64);
-        let rows = self.run(&cypher, params)?;
+        let rows = self.run(Statement::new(&cypher, params))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1038,7 +1079,7 @@ pub trait Graph {
         );
         let mut params = scope.params();
         params["limit"] = json!(limit as i64);
-        let rows = self.run(&cypher, params)?;
+        let rows = self.run(Statement::new(&cypher, params))?;
         Ok(rows
             .into_iter()
             .map(|row| with_children_under(row, "x", "lines"))
@@ -1082,7 +1123,7 @@ pub trait Graph {
         );
         let mut params = scope.params();
         params["id"] = json!(id);
-        let rows = self.run(&cypher, params)?;
+        let rows = self.run(Statement::new(&cypher, params))?;
         // DETACH DELETE returns no row for a miss, so an empty answer is the same NotFound as a read that found nothing.
         if rows.is_empty() {
             return Err(StoreError::NotFound);
@@ -1106,7 +1147,7 @@ pub trait Graph {
             label = kind.label,
             property = property
         );
-        let rows = self.run(&cypher, json!({ "token": token }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "token": token })))?;
         Ok(rows.into_iter().next().map(unwrap_node))
     }
 
@@ -1136,7 +1177,7 @@ pub trait Graph {
         let mut params = scope.params();
         params["account_number"] = json!(account_number);
         params["limit"] = json!(limit as i64);
-        self.run(&cypher, params)
+        self.run(Statement::new(&cypher, params))
     }
 
     // --------------------------------------------------- shared records ---------------------------------------------------
@@ -1189,10 +1230,10 @@ pub trait Graph {
             "MATCH (x:{label})\nWHERE x.book_id = $book_id\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
             label = kind.label
         );
-        let rows = self.run(
+        let rows = self.run(Statement::new(
             &cypher,
             json!({ "book_id": book_id, "limit": limit as i64 }),
-        )?;
+        ))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1209,7 +1250,10 @@ pub trait Graph {
             label = kind.label,
             property = property
         );
-        let rows = self.run(&cypher, json!({ "book_id": book_id, "value": value }))?;
+        let rows = self.run(Statement::new(
+            &cypher,
+            json!({ "book_id": book_id, "value": value }),
+        ))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1225,7 +1269,7 @@ pub trait Graph {
             label = kind.label,
             property = property
         );
-        let rows = self.run(&cypher, json!({ "value": value }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "value": value })))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1258,7 +1302,10 @@ pub trait Graph {
             "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.id = $id\nDETACH DELETE x\nRETURN count(x) AS deleted",
             label = kind.label
         );
-        let rows = self.run(&cypher, json!({ "book_id": book_id, "id": id }))?;
+        let rows = self.run(Statement::new(
+            &cypher,
+            json!({ "book_id": book_id, "id": id }),
+        ))?;
         if rows.is_empty() {
             return Err(StoreError::NotFound);
         }
@@ -1280,7 +1327,7 @@ pub trait Graph {
             "CREATE (x:{label})\nSET x = $props\nRETURN x",
             label = kind.label
         );
-        let rows = self.run(&cypher, json!({ "props": props }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "props": props })))?;
         rows.into_iter()
             .next()
             .map(unwrap_node)
@@ -1293,7 +1340,7 @@ pub trait Graph {
             "MATCH (x:{label})\nWHERE x.id = $id\nRETURN x",
             label = kind.label
         );
-        let rows = self.run(&cypher, json!({ "id": id }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "id": id })))?;
         Ok(rows.into_iter().next().map(unwrap_node))
     }
 
@@ -1309,7 +1356,7 @@ pub trait Graph {
             label = kind.label,
             property = property
         );
-        let rows = self.run(&cypher, json!({ "value": value }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "value": value })))?;
         Ok(rows.into_iter().next().map(unwrap_node))
     }
 
@@ -1326,7 +1373,10 @@ pub trait Graph {
             label = kind.label,
             property = property
         );
-        let rows = self.run(&cypher, json!({ "value": value, "limit": limit as i64 }))?;
+        let rows = self.run(Statement::new(
+            &cypher,
+            json!({ "value": value, "limit": limit as i64 }),
+        ))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1340,7 +1390,7 @@ pub trait Graph {
             "MATCH (x:{label})\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
             label = kind.label
         );
-        let rows = self.run(&cypher, json!({ "limit": limit as i64 }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "limit": limit as i64 })))?;
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
@@ -1350,7 +1400,7 @@ pub trait Graph {
             "MATCH (x:{label})\nWHERE x.id = $id\nDETACH DELETE x",
             label = kind.label
         );
-        self.run(&cypher, json!({ "id": id }))?;
+        self.run(Statement::new(&cypher, json!({ "id": id })))?;
         Ok(true)
     }
 
@@ -1365,7 +1415,7 @@ pub trait Graph {
             "MATCH (x:{label})\nWHERE x.id = $id\nSET x += $patch\nRETURN x",
             label = kind.label
         );
-        let rows = self.run(&cypher, json!({ "id": id, "patch": patch }))?;
+        let rows = self.run(Statement::new(&cypher, json!({ "id": id, "patch": patch })))?;
         Ok(rows.into_iter().next().map(unwrap_node))
     }
 
@@ -1374,7 +1424,7 @@ pub trait Graph {
     /// Takes `&str` rather than `impl AsRef<str>` so the trait stays usable behind `dyn Graph`: the engine holds its store
     /// as a trait object, and one generic method would make the whole trait unnameable there.
     fn store_one(&self, cypher: &str, params: Value) -> Result<Value, StoreError> {
-        let rows = self.run(cypher, params)?;
+        let rows = self.run(Statement::new(cypher, params))?;
         rows.into_iter()
             .next()
             .map(unwrap_node)
@@ -2188,7 +2238,8 @@ mod tests {
     }
 
     impl Graph for FakeGraph {
-        fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+        fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
+            let (cypher, params) = statement.into_parts();
             self.seen.borrow_mut().push((cypher.to_owned(), params));
             Ok(self.rows.borrow().clone())
         }

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use serde_json::{json, Value};
-use store::{Graph, StoreError};
+use store::{Graph, Statement, StoreError};
 use tower::ServiceExt;
 
 struct Scripted {
@@ -22,7 +22,7 @@ impl Scripted {
 }
 
 impl Graph for Scripted {
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, _statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
         let mut queue = self.queue.lock().unwrap();
         if queue.is_empty() {
             return Ok(Vec::new());

@@ -20244,6 +20244,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::Request;
     use std::sync::Mutex;
+    use store::Statement;
     use tower::ServiceExt;
 
     /// Answers every statement with the same rows, and remembers what it was asked.
@@ -20253,7 +20254,8 @@ mod tests {
     }
 
     impl Graph for Fake {
-        fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+        fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
+            let (cypher, params) = statement.into_parts();
             self.seen.lock().unwrap().push((cypher.to_owned(), params));
             Ok(self.rows.clone())
         }
@@ -20342,7 +20344,7 @@ mod tests {
     async fn a_graph_that_is_down_is_a_502() {
         struct Down;
         impl Graph for Down {
-            fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+            fn run(&self, _statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
                 Err(StoreError::Graph("connection refused".into()))
             }
         }

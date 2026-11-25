@@ -101,7 +101,8 @@ impl Graph for Neo4jGraph {
             transactions: false,
         }
     }
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
+        let (cypher, params) = statement.into_parts();
         let result = self
             .driver
             .execute_query(cypher)
@@ -115,10 +116,10 @@ impl Graph for Neo4jGraph {
 
     fn all_edges(&self) -> Result<Vec<(String, String, String)>, StoreError> {
         // `a.id`/`b.id` rather than the nodes: the id is the platform's identity, and it is what a dump can name
-        let rows = self.run(
+        let rows = self.run(crate::Statement::new(
             "MATCH (a)-[r]->(b)\nRETURN a.id AS from_id, type(r) AS label, b.id AS to_id",
             json!({}),
-        )?;
+        ))?;
         Ok(rows
             .into_iter()
             .filter_map(|row| {
@@ -133,12 +134,12 @@ impl Graph for Neo4jGraph {
         if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             return Err(StoreError::Invalid(format!("{label} is not an edge name")));
         }
-        self.run(
+        self.run(crate::Statement::new(
             &format!(
                 "MATCH (a)\nWHERE a.id = $from\nMATCH (b)\nWHERE b.id = $to\nMERGE (a)-[:{label}]->(b)"
             ),
             json!({"from": from, "to": to}),
-        )?;
+        ))?;
         Ok(())
     }
 }

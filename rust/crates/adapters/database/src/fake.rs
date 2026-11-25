@@ -69,7 +69,8 @@ impl Graph for FakeGraph {
             transactions: false,
         }
     }
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
+        let (cypher, params) = statement.into_parts();
         let index = self.seen.borrow().len();
         self.seen.borrow_mut().push((cypher.to_owned(), params));
         let scripts = self.scripts.borrow();
@@ -285,7 +286,8 @@ impl Graph for MemoryGraph {
         Ok(rows)
     }
 
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
+        let (cypher, params) = statement.into_parts();
         // a create with children writes the parent and each child, and answers the parent with its lines
         if cypher.contains("CREATE (x:") && cypher.contains("UNWIND $children") {
             let label = created_label(cypher)
@@ -794,19 +796,19 @@ mod scoping_tests {
             .expect("written");
 
         let rows = graph
-            .run(
+            .run(crate::Statement::new(
                 "MATCH (x:ScopedThing) WHERE x.book_id = $book_id RETURN x LIMIT $limit",
                 json!({"book_id": "book-1", "limit": 100}),
-            )
+            ))
             .expect("a listing");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["x"]["name"], json!("shared"));
         // and another Book's rows are still not visible
         let elsewhere = graph
-            .run(
+            .run(crate::Statement::new(
                 "MATCH (x:ScopedThing) WHERE x.book_id = $book_id RETURN x LIMIT $limit",
                 json!({"book_id": "book-2", "limit": 100}),
-            )
+            ))
             .expect("a listing");
         assert!(elsewhere.is_empty());
     }

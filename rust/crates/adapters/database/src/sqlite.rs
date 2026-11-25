@@ -229,7 +229,7 @@ impl Graph for SqliteGraph {
     /// This store answers the semantic doors and nothing else. Keeping the refusal here means the trait's escape hatch
     /// cannot quietly become this backend's interface: a caller that wants a statement answered would fail loudly here
     /// instead of becoming a Cypher-shaped dependency of a database that has none.
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, _statement: crate::Statement<'_>) -> Result<Vec<Value>, StoreError> {
         Err(StoreError::Graph(
             "the device store answers operations, not statements".into(),
         ))
@@ -1010,4 +1010,29 @@ fn account_id(
 /// A record's properties as a map, for the tests and for a caller that wants to read one without a door for it.
 pub fn properties(record: &Value) -> Map<String, Value> {
     record.as_object().cloned().unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The device store answers the operations and refuses a statement outright.
+    ///
+    /// A caller outside this crate cannot even ask: `Statement` has no public constructor, so the only way to reach this
+    /// door is from inside the store crate itself. The refusal stays because it is the backend's own promise, not the
+    /// caller's restraint: a database with no Cypher in it should say so rather than fail obscurely later.
+    #[test]
+    fn the_device_store_refuses_a_statement() {
+        let store = SqliteGraph::in_memory().expect("a store");
+        let refused = store
+            .run(crate::Statement::new(
+                "MATCH (x) RETURN x",
+                serde_json::json!({}),
+            ))
+            .expect_err("the device store read a statement");
+        assert!(
+            refused.to_string().contains("operations, not statements"),
+            "{refused}"
+        );
+    }
 }

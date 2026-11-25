@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use serde_json::{json, Value};
 use store::fake::MemoryGraph;
-use store::{BookScope, Graph, StoreError};
+use store::{BookScope, Graph, Statement, StoreError};
 use tower::ServiceExt;
 
 /// A graph that answers with the rows a test handed it and remembers what it was asked.
@@ -59,7 +59,8 @@ impl Scripted {
 }
 
 impl Graph for Scripted {
-    fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
+        let (cypher, params) = statement.into_parts();
         self.seen.lock().unwrap().push((cypher.to_owned(), params));
         let mut queue = self.queue.lock().unwrap();
         if queue.is_empty() {

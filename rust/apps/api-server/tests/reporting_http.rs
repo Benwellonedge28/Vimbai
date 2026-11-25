@@ -5,13 +5,13 @@ use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use store::{Graph, StoreError};
+use store::{Graph, Statement, StoreError};
 use tower::ServiceExt;
 
 struct Empty;
 
 impl Graph for Empty {
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
+    fn run(&self, _statement: Statement<'_>) -> Result<Vec<Value>, StoreError> {
         Ok(Vec::new())
     }
 }

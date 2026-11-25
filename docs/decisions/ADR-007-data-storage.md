@@ -40,9 +40,9 @@ What it does not give us, and a ledger needs:
 
 ## Consequences
 
-- The store trait becomes the swap boundary in practice, not just in name. Work still to do, in order: shrink the trait so
-  it is semantic rather than `run(cypher)` (the two edge doors added with the move are the first of those), then a Postgres
-  implementation, then SQLite for the device.
+- The store trait becomes the swap boundary in practice, not just in name. The trait was shrunk so it is semantic rather
+  than `run(cypher)`; what is left of the raw door is described in the amendment of 2026-11-25 below. The order it was
+  done in: the edge doors, then a Postgres implementation, then SQLite for the device.
 - A Postgres adapter cannot be written honestly without a server to test against. It was built only once a Postgres was
   available, with the round-trip gate pointed at it: eleven tests against Postgres 15, including a Book carried from
   SQLite into Postgres and compared on arrival. Two defects only a real server could show were fixed on the way, and both
@@ -130,6 +130,25 @@ start, naming the setting it wants. Neo4j stays reachable as a source for `vimba
 still running one needs to get out, and is refused as a destination so a Book cannot be moved into a store the engine
 will not open.
 
-What this leaves: the statement door (`run(cypher)`) now exists for exactly one caller, the move tool reading an old
-install. Deleting it would shrink the store contract to operations alone, and it is the one change that should be made
-when no supported path reads Neo4j any more.
+### Amendment, 2026-11-25: the raw door takes a statement only the store crate can mint
+
+The door above was left open on the argument that it had one caller. It was closed instead, and closing it did not need
+the Neo4j path to go away first.
+
+`Graph::run` no longer accepts a string and a bag of values. It accepts a `Statement`, whose fields are private and whose
+constructor is `pub(crate)`. A caller holding a store can create, read, update, list and delete records and cannot hand the
+database a statement of its own: no handler, no service crate and no script can reach past the store's rules, because it
+cannot make the thing the door asks for. The statements that do run are written in `query`, `read`, `write` and `dump`,
+which is where the scoping rules already lived.
+
+A store implemented outside the crate - the scripted fakes in the engine's tests, the move tool's drivers - can still read
+what it is being asked, through `Statement::cypher` and `Statement::params`. Reading a statement is not writing one.
+
+Two consequences worth stating plainly:
+
+- The backends that refuse statements at all (SQLite, Postgres) still refuse them, and that refusal is now pinned inside
+  the store crate, because a statement can only be minted there. Out in the engine's tests the same fact shows up as the
+  door not being callable at all, which is the stronger statement.
+- A content gate (`no_caller_can_hand_the_store_a_statement_of_its_own`) fails if any `fn run` in the workspace takes a
+  bare Cypher string again, or if the token's fields become public. A type can be widened by one careless edit; the gate
+  is what makes the widening a decision rather than an accident.
