@@ -5,6 +5,7 @@
 // show exactly the services that fit the active Book.
 import 'package:flutter/material.dart';
 
+import 'package:vimbai_mobile_client/features/aged_receivables/presentation/aged_receivables_page.dart';
 import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/budgets_page.dart';
@@ -332,6 +333,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Every account over a period: opening, movements, closing',
           icon: Icons.table_chart_outlined,
           page: (context) => const GeneralLedgerPage(),
+        ),
+        BookServiceEntry(
+          title: 'Who owes you',
+          description: 'Who is late, by how much, and what to send them',
+          icon: Icons.request_quote_outlined,
+          page: (context) => const AgedReceivablesPage(),
         ),
         BookServiceEntry(
           title: 'Trial balance',
