@@ -12,7 +12,9 @@ use serde_json::{json, Value};
 
 use vimbai_common::Money;
 use vimbai_store::amounts::{amount, wire};
-use vimbai_store::read::{or_default, text};
+use vimbai_store::read::text;
+
+use crate::subsidiary_journals::account_for_purpose;
 use vimbai_store::{BookScope, Graph, StoreError};
 
 use crate::ledger_book;
@@ -51,18 +53,6 @@ pub struct SettlementAccounts {
     pub gain: String,
     /// Where a loss on the rate goes: an expense, because the business is worse off.
     pub loss: String,
-}
-
-impl SettlementAccounts {
-    /// The accounts a business Book opens with, unless the caller names its own.
-    pub fn standard() -> Self {
-        Self {
-            bank: "1010".to_string(),
-            receivable: "1100".to_string(),
-            gain: "4800".to_string(),
-            loss: "5800".to_string(),
-        }
-    }
 }
 
 /// What the rate did to a settlement: a gain, or a loss, and never both.
@@ -114,14 +104,46 @@ pub fn settle_foreign(
         ));
     }
 
+    // The Book's own accounts, asked for by purpose. A number written here would post a business's money to whatever
+    // account happened to carry that number, or to nothing at all, and the entry would still balance.
     let accounts = SettlementAccounts {
-        bank: or_default(payload, "bank_account", "1010"),
+        bank: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "bank_account"),
+            "bank",
+            "asset",
+        )?,
         receivable: match DocumentSide::named(payload) {
-            DocumentSide::Receivable => or_default(payload, "receivable_account", "1100"),
-            DocumentSide::Payable => or_default(payload, "payable_account", "2000"),
+            DocumentSide::Receivable => account_for_purpose(
+                graph,
+                scope,
+                &text(payload, "receivable_account"),
+                "receivable",
+                "asset",
+            )?,
+            DocumentSide::Payable => account_for_purpose(
+                graph,
+                scope,
+                &text(payload, "payable_account"),
+                "payable",
+                "liability",
+            )?,
         },
-        gain: or_default(payload, "exchange_gain_account", "4800"),
-        loss: or_default(payload, "exchange_loss_account", "5800"),
+        gain: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "exchange_gain_account"),
+            "exchange_gain",
+            "revenue",
+        )?,
+        loss: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "exchange_loss_account"),
+            "exchange_loss",
+            "expense",
+        )?,
     };
     let side = DocumentSide::named(payload);
     let (gain, loss) = settled_on(side, &carried, &received);
@@ -205,14 +227,45 @@ pub fn settle_difference<G: Graph + ?Sized>(
         ));
     }
 
+    // the same rule as a settlement: the Book's own accounts, asked for by purpose rather than assumed by number
     let accounts = SettlementAccounts {
-        bank: or_default(payload, "bank_account", "1010"),
+        bank: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "bank_account"),
+            "bank",
+            "asset",
+        )?,
         receivable: match side {
-            DocumentSide::Receivable => or_default(payload, "receivable_account", "1100"),
-            DocumentSide::Payable => or_default(payload, "payable_account", "2000"),
+            DocumentSide::Receivable => account_for_purpose(
+                graph,
+                scope,
+                &text(payload, "receivable_account"),
+                "receivable",
+                "asset",
+            )?,
+            DocumentSide::Payable => account_for_purpose(
+                graph,
+                scope,
+                &text(payload, "payable_account"),
+                "payable",
+                "liability",
+            )?,
         },
-        gain: or_default(payload, "exchange_gain_account", "4800"),
-        loss: or_default(payload, "exchange_loss_account", "5800"),
+        gain: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "exchange_gain_account"),
+            "exchange_gain",
+            "revenue",
+        )?,
+        loss: account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "exchange_loss_account"),
+            "exchange_loss",
+            "expense",
+        )?,
     };
     let zero = Money::zero();
     let reference = text(payload, "reference_number");
@@ -440,12 +493,5 @@ mod tests {
         let (gain, loss) = settled_on(DocumentSide::Payable, &money("25500"), &money("24000"));
         assert_eq!(gain.to_fixed(2), "1500.00");
         assert!(loss.is_zero());
-    }
-
-    #[test]
-    fn a_standard_book_knows_where_the_rate_difference_goes() {
-        let accounts = SettlementAccounts::standard();
-        assert_eq!(accounts.gain, "4800");
-        assert_eq!(accounts.loss, "5800");
     }
 }

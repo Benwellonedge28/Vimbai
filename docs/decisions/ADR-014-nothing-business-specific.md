@@ -79,8 +79,10 @@ percentages or amounts are, so the rule needs no list of what an account is call
 The chart a Book opens with is the one place allowed to write a number, because that is data written as code. Everything
 else must ask the Book for its accounts.
 
-What the gate found is a backlog, not a permission: twenty-nine files still write one hundred and ninety-six numbers
-between them, chiefly the equity, partnership, assets and foreign-exchange journals, which post to `"3300"` and `"1000"`
-as though every business numbered its chart that way. The list in `STILL_NUMBERED` is a ratchet, and the test fails when
+What the gate found is a backlog, not a permission: twenty-eight files still write one hundred and eighty-two numbers
+between them, chiefly the equity, partnership and assets journals, which post to `"3300"` and `"1000"` as though every
+business numbered its chart that way. The foreign-exchange settlement was the first to go: it posted to `"1010"`,
+`"1100"`, `"4800"` and `"5800"` whenever the caller named nothing, and it now asks the Book for its bank, its receivable or
+payable and its exchange gain and loss by purpose, so a business that numbers its chart differently settles correctly. The list in `STILL_NUMBERED` is a ratchet, and the test fails when
 a file is added to it, when a file's count rises, or when a file's count falls without its figure being lowered. So the
 backlog can only shrink, and every fix has to be recorded in the same commit that lands it.
