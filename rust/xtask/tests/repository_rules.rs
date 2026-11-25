@@ -8,8 +8,8 @@
 use std::path::PathBuf;
 
 use xtask::{
-    boundaries, catalog, crates, documentation, makefile, manifests, published, reachability,
-    readme, runbook, servers, single_source, vocabulary, wiring, workflows,
+    boundaries, business_words, catalog, crates, documentation, makefile, manifests, published,
+    reachability, readme, runbook, servers, single_source, vocabulary, wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -1196,5 +1196,45 @@ fn the_ageing_bands_are_declared_once() {
         twice.is_empty(),
         "the ageing bands are named outside {}: {twice:#?}",
         single_source::AGEING
+    );
+}
+
+#[test]
+fn the_engine_writes_no_account_numbers() {
+    // ADR-014: only the laws of accounting are code. A number written in the engine does not fail, it posts a business's
+    // money to whatever account carries that number, and the entry still balances. The starting chart is the one place
+    // allowed to write one; every other file is a backlog that may only shrink.
+    let counted = business_words::numbers_by_file(&root());
+    let listed: std::collections::BTreeMap<String, usize> = business_words::STILL_NUMBERED
+        .iter()
+        .map(|(file, count)| ((*file).to_string(), *count))
+        .collect();
+    let mut problems = Vec::new();
+    for (file, count) in &counted {
+        match listed.get(file) {
+            None => problems.push(format!(
+                "{file} writes {count} account numbers and is not in the backlog: ask the Book for its accounts"
+            )),
+            Some(allowed) if count > allowed => problems.push(format!(
+                "{file} writes {count} account numbers, up from {allowed}: the backlog may only shrink"
+            )),
+            Some(allowed) if count < allowed => problems.push(format!(
+                "{file} is down to {count} account numbers from {allowed}: lower its figure in business_words.rs"
+            )),
+            Some(_) => {}
+        }
+    }
+    for file in listed.keys() {
+        if !counted.iter().any(|(counted, _)| counted == file) {
+            problems.push(format!(
+                "{file} no longer writes an account number: remove it from the backlog"
+            ));
+        }
+    }
+    assert!(
+        problems.is_empty(),
+        "{} file(s) disagree with the backlog:\n{}",
+        problems.len(),
+        problems.join("\n")
     );
 }

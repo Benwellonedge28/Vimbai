@@ -6,6 +6,7 @@
 
 pub mod app_calls;
 pub mod boundaries;
+pub mod business_words;
 pub mod catalog;
 pub mod crates;
 pub mod deploy;

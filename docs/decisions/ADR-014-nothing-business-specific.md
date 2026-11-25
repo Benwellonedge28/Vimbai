@@ -67,3 +67,20 @@ exercise.
 
 Built since: the measure vocabulary as stored rows (ADR-017), which a Book owns and may change. Still to come: the gate
 that fails on a business word in the engine.
+
+## The gate that holds it
+
+`rust/xtask/src/business_words.rs` reads the engine and reports every line that writes a four-digit account number
+outside a test. A number in the engine is the clearest way to break this decision, because it does not fail: it posts a
+business's money to whatever account happens to carry that number, or to nothing at all, and the entry still balances.
+Four digits in quotes is how every account number in this repository is written and how none of its dates, years,
+percentages or amounts are, so the rule needs no list of what an account is called.
+
+The chart a Book opens with is the one place allowed to write a number, because that is data written as code. Everything
+else must ask the Book for its accounts.
+
+What the gate found is a backlog, not a permission: twenty-nine files still write one hundred and ninety-six numbers
+between them, chiefly the equity, partnership, assets and foreign-exchange journals, which post to `"3300"` and `"1000"`
+as though every business numbered its chart that way. The list in `STILL_NUMBERED` is a ratchet, and the test fails when
+a file is added to it, when a file's count rises, or when a file's count falls without its figure being lowered. So the
+backlog can only shrink, and every fix has to be recorded in the same commit that lands it.
