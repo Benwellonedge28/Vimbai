@@ -79,9 +79,13 @@ percentages or amounts are, so the rule needs no list of what an account is call
 The chart a Book opens with is the one place allowed to write a number, because that is data written as code. Everything
 else must ask the Book for its accounts.
 
-What the gate found is a backlog, not a permission: twenty-seven files still write one hundred and fifty-six numbers
+What the gate found is a backlog, not a permission: twenty-four files still write one hundred and forty-six numbers
 between them, chiefly the equity, partnership and assets journals, which post to `"3300"` and `"1000"` as though every
-business numbered its chart that way. The sales, purchases and both returns journals went next: they posted to `"1100"`, `"4000"`, `"1200"`, `"2000"`,
+business numbered its chart that way. Three more places went with them: a petty cash voucher posted to a category table of numbers (`"office_supplies"` →
+`"6100"`, and so on), which was a business's own vocabulary written into the engine, so a voucher now names the account it
+was for; an expense still owed defaulted to `"2000"` instead of the Book's payables account; and restating balances at a
+closing rate defaulted to `"4800"` and `"5800"` instead of the Book's own exchange gain and loss accounts.
+The sales, purchases and both returns journals went next: they posted to `"1100"`, `"4000"`, `"1200"`, `"2000"`,
 `"4050"` and `"5050"` by number, and now ask the Book for its receivable, sales, inventory, payable, sales-returns and
 purchases-returns accounts by purpose. A vendor bill no longer posts its cost to `"6000"`: a bill can be for stock, for a
 cost of trading or for something else, so the bill names the account it was for and is refused in words when it does not.

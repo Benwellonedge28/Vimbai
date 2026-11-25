@@ -132,18 +132,6 @@ pub fn list_petty_cash_funds(
         .map(Value::Array)
 }
 
-/// The expense account each petty cash category posts to, and the fallback for the rest.
-fn petty_cash_expense(category: &str) -> &'static str {
-    match category {
-        "office_supplies" => "6100",
-        "postage" => "6200",
-        "transportation" => "6300",
-        "meals" => "6400",
-        "tips" => "6500",
-        _ => "6600",
-    }
-}
-
 /// `POST /petty-cash-entries/`: a voucher, posted against petty cash.
 pub fn create_petty_cash_entry(
     graph: &(impl Graph + ?Sized),
@@ -153,7 +141,23 @@ pub fn create_petty_cash_entry(
     let amount = money(payload, "amount")?;
     let voucher = text(payload, "voucher_number");
     let category = or_default(payload, "category", "miscellaneous");
-    let expense_account = petty_cash_expense(&category);
+    // What the voucher was for is an account only the business knows, so the voucher names it, and the fund itself is
+    // the Book's own cash account rather than a number written here.
+    let named = text(payload, "expense_account");
+    if named.trim().is_empty() {
+        return Err(refused(
+            "Say which account this voucher was for, so the cost shows in the right part of the accounts.",
+        ));
+    }
+    let expense_account =
+        crate::subsidiary_journals::account_for_purpose(graph, scope, &named, "", "")?;
+    let fund_account = crate::subsidiary_journals::account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "petty_cash_account"),
+        "cash",
+        "asset",
+    )?;
     let zero = Money::zero();
 
     let entry = json!({
@@ -166,7 +170,7 @@ pub fn create_petty_cash_entry(
         "lines": [
             {"account_number": expense_account, "debit": wire(&amount), "credit": wire(&zero),
              "description": format!("Petty Cash: {voucher}")},
-            {"account_number": "1001", "debit": wire(&zero), "credit": wire(&amount),
+            {"account_number": fund_account, "debit": wire(&zero), "credit": wire(&amount),
              "description": format!("Petty Cash: {voucher}")},
         ],
     });
@@ -1065,19 +1069,21 @@ mod tests {
     }
 
     #[test]
-    fn a_petty_cash_category_with_no_account_falls_back_to_miscellaneous() {
-        assert_eq!(petty_cash_expense("postage"), "6200");
-        assert_eq!(petty_cash_expense("meals"), "6400");
-        assert_eq!(petty_cash_expense("something else"), "6600");
-    }
-
-    #[test]
     fn a_petty_cash_voucher_posts_to_its_category_and_the_petty_cash_account() {
         let graph = FakeGraph::queue(vec![
+            // the account the voucher names, then the Book's own cash account, then each line as it is validated
             vec![json!({"id": "acct-6200", "account_number": "6200",
                         "account_type": "expense", "normal_balance": "debit"})],
-            vec![json!({"id": "acct-6101", "account_number": "1001",
-                        "account_type": "asset", "normal_balance": "debit"})],
+            vec![
+                json!({"id": "acct-1001", "account_number": "1001", "account_type": "asset",
+                        "normal_balance": "debit", "role": "cash"}),
+            ],
+            vec![json!({"id": "acct-6200", "account_number": "6200",
+                        "account_type": "expense", "normal_balance": "debit"})],
+            vec![
+                json!({"id": "acct-1001", "account_number": "1001", "account_type": "asset",
+                        "normal_balance": "debit", "role": "cash"}),
+            ],
             // no month is closed
             vec![],
             // the chain so far, which is empty
@@ -1091,7 +1097,7 @@ mod tests {
             &json!({"petty_cash_fund_id": "fund-1", "voucher_number": "V-1",
                     "voucher_date": "2026-03-15", "payee": "Post office",
                     "amount": "12.40", "category": "postage",
-                    "description": "stamps"}),
+                    "expense_account": "6200", "description": "stamps"}),
         )
         .expect("voucher");
         assert_eq!(answer["journal_entry_id"], json!("je-1"));

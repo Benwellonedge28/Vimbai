@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 
 use vimbai_common::Money;
 use vimbai_store::amounts::{amount, wire};
-use vimbai_store::read::{field, or_default, text};
+use vimbai_store::read::{field, text};
 use vimbai_store::{BookScope, Graph, StoreError};
 
 use crate::ledger_book;
@@ -143,8 +143,20 @@ pub fn revalue(
         }));
     }
 
-    let gain_account = or_default(payload, "exchange_gain_account", "4800");
-    let loss_account = or_default(payload, "exchange_loss_account", "5800");
+    let gain_account = crate::subsidiary_journals::account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "exchange_gain_account"),
+        "exchange_gain",
+        "revenue",
+    )?;
+    let loss_account = crate::subsidiary_journals::account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "exchange_loss_account"),
+        "exchange_loss",
+        "expense",
+    )?;
     let zero = Money::zero();
     let mut lines: Vec<Value> = Vec::new();
     for (account, difference) in &worked.accounts {

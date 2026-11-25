@@ -115,7 +115,13 @@ pub fn create_expense(
     // owed unless it says it was paid: a cost that has not left the account yet is a liability, not a payment
     let credit_account = match &paid {
         Some(money) => money.ledger_account.clone(),
-        None => or_default(payload, "payable_account", "2000"),
+        None => crate::subsidiary_journals::account_for_purpose(
+            graph,
+            scope,
+            &text(payload, "payable_account"),
+            "payable",
+            "liability",
+        )?,
     };
     let payee = text(payload, "paid_to");
     let note = if payee.trim().is_empty() {
