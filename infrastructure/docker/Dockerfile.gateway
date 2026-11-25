@@ -2,7 +2,7 @@
 #
 # The context is gateway/go, because the gateway has no path dependencies outside itself.
 
-FROM golang:1.22-alpine AS build
+FROM golang:1.27-alpine AS build
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,7 +11,7 @@ COPY . .
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/gateway .
 
-FROM alpine:3.20 AS runtime
+FROM alpine:3.24 AS runtime
 WORKDIR /app
 RUN addgroup -S gateway && adduser -S -G gateway -H gateway && apk add --no-cache ca-certificates curl
 COPY --from=build /out/gateway /usr/local/bin/gateway
