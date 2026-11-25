@@ -15,13 +15,17 @@ import 'package:flutter/material.dart';
 
 import 'package:vimbai_mobile_client/core/api/amount.dart';
 import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
+import 'package:vimbai_mobile_client/features/progress/data/measures_reading.dart';
 import 'package:vimbai_mobile_client/features/progress/data/progress_reading.dart';
 
 class HowAmIDoingPage extends StatefulWidget {
-  const HowAmIDoingPage({super.key, this.service, this.today});
+  const HowAmIDoingPage({super.key, this.service, this.measures, this.today});
 
   /// A test passes its own service so the page can be exercised without a server.
   final ProgressService? service;
+
+  /// The Book's own figures, which are the ones the screen shows.
+  final BookMeasuresService? measures;
 
   /// The day to report on. Fixed in a test so the page cannot drift with the clock.
   final String? today;
@@ -32,8 +36,11 @@ class HowAmIDoingPage extends StatefulWidget {
 
 class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
   late final ProgressService _service = widget.service ?? ProgressService();
+  late final BookMeasuresService _measures =
+      widget.measures ?? BookMeasuresService.instance;
 
   ProgressReading? _reading;
+  MeasuresReading? _figures;
   Object? _failure;
   bool _loading = true;
 
@@ -61,10 +68,15 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
       _failure = null;
     });
     try {
-      final reading = await _service.read(to: _today, from: _from);
+      // the figures are the Book's own rows and the pace comes from the window comparison, so both are read together
+      final answers = await Future.wait([
+        _service.read(to: _today, from: _from),
+        _measures.read(to: _today, from: _from),
+      ]);
       if (!mounted) return;
       setState(() {
-        _reading = reading;
+        _reading = answers[0] as ProgressReading;
+        _figures = answers[1] as MeasuresReading;
         _loading = false;
       });
     } catch (error) {
@@ -105,6 +117,7 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
       );
     }
     final reading = _reading;
+    final figures = _figures;
     if (reading == null) {
       return const Center(child: Text('Nothing has been read yet.'));
     }
@@ -115,7 +128,9 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
         children: [
           _windowPicker(context, reading),
           const SizedBox(height: 12),
-          _headline(context, reading),
+          if (figures != null) _headline(context, figures, reading),
+          const SizedBox(height: 12),
+          if (figures != null) _measuresCard(context, figures),
           const SizedBox(height: 12),
           _paceCard(context, reading),
           const SizedBox(height: 12),
@@ -174,10 +189,90 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
     }
   }
 
-  Widget _headline(BuildContext context, ProgressReading reading) {
+  /// The figure the Book leads with, in the Book's own words.
+  ///
+  /// Which figure leads is a row the owner sets, not a sentence in code: a garage and a clinic lead with different ones.
+  Widget _headline(
+    BuildContext context,
+    MeasuresReading figures,
+    ProgressReading reading,
+  ) {
     final theme = Theme.of(context);
-    final made = ExactAmount.tryParse(reading.profit) ?? ExactAmount.zero;
-    final direction = made.negative ? 'lost' : 'made';
+    final leads = figures.leading;
+    if (!reading.hasTraded) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Nothing has been posted in this window yet',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'A Book with nothing posted has nothing to show. Record what happened and the figures appear here '
+                'straight away, without closing anything.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (leads.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'This Book has not said which figure leads. Its figures are below, and the one that leads is a row you set.',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final row in leads.take(2))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${row.label}: ${_figure(row)}',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(
+              figures.rows.isEmpty
+                  ? 'A Book with nothing to measure has nothing to show. Record what happened and the figures appear '
+                        'straight away, without closing anything.'
+                  : 'To ${figures.to}. Nothing is closed to see these; the month is closed to lock them.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// One figure as a person reads it: money with its decimals, a share with its sign, a count as a count.
+  String _figure(MeasureRow row) {
+    if (row.problem != null) return 'could not be read';
+    final raw = row.value;
+    if (raw == null) return 'not read';
+    if (row.isPercent) return _percent(raw);
+    if (row.isMoney) return _money(raw);
+    return raw;
+  }
+
+  /// Every figure the Book measures itself by, in the Book's order, including the ones it could not read.
+  Widget _measuresCard(BuildContext context, MeasuresReading figures) {
+    final theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -185,20 +280,39 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              reading.hasTraded
-                  ? 'You have $direction ${_money(reading.profit)} since ${_openingWords(reading)}'
-                  : 'Nothing has been posted in this window yet',
-              style: theme.textTheme.titleMedium,
+              'What you measure yourself by',
+              style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
-            Text(
-              reading.hasTraded
-                  ? 'On ${_money(reading.revenue)} of income and ${_money(reading.costs)} of costs, '
-                        'a margin of ${_percent(reading.marginPercent)}.'
-                  : 'A Book with nothing posted has nothing to show. Record what happened and the figures appear here '
-                        'straight away, without closing anything.',
-              style: theme.textTheme.bodyMedium,
-            ),
+            for (final row in figures.rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: row.leads ? FontWeight.w600 : null,
+                            ),
+                          ),
+                        ),
+                        Text(_figure(row), style: theme.textTheme.bodyMedium),
+                      ],
+                    ),
+                    if (row.problem != null)
+                      Text(
+                        row.problem!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -349,31 +463,5 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
     final parsed = ExactAmount.tryParse(amount);
     if (parsed == null) return '$amount%';
     return '${parsed.toDecimalString()}%';
-  }
-
-  /// The window in the words the sentence needs: "1 October" or "5 October".
-  String _openingWords(ProgressReading reading) {
-    final parts = reading.from.split('-');
-    if (parts.length != 3) return reading.from;
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final month = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
-    if (month == null || day == null || month < 1 || month > 12) {
-      return reading.from;
-    }
-    return '$day ${months[month - 1]}';
   }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:vimbai_mobile_client/features/progress/data/measures_reading.dart';
 import 'package:vimbai_mobile_client/features/progress/data/progress_reading.dart';
 import 'package:vimbai_mobile_client/features/progress/presentation/how_am_i_doing_page.dart';
 
@@ -53,6 +54,29 @@ const _nothing = '''
  "note":"Every entry in this window is posted, so the figures are the ledger's own."}
 ''';
 
+/// The Book's own figures, as the engine answers them: rows in the Book's order, one leading.
+const _figures = '''
+{"from":"2026-10-01","to":"2026-10-20","measures":[
+ {"name":"profit","label":"Profit","unit":"money","value":"1000.000000","leads":true},
+ {"name":"cash","label":"Cash held","unit":"money","value":"800.000000","leads":true},
+ {"name":"margin","label":"Profit as a share of trading","unit":"percent","value":"86.956522","leads":false},
+ {"name":"not_posted","label":"Entries not yet posted","unit":"count","value":2,"leads":false}]}
+''';
+
+const _figuresWithAProblem = '''
+{"from":"2026-10-01","to":"2026-10-20","measures":[
+ {"name":"profit","label":"Profit","unit":"money","value":"1000.000000","leads":true},
+ {"name":"mine","label":"What my own measure counts","unit":"money","value":null,
+  "problem":"this Book has no account called Depot costs","leads":false}]}
+''';
+
+BookMeasuresService _measuresReturning(String body, {int status = 200}) {
+  final service = BookMeasuresService.fresh();
+  service.useClient(MockClient((request) async => http.Response(body, status)));
+  service.useToken('token');
+  return service;
+}
+
 ProgressService _serviceReturning(
   String body, {
   int status = 200,
@@ -69,10 +93,23 @@ ProgressService _serviceReturning(
   return service;
 }
 
-Future<void> _open(WidgetTester tester, ProgressService service) async {
+Future<void> _open(
+  WidgetTester tester,
+  ProgressService service, {
+  String figures = _figures,
+}) async {
+  // a tall surface so the whole page is built: the screen is longer than a default test viewport
+  tester.view.physicalSize = const Size(1200, 3200);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      home: HowAmIDoingPage(service: service, today: '2026-10-20'),
+      home: HowAmIDoingPage(
+        service: service,
+        measures: _measuresReturning(figures),
+        today: '2026-10-20',
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -180,9 +217,15 @@ void main() {
       tester,
     ) async {
       await _open(tester, _serviceReturning(_october));
-      expect(find.textContaining('You have made 1000.00'), findsOneWidget);
-      expect(find.textContaining('since 1 October'), findsOneWidget);
-      expect(find.textContaining('margin of 86.96%'), findsOneWidget);
+      // the figures the Book leads with, in the Book's own words, rather than a sentence naming profit and margin
+      expect(find.text('Profit: 1000.00'), findsOneWidget);
+      expect(find.text('Cash held: 800.00'), findsOneWidget);
+      expect(
+        find.textContaining('What you measure yourself by'),
+        findsOneWidget,
+      );
+      expect(find.text('Profit as a share of trading'), findsOneWidget);
+      expect(find.textContaining('86.9'), findsOneWidget);
     });
 
     testWidgets(
@@ -245,7 +288,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.textContaining('dated 2026-10-12'), findsOneWidget);
-        expect(find.textContaining('provisional'), findsOneWidget);
+        expect(find.textContaining('provisional'), findsWidgets);
       },
     );
 
@@ -258,6 +301,25 @@ void main() {
           findsOneWidget,
         );
         expect(find.textContaining('without closing anything'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a measure that cannot be read says why, and the others still show',
+      (tester) async {
+        await _open(
+          tester,
+          _serviceReturning(_october),
+          figures: _figuresWithAProblem,
+        );
+        expect(find.text('What my own measure counts'), findsOneWidget);
+        expect(find.text('could not be read'), findsOneWidget);
+        expect(
+          find.textContaining('no account called Depot costs'),
+          findsOneWidget,
+        );
+        // the row that could be read is still there, so one mistake does not hide the rest
+        expect(find.text('Profit: 1000.00'), findsOneWidget);
       },
     );
 
