@@ -24,9 +24,13 @@ pub struct AssetDepreciationRow {
     pub accumulated: f64,
 }
 
-/// The service publishes a five-year schedule on `/calculate` that is not a
-/// real schedule: every year repeats `total * 0.9`. Kept as-is because the
-/// endpoint's consumers read it as a forecast placeholder.
+/// One line of the register's five-year forecast: what the whole register charges in that year.
+///
+/// The service this came from published `total * 0.9` for every year, which is not a schedule: it claimed the
+/// register depreciated 450% of its annual charge over five years, and a person reading it to plan a year's cash
+/// had no way to know the figures were made up. The line now carries the charge the register actually makes in that
+/// year, from the same rules the single-asset schedule uses, and an asset that has finished its life contributes
+/// nothing to the years after it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DepreciationScheduleRow {
     pub year: i64,
@@ -40,13 +44,16 @@ pub struct DepreciationOutput {
     pub schedule: Vec<DepreciationScheduleRow>,
 }
 
-/// Batch `/calculate`. Python quirks kept: declining balance ignores
-/// salvage and uses 2/life on full cost; the returned schedule is a flat
-/// placeholder (total*0.9 for years 1..5), not a real schedule.
+/// Batch `/calculate`: what each asset charges in a year, and what the register charges in each of the next five.
 ///
-/// Every figure is an amount, so the charge and the register total are decimals:
-/// the total is the sum of the whole register, and it is then multiplied by 0.9
-/// for the forecast line, which is exactly where a double drifts.
+/// The method rules are the ones the single-asset schedule already uses, and are shared rather than restated:
+/// straight line spreads cost less salvage over the life, declining balance charges 2/life of full cost (the
+/// shipped rule, which ignores salvage), and any other method is treated as straight line. An asset with no stated
+/// life is given five years, which is the shipped default.
+///
+/// The five-year line for a year is the sum of the charges every asset still alive makes in it: an asset with a
+/// three-year life is charged in years one to three and nothing afterwards, so the forecast cannot outlive the
+/// assets it is forecasting.
 pub fn depreciation_batch(method: &str, assets: &[DepreciationAsset]) -> DepreciationOutput {
     let two = Money::from_i64(2);
     let mut annuals: Vec<Money> = Vec::with_capacity(assets.len());
@@ -70,18 +77,37 @@ pub fn depreciation_batch(method: &str, assets: &[DepreciationAsset]) -> Depreci
         });
     }
     let total = Money::sum(&annuals);
-    let placeholder = total
-        .times(&Money::parse("0.9").expect("0.9 is a decimal"))
-        .round(2);
+    // the years each asset is still charged in, so a five-year forecast stops where the assets stop
+    let lives: Vec<i64> = assets
+        .iter()
+        .map(|asset| {
+            if asset.useful_life_years > 0 {
+                asset.useful_life_years
+            } else {
+                5
+            }
+        })
+        .collect();
+    let schedule = (1..=5_i64)
+        .map(|year| {
+            let charge = Money::sum(
+                &annuals
+                    .iter()
+                    .zip(&lives)
+                    .filter(|(_, life)| **life >= year)
+                    .map(|(annual, _)| annual.clone())
+                    .collect::<Vec<Money>>(),
+            );
+            DepreciationScheduleRow {
+                year,
+                depreciation: charge.round(2).to_f64_lossy(),
+            }
+        })
+        .collect();
     DepreciationOutput {
         total_depreciation: total.round(2).to_f64_lossy(),
         asset_depreciation: rows,
-        schedule: (1..=5)
-            .map(|year| DepreciationScheduleRow {
-                year,
-                depreciation: placeholder.to_f64_lossy(),
-            })
-            .collect(),
+        schedule,
     }
 }
 
@@ -403,5 +429,56 @@ mod quick_tests {
             quick_depreciation(&json!({"cost": 1000, "salvage_value": 0, "useful_life": 0})),
             Err(StoreError::Invalid(_))
         ));
+    }
+}
+
+#[cfg(test)]
+mod register_forecast_tests {
+    use super::*;
+
+    fn asset(id: &str, cost: &str, salvage: &str, life: i64) -> DepreciationAsset {
+        DepreciationAsset {
+            asset_id: id.to_string(),
+            cost: Money::parse(cost).expect("a cost"),
+            salvage: Money::parse(salvage).expect("a salvage"),
+            useful_life_years: life,
+        }
+    }
+
+    #[test]
+    fn a_year_charges_what_the_register_charges_in_it() {
+        // 1200 over 4 years is 300 a year; 600 over 2 years is 300 a year
+        let out = depreciation_batch(
+            "straight_line",
+            &[asset("a-1", "1200", "0", 4), asset("a-2", "600", "0", 2)],
+        );
+        assert_eq!(out.total_depreciation, 600.0, "300 + 300 a year");
+        let charges: Vec<f64> = out.schedule.iter().map(|row| row.depreciation).collect();
+        assert_eq!(charges, vec![600.0, 600.0, 300.0, 300.0, 0.0]);
+    }
+
+    #[test]
+    fn the_forecast_cannot_outlive_the_assets_it_forecasts() {
+        let out = depreciation_batch("straight_line", &[asset("a-1", "900", "0", 3)]);
+        let charges: Vec<f64> = out.schedule.iter().map(|row| row.depreciation).collect();
+        assert_eq!(charges, vec![300.0, 300.0, 300.0, 0.0, 0.0]);
+        // and it never claims more than the asset cost, which the shipped placeholder did
+        let total: f64 = charges.iter().sum();
+        assert_eq!(total, 900.0);
+    }
+
+    #[test]
+    fn an_asset_with_no_life_is_forecast_over_five_years() {
+        let out = depreciation_batch("straight_line", &[asset("a-1", "500", "0", 0)]);
+        let charges: Vec<f64> = out.schedule.iter().map(|row| row.depreciation).collect();
+        assert_eq!(charges, vec![100.0, 100.0, 100.0, 100.0, 100.0]);
+    }
+
+    #[test]
+    fn declining_balance_forecasts_by_its_own_rule() {
+        // 2/life of full cost: 2000 over 5 years charges 800 a year for five years
+        let out = depreciation_batch("declining_balance", &[asset("a-1", "2000", "0", 5)]);
+        let charges: Vec<f64> = out.schedule.iter().map(|row| row.depreciation).collect();
+        assert_eq!(charges, vec![800.0; 5]);
     }
 }

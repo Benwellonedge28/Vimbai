@@ -2201,7 +2201,8 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
 }
 
 #[tokio::test]
-async fn the_placeholder_ledgers_answer_with_nothing_over_http() {
+async fn the_inventory_ledger_says_why_it_has_nothing_to_read_over_http() {
+    // a Book with no chart has no inventory account, and the ledger says so rather than reporting zero as a fact
     let graph = Scripted::returning(vec![]);
     let (status, body) = call_with(
         graph,
@@ -2212,6 +2213,29 @@ async fn the_placeholder_ledgers_answer_with_nothing_over_http() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["item_count"], json!(0));
+    assert_eq!(body["total_closing_value"], json!("0.000000"));
+    let note = body["note"].as_str().expect("a note explaining the zeros");
+    assert!(note.contains("no inventory account"), "{note}");
+}
+
+#[tokio::test]
+async fn the_fixed_asset_ledger_reads_the_register_over_http() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "fa-1", "name": "Toyota Hilux", "category": "vehicles",
+        "acquisition_date": "2025-04-01", "acquisition_cost": "25000.000000",
+        "accumulated_depreciation": "5000.000000", "net_book_value": "20000.000000",
+        "status": "active"})]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/accounting/subsidiary-ledgers/fixed-assets?as_of_date=2026-11-25",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["asset_count"], json!(1));
+    assert_eq!(body["total_net_book_value"], json!("20000.000000"));
+    assert_eq!(body["entries"][0]["name"], json!("Toyota Hilux"));
 }
 
 #[tokio::test]

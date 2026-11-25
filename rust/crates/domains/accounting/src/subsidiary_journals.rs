@@ -30,19 +30,20 @@
 //! * the accounts-receivable and accounts-payable ledgers take `balance_due` to be the document total and
 //!   `amount_paid` to be nothing, because no payments are tracked against either;
 //! * both call a document overdue once it is more than thirty days old, whatever its recorded status;
-//! * the fixed-assets and inventory subsidiary ledgers answer with nothing at all: they were placeholders
-//!   in the service and nothing here invents figures for them.
+//! * the fixed-assets and inventory subsidiary ledgers answer from the Book itself rather than with nothing: the
+//!   asset register for the first, the inventory account's own postings for the second, and each says plainly what
+//!   it cannot know (the Book keeps no stock quantities, so nothing can be called low).
 //!
 //! The shipped receivable and payable ledgers filtered on a date belonging to a node their query never
 //! matched, so the filter did nothing. The port filters on the document's own date, which is what it meant.
 
 use serde_json::{json, Value};
 use vimbai_common::Money;
-use vimbai_store::amounts::{amount, wire};
+use vimbai_store::amounts::{amount, stored_amount, wire};
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, CASH_DISBURSEMENTS_JOURNAL, CASH_RECEIPTS_JOURNAL,
-    PURCHASES_JOURNAL, PURCHASES_RETURNS_JOURNAL, SALES_JOURNAL, SALES_RETURNS_JOURNAL,
-    VENDOR_BILL,
+    FIXED_ASSET, PURCHASES_JOURNAL, PURCHASES_RETURNS_JOURNAL, SALES_JOURNAL,
+    SALES_RETURNS_JOURNAL, VENDOR_BILL,
 };
 
 use crate::ledger_book;
@@ -1430,30 +1431,195 @@ pub fn payables_ledger(
     }))
 }
 
-/// `GET /subsidiary-ledgers/fixed-assets/`: nothing, exactly as the service answered.
-pub fn fixed_assets_ledger(query: &Value) -> Value {
-    json!({
+/// `GET /subsidiary-ledgers/fixed-assets/`: the Book's own asset register, as a subsidiary ledger.
+///
+/// This answered nothing for as long as it was a port: the service it came from had the route and no figures behind it,
+/// so the ledger was a placeholder that looked like a Book with no assets. The Book holds its assets, so the ledger reads
+/// them: one row per asset with its cost, what has been written off it and what it is worth now, and the totals underneath.
+///
+/// What the register means by `as_of_date` is the day the figures are stated for, and the register itself is kept at
+/// today's figures, so the day is carried into the answer and not used to cut anything: a ledger that silently reported
+/// today while saying "as of last March" would be worse than one that says which day its figures belong to.
+///
+/// A disposed asset is left out of the totals and still appears in the rows, marked, because a sold van is not something
+/// the business owns but is something that happened to it.
+pub fn fixed_assets_ledger<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Value, StoreError> {
+    let rows = Records::new(graph, FIXED_ASSET).list(scope, 5000)?;
+
+    let mut entries: Vec<Value> = Vec::new();
+    let mut total_cost = Money::zero();
+    let mut total_accumulated = Money::zero();
+    let mut total_net_book_value = Money::zero();
+    let mut held = 0usize;
+
+    for row in &rows {
+        let active = field(row, "status") == "active";
+        let cost = stored_amount(row, "acquisition_cost")?;
+        let accumulated = stored_amount(row, "accumulated_depreciation")?;
+        let net_book_value = stored_amount(row, "net_book_value")?;
+        if active {
+            held += 1;
+            total_cost = total_cost.plus(&cost);
+            total_accumulated = total_accumulated.plus(&accumulated);
+            total_net_book_value = total_net_book_value.plus(&net_book_value);
+        }
+        entries.push(json!({
+            "asset_id": field(row, "id"),
+            "name": field(row, "name"),
+            "category": field(row, "category"),
+            "acquired_on": field(row, "acquisition_date"),
+            "purchase_cost": wire(&cost),
+            "accumulated_depreciation": wire(&accumulated),
+            "net_book_value": wire(&net_book_value),
+            "status": field(row, "status"),
+            "counted_in_the_totals": active,
+        }));
+    }
+    // newest first, the same way every other register in the Book reads
+    entries.sort_by(|left, right| {
+        let one = left["acquired_on"].as_str().unwrap_or_default();
+        let other = right["acquired_on"].as_str().unwrap_or_default();
+        other.cmp(one)
+    });
+
+    Ok(json!({
         "as_of_date": text(query, "as_of_date"),
-        "entries": [],
-        "total_purchase_cost": wire(&Money::zero()),
-        "total_accumulated_depreciation": wire(&Money::zero()),
-        "total_net_book_value": wire(&Money::zero()),
-        "asset_count": 0,
-    })
+        "entries": entries,
+        "total_purchase_cost": wire(&total_cost.round(2)),
+        "total_accumulated_depreciation": wire(&total_accumulated.round(2)),
+        "total_net_book_value": wire(&total_net_book_value.round(2)),
+        "asset_count": held,
+        "disposed_count": rows.len() - held,
+    }))
 }
 
-/// `GET /subsidiary-ledgers/inventory/`: nothing, exactly as the service answered.
-pub fn inventory_ledger(query: &Value) -> Value {
-    json!({
-        "as_of_date": text(query, "as_of_date"),
-        "entries": [],
-        "total_opening_value": wire(&Money::zero()),
-        "total_stock_in_value": wire(&Money::zero()),
-        "total_stock_out_value": wire(&Money::zero()),
-        "total_closing_value": wire(&Money::zero()),
-        "item_count": 0,
+/// `GET /subsidiary-ledgers/inventory/`: what the Book's inventory account did over a window.
+///
+/// The service this came from had the route and no figures behind it, and the Book keeps no stock register: there are no
+/// quantities and no per-item costs, only what was posted. So this ledger reports what the books actually hold - the
+/// inventory account's opening value, what went in, what came out and what is left - rather than inventing a stock count
+/// it has no way to know.
+///
+/// The window is `start_date` to `end_date`, or to `as_of_date` when that is what was asked. Stock in is the debits to
+/// the account and stock out its credits, which is true of every route that moves stock: a purchase puts value in, a
+/// stock shortfall takes it out, and cost of sales does the same.
+///
+/// Two figures are said plainly rather than guessed. `item_count` counts the items the Book has named in stock
+/// adjustments inside the window, because that is the only place an item is named. `low_stock_count` is zero and a note
+/// says why: nothing here keeps a quantity, so nothing can honestly be called low, and a made-up number would be worse
+/// than an explained absence.
+pub fn inventory_ledger<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Value, StoreError> {
+    let day = text(query, "as_of_date").trim().to_string();
+    let end = match text(query, "end_date").trim() {
+        "" => day.clone(),
+        stated => stated.to_string(),
+    };
+    let mut window = json!({});
+    if !text(query, "start_date").trim().is_empty() {
+        window["start_date"] = json!(text(query, "start_date"));
+    }
+    if !end.is_empty() {
+        window["end_date"] = json!(end);
+    }
+
+    let Some(account) = inventory_account(graph, scope, query)? else {
+        return Ok(json!({
+            "as_of_date": day,
+            "entries": [],
+            "total_opening_value": wire(&Money::zero()),
+            "total_stock_in_value": wire(&Money::zero()),
+            "total_stock_out_value": wire(&Money::zero()),
+            "total_closing_value": wire(&Money::zero()),
+            "item_count": 0,
+            "low_stock_count": 0,
+            "note": "This Book keeps no inventory account, so there is nothing for this ledger to read. Add one whose \
+                     name says inventory or stock, or name it as inventory_account.",
+        }));
+    };
+
+    let ledger = ledger_book::ledger_report(graph, scope, &account, &window)?;
+    let mut stock_in = Money::zero();
+    let mut stock_out = Money::zero();
+    let mut rows: Vec<Value> = Vec::new();
+    for row in ledger["entries"].as_array().into_iter().flatten() {
+        let debit = money_or_nothing(row, "debit")?;
+        let credit = money_or_nothing(row, "credit")?;
+        stock_in = stock_in.plus(&debit);
+        stock_out = stock_out.plus(&credit);
+        rows.push(json!({
+            "entry_id": field(row, "entry_id"),
+            "entry_date": field(row, "entry_date"),
+            "description": field(row, "description"),
+            "stock_in": wire(&debit),
+            "stock_out": wire(&credit),
+            "value_after": field(row, "balance"),
+        }));
+    }
+
+    // the items the Book has named by counting, which is the only place it names one
+    let mut items: Vec<String> = Vec::new();
+    let counted = crate::stock_adjustments::list_adjustments(graph, scope, &window)?;
+    for adjustment in counted.as_array().into_iter().flatten() {
+        let item = field(adjustment, "item").to_string();
+        if !item.is_empty() && !items.contains(&item) {
+            items.push(item);
+        }
+    }
+
+    let opening = if text(query, "start_date").trim().is_empty() {
+        wire(&Money::zero())
+    } else {
+        ledger["start_balance"].clone()
+    };
+
+    Ok(json!({
+        "as_of_date": day,
+        "account_number": account,
+        "entries": rows,
+        "total_opening_value": opening,
+        "total_stock_in_value": wire(&stock_in.round(2)),
+        "total_stock_out_value": wire(&stock_out.round(2)),
+        "total_closing_value": ledger["end_balance"].clone(),
+        "item_count": items.len(),
+        "items": items,
         "low_stock_count": 0,
-    })
+        "note": "This ledger reads the inventory account's postings. The Book keeps no quantities, so no item can be \
+                 called low and item_count is the number of items named in stock adjustments.",
+    }))
+}
+
+/// The account this Book keeps its stock in: the one named in the query, or the asset whose name says so.
+fn inventory_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    query: &Value,
+) -> Result<Option<String>, StoreError> {
+    let named = text(query, "inventory_account").trim().to_string();
+    let accounts = ledger_book::accounts(graph, scope)?;
+    if !named.is_empty() {
+        let found = accounts.iter().any(|account| {
+            let number = field(account, "account_number");
+            let name = field(account, "name");
+            number == named || name.eq_ignore_ascii_case(&named)
+        });
+        return Ok(found.then_some(named));
+    }
+    Ok(accounts
+        .iter()
+        .find(|account| {
+            let name = field(account, "name").to_lowercase();
+            field(account, "account_type") == "asset"
+                && (name.contains("inventory") || name.contains("stock"))
+        })
+        .map(|account| field(account, "account_number").to_string()))
 }
 
 #[cfg(test)]
@@ -2018,21 +2184,283 @@ mod tests {
     }
 
     #[test]
-    fn the_placeholder_ledgers_still_answer_with_nothing() {
-        let assets = fixed_assets_ledger(&json!({"as_of_date": "2026-03-31"}));
-        assert_eq!(assets["asset_count"], json!(0));
-        assert_eq!(assets["total_net_book_value"], json!("0.000000"));
-        let inventory = inventory_ledger(&json!({}));
-        assert_eq!(inventory["item_count"], json!(0));
-        assert_eq!(inventory["low_stock_count"], json!(0));
-    }
-
-    #[test]
     fn days_between_counts_across_months_and_years() {
         assert_eq!(days_between("2026-03-15", "2026-03-01"), 14);
         assert_eq!(days_between("2026-03-01", "2026-01-31"), 29);
         assert_eq!(days_between("2027-01-01", "2026-01-01"), 365);
         // a leap day is one day
         assert_eq!(days_between("2028-03-01", "2028-02-29"), 1);
+    }
+}
+
+#[cfg(test)]
+mod fixed_assets_ledger_tests {
+    use super::*;
+    use serde_json::json;
+    use vimbai_store::fake::MemoryGraph;
+
+    fn an_asset(
+        id: &str,
+        name: &str,
+        cost: &str,
+        accumulated: &str,
+        net: &str,
+        status: &str,
+    ) -> Value {
+        json!({
+            "id": id,
+            "name": name,
+            "category": "vehicles",
+            "acquisition_date": "2025-04-01",
+            "acquisition_cost": cost,
+            "accumulated_depreciation": accumulated,
+            "net_book_value": net,
+            "status": status,
+        })
+    }
+
+    fn a_book() -> (MemoryGraph, BookScope) {
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        for asset in [
+            an_asset(
+                "asset-1",
+                "Toyota Hilux",
+                "25000.00",
+                "5000.00",
+                "20000.00",
+                "active",
+            ),
+            an_asset(
+                "asset-2",
+                "Warehouse",
+                "80000.00",
+                "8000.00",
+                "72000.00",
+                "active",
+            ),
+            an_asset(
+                "asset-3", "Old van", "9000.00", "9000.00", "0.00", "disposed",
+            ),
+        ] {
+            Records::new(&graph, FIXED_ASSET)
+                .create(&scope, &asset)
+                .expect("an asset");
+        }
+        (graph, scope)
+    }
+
+    #[test]
+    fn the_ledger_reads_the_book_and_totals_only_what_is_still_held() {
+        let (graph, scope) = a_book();
+        let ledger = fixed_assets_ledger(&graph, &scope, &json!({"as_of_date": "2026-11-25"}))
+            .expect("a ledger");
+
+        assert_eq!(ledger["asset_count"], json!(2), "two are held: {ledger}");
+        assert_eq!(ledger["disposed_count"], json!(1));
+        assert_eq!(ledger["total_purchase_cost"], json!("105000.000000"));
+        assert_eq!(
+            ledger["total_accumulated_depreciation"],
+            json!("13000.000000")
+        );
+        assert_eq!(ledger["total_net_book_value"], json!("92000.000000"));
+        // the day the figures are stated for travels with them
+        assert_eq!(ledger["as_of_date"], json!("2026-11-25"));
+    }
+
+    #[test]
+    fn a_disposed_asset_appears_in_the_rows_and_says_it_is_not_counted() {
+        let (graph, scope) = a_book();
+        let ledger = fixed_assets_ledger(&graph, &scope, &json!({})).expect("a ledger");
+        let rows = ledger["entries"].as_array().expect("rows");
+        assert_eq!(rows.len(), 3, "every asset is a row: {ledger}");
+
+        let sold = rows
+            .iter()
+            .find(|row| row["asset_id"] == json!("asset-3"))
+            .expect("the sold van");
+        assert_eq!(sold["status"], json!("disposed"));
+        assert_eq!(sold["counted_in_the_totals"], json!(false));
+
+        let held = rows
+            .iter()
+            .find(|row| row["asset_id"] == json!("asset-1"))
+            .expect("the van still used");
+        assert_eq!(held["purchase_cost"], json!("25000.000000"));
+        assert_eq!(held["accumulated_depreciation"], json!("5000.000000"));
+        assert_eq!(held["net_book_value"], json!("20000.000000"));
+        assert_eq!(held["counted_in_the_totals"], json!(true));
+    }
+
+    #[test]
+    fn a_book_with_no_assets_answers_zero_rather_than_refusing() {
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        let ledger = fixed_assets_ledger(&graph, &scope, &json!({})).expect("a ledger");
+        assert_eq!(ledger["asset_count"], json!(0));
+        assert_eq!(ledger["entries"], json!([]));
+        assert_eq!(ledger["total_net_book_value"], json!("0.000000"));
+    }
+
+    #[test]
+    fn one_book_does_not_read_another_books_assets() {
+        let (graph, _scope) = a_book();
+        let elsewhere = BookScope::new("user-1", "book-2");
+        let ledger = fixed_assets_ledger(&graph, &elsewhere, &json!({})).expect("a ledger");
+        assert_eq!(ledger["asset_count"], json!(0), "{ledger}");
+    }
+}
+
+#[cfg(test)]
+mod inventory_ledger_tests {
+    use super::*;
+    use serde_json::json;
+    use vimbai_store::fake::MemoryGraph;
+
+    fn business() -> (MemoryGraph, BookScope) {
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        (graph, scope)
+    }
+
+    fn amount(text: &str) -> Money {
+        Money::parse(text).expect("an amount")
+    }
+
+    #[test]
+    fn the_ledger_reports_what_went_into_stock_and_what_came_out() {
+        let (graph, scope) = business();
+        // a purchase of stock, then a shortage found by counting
+        let dated = json!({"entry_date": "2026-11-02", "created_at": "2026-11-02T09:00:00Z"});
+        post(
+            &graph,
+            &scope,
+            &dated,
+            "Bought stock".to_string(),
+            "PO-1",
+            "Purchases",
+            "1200",
+            "2000",
+            &amount("1000.00"),
+            "stock in",
+        )
+        .expect("a purchase");
+        let dated = json!({"entry_date": "2026-11-09", "created_at": "2026-11-09T09:00:00Z"});
+        post(
+            &graph,
+            &scope,
+            &dated,
+            "Stock short: bolts".to_string(),
+            "STK-1",
+            "StockAdjustments",
+            "5000",
+            "1200",
+            &amount("120.00"),
+            "stock out",
+        )
+        .expect("a shortage");
+
+        let ledger = inventory_ledger(&graph, &scope, &json!({"as_of_date": "2026-11-30"}))
+            .expect("a ledger");
+        assert_eq!(ledger["total_opening_value"], json!("0.000000"), "{ledger}");
+        assert_eq!(ledger["total_stock_in_value"], json!("1000.000000"));
+        assert_eq!(ledger["total_stock_out_value"], json!("120.000000"));
+        assert_eq!(ledger["total_closing_value"], json!("880.000000"));
+        assert_eq!(
+            ledger["entries"].as_array().expect("rows").len(),
+            2,
+            "two movements: {ledger}"
+        );
+    }
+
+    #[test]
+    fn the_window_opens_where_it_was_told_to() {
+        let (graph, scope) = business();
+        for (day, figure) in [("2026-10-02", "400.00"), ("2026-11-02", "600.00")] {
+            let dated = json!({"entry_date": day, "created_at": format!("{day}T09:00:00Z")});
+            post(
+                &graph,
+                &scope,
+                &dated,
+                "Bought stock".to_string(),
+                &format!("PO-{day}"),
+                "Purchases",
+                "1200",
+                "2000",
+                &amount(figure),
+                "stock in",
+            )
+            .expect("a purchase");
+        }
+
+        let november = inventory_ledger(
+            &graph,
+            &scope,
+            &json!({"start_date": "2026-11-01", "end_date": "2026-11-30"}),
+        )
+        .expect("a ledger");
+        // October is what the window opens at, and only November moves inside it
+        assert_eq!(november["total_opening_value"], json!("400.000000"));
+        assert_eq!(november["total_stock_in_value"], json!("600.000000"));
+        assert_eq!(november["total_closing_value"], json!("1000.000000"));
+    }
+
+    #[test]
+    fn a_book_with_no_inventory_account_says_so_rather_than_reporting_nothing_as_fact() {
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        let ledger = inventory_ledger(&graph, &scope, &json!({})).expect("a ledger");
+        assert_eq!(ledger["total_closing_value"], json!("0.000000"));
+        let note = ledger["note"].as_str().expect("a note");
+        assert!(note.contains("no inventory account"), "{note}");
+        assert_eq!(ledger["low_stock_count"], json!(0));
+    }
+
+    #[test]
+    fn the_items_it_names_are_the_ones_the_book_counted() {
+        let (graph, scope) = business();
+        crate::stock_adjustments::adjust(
+            &graph,
+            &scope,
+            &json!({
+                "entry_date": "2026-11-09",
+                "item": "bolts",
+                "direction": "down",
+                "amount": "120.00",
+            }),
+        )
+        .expect("a count");
+        crate::stock_adjustments::adjust(
+            &graph,
+            &scope,
+            &json!({
+                "entry_date": "2026-11-10",
+                "item": "nails",
+                "direction": "down",
+                "amount": "30.00",
+            }),
+        )
+        .expect("a count");
+
+        let ledger = inventory_ledger(&graph, &scope, &json!({"as_of_date": "2026-11-30"}))
+            .expect("a ledger");
+        assert_eq!(ledger["item_count"], json!(2), "{ledger}");
+        let items: Vec<String> = ledger["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .map(|item| item.as_str().unwrap_or_default().to_string())
+            .collect();
+        assert!(items.contains(&"bolts".to_string()), "{items:?}");
+        assert!(items.contains(&"nails".to_string()), "{items:?}");
+        // and the ledger says why nothing is called low
+        assert!(
+            ledger["note"]
+                .as_str()
+                .expect("a note")
+                .contains("no quantities"),
+            "{ledger}"
+        );
     }
 }

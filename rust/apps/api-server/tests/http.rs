@@ -361,8 +361,10 @@ async fn depreciation_totals_the_register_as_decimals() {
     );
     // 1800 + 176190.4757 = 177990.4757: the register total is exact before rounding
     assert_eq!(body["total_depreciation"], 177990.48);
-    // the forecast line is total * 0.9, and 0.9 here is exactly nine tenths
-    assert_eq!(body["schedule"][0]["depreciation"], 160191.43);
+    // the forecast is what the register charges in each year, not the shipped total * 0.9: both assets are still
+    // inside their lives in year one, so year one charges what the whole register charges
+    assert_eq!(body["schedule"][0]["depreciation"], 177990.48);
+    assert_eq!(body["schedule"][4]["depreciation"], 177990.48);
     assert_eq!(body["schedule"].as_array().unwrap().len(), 5);
 }
 

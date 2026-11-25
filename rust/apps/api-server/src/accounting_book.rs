@@ -1164,16 +1164,36 @@ async fn payables(
     ))
 }
 
-async fn fixed_asset_ledger(RawQuery(query): RawQuery) -> Response {
-    answer(Ok(journals::fixed_assets_ledger(&query_object(
-        query.as_deref(),
-    ))))
+async fn fixed_asset_ledger(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(journals::fixed_assets_ledger(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
 }
 
-async fn inventory(RawQuery(query): RawQuery) -> Response {
-    answer(Ok(journals::inventory_ledger(&query_object(
-        query.as_deref(),
-    ))))
+async fn inventory(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(journals::inventory_ledger(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
 }
 
 async fn create_petty_cash_fund(
