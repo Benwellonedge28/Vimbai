@@ -44,12 +44,23 @@ nobody were operating it.
    the reader says so in the same answer rather than leaving it to be discovered later. See
    `crates/domains/accounting/src/progress.rs`.
 
+8. **Automation runs in the background, and the app shows what it did.** A rule that falls due is claimed and run by the
+   worker, without a screen to start it, a list to check it off, or a person watching. The phone shows outcomes -
+   figures, what posted, what is provisional - because an outcome is what a person can act on. A screen that exists to
+   trigger, schedule or babysit work the engine owes itself is not a convenience, it is a hole in the autonomy: it says
+   the system is waiting for somebody, and then somebody forgets. `crates/application/automation-hands` and
+   `apps/worker` are where this happens; nothing in `apps/flutter` needs to know it happened.
+
 ## What this forbids
 
 - A report endpoint that needs a prior endpoint to have been called.
 - A figure that exists only after a month closes.
 - A screen whose normal path is a person choosing which account to post to.
 - An automatic posting that cannot name why it happened, or that can run twice.
+- A screen whose only job is to start, schedule or supervise automation that runs itself. The worker runs it; the app
+  reads the result.
+- A screen whose only job is to start, schedule or supervise automation that runs itself. The worker runs it; the app
+  reads the result.
 
 ## What it does not decide
 
