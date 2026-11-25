@@ -58,6 +58,33 @@ impl Client {
         )
     }
 
+    /// A call made inside a named Book, for the reads a Book answers about itself.
+    async fn call_in(
+        &self,
+        book: &str,
+        method: Method,
+        uri: &str,
+        payload: Value,
+    ) -> (StatusCode, Value) {
+        let request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("x-user-id", self.user)
+            .header("x-book-id", book)
+            .body(Body::from(payload.to_string()))
+            .unwrap();
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 1_000_000)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+
     async fn call(&self, method: Method, uri: &str, payload: Value) -> (StatusCode, Value) {
         let request = Request::builder()
             .method(method)
@@ -77,6 +104,60 @@ impl Client {
             serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         )
     }
+}
+
+#[tokio::test]
+async fn a_book_that_has_just_been_opened_already_has_the_clock_work_done_for_it() {
+    // "automatic" has to be true on the first day, not after the owner builds a rule: opening a Book leaves it with the
+    // depreciation rule switched on, and the decision about closing a month still waiting on the owner (ADR-016)
+    let client = Client::new();
+    let (status, made) = client
+        .call(
+            Method::POST,
+            "/books",
+            json!({"name": "Household", "tier": "household", "now": 1000.0,
+                   "wrapped_book_key": "wrapped-for-user-1"}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{made}");
+    let book_id = made["book"]["id"].as_str().expect("an id").to_string();
+
+    let (status, rules) = client
+        .call_in(&book_id, Method::GET, "/automation-rules", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{rules}");
+    let rows = rules.as_array().cloned().unwrap_or_default();
+    assert_eq!(rows.len(), 2, "{rules}");
+    let depreciation = rows
+        .iter()
+        .find(|row| row["name"] == json!("Charge depreciation every month"))
+        .expect("the depreciation rule");
+    assert_eq!(depreciation["enabled"], json!(true));
+    assert_eq!(
+        depreciation["condition"]["schedule"]["every"],
+        json!("month"),
+        "{depreciation}"
+    );
+    let closing = rows
+        .iter()
+        .find(|row| row["name"] == json!("Close the month"))
+        .expect("the closing rule");
+    assert_eq!(closing["enabled"], json!(false));
+
+    // asking for them again adds nothing: a person who switches one off does not find it switched back on
+    let (status, _) = client
+        .call_in(
+            &book_id,
+            Method::POST,
+            "/automation/standard-rules",
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, after) = client
+        .call_in(&book_id, Method::GET, "/automation-rules", json!({}))
+        .await;
+    assert_eq!(after.as_array().map(Vec::len), Some(2), "{after}");
 }
 
 #[tokio::test]

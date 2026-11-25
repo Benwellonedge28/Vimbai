@@ -37,6 +37,7 @@ pull request.
 | 013 | A Book is autonomous: an entry flows to the reports, and a report is a view over any window |
 | 014 | Nothing business-specific is code - a Book's measures, profile and labels are its own data |
 | 015 | A ledger is created when a posting needs it, and control accounts are never invented |
+| 016 | A rule's step reaches the engine, and a Book opens with the clock's work already done |
 
 ## Architecture
 

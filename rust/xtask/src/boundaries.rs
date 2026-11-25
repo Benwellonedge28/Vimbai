@@ -275,6 +275,9 @@ fn family_from_parts(relative: &str) -> Option<Family> {
         "platform" => Some(Family::Platform),
         "domains" => Some(Family::Domain),
         "adapters" => Some(Family::Adapters),
+        // the calculation surface is the crate at `crates/application` itself; a use case that grows large enough to
+        // be its own crate sits beside it, under the same family
+        "application" => Some(Family::Application),
         _ => None,
     }
 }

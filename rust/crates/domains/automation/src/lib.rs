@@ -17,6 +17,7 @@ pub mod automations;
 pub mod defaults;
 pub mod engine;
 pub mod execution;
+pub mod handler;
 pub mod task;
 pub mod types;
 
@@ -25,5 +26,6 @@ mod tests;
 
 pub use engine::{Engine, EngineError, Metrics, Trigger};
 pub use execution::TaskExecution;
+pub use handler::{ActionRequest, NoActions, StepHandler};
 pub use task::{TaskDefinition, TaskRequest};
 pub use types::{TaskStatus, TaskType};

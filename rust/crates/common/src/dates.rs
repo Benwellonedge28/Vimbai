@@ -141,6 +141,48 @@ pub fn instant_of(value: &str) -> Option<f64> {
     Some(day as f64 * 86_400.0 + (hours * 3_600 + minutes * 60) as f64 + seconds - offset as f64)
 }
 
+/// The first instant of the month after the one `seconds` falls in, as epoch seconds.
+///
+/// A rule that says "every month" means the calendar's months, not thirty days: a month-end rule that drifted by a day
+/// each period would charge November's depreciation in December before long.
+pub fn first_of_next_month(seconds: f64) -> f64 {
+    let day = (seconds.floor() as i64).div_euclid(86_400);
+    let date = date_of(day);
+    let year: i64 = date
+        .get(..4)
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(1970);
+    let month: i64 = date
+        .get(5..7)
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(1);
+    let (year, month) = if month >= 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    instant_of(&format!("{year:04}-{month:02}-01")).unwrap_or(seconds + 2_678_400.0)
+}
+
+/// The month before the one `seconds` falls in, written as a period: `2026-11`.
+pub fn month_before(seconds: f64) -> String {
+    let day = (seconds.floor() as i64).div_euclid(86_400);
+    let date = date_of(day);
+    let year: i64 = date
+        .get(..4)
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(1970);
+    let month: i64 = date
+        .get(5..7)
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(1);
+    if month <= 1 {
+        format!("{:04}-12", year - 1)
+    } else {
+        format!("{year:04}-{:02}", month - 1)
+    }
+}
+
 /// The clock part and the offset behind it, in seconds.
 fn split_offset(behind: &str) -> (&str, i64) {
     let trimmed = behind.trim_end_matches('Z');

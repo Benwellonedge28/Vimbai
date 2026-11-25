@@ -28,6 +28,7 @@ use budgeting_services::{
     master_budget, rolling_forecast, scenario_analysis, scenario_modeling, sensitivity_analysis,
     zero_based_budget,
 };
+use common::clock::moment;
 use common::Money;
 use costing::{
     absorption, basis_apportionment, cost_calculations, cvp, job_costing, overhead_absorption,
@@ -13773,6 +13774,22 @@ async fn toggle_automation(
     ))
 }
 
+/// `POST /automation/standard-rules`: give this Book the rules a new Book is opened with.
+///
+/// A Book opened before these existed, or one whose rules a person deleted, can ask for them back. Installing is safe to
+/// repeat: a rule the Book already has by name is left exactly as the person left it.
+async fn post_automation_standard_rules(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation_hands::standard::install_standard_rules(
+        graph.as_ref(),
+        &scope,
+        moment(),
+    ))
+}
+
 async fn post_automation_run(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -13784,11 +13801,15 @@ async fn post_automation_run(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
+    let asked = merged_request(payload, query.as_deref());
+    // a rule run by hand is the same rule the clock runs: the steps reach the engine, not a note that they were taken
+    let hands = automation_hands::EngineActions::new(graph.as_ref(), &scope, moment());
     answer(automation::automations::execute_automation(
         graph.as_ref(),
         &scope,
         &rule_id,
-        &merged_request(payload, query.as_deref()),
+        &asked,
+        &hands,
     ))
 }
 
@@ -14637,6 +14658,11 @@ fn opened_book(
         .to_string();
     let book = BookScope::new(scope.user_id.clone(), book_id);
     accounting::chart::seed_opening_chart(graph.as_ref(), &book, &tier)?;
+
+    // and it opens with the clock's own work as rules, so "automatic" is true from the first day rather than a promise
+    // the owner has to keep by building one (ADR-016). Installing is safe to repeat and never overwrites a rule a person
+    // has since switched or edited, which matters because this runs on the default-Book path too.
+    automation_hands::standard::install_standard_rules(graph.as_ref(), &book, moment())?;
     Ok(opened)
 }
 
@@ -18010,6 +18036,10 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_automation).delete(delete_automation),
         )
         .route("/automation/rules/:id/toggle", post(toggle_automation))
+        .route(
+            "/automation/standard-rules",
+            post(post_automation_standard_rules),
+        )
         .route("/automation/rules/:id/execute", post(post_automation_run))
         // the service published the run door by rule id, which is the same handler
         .route("/automation/execute/:rule_id", post(post_automation_run))

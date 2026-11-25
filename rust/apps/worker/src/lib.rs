@@ -29,6 +29,7 @@
 //! alone; with it the worker advances the instant by whole periods until it is in the future.
 
 use automation::automations::{walk_steps, EXECUTION, RULE};
+use automation_hands::EngineActions;
 use serde_json::{json, Value};
 use store::read::{flag, text};
 use store::{BookScope, Graph, Records, StoreError};
@@ -69,6 +70,25 @@ pub fn due_at_of(rule: &Value) -> Option<f64> {
         .get("schedule")?
         .get("due_at")?
         .as_f64()
+}
+
+/// How the rule repeats by the calendar, when it does: "month" is the only one the clock's own work needs.
+///
+/// A month-end rule written as 2,592,000 seconds drifts: after a year of thirty-day "months" it charges November's
+/// depreciation in December. So a calendar repeat is a word, and the worker advances by the calendar.
+pub fn every_of(rule: &Value) -> Option<String> {
+    let every = rule
+        .get("condition")?
+        .get("schedule")?
+        .get("every")?
+        .as_str()?
+        .trim()
+        .to_string();
+    if every.is_empty() {
+        None
+    } else {
+        Some(every)
+    }
 }
 
 /// How often the rule repeats, when it does.
@@ -147,7 +167,10 @@ fn run_one(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let outcome = walk_steps(&steps);
+    // the run is handed the engine's hands: a step that names depreciation writes it off, a step that names a closed
+    // month finds it closed, and a step nothing can do stops the run in words rather than passing for done
+    let hands = EngineActions::new(graph, scope, now);
+    let outcome = walk_steps(&steps, &hands, &id);
     let failed = outcome.error.is_some();
     let status = if failed { "failed" } else { "completed" };
 
@@ -213,11 +236,29 @@ fn advance(
     due_at: f64,
     now: f64,
 ) -> Result<(), StoreError> {
-    let Some(repeat) = repeat_of(rule) else {
-        return Ok(());
+    let next = match every_of(rule).as_deref() {
+        Some("month") => {
+            // step a calendar month at a time until the due instant is in the future, so a worker that was down for a
+            // quarter comes back to the next month rather than to a month that has already passed
+            let mut next = common::dates::first_of_next_month(due_at);
+            while next <= now {
+                next = common::dates::first_of_next_month(next);
+            }
+            next
+        }
+        Some(other) => {
+            return Err(StoreError::BadRequest(format!(
+                "A rule repeats every month, or after a number of seconds; \"{other}\" is neither."
+            )))
+        }
+        None => {
+            let Some(repeat) = repeat_of(rule) else {
+                return Ok(());
+            };
+            let periods = ((now - due_at) / repeat).floor().max(0.0) + 1.0;
+            due_at + periods * repeat
+        }
     };
-    let periods = ((now - due_at) / repeat).floor().max(0.0) + 1.0;
-    let next = due_at + periods * repeat;
     let mut condition = rule.get("condition").cloned().unwrap_or_else(|| json!({}));
     if let Some(schedule) = condition.get_mut("schedule") {
         schedule["due_at"] = json!(next);
@@ -337,10 +378,13 @@ mod tests {
                 "company_id": "co-1",
                 "trigger": "scheduled",
                 "condition": { "schedule": schedule },
+                // the steps name work the engine can actually do: closing a month is what a month-end rule asks for,
+                // and an empty Book can close October, so the timing tests are about timing and not about the register
                 "steps": [
-                    { "step_id": "collect", "step_name": "Collect", "action": "post_entries" },
-                    { "step_id": "close", "step_name": "Close", "action": "close_period",
-                      "depends_on": ["collect"] }
+                    { "step_id": "september", "step_name": "Close September", "action": "close_period",
+                      "params": { "period": "2025-09" } },
+                    { "step_id": "october", "step_name": "Close October", "action": "close_period",
+                      "params": { "period": "2025-10" }, "depends_on": ["september"] }
                 ],
             }),
         )
@@ -388,6 +432,63 @@ mod tests {
             Some(2),
             "both steps were walked"
         );
+    }
+
+    #[test]
+    fn a_monthly_rule_moves_to_the_first_of_the_next_month_and_not_thirty_days_later() {
+        let graph = MemoryGraph::default();
+        // 2026-11-01T00:00:00Z, due to fire monthly
+        let due = 1_793_491_200.0;
+        automation::automations::create_automation_rule(
+            &graph,
+            &talked(),
+            &json!({
+                "id": "rule-monthly",
+                "trigger": "scheduled",
+                "condition": { "schedule": { "due_at": due, "every": "month" } },
+                "steps": [{ "step_id": "s1", "action": "close_period",
+                            "params": { "period": "2026-10" } }],
+            }),
+        )
+        .expect("a rule");
+
+        tick_book(&graph, &talked(), due + 60.0).expect("a tick");
+        let held = Records::new(&graph, RULE)
+            .get(&talked(), "rule-monthly")
+            .expect("the rule");
+        assert_eq!(
+            held["condition"]["schedule"]["due_at"].as_f64(),
+            Some(1_793_491_200.0 + 30.0 * 86_400.0),
+            "December the first, which is thirty days after November the first"
+        );
+
+        // and a month later it lands on January the first, which thirty-day arithmetic would have missed
+        tick_book(&graph, &talked(), 1_796_169_600.0 + 60.0).expect("a tick");
+        let held = Records::new(&graph, RULE)
+            .get(&talked(), "rule-monthly")
+            .expect("the rule");
+        assert_eq!(
+            held["condition"]["schedule"]["due_at"].as_f64(),
+            Some(1_798_761_600.0),
+            "January the first"
+        );
+
+        // a repeat the worker does not understand stops the run in words rather than guessing
+        automation::automations::create_automation_rule(
+            &graph,
+            &talked(),
+            &json!({
+                "id": "rule-quarterly",
+                "trigger": "scheduled",
+                "condition": { "schedule": { "due_at": due, "every": "quarter" } },
+                "steps": [{ "step_id": "s1", "action": "close_period" }],
+            }),
+        )
+        .expect("a rule");
+        assert!(matches!(
+            tick_book(&graph, &talked(), due + 60.0),
+            Err(StoreError::BadRequest(_))
+        ));
     }
 
     #[test]
@@ -606,7 +707,8 @@ mod tests {
                     "id": rule,
                     "trigger": "scheduled",
                     "condition": { "schedule": { "due_at": due } },
-                    "steps": [{ "step_id": "s1", "action": "noop" }],
+                    "steps": [{ "step_id": "s1", "action": "close_period",
+                                 "params": { "period": "2025-10" } }],
                 }),
             )
             .expect("a rule");

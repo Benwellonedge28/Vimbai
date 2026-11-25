@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 automation = { package = "vimbai_automation", path = "../../crates/domains/automation" }
+automation_hands = { package = "vimbai_automation_hands", path = "../../crates/application/automation-hands" }
 common = { package = "vimbai_common", path = "../../crates/common" }
 notifications = { package = "vimbai_notifications", path = "../../crates/platform/notifications" }
 offline_sync = { package = "vimbai_service_offline_sync", path = "../../crates/platform/offline-sync" }

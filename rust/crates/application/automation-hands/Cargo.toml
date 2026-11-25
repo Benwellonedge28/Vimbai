@@ -1,0 +1,15 @@
+[package]
+name = "vimbai_automation_hands"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The hands an automation rule is given: what each step action does in a Book, and what it refuses."
+
+[dependencies]
+automation = { package = "vimbai_automation", path = "../../domains/automation" }
+accounting = { package = "vimbai_service_accounting", path = "../../domains/accounting" }
+assets = { package = "vimbai_assets", path = "../../domains/assets" }
+common = { package = "vimbai_common", path = "../../common" }
+store = { package = "vimbai_store", path = "../../adapters/database" }
+serde_json = { workspace = true }

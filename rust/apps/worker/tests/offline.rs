@@ -35,8 +35,9 @@ fn seeded(path: &std::path::Path) -> BookScope {
             // due in 1970, which every real clock is past: this is the "long overdue" case, not a contrived one
             "condition": { "schedule": { "due_at": 1.0 } },
             "steps": [
-                { "step_id": "collect", "action": "post_entries" },
-                { "step_id": "close", "action": "close_period", "depends_on": ["collect"] }
+                { "step_id": "collect", "action": "close_period", "params": { "period": "2025-09" } },
+                { "step_id": "close", "action": "close_period", "params": { "period": "2025-10" },
+                  "depends_on": ["collect"] }
             ],
         }),
     )

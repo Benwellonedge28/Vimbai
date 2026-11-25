@@ -16,7 +16,7 @@ identifiers the code prints, and a test asserts the two lists agree, so this pag
 | platform | `rust/crates/platform/*` | Identity, access control, events, documents, notifications, integrations, offline sync, cache, alerts, webhooks, admin |
 | domain | `rust/crates/domains/*` | Business rules and orchestration for one domain of the business |
 | adapters | `rust/crates/adapters/*` | The property store and the JSON wire seam |
-| application | `rust/crates/application` | Use cases composing domains for a caller |
+| application | `rust/crates/application` and `rust/crates/application/*` | Use cases composing domains for a caller: the calculation surface, and the hands a rule is given |
 | apps | `rust/apps/*` | Binaries: the API server and the on-device runtime |
 | tooling | `rust/xtask` | Repository gates and generators |
 

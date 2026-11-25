@@ -47,8 +47,10 @@ async fn a_rule_runs_its_steps_and_a_broken_dependency_stops_it() {
         "/automation-rules",
         json!({"name": "Month end sweep", "company_id": "co-1", "trigger": "scheduled",
         "steps": [
-            {"step_id": "s1", "step_name": "Post accruals", "action": "post_journal"},
-            {"step_id": "s2", "step_name": "Reconcile", "action": "reconcile", "depends_on": ["s1"]}
+            {"step_id": "s1", "step_name": "Charge depreciation", "action": "post_depreciation",
+             "params": {"period": "2026-10"}},
+            {"step_id": "s2", "step_name": "Close October", "action": "close_period",
+             "params": {"period": "2026-10"}, "depends_on": ["s1"]}
         ]}),
     )
     .await;
@@ -76,9 +78,15 @@ async fn a_rule_runs_its_steps_and_a_broken_dependency_stops_it() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{run}");
-    assert_eq!(run["status"], json!("completed"));
+    assert_eq!(run["status"], json!("completed"), "{run}");
     assert_eq!(run["step_results"].as_array().map(Vec::len), Some(2));
     assert_eq!(run["error"], Value::Null);
+    // the steps did something and said what: the depreciation step answered for the month it charged
+    assert_eq!(
+        run["step_results"][0]["result"]["period"],
+        json!("2026-10"),
+        "{run}"
+    );
 
     // switching the rule off refuses the next run rather than quietly doing nothing
     let (status, off) = call(
@@ -105,6 +113,29 @@ async fn a_rule_runs_its_steps_and_a_broken_dependency_stops_it() {
         json!({}),
     )
     .await;
+
+    // a step naming work nothing can do stops the run in words rather than passing for done
+    let (_, unknown) = call(
+        &router,
+        Method::POST,
+        "/automation-rules",
+        json!({"name": "Payroll sweep", "company_id": "co-1",
+               "steps": [{"step_id": "s1", "step_name": "Pay everyone", "action": "post_payroll"}]}),
+    )
+    .await;
+    let unknown_id = unknown["id"].as_str().expect("an id").to_string();
+    let (status, refused_step) = call(
+        &router,
+        Method::POST,
+        &format!("/automation-rules/{unknown_id}/execute"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{refused_step}");
+    assert_eq!(refused_step["status"], json!("failed"));
+    let reason = refused_step["error"].as_str().unwrap_or_default();
+    assert!(reason.contains("post_payroll"), "{reason}");
+    assert!(reason.contains("post_depreciation"), "{reason}");
 
     // a rule waiting on a step that never ran is recorded as failed, with the reason kept
     let (_, broken) = call(
@@ -139,7 +170,8 @@ async fn a_rule_runs_its_steps_and_a_broken_dependency_stops_it() {
         json!({}),
     )
     .await;
-    assert_eq!(runs.as_array().map(Vec::len), Some(1));
+    // two runs failed: the rule nothing could do, and the one waiting on a step that never ran
+    assert_eq!(runs.as_array().map(Vec::len), Some(2));
     let run_id = run["id"].as_str().expect("an id").to_string();
     let (status, found) = call(
         &router,

@@ -321,7 +321,8 @@
         "POST /automation/execute/{}",
         "POST /automation/rules",
         "POST /automation/rules/{}/execute",
-        "POST /automation/rules/{}/toggle"
+        "POST /automation/rules/{}/toggle",
+        "POST /automation/standard-rules"
       ]
     },
     {

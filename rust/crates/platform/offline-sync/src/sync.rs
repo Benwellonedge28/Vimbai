@@ -226,6 +226,7 @@ pub fn create_book(
         )?;
     }
     append_audit(graph, &book_id, &scope.user_id, "book.created", &tier, &now)?;
+
     Ok(json!({
         "service": "book-sync-service",
         "book": book_answer(&book_of(graph, &book_id)?),

@@ -17,6 +17,7 @@ members = [
     "crates/adapters/database",
     "crates/adapters/wire",
     "crates/domains/automation",
+    "crates/application/automation-hands",
     "crates/domains/accounting",
     "crates/domains/budgeting",
     "crates/domains/costing",

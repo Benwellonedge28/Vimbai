@@ -24,6 +24,7 @@
 //! caller that polled still can (`GET /executions/{id}` answers the same record); a caller that read the first answer
 //! used to learn nothing, and no longer does.
 
+use crate::handler::{ActionRequest, StepHandler};
 use serde_json::{json, Value};
 
 use vimbai_common::ids::service_id;
@@ -155,7 +156,10 @@ pub struct RunOutcome {
 }
 
 /// Walk the steps of a rule, refusing to run a step whose dependency has not completed.
-pub fn walk_steps(steps: &[Value]) -> RunOutcome {
+///
+/// Every step is handed to `handler`, which is what actually does the work. A step that is refused stops the run: what
+/// was done is kept, and the reason is recorded, so a person sees the sentence rather than a rule that looks finished.
+pub fn walk_steps(steps: &[Value], handler: &impl StepHandler, run_id: &str) -> RunOutcome {
     let mut done: Vec<String> = Vec::new();
     let mut results = Vec::with_capacity(steps.len());
     for step in steps {
@@ -171,14 +175,44 @@ pub fn walk_steps(steps: &[Value]) -> RunOutcome {
             }
         }
         let step_id = text(step, "step_id");
-        results.push(json!({
-            "step_id": step_id,
-            "step_name": text(step, "step_name"),
-            "action": text(step, "action"),
-            "status": "completed",
-            "params": step.get("params").cloned().unwrap_or_else(|| json!({})),
-        }));
-        done.push(step_id);
+        let action = text(step, "action");
+        let params = step.get("params").cloned().unwrap_or_else(|| json!({}));
+        let request = ActionRequest {
+            run_id,
+            step_id: &step_id,
+            action: &action,
+            params: &params,
+        };
+        match handler.act(&request) {
+            Ok(result) => {
+                results.push(json!({
+                    "step_id": step_id,
+                    "step_name": text(step, "step_name"),
+                    "action": action,
+                    "status": "completed",
+                    "params": params,
+                    "result": result,
+                }));
+                done.push(step_id);
+            }
+            Err(refusal) => {
+                results.push(json!({
+                    "step_id": step_id,
+                    "step_name": text(step, "step_name"),
+                    "action": action,
+                    "status": "refused",
+                    "params": params,
+                    "reason": refusal,
+                }));
+                return RunOutcome {
+                    steps: results,
+                    error: Some(format!(
+                        "Step {} could not be taken: {refusal}",
+                        text(step, "step_id")
+                    )),
+                };
+            }
+        }
     }
     RunOutcome {
         steps: results,
@@ -192,6 +226,7 @@ pub fn execute_automation(
     scope: &BookScope,
     rule_id: &str,
     payload: &Value,
+    handler: &impl StepHandler,
 ) -> Result<Value, StoreError> {
     let rule = automation(graph, scope, rule_id)?;
     if !flag(&rule, "enabled") {
@@ -202,7 +237,12 @@ pub fn execute_automation(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let outcome = walk_steps(&steps);
+    let id = if text(payload, "id").is_empty() {
+        service_id()
+    } else {
+        text(payload, "id")
+    };
+    let outcome = walk_steps(&steps, handler, &id);
     let started = stamp(payload);
     Records::new(graph, EXECUTION).create(
         scope,
@@ -248,10 +288,37 @@ pub fn execution(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::handler::NoActions;
     use vimbai_store::fake::MemoryGraph;
 
     fn talked() -> BookScope {
         BookScope::new("user-1", "book-1")
+    }
+
+    /// A handler that does what it is asked and remembers what it was asked, so a test can prove a step reached it.
+    #[derive(Default)]
+    struct Recorder {
+        seen: std::cell::RefCell<Vec<String>>,
+        refuse: Option<String>,
+    }
+
+    impl StepHandler for Recorder {
+        fn act(&self, request: &ActionRequest<'_>) -> Result<Value, String> {
+            self.seen.borrow_mut().push(format!(
+                "{}|{}|{}",
+                request.action,
+                request.step_id,
+                request.reference()
+            ));
+            match &self.refuse {
+                Some(reason) => Err(reason.clone()),
+                None => Ok(json!({"action": request.action})),
+            }
+        }
+    }
+
+    fn recorder() -> Recorder {
+        Recorder::default()
     }
 
     fn rule(graph: &MemoryGraph, steps: Value) -> Value {
@@ -267,12 +334,17 @@ mod tests {
     #[test]
     fn a_run_walks_its_steps_until_a_dependency_is_missing() {
         // steps in order with their dependencies met: every step is taken and recorded
-        let passing = walk_steps(&[
-            json!({"step_id": "s1", "step_name": "Post accruals", "action": "post_journal",
+        let hands = recorder();
+        let passing = walk_steps(
+            &[
+                json!({"step_id": "s1", "step_name": "Post accruals", "action": "post_journal",
                    "params": {"book": "main"}}),
-            json!({"step_id": "s2", "step_name": "Reconcile", "action": "reconcile",
+                json!({"step_id": "s2", "step_name": "Reconcile", "action": "reconcile",
                    "depends_on": ["s1"]}),
-        ]);
+            ],
+            &hands,
+            "run-1",
+        );
         assert!(passing.error.is_none());
         assert_eq!(passing.steps.len(), 2);
         assert_eq!(passing.steps[1]["step_id"], json!("s2"));
@@ -280,12 +352,16 @@ mod tests {
         assert_eq!(passing.steps[1]["status"], json!("completed"));
 
         // a step waiting on one that never completed stops the run and names both
-        let failing = walk_steps(&[
-            json!({"step_id": "s1", "step_name": "Post accruals", "action": "post_journal"}),
-            json!({"step_id": "s2", "step_name": "Report", "action": "report",
+        let failing = walk_steps(
+            &[
+                json!({"step_id": "s1", "step_name": "Post accruals", "action": "post_journal"}),
+                json!({"step_id": "s2", "step_name": "Report", "action": "report",
                    "depends_on": ["s9"]}),
-            json!({"step_id": "s3", "step_name": "Never reached", "action": "close"}),
-        ]);
+                json!({"step_id": "s3", "step_name": "Never reached", "action": "close"}),
+            ],
+            &hands,
+            "run-1",
+        );
         assert_eq!(
             failing.error.as_deref(),
             Some("Dependency s9 not completed for step s2")
@@ -293,6 +369,81 @@ mod tests {
         // the step that ran is kept, and nothing after the refusal was attempted
         assert_eq!(failing.steps.len(), 1);
         assert_eq!(failing.steps[0]["step_id"], json!("s1"));
+    }
+
+    #[test]
+    fn a_step_reaches_the_hands_it_is_given_and_carries_a_reference() {
+        // the rule is a description; what happens is what the handler does. The reference is the run and the step, so a
+        // posting made by a step can be refused by the ledger if the same due instant is walked twice.
+        let hands = recorder();
+        let outcome = walk_steps(
+            &[
+                json!({"step_id": "s1", "step_name": "Depreciate", "action": "post_depreciation",
+                       "params": {"period": "2026-11"}}),
+                json!({"step_id": "s2", "step_name": "Close", "action": "close_period",
+                       "depends_on": ["s1"]}),
+            ],
+            &hands,
+            "run-r7-1763212800",
+        );
+        assert!(outcome.error.is_none(), "{:?}", outcome.error);
+        assert_eq!(
+            hands.seen.borrow().as_slice(),
+            [
+                "post_depreciation|s1|run-r7-1763212800-s1",
+                "close_period|s2|run-r7-1763212800-s2"
+            ]
+        );
+        // what the handler answered is kept on the step, so a run says what it did and not only that it finished
+        assert_eq!(
+            outcome.steps[0]["result"],
+            json!({"action": "post_depreciation"})
+        );
+    }
+
+    #[test]
+    fn a_step_the_hands_refuse_stops_the_run_and_keeps_the_sentence() {
+        // a rule that names something nothing can do must not look finished: the run stops, says which step, and says
+        // why, because a rule that quietly did nothing is indistinguishable from one that worked
+        let hands = Recorder {
+            refuse: Some(
+                "No asset is registered yet, so there is nothing to depreciate.".to_string(),
+            ),
+            ..Recorder::default()
+        };
+        let outcome = walk_steps(
+            &[
+                json!({"step_id": "s1", "step_name": "Depreciate", "action": "post_depreciation"}),
+                json!({"step_id": "s2", "step_name": "Close", "action": "close_period",
+                       "depends_on": ["s1"]}),
+            ],
+            &hands,
+            "run-1",
+        );
+        assert_eq!(
+            outcome.error.as_deref(),
+            Some("Step s1 could not be taken: No asset is registered yet, so there is nothing to depreciate.")
+        );
+        assert_eq!(outcome.steps.len(), 1);
+        assert_eq!(outcome.steps[0]["status"], json!("refused"));
+        assert_eq!(
+            outcome.steps[0]["reason"],
+            json!("No asset is registered yet, so there is nothing to depreciate.")
+        );
+        // the step after it was never attempted
+        assert_eq!(hands.seen.borrow().len(), 1);
+
+        // a runner with no hands is honest about it rather than reporting success
+        let nothing = walk_steps(
+            &[json!({"step_id": "s1", "step_name": "Depreciate", "action": "post_depreciation"})],
+            &NoActions,
+            "run-1",
+        );
+        assert!(nothing.error.is_some());
+        assert!(nothing.steps[0]["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Nothing here can do"));
     }
 
     #[test]
@@ -310,8 +461,8 @@ mod tests {
         assert_eq!(made["trigger"], json!("scheduled"));
         assert_eq!(made["priority"], json!(5));
 
-        let run =
-            execute_automation(&graph, &talked(), &id, &json!({"now": 2000.0})).expect("a run");
+        let run = execute_automation(&graph, &talked(), &id, &json!({"now": 2000.0}), &recorder())
+            .expect("a run");
         assert_eq!(run["status"], json!("completed"));
         assert_eq!(run["rule_id"], json!(id));
         assert_eq!(run["company_id"], json!("co-1"));
@@ -323,7 +474,7 @@ mod tests {
         let off = toggle_automation(&graph, &talked(), &id).expect("a toggle");
         assert_eq!(off["enabled"], json!(false));
         assert!(matches!(
-            execute_automation(&graph, &talked(), &id, &json!({})),
+            execute_automation(&graph, &talked(), &id, &json!({}), &recorder()),
             Err(StoreError::BadRequest(_))
         ));
         let on = toggle_automation(&graph, &talked(), &id).expect("a toggle");
@@ -334,8 +485,14 @@ mod tests {
             &graph,
             json!([{"step_id": "s1", "step_name": "Report", "action": "report", "depends_on": ["gone"]}]),
         );
-        let failed =
-            execute_automation(&graph, &talked(), &text(&broken, "id"), &json!({})).expect("a run");
+        let failed = execute_automation(
+            &graph,
+            &talked(),
+            &text(&broken, "id"),
+            &json!({}),
+            &recorder(),
+        )
+        .expect("a run");
         assert_eq!(failed["status"], json!("failed"));
         assert_eq!(
             failed["error"],
@@ -357,7 +514,7 @@ mod tests {
 
         // another Book sees, runs and reads none of it
         let elsewhere = BookScope::new("user-2", "book-2");
-        assert!(execute_automation(&graph, &elsewhere, &id, &json!({})).is_err());
+        assert!(execute_automation(&graph, &elsewhere, &id, &json!({}), &recorder()).is_err());
         assert!(execution(&graph, &elsewhere, &text(&run, "id")).is_err());
         assert_eq!(
             automations(&graph, &elsewhere, &json!({}))

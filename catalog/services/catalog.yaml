@@ -472,6 +472,7 @@ services:
   - POST /automation/rules
   - POST /automation/rules/{}/execute
   - POST /automation/rules/{}/toggle
+  - POST /automation/standard-rules
 - name: bad-debts-recovery-service
   domain: receivables
   target: rust/crates/domains/receivables

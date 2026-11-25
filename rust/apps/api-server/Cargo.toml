@@ -40,6 +40,7 @@ events = { package = "vimbai_service_events", path = "../../crates/platform/even
 data = { package = "vimbai_service_data", path = "../../crates/domains/data" }
 invoicing = { package = "vimbai_service_invoicing", path = "../../crates/domains/invoicing" }
 automation = { package = "vimbai_automation", path = "../../crates/domains/automation" }
+automation_hands = { package = "vimbai_automation_hands", path = "../../crates/application/automation-hands" }
 multimodal = { package = "vimbai_service_multimodal", path = "../../crates/domains/multimodal" }
 workflow = { package = "vimbai_service_workflow", path = "../../crates/domains/workflow" }
 payroll = { package = "vimbai_service_payroll", path = "../../crates/domains/payroll" }

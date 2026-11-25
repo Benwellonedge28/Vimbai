@@ -3317,6 +3317,7 @@ dependencies = [
  "vimbai_assets",
  "vimbai_assurance",
  "vimbai_automation",
+ "vimbai_automation_hands",
  "vimbai_bridge",
  "vimbai_budgeting",
  "vimbai_cache",
@@ -3399,6 +3400,18 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_automation_hands"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_assets",
+ "vimbai_automation",
+ "vimbai_common",
+ "vimbai_service_accounting",
  "vimbai_store",
 ]
 
@@ -4034,6 +4047,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "vimbai_automation",
+ "vimbai_automation_hands",
  "vimbai_common",
  "vimbai_notifications",
  "vimbai_service_offline_sync",
