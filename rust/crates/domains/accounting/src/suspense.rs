@@ -12,7 +12,14 @@
 //! exact; nothing here divides, so there is no ratio to keep.
 
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use vimbai_common::Money;
+use vimbai_store::amounts::wire;
+use vimbai_store::read::{field, refused, text};
+use vimbai_store::{BookScope, Graph, StoreError};
+
+use crate::ledger_book;
+use crate::subsidiary_journals::{account_name, must_be_open, positive, post};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SuspenseError {
@@ -134,11 +141,220 @@ pub fn analyze_suspense(request: &SuspenseRequest) -> SuspenseResult {
     }
 }
 
+/// An amount as the digits the ledger stores it as, for a reference a person may have to read.
+fn as_text(amount: &Money) -> String {
+    amount.to_fixed(6)
+}
+
+/// The source module a suspense clearing posts under, which the ledger keeps references unique for.
+const SUSPENSE_MODULE: &str = "Suspense";
+
+/// The account unplaced amounts sit in: the one the caller named, or the one this Book's chart calls suspense.
+///
+/// Its type is not asked for, because suspense is not one thing: money received and not yet identified sits there as a
+/// credit, and a payment made and not yet identified sits there as a debit, so the same account can be either side of the
+/// books from one month to the next.
+fn suspense_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<String, StoreError> {
+    let accounts = ledger_book::accounts(graph, scope)?;
+    let named = text(payload, "suspense_account").trim().to_string();
+    if !named.is_empty() {
+        if !accounts
+            .iter()
+            .any(|account| field(account, "account_number") == named)
+        {
+            return Err(refused(&format!(
+                "Account {named} is not in this Book's chart, so nothing can be posted to it."
+            )));
+        }
+        return Ok(named);
+    }
+    accounts
+        .iter()
+        .find(|account| account_name(account).to_lowercase().contains("suspense"))
+        .map(|account| field(account, "account_number").to_string())
+        .ok_or_else(|| {
+            refused(
+                "This Book has no account for suspense, so say which account the amounts that could not be placed are sitting in: suspense_account.",
+            )
+        })
+}
+
+/// Which side of the account the amount belongs on. Suspense takes the other side, because clearing it is moving the
+/// amount out of suspense and into the account it was always meant for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Side {
+    Debit,
+    Credit,
+}
+
+impl Side {
+    fn of(payload: &Value) -> Result<Self, StoreError> {
+        let said = text(payload, "side").trim().to_lowercase();
+        match said.as_str() {
+            "debit" | "dr" => Ok(Side::Debit),
+            "credit" | "cr" => Ok(Side::Credit),
+            "" => Err(refused(
+                "Say which side of the account the amount belongs on: side is debit or credit. Suspense takes the other side.",
+            )),
+            other => Err(refused(&format!(
+                "{other} does not say which side. Say debit or credit."
+            ))),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Side::Debit => "debit",
+            Side::Credit => "credit",
+        }
+    }
+}
+
+/// `POST /suspense/clear`: move an amount that could not be placed out of suspense and into the account it belongs in.
+///
+/// This is the posting half of the suspense journal. The analysis above says what a kind of error does to a suspense
+/// balance; this says what clearing one actually does to the books, which is one entry: the account that should have
+/// carried the amount takes its side, and suspense gives it up.
+///
+/// What this keeps, and why:
+///
+/// * the amount cleared is stated by a person, not computed from an error table: the analysis is advice about what an
+///   error is worth, and what actually goes into the books is the figure the books keeper has decided to move;
+/// * the entry is one clearings worth of work, and its reference names the day, the account and the amount, so pressing
+///   the same clearing twice is refused by the ledger rather than moving the same amount out of suspense twice, while a
+///   second, different amount cleared to the same account on the same day is its own entry;
+/// * a closed month is not written into: its profit has been reported;
+/// * clearing into the suspense account itself is refused, because that moves nothing and would look like work done;
+/// * nothing moves money. Suspense is a bookkeeping place, not an account anybody holds.
+pub fn clear_suspense<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let entry_date = text(payload, "entry_date").trim().to_string();
+    if entry_date.is_empty() {
+        return Err(refused(
+            "Say the day the clearing belongs to, as 2026-11-20, in entry_date.",
+        ));
+    }
+    must_be_open(graph, scope, &entry_date)?;
+    let amount = positive(payload, "amount", "A suspense clearing")?;
+    let side = Side::of(payload)?;
+    let suspense = suspense_account(graph, scope, payload)?;
+
+    let accounts = ledger_book::accounts(graph, scope)?;
+    let into = text(payload, "account_number").trim().to_string();
+    if into.is_empty() {
+        return Err(refused(
+            "Say which account the amount belongs in: account_number.",
+        ));
+    }
+    let account = accounts
+        .iter()
+        .find(|account| field(account, "account_number") == into)
+        .ok_or_else(|| {
+            refused(&format!(
+                "Account {into} is not in this Book's chart, so nothing can be posted to it."
+            ))
+        })?;
+    if into == suspense {
+        return Err(refused(
+            "Clearing suspense into itself moves nothing: say the account the amount belongs in.",
+        ));
+    }
+
+    let why = text(payload, "reason");
+    let named = account_name(account);
+    let description = if why.trim().is_empty() {
+        format!("Suspense cleared: {named}")
+    } else {
+        format!("Suspense cleared: {named} ({why})")
+    };
+    // the day, the account and the amount: the same clearing twice is refused, a different one is its own entry
+    let reference = match text(payload, "reference").trim() {
+        // wire() is the JSON string the ledger stores, so the reference takes its text, not its quotes
+        "" => format!("SUS-{entry_date}-{into}-{}", as_text(&amount)),
+        given => given.to_string(),
+    };
+    let (debit, credit) = match side {
+        Side::Debit => (&into, &suspense),
+        Side::Credit => (&suspense, &into),
+    };
+    let note = if why.trim().is_empty() {
+        format!("Cleared out of suspense into {named}")
+    } else {
+        format!("Cleared out of suspense into {named}: {why}")
+    };
+    let entry_id = post(
+        graph,
+        scope,
+        payload,
+        description.clone(),
+        &reference,
+        SUSPENSE_MODULE,
+        debit,
+        credit,
+        &amount,
+        &note,
+    )?;
+
+    Ok(json!({
+        "entry_date": entry_date,
+        "amount": wire(&amount),
+        "side": side.as_str(),
+        "account_number": into,
+        "account_name": named,
+        "suspense_account": suspense,
+        "description": description,
+        "reference": reference,
+        "journal_entry_id": entry_id,
+    }))
+}
+
 /// `suspense-error-service /analyze`.
 pub fn suspense_error_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
     let request: SuspenseRequest = serde_json::from_value(payload.clone())
         .map_err(|error| format!("invalid request: {error}"))?;
     serde_json::to_value(analyze_suspense(&request)).map_err(|error| error.to_string())
+}
+
+/// A Book with a chart that carries a suspense account, for the tests that post.
+#[cfg(test)]
+mod tests_support {
+    use super::*;
+    use vimbai_store::fake::MemoryGraph;
+
+    pub(super) fn scope() -> BookScope {
+        BookScope::new("user-1", "book-1")
+    }
+
+    /// The seeded chart has no suspense account, because most businesses never need one: these tests add it the way an
+    /// owner would, by creating the account in the Book's own chart.
+    pub(super) fn book() -> (MemoryGraph, String) {
+        let graph = MemoryGraph::new();
+        crate::chart::seed_opening_chart(&graph, &scope(), "business").expect("a chart");
+        let created = crate::ledger_book::create_account(
+            &graph,
+            &scope(),
+            &json!({
+                "account_number": "9999",
+                "name": "Suspense",
+                "account_type": "liability",
+                "opening_balance": "0",
+            }),
+        )
+        .expect("a suspense account");
+        let number = field(&created, "account_number").to_string();
+        (graph, number)
+    }
+
+    pub(super) fn entry(graph: &MemoryGraph, entry_id: &str) -> Value {
+        crate::ledger_book::get_entry(graph, &scope(), entry_id).expect("the entry")
+    }
 }
 
 #[cfg(test)]
@@ -296,5 +512,212 @@ mod tests {
         }))
         .expect_err("refused");
         assert!(bad.contains("invalid request"), "{bad}");
+    }
+}
+
+#[cfg(test)]
+mod clearing_tests {
+    use super::tests_support::*;
+    use super::*;
+
+    fn clearing(payload: Value) -> Result<Value, StoreError> {
+        let (graph, suspense) = book();
+        let answer = clear_suspense(&graph, &scope(), &payload)?;
+        assert_eq!(answer["suspense_account"], json!(suspense));
+        Ok(answer)
+    }
+
+    #[test]
+    fn an_amount_credited_where_it_belongs_comes_out_of_suspense() {
+        let (graph, suspense) = book();
+        let answer = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "500", "side": "credit",
+                    "account_number": "4000", "reason": "customer identified"}),
+        )
+        .expect("cleared");
+
+        // the business earned 500 and suspense no longer holds it: Dr Suspense, Cr Sales
+        let entry = entry(&graph, field(&answer, "journal_entry_id"));
+        assert_eq!(entry["entry_date"], json!("2026-11-20"));
+        assert_eq!(field(&entry, "source_module"), "Suspense");
+        let lines = entry["lines"].as_array().expect("lines");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(field(&lines[0], "account_number"), suspense);
+        assert_eq!(lines[0]["debit"], json!("500.000000"));
+        assert_eq!(field(&lines[1], "account_number"), "4000");
+        assert_eq!(lines[1]["credit"], json!("500.000000"));
+    }
+
+    #[test]
+    fn an_amount_debited_where_it_belongs_takes_the_other_side() {
+        let (graph, suspense) = book();
+        let answer = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "80", "side": "debit",
+                    "account_number": "5000"}),
+        )
+        .expect("cleared");
+        let entry = entry(&graph, field(&answer, "journal_entry_id"));
+        let lines = entry["lines"].as_array().expect("lines");
+        // the expense is charged and suspense gives up what it was holding: Dr Expenses, Cr Suspense
+        assert_eq!(field(&lines[0], "account_number"), "5000");
+        assert_eq!(lines[0]["debit"], json!("80.000000"));
+        assert_eq!(field(&lines[1], "account_number"), suspense);
+        assert_eq!(lines[1]["credit"], json!("80.000000"));
+    }
+
+    #[test]
+    fn the_same_clearing_twice_is_refused_by_the_ledger() {
+        let (graph, _suspense) = book();
+        let payload = json!({"entry_date": "2026-11-20", "amount": "500", "side": "credit",
+                             "account_number": "4000"});
+        clear_suspense(&graph, &scope(), &payload).expect("cleared");
+        let refused = clear_suspense(&graph, &scope(), &payload).expect_err("the same clearing");
+        let said = refused.to_string();
+        assert!(said.contains("already exists"), "{said}");
+    }
+
+    #[test]
+    fn a_second_different_amount_cleared_the_same_day_is_its_own_entry() {
+        let (graph, _suspense) = book();
+        clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "500", "side": "credit",
+                    "account_number": "4000"}),
+        )
+        .expect("first");
+        let second = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "250", "side": "credit",
+                    "account_number": "4000"}),
+        )
+        .expect("second");
+        assert_eq!(second["amount"], json!("250.000000"));
+        assert_ne!(second["journal_entry_id"], Value::Null);
+    }
+
+    #[test]
+    fn clearing_into_suspense_itself_is_refused_in_words() {
+        let (graph, suspense) = book();
+        let refused = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "10", "side": "credit",
+                    "account_number": suspense}),
+        )
+        .expect_err("into itself");
+        assert!(refused.to_string().contains("itself"), "{refused}");
+    }
+
+    #[test]
+    fn a_side_a_day_and_an_account_are_asked_for_when_missing() {
+        let (graph, _suspense) = book();
+        for (payload, wanted) in [
+            (
+                json!({"amount": "10", "side": "credit", "account_number": "4000"}),
+                "entry_date",
+            ),
+            (
+                json!({"entry_date": "2026-11-20", "amount": "10", "account_number": "4000"}),
+                "side is debit or credit",
+            ),
+            (
+                json!({"entry_date": "2026-11-20", "amount": "10", "side": "credit"}),
+                "account_number",
+            ),
+        ] {
+            let refused = clear_suspense(&graph, &scope(), &payload).expect_err("asked for");
+            assert!(refused.to_string().contains(wanted), "{refused}");
+        }
+    }
+
+    #[test]
+    fn an_amount_of_nothing_is_refused() {
+        let (graph, _suspense) = book();
+        let refused = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "0", "side": "credit",
+                    "account_number": "4000"}),
+        )
+        .expect_err("nothing");
+        assert!(
+            refused.to_string().contains("more than nothing"),
+            "{refused}"
+        );
+    }
+
+    #[test]
+    fn a_closed_month_is_not_written_into() {
+        let (graph, _suspense) = book();
+        crate::periods::close_period(
+            &graph,
+            &scope(),
+            &json!({"period": "2026-03", "closes_on": "2026-03-31"}),
+        )
+        .expect("a closed month");
+        let refused = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-03-15", "amount": "10", "side": "credit",
+                    "account_number": "4000"}),
+        )
+        .expect_err("a closed month");
+        let said = refused.to_string();
+        assert!(said.contains("closed") || said.contains("open"), "{said}");
+    }
+
+    #[test]
+    fn a_book_with_no_suspense_account_is_told_which_setting_to_say() {
+        // a Book with a chart and no suspense account says so rather than posting somewhere else
+        let graph = vimbai_store::fake::MemoryGraph::new();
+        crate::chart::seed_opening_chart(&graph, &scope(), "business").expect("a chart");
+        let refused = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "10", "side": "credit",
+                    "account_number": "4000"}),
+        )
+        .expect_err("no suspense account");
+        let said = refused.to_string();
+        assert!(said.contains("suspense"), "{said}");
+    }
+
+    #[test]
+    fn an_amount_past_double_precision_clears_digit_for_digit() {
+        let (graph, _suspense) = book();
+        let answer = clear_suspense(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-11-20", "amount": "123456789012345678901.55",
+                    "side": "credit", "account_number": "4000"}),
+        )
+        .expect("cleared");
+        let entry = entry(&graph, field(&answer, "journal_entry_id"));
+        assert_eq!(
+            entry["lines"].as_array().expect("lines")[0]["debit"],
+            json!("123456789012345678901.550000")
+        );
+    }
+
+    #[test]
+    fn a_clearing_reports_what_it_did() {
+        let answer = clearing(
+            json!({"entry_date": "2026-11-20", "amount": "500", "side": "credit",
+                                     "account_number": "4000", "reason": "customer identified"}),
+        )
+        .expect("cleared");
+        assert_eq!(answer["side"], json!("credit"));
+        assert_eq!(answer["account_number"], json!("4000"));
+        assert_eq!(
+            answer["description"],
+            json!("Suspense cleared: Sales (customer identified)")
+        );
+        assert_eq!(answer["reference"], json!("SUS-2026-11-20-4000-500.000000"));
     }
 }

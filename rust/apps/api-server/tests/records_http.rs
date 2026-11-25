@@ -3524,3 +3524,49 @@ async fn the_doubtful_provision_answers_on_its_prefixed_paths() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["provision_adjustment"], json!("200.000000"));
 }
+
+#[tokio::test]
+async fn an_amount_can_be_cleared_out_of_suspense_on_the_published_path() {
+    let graph = Arc::new(MemoryGraph::new());
+    accounting::chart::seed_opening_chart(graph.as_ref(), &scope(), "business").expect("a chart");
+    // a Book's chart has no suspense account until it needs one, so the owner's own is created here
+    let (status, created) = call_memory(
+        Arc::clone(&graph),
+        Method::POST,
+        "/accounting/accounts",
+        Some(json!({
+            "account_number": "9999", "name": "Suspense", "account_type": "liability",
+            "opening_balance": "0"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+
+    let (status, body) = call_memory(
+        Arc::clone(&graph),
+        Method::POST,
+        "/accounting/suspense/clear",
+        Some(
+            json!({"entry_date": "2026-11-20", "amount": "500", "side": "credit",
+                    "account_number": "4000", "reason": "customer identified"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["amount"], json!("500.000000"));
+    assert_eq!(body["side"], json!("credit"));
+    assert_ne!(body["journal_entry_id"], Value::Null);
+
+    // and the same address answers under the records prefix the app also calls
+    let (status, _) = call_memory(
+        graph,
+        Method::POST,
+        "/records/accounting/suspense/clear",
+        Some(
+            json!({"entry_date": "2026-11-21", "amount": "100", "side": "debit",
+                    "account_number": "5000"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}

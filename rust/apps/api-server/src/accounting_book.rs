@@ -796,6 +796,22 @@ async fn adjust_stock(
     ))
 }
 
+async fn clear_from_suspense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::suspense::clear_suspense(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
+    ))
+}
+
 async fn list_stock_adjustments(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1586,6 +1602,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/stock-adjustments"),
                 post(adjust_stock).get(list_stock_adjustments),
+            )
+            // an amount that could not be placed, moved into the account it was always meant for
+            .route(
+                &format!("{prefix}/suspense/clear"),
+                post(clear_from_suspense),
             )
             // a customer who will not pay is a cost of trading: the debt comes out of receivables and into the month
             .route(

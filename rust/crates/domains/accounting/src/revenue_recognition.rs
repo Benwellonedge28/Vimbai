@@ -261,7 +261,11 @@ pub fn recognise_revenue<G: Graph + ?Sized>(
         } else {
             format!("Revenue recognised: {customer}, {what}")
         };
-        let reference = format!("REV-{contract_id}-{obligation_id}-{}", wire(&recognised));
+        // the digits the ledger stores, not the JSON string that wraps them
+        let reference = format!(
+            "REV-{contract_id}-{obligation_id}-{}",
+            recognised.to_fixed(6)
+        );
         let dated = json!({"entry_date": day, "created_at": text(payload, "created_at")});
         entry_id = json!(post(
             graph,

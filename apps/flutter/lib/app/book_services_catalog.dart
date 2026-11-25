@@ -36,6 +36,7 @@ import 'package:vimbai_mobile_client/features/payables/presentation/due_plan_pag
 import 'package:vimbai_mobile_client/features/payables/presentation/payables_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/return_to_supplier_page.dart';
 import 'package:vimbai_mobile_client/features/stock_adjustments/presentation/stock_count_page.dart';
+import 'package:vimbai_mobile_client/features/suspense/presentation/clear_suspense_page.dart';
 import 'package:vimbai_mobile_client/features/payroll/presentation/payroll_page.dart';
 import 'package:vimbai_mobile_client/features/cashbook/presentation/cash_book_page.dart';
 import 'package:vimbai_mobile_client/features/npo/presentation/npo_page.dart';
@@ -392,6 +393,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'What a count found: a shortage, or stock found',
           icon: Icons.inventory_outlined,
           page: (context) => const StockCountPage(),
+        ),
+        BookServiceEntry(
+          title: 'Money that could not be placed',
+          description:
+              'An amount out of suspense, into the account it belongs in',
+          icon: Icons.help_outline,
+          page: (context) => const ClearSuspensePage(),
         ),
         BookServiceEntry(
           title: 'Goods back from a customer',

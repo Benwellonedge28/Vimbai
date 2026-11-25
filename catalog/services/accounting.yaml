@@ -102,6 +102,7 @@ services:
   - POST /accounting/single-entry-conversions
   - POST /accounting/statements-of-affairs
   - POST /accounting/stock-adjustments
+  - POST /accounting/suspense/clear
   - POST /accounting/taxes
   - POST /accounting/taxes/compute
   - POST /accounting/taxes/retire
