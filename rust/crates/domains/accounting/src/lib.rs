@@ -47,6 +47,7 @@ pub mod fx_settlement;
 pub mod ifrs_reports;
 pub mod intercompany;
 pub mod ledger_book;
+pub mod measures;
 pub mod opening_balances;
 pub mod payroll;
 pub mod periods;
