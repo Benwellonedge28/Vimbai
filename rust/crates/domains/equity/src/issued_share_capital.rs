@@ -16,6 +16,7 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
+use vimbai_ledger_services::accounts::account_for_purpose;
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
 use vimbai_store::read::text;
 use vimbai_store::{BookScope, Graph, Records, StoreError, SHAREHOLDER, SHARE_ISSUE};
@@ -58,25 +59,48 @@ pub fn record_issue<G: Graph + ?Sized>(
     let capital = issue_capital(shares);
     let premium = proceeds.minus(&capital);
     let zero = Money::zero();
+    // the money the issue raised, the capital it credited and what was paid above nominal all belong where this Book
+    // keeps them, never to the numbers one chart happens to give them
+    let bank = account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "bank_account"),
+        "bank",
+        "asset",
+    )?;
+    let share_capital = account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "share_capital_account"),
+        "share_capital",
+        "equity",
+    )?;
+    let share_premium = account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "share_premium_account"),
+        "share_premium",
+        "equity",
+    )?;
 
     let journal = json!({
         "date": date,
         "description": format!("Issue of {shares} {share_class} shares at {}", wire(&price)),
         "entries": [
             {
-                "account_code": "1000",
+                "account_code": bank,
                 "description": "Bank",
                 "debit": wire(&proceeds),
                 "credit": wire(&zero),
             },
             {
-                "account_code": "3200",
+                "account_code": share_capital,
                 "description": "Share Capital",
                 "debit": wire(&zero),
                 "credit": wire(&capital),
             },
             {
-                "account_code": "3210",
+                "account_code": share_premium,
                 "description": "Share Premium",
                 "debit": wire(&zero),
                 "credit": wire(&premium),
@@ -161,13 +185,26 @@ mod tests {
     use super::*;
     use vimbai_store::fake::FakeGraph;
 
+    /// The Book an issue posts into: the money it banks, its capital and its premium, and the issue record it writes.
+    fn book() -> FakeGraph {
+        FakeGraph::returning(vec![
+            json!({"account_number": "1020", "name": "Bank", "account_type": "asset",
+                   "normal_balance": "debit", "role": "bank"}),
+            json!({"account_number": "3200", "name": "Share Capital", "account_type": "equity",
+                   "normal_balance": "credit", "role": "share_capital"}),
+            json!({"account_number": "3210", "name": "Share Premium", "account_type": "equity",
+                   "normal_balance": "credit", "role": "share_premium"}),
+            json!({"id": "iss-1"}),
+        ])
+    }
+
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")
     }
 
     #[test]
     fn the_issue_splits_proceeds_at_one_unit_a_share_as_shipped() {
-        let graph = FakeGraph::returning(vec![json!({"id": "iss-1"})]);
+        let graph = book();
         record_issue(
             &graph,
             &scope(),
@@ -187,7 +224,7 @@ mod tests {
 
     #[test]
     fn a_preference_issue_credits_the_same_capital_because_the_nominal_is_hard_coded() {
-        let graph = FakeGraph::returning(vec![json!({"id": "iss-2"})]);
+        let graph = book();
         record_issue(
             &graph,
             &scope(),
@@ -205,7 +242,7 @@ mod tests {
 
     #[test]
     fn an_issue_below_one_unit_posts_negative_premium() {
-        let graph = FakeGraph::returning(vec![json!({"id": "iss-3"})]);
+        let graph = book();
         record_issue(
             &graph,
             &scope(),
@@ -222,7 +259,7 @@ mod tests {
 
     #[test]
     fn a_huge_issue_keeps_every_digit() {
-        let graph = FakeGraph::returning(vec![json!({"id": "iss-4"})]);
+        let graph = book();
         record_issue(
             &graph,
             &scope(),

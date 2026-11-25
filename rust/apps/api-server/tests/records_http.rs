@@ -1171,7 +1171,16 @@ async fn the_share_redemption_routes_mirror_under_records() {
 
 #[tokio::test]
 async fn an_issue_answers_on_the_issued_share_capital_path() {
-    let graph = Scripted::returning(vec![json!({"id": "iss-1"})]);
+    // the Book an issue posts into says where its money, its capital and its premium are kept
+    let graph = Scripted::returning(vec![
+        json!({"account_number": "1020", "name": "Bank", "account_type": "asset",
+               "normal_balance": "debit", "role": "bank"}),
+        json!({"account_number": "3200", "name": "Share Capital", "account_type": "equity",
+               "normal_balance": "credit", "role": "share_capital"}),
+        json!({"account_number": "3210", "name": "Share Premium", "account_type": "equity",
+               "normal_balance": "credit", "role": "share_premium"}),
+        json!({"id": "iss-1"}),
+    ]);
     let seen = Arc::clone(&graph);
     let (status, _) = call_with(
         graph,

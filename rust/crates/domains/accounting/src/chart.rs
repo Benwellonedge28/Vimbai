@@ -84,7 +84,7 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 23] = [
+pub const BUSINESS: [StandardAccount; 24] = [
     roled(
         "1100",
         "Accounts Receivable",
@@ -143,6 +143,9 @@ pub const BUSINESS: [StandardAccount; 23] = [
     // what the owners have put in and not taken back: a company's capital is a fact of company law, so the account is
     // found by what it is for rather than by the number one chart happens to give it
     roled("3200", "Share Capital", "equity", "credit", "share_capital"),
+    // what shareholders pay above the nominal of their shares: company law keeps it apart from capital because it
+    // cannot be paid out as dividend
+    roled("3210", "Share Premium", "equity", "credit", "share_premium"),
     roled(
         "3100",
         "Retained Earnings",
