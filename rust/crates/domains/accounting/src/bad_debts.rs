@@ -72,7 +72,7 @@ pub fn write_off(
         scope,
         payload,
         "expense_account",
-        "bad debt",
+        "bad_debts",
         "expense",
     )?;
     let owed = account_named(

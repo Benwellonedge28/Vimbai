@@ -96,7 +96,7 @@ pub fn provide(
         scope,
         payload,
         "allowance_account",
-        "allowance for doubtful",
+        "doubtful_allowance",
         "asset",
     )?;
     let charge = account_named(
@@ -104,7 +104,7 @@ pub fn provide(
         scope,
         payload,
         "provision_account",
-        "doubtful debts",
+        "doubtful_expense",
         "expense",
     )?;
     if allowance == charge {
@@ -189,7 +189,7 @@ pub fn list_provisions<G: Graph + ?Sized>(
         scope,
         query,
         "allowance_account",
-        "allowance for doubtful",
+        "doubtful_allowance",
         "asset",
     )?;
     let standing_now = standing(graph, scope, &allowance)?;

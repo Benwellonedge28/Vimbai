@@ -185,7 +185,7 @@ pub fn close_year(
         scope,
         payload,
         "retained_earnings_account",
-        "retained earnings",
+        "retained_earnings",
         "equity",
     )?;
     if profit.is_zero() {

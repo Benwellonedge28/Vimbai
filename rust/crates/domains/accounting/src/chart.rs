@@ -30,6 +30,13 @@ pub struct StandardAccount {
     pub account_type: &'static str,
     /// The side a positive balance sits on.
     pub normal_balance: &'static str,
+    /// What the engine needs this account *for*, in the Book's own chart: `receivable`, `payable`, `sales`, `inventory`,
+    /// `prepaid`, `depreciation_expense` and so on, or empty when nothing posts to it by purpose.
+    ///
+    /// The engine finds an account by this role rather than by its name, because a name is the business's word: a Book
+    /// that calls its sales account "Turnover" is as correct as one that calls it "Sales", and neither should be told it
+    /// has no account for sales. A role is data, set per Book, and a person can move it to whichever account they like.
+    pub role: &'static str,
 }
 
 const fn account(
@@ -38,11 +45,23 @@ const fn account(
     account_type: &'static str,
     normal_balance: &'static str,
 ) -> StandardAccount {
+    roled(number, name, account_type, normal_balance, "")
+}
+
+/// An account the engine also needs by purpose, so a Book may rename it and still have sales posted to it.
+const fn roled(
+    number: &'static str,
+    name: &'static str,
+    account_type: &'static str,
+    normal_balance: &'static str,
+    role: &'static str,
+) -> StandardAccount {
     StandardAccount {
         number,
         name,
         account_type,
         normal_balance,
+        role,
     }
 }
 
@@ -51,12 +70,12 @@ const fn account(
 /// These are the five elements of any set of accounts: something you own, something you owe, what is left for the owner,
 /// what came in and what went out.
 pub const CORE: [StandardAccount; 8] = [
-    account("1000", "Cash", "asset", "debit"),
-    account("1010", "Bank", "asset", "debit"),
-    account("2000", "Accounts Payable", "liability", "credit"),
+    roled("1000", "Cash", "asset", "debit", "cash"),
+    roled("1010", "Bank", "asset", "debit", "bank"),
+    roled("2000", "Accounts Payable", "liability", "credit", "payable"),
     account("3000", "Owner's Equity", "equity", "credit"),
-    account("4000", "Sales", "revenue", "credit"),
-    account("5000", "Cost of Sales", "expense", "debit"),
+    roled("4000", "Sales", "revenue", "credit", "sales"),
+    roled("5000", "Cost of Sales", "expense", "debit", "cost_of_sales"),
     account("6100", "Rent", "expense", "debit"),
     account("6300", "Office Expenses", "expense", "debit"),
 ];
@@ -66,52 +85,119 @@ pub const CORE: [StandardAccount; 8] = [
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
 pub const BUSINESS: [StandardAccount; 21] = [
-    account("1100", "Accounts Receivable", "asset", "debit"),
-    account("1200", "Inventory", "asset", "debit"),
+    roled(
+        "1100",
+        "Accounts Receivable",
+        "asset",
+        "debit",
+        "receivable",
+    ),
+    roled("1200", "Inventory", "asset", "debit", "inventory"),
     // money already paid for something not yet used: it is the business's, but it is not this month's cost
-    account("1300", "Prepaid Expenses", "asset", "debit"),
+    roled("1300", "Prepaid Expenses", "asset", "debit", "prepaid"),
     account("1500", "Equipment", "asset", "debit"),
     // what an asset has been used up by is kept beside it rather than taken off it, so a reader can see both what the
     // business paid for the thing and how much of it is gone
-    account("1510", "Accumulated Depreciation", "asset", "credit"),
-    account("2100", "VAT Payable", "liability", "credit"),
+    roled(
+        "1510",
+        "Accumulated Depreciation",
+        "asset",
+        "credit",
+        "accumulated_depreciation",
+    ),
+    roled("2100", "VAT Payable", "liability", "credit", "tax_payable"),
     // a cost used this month that nobody has billed yet: the month carries it and the business owes it
-    account("2200", "Accrued Expenses", "liability", "credit"),
-    account("4050", "Sales Returns", "revenue", "debit"),
+    roled("2200", "Accrued Expenses", "liability", "credit", "accrued"),
+    roled("4050", "Sales Returns", "revenue", "debit", "sales_returns"),
     // A business that trades in another money makes and loses money on the rate itself. That is not trading income, so
     // it gets its own pair rather than being folded into sales or costs: a gain is revenue, a loss is an expense, and a
     // reader can see what the currency did apart from what the business did.
-    account("4800", "Exchange Gain", "revenue", "credit"),
-    account("5050", "Purchases Returns", "expense", "credit"),
-    account("5800", "Exchange Loss", "expense", "debit"),
+    roled(
+        "4800",
+        "Exchange Gain",
+        "revenue",
+        "credit",
+        "exchange_gain",
+    ),
+    roled(
+        "5050",
+        "Purchases Returns",
+        "expense",
+        "credit",
+        "purchases_returns",
+    ),
+    roled("5800", "Exchange Loss", "expense", "debit", "exchange_loss"),
     // the wear on what the business keeps is a cost of trading, and it belongs to a business rather than a household
-    account("6200", "Depreciation", "expense", "debit"),
+    roled(
+        "6200",
+        "Depreciation",
+        "expense",
+        "debit",
+        "depreciation_expense",
+    ),
     // what the business has earned and not taken out: a year's profit is moved here when the year is closed, so the year's
     // trading accounts start the next year at nothing and equity states what the business has kept
-    account("3100", "Retained Earnings", "equity", "credit"),
+    roled(
+        "3100",
+        "Retained Earnings",
+        "equity",
+        "credit",
+        "retained_earnings",
+    ),
     // what counting the stock has cost the business: a shortage is charged here and a surplus found is credited back to it,
     // so the account says what counting has done over time rather than hiding a gain among the sales
-    account("6400", "Stock Adjustments", "expense", "debit"),
+    roled(
+        "6400",
+        "Stock Adjustments",
+        "expense",
+        "debit",
+        "stock_adjustment",
+    ),
     // the part of what customers owe that the business does not expect to see: carried against receivables as a credit, so
     // what is owed can be read both as it stands and as the business expects it to come to
-    account("1120", "Allowance for Doubtful Debts", "asset", "credit"),
+    roled(
+        "1120",
+        "Allowance for Doubtful Debts",
+        "asset",
+        "credit",
+        "doubtful_allowance",
+    ),
     // what doubt about customers has cost the business: a provision raised is charged here and one released is credited back
     // to it, so the account says what doubt has cost over time rather than hiding a release among the sales
-    account("6510", "Doubtful Debts", "expense", "debit"),
+    roled(
+        "6510",
+        "Doubtful Debts",
+        "expense",
+        "debit",
+        "doubtful_expense",
+    ),
     // a customer who will not pay is a cost of trading, not a loss of sales: the money was earned and is now gone, and a
     // reader of the accounts is entitled to see it apart from the trading that earned it
-    account("6350", "Bad Debts", "expense", "debit"),
+    roled("6350", "Bad Debts", "expense", "debit", "bad_debts"),
     // what it costs to employ people, and what is owed to them and on their behalf once a month's wages are worked out.
     // Three accounts rather than one because the three are different facts: what the work cost, what the staff are still
     // owed, and what the business holds for somebody else - the revenue authority, the pension fund, a garnishee.
-    account("6250", "Salaries and Wages", "expense", "debit"),
-    account("6260", "Employer Contributions", "expense", "debit"),
-    account("2250", "Net Pay Payable", "liability", "credit"),
-    account(
+    roled("6250", "Salaries and Wages", "expense", "debit", "salaries"),
+    roled(
+        "6260",
+        "Employer Contributions",
+        "expense",
+        "debit",
+        "employer_contributions",
+    ),
+    roled(
+        "2250",
+        "Net Pay Payable",
+        "liability",
+        "credit",
+        "net_pay_payable",
+    ),
+    roled(
         "2260",
         "Statutory Deductions Payable",
         "liability",
         "credit",
+        "statutory_payable",
     ),
 ];
 
@@ -201,6 +287,7 @@ pub fn seed_opening_chart<G: Graph + ?Sized>(
             "name": standard.name,
             "account_type": standard.account_type,
             "normal_balance": standard.normal_balance,
+            "role": standard.role,
             "description": "opening chart",
             "parent_account_number": Value::Null,
             "created_at": "",
@@ -344,5 +431,88 @@ mod tests {
             .expect("a trial balance");
         assert_eq!(balance["total_debits"], json!("250.000000"), "{balance}");
         assert_eq!(balance["is_balanced"], json!(true), "{balance}");
+    }
+
+    #[test]
+    fn a_book_that_renames_its_sales_account_still_sells_through_it() {
+        let graph = MemoryGraph::new();
+        seed_opening_chart(&graph, &scope(), "business").expect("a chart");
+        // the business calls its sales account what it likes: the chart says which account is for sales, not the word
+        crate::ledger_book::update_account(&graph, &scope(), "4000", &json!({"name": "Turnover"}))
+            .expect("renaming sales");
+
+        let sale = crate::subsidiary_journals::create_sale(
+            &graph,
+            &scope(),
+            &json!({"invoice_number": "INV-1", "customer_id": "acme",
+                    "entry_date": "2026-11-05", "total_amount": "300.00",
+                    "tax_amount": "0", "status": "posted"}),
+        )
+        .expect("a sale still posts to the account kept for sales");
+        assert_eq!(text(&sale, "invoice_number"), "INV-1");
+
+        let entries = Records::new(&graph, vimbai_store::JOURNAL_ENTRY)
+            .list_with_children(&scope(), 100, vimbai_store::JOURNAL_LINE)
+            .expect("entries");
+        let credited: Vec<String> = entries
+            .iter()
+            .flat_map(|entry| {
+                entry
+                    .get("lines")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default()
+            })
+            .filter(|line| text(line, "credit") != "0")
+            .map(|line| text(&line, "account_number"))
+            .collect();
+        assert!(credited.contains(&"4000".to_string()), "{credited:?}");
+    }
+
+    #[test]
+    fn a_book_opened_before_roles_existed_still_answers_by_name() {
+        let graph = MemoryGraph::new();
+        // a chart written by an older engine: the accounts carry no role at all
+        for (number, name, kind, side) in [
+            ("1100", "Trade receivables", "asset", "debit"),
+            ("4000", "Sales", "revenue", "credit"),
+        ] {
+            crate::ledger_book::create_account(
+                &graph,
+                &scope(),
+                &json!({"account_number": number, "name": name,
+                        "account_type": kind, "normal_balance": side}),
+            )
+            .expect("an older account");
+        }
+        let sale = crate::subsidiary_journals::create_sale(
+            &graph,
+            &scope(),
+            &json!({"invoice_number": "INV-1", "customer_id": "acme",
+                    "entry_date": "2026-11-05", "total_amount": "300.00",
+                    "tax_amount": "0", "status": "posted"}),
+        )
+        .expect("an older Book keeps working without being reconfigured");
+        assert_eq!(text(&sale, "invoice_number"), "INV-1");
+    }
+
+    #[test]
+    fn a_purpose_belongs_to_one_account_and_cannot_be_claimed_twice() {
+        let graph = MemoryGraph::new();
+        seed_opening_chart(&graph, &scope(), "business").expect("a chart");
+        let twice =
+            crate::ledger_book::update_account(&graph, &scope(), "6100", &json!({"role": "sales"}))
+                .expect_err("4000 already keeps sales");
+        assert!(twice.to_string().contains("4000"), "{twice}");
+        assert!(twice.to_string().contains("sales"), "{twice}");
+
+        let unknown = crate::ledger_book::update_account(
+            &graph,
+            &scope(),
+            "6100",
+            &json!({"role": "whatever I like"}),
+        )
+        .expect_err("a purpose is one of the engine's, not a word of its own");
+        assert!(unknown.to_string().contains("not a purpose"), "{unknown}");
     }
 }

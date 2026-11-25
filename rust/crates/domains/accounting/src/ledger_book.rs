@@ -126,6 +126,7 @@ fn account_body(payload: &Value, created_at: &str, updated_at: &str) -> Value {
         "account_type": or_default(payload, "account_type", "asset"),
         "normal_balance": or_default(payload, "normal_balance", "debit"),
         "description": text(payload, "description"),
+        "role": text(payload, "role").trim().to_lowercase(),
         "parent_account_number": payload
             .get("parent_account_number")
             .cloned()
@@ -205,6 +206,39 @@ pub fn list_accounts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<
 }
 
 /// `PUT /accounts/{number}`: only the fields the caller sent change.
+/// The purposes an account can be kept for, so the engine can post to a purpose rather than to a name.
+///
+/// These are the laws of bookkeeping, not one business's vocabulary: every set of accounts has something owed to it, something
+/// it owes, what it sold, what it holds, what it has used up and what it keeps for somebody else. A Book says which of its
+/// own accounts answers each of these, and what those accounts are called is the business's business.
+pub const ROLES: [&str; 25] = [
+    "receivable",
+    "payable",
+    "sales",
+    "sales_returns",
+    "purchases_returns",
+    "cost_of_sales",
+    "inventory",
+    "prepaid",
+    "accrued",
+    "tax_payable",
+    "suspense",
+    "cash",
+    "bank",
+    "equity",
+    "retained_earnings",
+    "depreciation_expense",
+    "accumulated_depreciation",
+    "bad_debts",
+    "doubtful_expense",
+    "doubtful_allowance",
+    "stock_adjustment",
+    "exchange_gain",
+    "exchange_loss",
+    "net_pay_payable",
+    "statutory_payable",
+];
+
 pub fn update_account<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
@@ -212,6 +246,27 @@ pub fn update_account<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let existing = require_account(graph, scope, account_number)?;
+    if let Some(role) = payload.get("role").and_then(Value::as_str) {
+        let wanted = role.trim().to_lowercase();
+        if !wanted.is_empty() {
+            if !ROLES.contains(&wanted.as_str()) {
+                return Err(refused(&format!(
+                    "{wanted} is not a purpose this engine posts by. The purposes are: {}.",
+                    ROLES.join(", ")
+                )));
+            }
+            if let Some(holder) = accounts(graph, scope)?.iter().find(|account| {
+                field(account, "account_number") != account_number
+                    && field(account, "role").eq_ignore_ascii_case(&wanted)
+            }) {
+                return Err(refused(&format!(
+                    "Account {} is already the one this Book keeps for {wanted}, so {account_number} cannot be as well. \
+                     Move the purpose to one account, or clear it from the other first.",
+                    field(holder, "account_number")
+                )));
+            }
+        }
+    }
     let mut body = existing.clone();
     for key in [
         "name",
@@ -219,6 +274,7 @@ pub fn update_account<G: Graph + ?Sized>(
         "normal_balance",
         "description",
         "parent_account_number",
+        "role",
     ] {
         if let Some(value) = payload.get(key) {
             body[key] = value.clone();

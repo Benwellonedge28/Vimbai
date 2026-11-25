@@ -52,11 +52,16 @@ use crate::taxes;
 use vimbai_store::read::{field, money, money_or_nothing, optional, or_default, refused, text};
 use vimbai_store::write::remember;
 
-/// An account the Book already keeps, named by the caller, or the one its chart calls this.
+/// An account the Book already keeps, named by the caller, or the one its chart sets aside for this purpose.
 ///
 /// Every journal needs the same three answers: is the account the caller named really in this Book's chart, does the chart
-/// have an account that goes by this name and type, and what does the chart call an account at all. They live here rather
-/// than in each journal so a refusal about a missing account reads the same wherever it comes from.
+/// have an account carrying this role, and what does the chart call an account at all. They live here rather than in each
+/// journal so a refusal about a missing account reads the same wherever it comes from.
+///
+/// The role, not the name, decides which account a journal posts to. A business that calls its sales account "Turnover",
+/// or a Book written in another language, must not be told it has no account for sales: the chart says which account is
+/// for sales, and a person can move that role to whichever account they keep. A Book opened before roles existed still
+/// answers by name, so an older Book is never made to reconfigure itself to keep working.
 pub(crate) fn account_named<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
@@ -78,18 +83,26 @@ pub(crate) fn account_named<G: Graph + ?Sized>(
         }
         return Ok(named.trim().to_string());
     }
+    let purpose = called.trim().to_lowercase();
     accounts
         .iter()
         .find(|account| {
             field(account, "account_type") == kind
-                && account_name(account)
-                    .to_lowercase()
-                    .contains(&called.to_lowercase())
+                && field(account, "role").eq_ignore_ascii_case(&purpose)
+        })
+        .or_else(|| {
+            // a Book opened before the chart carried roles: its accounts are still found by what they are called
+            let words = purpose.replace('_', " ");
+            accounts.iter().find(|account| {
+                field(account, "account_type") == kind
+                    && field(account, "role").trim().is_empty()
+                    && account_name(account).to_lowercase().contains(&words)
+            })
         })
         .map(|account| field(account, "account_number").to_string())
         .ok_or_else(|| {
             refused(&format!(
-                "This Book has no account for {called}, so say which account it belongs in."
+                "This Book has no account set aside for {purpose}, so say which account it belongs in."
             ))
         })
 }
@@ -882,7 +895,7 @@ pub fn create_receipt(
             scope,
             payload,
             "revenue_account",
-            "other income",
+            "other_income",
             "revenue",
         )?
     };

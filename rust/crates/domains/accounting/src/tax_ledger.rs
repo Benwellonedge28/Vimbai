@@ -702,9 +702,11 @@ mod tests {
             &graph,
             &scope(),
             "1010",
-            &json!({"name": "Money Held"}),
+            // renaming alone no longer makes a Book bank nowhere: the purpose is what the engine posts by, so the Book
+            // says plainly that it keeps no account for banking
+            &json!({"name": "Money Held", "role": ""}),
         )
-        .expect("renaming the bank account");
+        .expect("saying it keeps no bank account");
         create_sale(
             &graph,
             &scope(),

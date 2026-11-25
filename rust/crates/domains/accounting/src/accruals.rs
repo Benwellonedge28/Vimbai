@@ -696,7 +696,7 @@ mod tests {
             &json!({"period": "2026-11", "amount": "10.00", "expense_account": "6400"}),
         )
         .expect_err("no accrued account");
-        assert!(format!("{refused}").contains("no account for accrued"));
+        assert!(format!("{refused}").contains("no account set aside for accrued"));
     }
 
     // ---- prepayments ----

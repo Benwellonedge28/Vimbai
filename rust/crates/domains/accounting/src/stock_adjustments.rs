@@ -110,7 +110,7 @@ pub fn adjust(
         scope,
         payload,
         "adjustment_account",
-        "stock adjustment",
+        "stock_adjustment",
         "expense",
     )?;
     if stock == cost {
