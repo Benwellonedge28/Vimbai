@@ -20,9 +20,11 @@ updates:
       go-modules:
         patterns: ["*"]
 
-  # Dockerfiles are in specific directories
+  # The Dockerfiles are in one place: the gateway, the Rust API server and the Flutter web build.
+  # This pointed at /gateway/go, where there is no Dockerfile, so every run of the docker job failed
+  # with dependency_file_not_found instead of looking anywhere.
   - package-ecosystem: "docker"
-    directory: "/gateway/go"
+    directory: "/infrastructure/docker"
     schedule:
       interval: "weekly"
     groups:
