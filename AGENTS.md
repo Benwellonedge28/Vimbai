@@ -116,3 +116,5 @@ What the pass does instead of muting:
 - A bump that is a deliberate upgrade rather than a routine one - a base image, a crypto or JWT library - is declined
   with a comment and tracked in an issue, so the reason survives the closed pull request. Merging it later means
   running the gateway and library tests, not trusting the bot's green tick.
+
+Temporary task claim for issue #70. Codex is preparing the Go gateway dependency upgrade on this branch.
