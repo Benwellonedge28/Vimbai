@@ -53,6 +53,18 @@ pull request.
 - `flutter-structure.md` - the app's feature-first layout, and the gate that keeps files from drifting back into layer
   folders.
 
+## Proposed design work packages
+
+- `architecture/design-reading-order.md` - dependency order, review decisions, and links to each package.
+- `architecture/book-policy-gate.md` - Enforce the boundary between Book policy and engine logic.
+- `architecture/posting-account-resolution.md` - Resolve the account a posting needs.
+- `architecture/book-access-and-navigation.md` - Open the right Book and show actions the caller can use.
+- `domains/financial-report-completeness.md` - Produce complete reconciliation and ageing reports.
+- `architecture/portable-book-recovery.md` - Restore a Book with unsynced work after device failure.
+- `architecture/android-pilot-release.md` - Build, distribute and verify the Android pilot.
+- `architecture/commercial-subscriptions.md` - Grant one Vimbai subscription across Android, Windows and web.
+- `architecture/referral-awards.md` - Record referral awards and partner commissions.
+
 ## Operations
 
 - `LOCAL-RUNTIME.md` - **clone to running.** The on-device runtime: one binary, one data directory, the engine and the
@@ -69,9 +81,9 @@ pull request.
 ## Domains
 
 `domains/` documents each business domain as built: what it owns, the services and gateway prefixes it answers on, and
-what it deliberately does not own. One page per domain, 24 pages, and the mapping is a gate rather than a
-convention: `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate the
-catalogue does not have, or if a page leaves out one of its own prefixes.
+what it deliberately does not own. The directory contains 25 pages including the proposed financial report design.
+The command `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate
+the catalogue does not have, or if a page leaves out one of its own prefixes.
 
 `domains/payments.md` states POS till support only, and that Vimbai Pay is not built, per ADR-005.
 
