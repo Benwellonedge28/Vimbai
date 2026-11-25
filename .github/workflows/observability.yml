@@ -17,7 +17,7 @@ jobs:
     name: Validate Observability Configs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       # Ruby is on the runner image and parses YAML in one line, so validating two configs no longer needs a Python
       # install. json.tool is checked with jq below for the same reason.

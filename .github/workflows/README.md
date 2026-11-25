@@ -34,6 +34,26 @@ build when a workflow file is not named here, or when this page names one that n
 | `cd-production.yml` | a `v*.*.*` tag | Builds and deploys to production. |
 | `docker-publish.yml` | a change under `rust/`, `gateway/go/` or `infrastructure/docker/`, and by hand | Publishes the four images the cluster pulls (engine, sync, worker, gateway). |
 
+## What main will not accept
+
+`main` is protected by a ruleset, so the gates above are the only way in. Nothing deletes it, nothing force pushes over
+it, and a change arrives as a pull request whose three checks - `Rust fmt / clippy / test`, `test-flutter` and `test-go` -
+have reported. The repository admin role bypasses the ruleset, which is how a person or a session holding the token
+still pushes directly when that is what they mean to do.
+
+The gates therefore start on every pull request, not only on the paths they cover. They used to be path filtered, and a
+documentation-only pull request then started neither workflow: its required checks stayed expected for ever and the pull
+request could never merge. The jobs inside still decide what work is worth doing, so a change that touches no Rust skips
+the Rust job rather than failing it.
+
+Every action these workflows use is pinned to a full commit rather than a tag, because the repository requires pinning:
+a tag reference is a name that can be moved to different code, and GitHub refuses to start a workflow that uses one.
+That refusal is a startup failure with no jobs and no error message on the run, so a pinning change looks exactly like a
+broken pipeline. When every workflow suddenly stops starting, check this before anything else.
+
+This is the shape that lets an outside agent write to the repository. It may do anything; it may land nothing the gates
+would refuse.
+
 ## What was removed, and why
 
 `ci.yml` was a 400-line all-in-one. It is gone, and it is worth saying why rather than leaving its absence to be wondered at.
