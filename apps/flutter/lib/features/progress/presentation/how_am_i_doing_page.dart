@@ -18,6 +18,35 @@ import 'package:vimbai_mobile_client/core/widgets/could_not_read.dart';
 import 'package:vimbai_mobile_client/features/progress/data/measures_reading.dart';
 import 'package:vimbai_mobile_client/features/progress/data/progress_reading.dart';
 
+/// A day as the engine states it: 2026-11-25.
+String writtenDay(DateTime day) =>
+    '${day.year}-${day.month.toString().padLeft(2, '0')}-'
+    '${day.day.toString().padLeft(2, '0')}';
+
+/// A day as a person reads it: 25 November 2026.
+String dayWords(String day) {
+  final parts = day.split('-');
+  if (parts.length != 3) return day;
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  final month = int.tryParse(parts[1]);
+  final date = int.tryParse(parts[2]);
+  if (month == null || date == null || month < 1 || month > 12) return day;
+  return '$date ${months[month - 1]} ${parts[0]}';
+}
+
 class HowAmIDoingPage extends StatefulWidget {
   const HowAmIDoingPage({super.key, this.service, this.measures, this.today});
 
@@ -47,6 +76,10 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
   /// An empty [from] means the month so far, which is the window a person standing in a month means.
   String _from = '';
 
+  /// The day to report on. Empty means today; any other day is a day the person chose, because a Book is read at any
+  /// day, not only the day it happens to be.
+  String _to = '';
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +89,7 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
   String get _today {
     final fixed = widget.today;
     if (fixed != null && fixed.isNotEmpty) return fixed;
+    if (_to.isNotEmpty) return _to;
     final now = DateTime.now();
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
@@ -70,8 +104,8 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
     try {
       // the figures are the Book's own rows and the pace comes from the window comparison, so both are read together
       final answers = await Future.wait([
-        _service.read(to: _today, from: _from),
-        _measures.read(to: _today, from: _from),
+        _service.read(to: _today, from: _firstDayFor(_from)),
+        _measures.read(to: _today, from: _firstDayFor(_from)),
       ]);
       if (!mounted) return;
       setState(() {
@@ -149,36 +183,115 @@ class _HowAmIDoingPageState extends State<HowAmIDoingPage> {
   }
 
   /// The window, as words a person chose rather than a date picker they must decode.
+  ///
+  /// Any day, week, month or period, because the ledger holds the whole of what happened and a reading is a view over a
+  /// window rather than a figure that arrives at month end.
   Widget _windowPicker(BuildContext context, ProgressReading reading) {
     final choices = <String, String>{
-      '': 'This month so far',
-      'quarter': 'This quarter',
-      'year': 'This year',
+      'day': 'That day',
+      'week': 'That week',
+      '': 'The month so far',
+      'quarter': 'That quarter',
+      'year': 'That year',
     };
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        ActionChip(
+          avatar: const Icon(Icons.calendar_today, size: 16),
+          label: Text(dayWords(_today)),
+          onPressed: _chooseDay,
+        ),
         for (final entry in choices.entries)
           ChoiceChip(
             label: Text(entry.value),
             selected: _from == entry.key,
             onSelected: (_) {
-              setState(() => _from = _fromFor(entry.key));
+              setState(() => _from = entry.key);
               _load();
             },
           ),
+        ActionChip(
+          avatar: const Icon(Icons.date_range, size: 16),
+          label: const Text('Choose a period'),
+          onPressed: _choosePeriod,
+        ),
         Chip(label: Text(reading.window)),
       ],
     );
   }
 
-  /// The first day of the quarter or the year that [_today] falls in, so the engine is asked for a real window.
-  String _fromFor(String choice) {
+  /// Any day: the Book holds every day, so the screen asks which one rather than assuming today.
+  Future<void> _chooseDay() async {
+    final parts = _today.split('-');
+    final now = DateTime.now();
+    final opening = parts.length == 3
+        ? DateTime(
+            int.tryParse(parts[0]) ?? now.year,
+            int.tryParse(parts[1]) ?? now.month,
+            int.tryParse(parts[2]) ?? now.day,
+          )
+        : now;
+    final chosen = await showDatePicker(
+      context: context,
+      initialDate: opening,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 5, 12, 31),
+      helpText: 'Which day should the Book be read at?',
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _to = writtenDay(chosen);
+      // a window that would open after the day it closes falls back to that day, rather than being refused
+      if (_from == 'day' || _from == 'week') _from = 'day';
+    });
+    await _load();
+  }
+
+  /// Any period: two days, and the engine reads what falls between them.
+  Future<void> _choosePeriod() async {
+    final parts = _today.split('-');
+    final now = DateTime.now();
+    final closing = parts.length == 3
+        ? DateTime(
+            int.tryParse(parts[0]) ?? now.year,
+            int.tryParse(parts[1]) ?? now.month,
+            int.tryParse(parts[2]) ?? now.day,
+          )
+        : now;
+    final opening = DateTime(closing.year, closing.month, 1);
+    final chosen = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 5, 12, 31),
+      initialDateRange: DateTimeRange(start: opening, end: closing),
+      helpText: 'Which period should the Book be read over?',
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _from = writtenDay(chosen.start);
+      _to = writtenDay(chosen.end);
+    });
+    await _load();
+  }
+
+  /// The first day of the window the person chose, so the engine is asked for a real window rather than guessing one.
+  String _firstDayFor(String choice) {
     final parts = _today.split('-');
     if (parts.length != 3) return '';
     final year = int.tryParse(parts[0]) ?? 0;
     final month = int.tryParse(parts[1]) ?? 1;
+    final dayOfMonth = int.tryParse(parts[2]) ?? 1;
     switch (choice) {
+      case 'day':
+        return _today;
+      case 'week':
+        // the Monday of the week the day falls in, which is the week a person means
+        final at = DateTime.utc(year, month, dayOfMonth);
+        final monday = at.subtract(Duration(days: at.weekday - 1));
+        return writtenDay(monday);
       case 'quarter':
         final firstMonth = ((month - 1) ~/ 3) * 3 + 1;
         return '$year-${firstMonth.toString().padLeft(2, '0')}-01';

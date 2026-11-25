@@ -328,12 +328,52 @@ void main() {
       (tester) async {
         final asked = <Uri>[];
         await _open(tester, _serviceReturning(_october, asked: asked));
-        await tester.tap(find.text('This quarter'));
+        await tester.tap(find.text('That quarter'));
         await tester.pumpAndSettle();
         expect(asked.last.queryParameters['from'], '2026-10-01');
         expect(asked.last.queryParameters['to'], '2026-10-20');
       },
     );
+
+    testWidgets('a week is asked for from its Monday, not from the day', (
+      tester,
+    ) async {
+      final asked = <Uri>[];
+      await _open(tester, _serviceReturning(_october, asked: asked));
+
+      await tester.tap(find.text('That week'));
+      await tester.pumpAndSettle();
+
+      // 20 October 2026 is a Tuesday, so the week opens on Monday the 19th
+      expect(asked.last.queryParameters['from'], '2026-10-19');
+      expect(asked.last.queryParameters['to'], '2026-10-20');
+    });
+
+    testWidgets('a single day is a window the engine accepts', (tester) async {
+      final asked = <Uri>[];
+      await _open(tester, _serviceReturning(_october, asked: asked));
+
+      await tester.tap(find.text('That day'));
+      await tester.pumpAndSettle();
+
+      expect(asked.last.queryParameters['from'], '2026-10-20');
+      expect(asked.last.queryParameters['to'], '2026-10-20');
+    });
+
+    testWidgets('the day to report on can be any day, not only today', (
+      tester,
+    ) async {
+      final asked = <Uri>[];
+      await _open(tester, _serviceReturning(_october, asked: asked));
+
+      await tester.tap(find.text('20 October 2026'));
+      await tester.pumpAndSettle();
+      // the picker opens on the day being read; taking it confirms that day rather than jumping elsewhere
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(asked.last.queryParameters['to'], '2026-10-20');
+    });
 
     testWidgets('a read that failed says so and offers another go', (
       tester,
