@@ -69,9 +69,15 @@ Rules that have caught real problems here:
   say which ADR it changes. Never quietly design past one.
 - One place for architecture. Extend `docs/architecture/` and `docs/decisions/`; a new document tree is linked from
   `docs/README.md` in the same change, and says what it replaces or that it replaces nothing.
-- Out of scope for design documents, because they are out of scope for the repository: billing and monetisation of
-  Vimbai itself, subscriptions, referrals, partner and payment-provider arrangements. Vimbai does not move money, and
-  Vimbai Pay is deferred (ADR-006). A document proposing either is closed, not merged.
+- Out of scope: anything where Vimbai moves money. It records what a person reports happened in accounts they already
+  hold, and it does not hold funds, settle, pay out or run a wallet; Vimbai Pay stays not built (ADR-005) and the
+  developer platform stays deferred (ADR-006). A document proposing that Vimbai hold or move a customer's money is
+  closed, not merged, unless it first amends those decisions.
+- In scope, and to be designed properly when their phase arrives: how Vimbai is paid for itself, and how referrals and
+  partner commissions are recorded. Plans, price versions, trials, entitlements, past due and cancellation, a referral
+  code and an award, a commission owed to a partner - none of these move money and none of them is Vimbai Pay. They are
+  commercial records, they live outside every customer's Book, and a subscription or a referral award never appears in
+  anybody's ledger. Charging for Vimbai is not Vimbai Pay, and a design that confuses the two has misread ADR-005.
 
 The test of a finished document is blunt: another agent can implement it without asking a question. If it cannot, it is
 an outline, and an outline is a fine thing to write in a pull request description, not in `docs/`.
