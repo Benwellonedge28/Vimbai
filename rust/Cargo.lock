@@ -3657,6 +3657,7 @@ dependencies = [
  "serde_json",
  "vimbai-ledger-core",
  "vimbai_common",
+ "vimbai_ledger_services",
  "vimbai_store",
 ]
 

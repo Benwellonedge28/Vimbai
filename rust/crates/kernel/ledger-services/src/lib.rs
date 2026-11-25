@@ -25,6 +25,7 @@
 //! reads as `0.3`) and then compares the two sides for equality: there is no money tolerance anywhere in this crate or
 //! in the kernel, and a cent out of balance is refused.
 
+pub mod accounts;
 pub mod control_account;
 pub mod double_entry;
 pub mod integrity;

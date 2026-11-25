@@ -32,7 +32,7 @@ pub struct NameSite {
 /// The places a name may decide which account a posting reaches, each because it is not the engine choosing a word.
 pub const NAME_SITES: [NameSite; 2] = [
     NameSite {
-        file: "subsidiary_journals.rs",
+        file: "accounts.rs",
         function: "account_for_purpose",
         why: "the fallback that keeps a Book opened before roles existed posting, and it only reads accounts carrying no role",
     },
@@ -135,7 +135,11 @@ pub fn names_deciding_accounts(root: &Path) -> Vec<String> {
 /// The engine: the domain crates and the server that serves them, which is where a posting is decided.
 fn engine_sources(root: &Path) -> Vec<std::path::PathBuf> {
     let mut found = Vec::new();
-    for base in ["rust/crates/domains", "rust/apps/api-server/src"] {
+    for base in [
+        "rust/crates/domains",
+        "rust/crates/kernel",
+        "rust/apps/api-server/src",
+    ] {
         walk(&root.join(base), &mut found);
     }
     found.sort();
@@ -302,9 +306,12 @@ mod tests {
     fn every_place_a_name_is_allowed_says_why() {
         for site in NAME_SITES {
             assert!(!site.why.trim().is_empty(), "{} has no reason", site.file);
-            let path = root()
-                .join("rust/crates/domains/accounting/src")
-                .join(site.file);
+            // the file is found by its name among the engine's own sources, so the allowance names a file and a
+            // function rather than a path that moves whenever the crate does
+            let path = engine_sources(&root())
+                .into_iter()
+                .find(|path| path.file_name().and_then(|name| name.to_str()) == Some(site.file))
+                .unwrap_or_else(|| panic!("no engine source is called {}", site.file));
             let text = read(&path);
             assert!(
                 text.contains(&format!("fn {}", site.function)),
