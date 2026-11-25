@@ -66,7 +66,8 @@ honest way to ship a decision nobody has made. When the owner answers, the answe
   a second mechanism.
 - **Whether the phone keeps posting buttons.** ADR-013 makes recording a fact the normal path. Removing the buttons is
   a separate act and still the owner's call.
-- **Whether owners write their own measures and profiles.** Unchanged and unanswered.
+- **Whether owners write their own measures.** Answered by ADR-017: they do, as rows. Industry profiles and
+  threshold warnings are not built and never will be (ADR-014).
 
 ## How it is proved
 

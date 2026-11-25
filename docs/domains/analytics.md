@@ -6,7 +6,7 @@ Crates: `rust/crates/domains/analytics`, `rust/crates/platform/alerts`
 
 ## What it owns
 
-1. Performance benchmarking: the metrics an industry is measured on, where one Book falls against them, and the peers it is being compared with. A benchmark whose peer set is unstated is an opinion, so the set is part of the answer.
+1. Performance benchmarking: the figures a Book chooses to be judged on, where it falls against them, and the peers it names for itself. A benchmark whose peer set is unstated is an opinion, so the set is part of the answer.
 2. Alerts: the rules that raise a notice, the notice itself, and whether it was read. An alert that nobody sees is worse than no alert, which is why raising one and reading one are both recorded.
 
 ## Services and addresses

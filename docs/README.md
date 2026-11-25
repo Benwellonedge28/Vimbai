@@ -35,7 +35,7 @@ pull request.
 | 011 | A schema change is a numbered step, recorded, in both stores |
 | 012 | A Book is kept in one money; exchange differences are reported, never absorbed |
 | 013 | A Book is autonomous: an entry flows to the reports, and a report is a view over any window |
-| 014 | Nothing business-specific is code - a Book's measures, profile and labels are its own data |
+| 014 | Nothing business-specific is code - a Book's measures and labels are its own data |
 | 015 | A ledger is created when a posting needs it, and control accounts are never invented |
 | 016 | A rule's step reaches the engine, and a Book opens with the clock's work already done |
 | 017 | A measure is a row in the Book, built from six sources and checked against the Book's own chart |

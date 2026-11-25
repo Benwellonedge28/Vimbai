@@ -39,7 +39,7 @@ the chart fills with near-duplicates, and nobody can say which of three "fuel" a
 
 The engine today refuses a missing account and names it, in every posting path, through its own search. That is the
 safe half of this decision and it is what the tests prove. The other half - creating a provisional account and
-posting to it in one act - is a change to every posting path and needs the measure and profile work beside it so a
+posting to it in one act - is a change to every posting path and needs the measure work beside it so a
 provisional account is visible where a person will look for it. `docs/ROADMAP.md` carries it as open work.
 
 ## What this forbids
