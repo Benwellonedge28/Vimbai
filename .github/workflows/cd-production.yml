@@ -17,13 +17,13 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Log in to the Container registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -65,11 +65,11 @@ jobs:
 
       - name: Set up kubectl
         if: steps.check.outputs.has_kubeconfig == 'true'
-        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede
+        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e
 
       - name: Configure Kubernetes context
         if: steps.check.outputs.has_kubeconfig == 'true'
-        uses: azure/k8s-set-context@ae59a723ba9abe7a9655538854a025448dbab4aa
+        uses: azure/k8s-set-context@5f008dfddbbc9df61ba40a7aaa912c6033ba62fc
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 
