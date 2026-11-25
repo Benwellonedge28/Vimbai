@@ -70,7 +70,8 @@ async fn a_book_with_two_bills_and_a_payment() -> Arc<MemoryGraph> {
             "/accounting/vendor-bills",
             Some(json!({"bill_number": number, "vendor_id": "steel",
                         "vendor_name": "Steel Traders", "entry_date": date, "due_date": due,
-                        "total_amount": total, "status": "pending"})),
+                        "total_amount": total, "status": "pending",
+                        "expense_account": "6000"})),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{made}");

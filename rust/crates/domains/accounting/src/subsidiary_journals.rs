@@ -703,6 +703,10 @@ pub fn create_sale(
     };
     check_tax_fits(&tax, &net, &format!("invoice {invoice}"))?;
 
+    // the Book's own accounts, asked for by purpose: a number written here would post a business's money to whatever
+    // account happens to carry that number, or to nothing at all, and the entry would still balance
+    let receivable = account_for_purpose(graph, scope, "", "receivable", "asset")?;
+    let sales = account_for_purpose(graph, scope, "", "sales", "revenue")?;
     let entry_id = if tax.is_zero() {
         post(
             graph,
@@ -711,8 +715,8 @@ pub fn create_sale(
             format!("Sales Journal: Invoice {invoice}"),
             &invoice,
             "SalesJournal",
-            "1100",
-            "4000",
+            &receivable,
+            &sales,
             &net,
             &format!("Sales Invoice {invoice}"),
         )?
@@ -725,8 +729,8 @@ pub fn create_sale(
             &invoice,
             "SalesJournal",
             TaxedDocument::Sale,
-            "1100",
-            "4000",
+            &receivable,
+            &sales,
             &net,
             &tax_lines,
             &format!("Sales Invoice {invoice}"),
@@ -740,8 +744,8 @@ pub fn create_sale(
             &invoice,
             "SalesJournal",
             TaxedDocument::Sale,
-            "1100",
-            "4000",
+            &receivable,
+            &sales,
             &net,
             &tax,
             &format!("Sales Invoice {invoice}"),
@@ -820,6 +824,9 @@ pub fn create_purchase(
     };
     check_tax_fits(&tax, &net, &format!("purchase {order}"))?;
 
+    // the Book's own accounts, asked for by purpose rather than assumed by number
+    let inventory = account_for_purpose(graph, scope, "", "inventory", "asset")?;
+    let payable = account_for_purpose(graph, scope, "", "payable", "liability")?;
     let entry_id = if tax.is_zero() {
         post(
             graph,
@@ -828,8 +835,8 @@ pub fn create_purchase(
             format!("Purchases Journal: PO {order}"),
             &order,
             "PurchasesJournal",
-            "1200",
-            "2000",
+            &inventory,
+            &payable,
             &net,
             &format!("Purchase {order}"),
         )?
@@ -842,8 +849,8 @@ pub fn create_purchase(
             &order,
             "PurchasesJournal",
             TaxedDocument::Purchase,
-            "1200",
-            "2000",
+            &inventory,
+            &payable,
             &net,
             &tax_lines,
             &format!("Purchase {order}"),
@@ -857,8 +864,8 @@ pub fn create_purchase(
             &order,
             "PurchasesJournal",
             TaxedDocument::Purchase,
-            "1200",
-            "2000",
+            &inventory,
+            &payable,
             &net,
             &tax,
             &format!("Purchase {order}"),
@@ -1149,6 +1156,9 @@ pub fn create_sales_return(
 
     // a return is the sale turned round: the customer owes the total again, the sale is taken back in full and each tax
     // it carried leaves the expense it was charged to and the liability it was owed to
+    // the Book's own accounts, asked for by purpose rather than assumed by number
+    let sales_returns = account_for_purpose(graph, scope, "", "sales_returns", "revenue")?;
+    let receivable = account_for_purpose(graph, scope, "", "receivable", "asset")?;
     let entry_id = if tax.is_zero() {
         post(
             graph,
@@ -1157,8 +1167,8 @@ pub fn create_sales_return(
             format!("Sales Returns: {reference}"),
             &reference,
             "SalesReturnsJournal",
-            "4050",
-            "1100",
+            &sales_returns,
+            &receivable,
             &net,
             &note,
         )?
@@ -1171,8 +1181,8 @@ pub fn create_sales_return(
             &reference,
             "SalesReturnsJournal",
             TaxedDocument::SalesReturn,
-            "1100",
-            "4050",
+            &receivable,
+            &sales_returns,
             &total,
             &tax_lines,
             &note,
@@ -1186,8 +1196,8 @@ pub fn create_sales_return(
             &reference,
             "SalesReturnsJournal",
             TaxedDocument::SalesReturn,
-            "1100",
-            "4050",
+            &receivable,
+            &sales_returns,
             &total,
             &tax,
             &note,
@@ -1243,6 +1253,9 @@ pub fn create_purchases_return(
 
     // goods back to a supplier is the purchase turned round: the supplier is owed the total again, the cost is taken
     // back and each tax it carried leaves the reclaim it was charged to
+    // the Book's own accounts, asked for by purpose rather than assumed by number
+    let payable = account_for_purpose(graph, scope, "", "payable", "liability")?;
+    let purchases_returns = account_for_purpose(graph, scope, "", "purchases_returns", "expense")?;
     let entry_id = if tax.is_zero() {
         post(
             graph,
@@ -1251,8 +1264,8 @@ pub fn create_purchases_return(
             format!("Purchases Returns: {reference}"),
             &reference,
             "PurchasesReturnsJournal",
-            "2000",
-            "5050",
+            &payable,
+            &purchases_returns,
             &net,
             &note,
         )?
@@ -1265,8 +1278,8 @@ pub fn create_purchases_return(
             &reference,
             "PurchasesReturnsJournal",
             TaxedDocument::PurchaseReturn,
-            "5050",
-            "2000",
+            &purchases_returns,
+            &payable,
             &total,
             &tax_lines,
             &note,
@@ -1280,8 +1293,8 @@ pub fn create_purchases_return(
             &reference,
             "PurchasesReturnsJournal",
             TaxedDocument::PurchaseReturn,
-            "5050",
-            "2000",
+            &purchases_returns,
+            &payable,
             &total,
             &tax,
             &note,
@@ -1325,6 +1338,17 @@ pub fn create_vendor_bill(
     let total = money(payload, "total_amount")?;
     let bill = text(payload, "bill_number");
 
+    // What the bill was for is an account only the business knows: a bill can be for stock, for a cost of trading or for
+    // something else, so it is named on the bill rather than assumed, and the debt it creates is the Book's payables
+    // account, which the Book does declare.
+    let cost = text(payload, "expense_account");
+    if cost.trim().is_empty() {
+        return Err(StoreError::BadRequest(
+            "Say which account this bill was for: a bill can be for stock, a cost of trading or something else, and only the business knows which. Name it as expense_account.".into(),
+        ));
+    }
+    let cost = account_for_purpose(graph, scope, &cost, "", "")?;
+    let payable = account_for_purpose(graph, scope, "", "payable", "liability")?;
     let entry_id = post(
         graph,
         scope,
@@ -1332,8 +1356,8 @@ pub fn create_vendor_bill(
         format!("Auto-generated JE for Vendor Bill {bill}"),
         &bill,
         "VendorBilling",
-        "6000",
-        "2000",
+        &cost,
+        &payable,
         &total,
         &format!("Vendor Bill {bill}"),
     )?;
@@ -1815,9 +1839,21 @@ mod tests {
         ]
         .into_iter()
         .map(|(number, kind, normal)| {
+            // the roles a Book declares, because a journal asks its accounts by purpose rather than by number
+            let role = match number {
+                "1000" => "cash",
+                "1100" => "receivable",
+                "1200" => "inventory",
+                "2000" => "payable",
+                "4000" => "sales",
+                "4050" => "sales_returns",
+                "5050" => "purchases_returns",
+                "6000" => "purchases",
+                _ => "",
+            };
             json!({"id": format!("acct-{number}"), "account_number": number,
                    "name": format!("{kind} {number}"), "account_type": kind,
-                   "normal_balance": normal})
+                   "normal_balance": normal, "role": role})
         })
         .collect()
     }
@@ -2090,7 +2126,7 @@ mod tests {
         let mut rows = chart();
         rows.push(
             json!({"id": "a-2100", "account_number": "2100", "name": "VAT payable",
-                         "account_type": "liability", "normal_balance": "credit"}),
+                         "account_type": "liability", "normal_balance": "credit", "role": "tax_payable"}),
         );
         rows.push(
             json!({"id": "a-6900", "account_number": "6900", "name": "Tax charged on sales",
@@ -2121,9 +2157,11 @@ mod tests {
     }
 
     fn posted_entry(build: impl FnOnce(&FakeGraph) -> Result<Value, StoreError>) -> Value {
-        // two chart reads (one per line), then the months closed, then the chain, then the entry write, then the journal
-        // write
+        // two chart reads to find the accounts the journal asks for by purpose, two more to validate the two lines, then
+        // the months closed, then the chain, then the entry write, then the journal write
         let graph = FakeGraph::queue(vec![
+            chart(),
+            chart(),
             chart(),
             chart(),
             vec![],
@@ -2132,7 +2170,7 @@ mod tests {
             vec![json!({"id": "doc-1"})],
         ]);
         build(&graph).expect("created");
-        let (statement, params) = graph.statement(4);
+        let (statement, params) = graph.statement(6);
         assert!(statement.contains("CREATE"), "{statement}");
         // the lines are written as their own records now, carried in the same statement as the entry
         let mut entry = params["props"].as_object().cloned().expect("an entry");
@@ -2143,7 +2181,7 @@ mod tests {
     #[test]
     fn a_sales_invoice_posts_the_total_less_discount_and_the_tax_as_its_own_line() {
         // the tax account, the expense account the tax is charged to, and four lines
-        let entry = posted_entry_with_tax(6, |graph| {
+        let entry = posted_entry_with_tax(8, |graph| {
             create_sale(
                 graph,
                 &scope(),
@@ -2202,7 +2240,7 @@ mod tests {
     #[test]
     fn a_purchase_with_tax_reclaims_it_rather_than_costing_the_business_for_it() {
         // the tax account and three lines: a purchase reclaims its tax, it does not charge one
-        let entry = posted_entry_with_tax(4, |graph| {
+        let entry = posted_entry_with_tax(6, |graph| {
             create_purchase(
                 graph,
                 &scope(),

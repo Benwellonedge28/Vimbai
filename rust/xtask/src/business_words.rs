@@ -40,7 +40,6 @@ pub const STILL_NUMBERED: &[(&str, usize)] = &[
     ("crates/domains/accounting/src/bookkeeping.rs", 7),
     ("crates/domains/accounting/src/expenses.rs", 1),
     ("crates/domains/accounting/src/fx_revaluation.rs", 2),
-    ("crates/domains/accounting/src/subsidiary_journals.rs", 26),
     ("crates/domains/assets/src/disposal_account.rs", 5),
     ("crates/domains/assets/src/revaluation_reserve.rs", 8),
     ("crates/domains/banking/src/reconciliation.rs", 1),

@@ -2201,8 +2201,15 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
     let chart: Vec<serde_json::Value> = ["1000", "1100", "4000"]
         .into_iter()
         .map(|number| {
+            // the roles a Book declares, with the type each purpose must be held in: the journal asks for its
+            // receivable and its sales account by purpose
+            let (role, kind, normal) = match number {
+                "1100" => ("receivable", "asset", "debit"),
+                "4000" => ("sales", "revenue", "credit"),
+                _ => ("cash", "asset", "debit"),
+            };
             json!({"id": format!("a-{number}"), "account_number": number, "name": number,
-                   "account_type": "asset", "normal_balance": "debit"})
+                   "account_type": kind, "normal_balance": normal, "role": role})
         })
         .chain([
             json!({"id": "a-2100", "account_number": "2100", "name": "VAT Payable",
@@ -2212,7 +2219,10 @@ async fn a_sales_invoice_is_posted_and_answered_over_http() {
         ])
         .collect();
     let graph = Scripted::queue(vec![
-        // the tax account and the expense account the tax is charged to, then the chart once per line
+        // the two accounts the journal asks for by purpose, the tax account and the expense account the tax is
+        // charged to, then the chart once per line
+        chart.clone(),
+        chart.clone(),
         chart.clone(),
         chart.clone(),
         chart.clone(),

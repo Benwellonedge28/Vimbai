@@ -79,9 +79,13 @@ percentages or amounts are, so the rule needs no list of what an account is call
 The chart a Book opens with is the one place allowed to write a number, because that is data written as code. Everything
 else must ask the Book for its accounts.
 
-What the gate found is a backlog, not a permission: twenty-eight files still write one hundred and eighty-two numbers
+What the gate found is a backlog, not a permission: twenty-seven files still write one hundred and fifty-six numbers
 between them, chiefly the equity, partnership and assets journals, which post to `"3300"` and `"1000"` as though every
-business numbered its chart that way. The foreign-exchange settlement was the first to go: it posted to `"1010"`,
+business numbered its chart that way. The sales, purchases and both returns journals went next: they posted to `"1100"`, `"4000"`, `"1200"`, `"2000"`,
+`"4050"` and `"5050"` by number, and now ask the Book for its receivable, sales, inventory, payable, sales-returns and
+purchases-returns accounts by purpose. A vendor bill no longer posts its cost to `"6000"`: a bill can be for stock, for a
+cost of trading or for something else, so the bill names the account it was for and is refused in words when it does not.
+The foreign-exchange settlement was the first to go: it posted to `"1010"`,
 `"1100"`, `"4800"` and `"5800"` whenever the caller named nothing, and it now asks the Book for its bank, its receivable or
 payable and its exchange gain and loss by purpose, so a business that numbers its chart differently settles correctly. The list in `STILL_NUMBERED` is a ratchet, and the test fails when
 a file is added to it, when a file's count rises, or when a file's count falls without its figure being lowered. So the
