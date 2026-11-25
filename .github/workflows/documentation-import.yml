@@ -21,51 +21,50 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Import documentation
         env:
           DOCUMENTS: ${{ inputs.documents }}
         run: |
-          python3 - <<'PY'
-          import os
-          import json
-          from pathlib import Path
+          set -euo pipefail
 
-          root = Path.cwd().resolve()
-          documents = json.loads(os.environ["DOCUMENTS"])
+          if ! jq -e 'type == "object" and length > 0' >/dev/null <<<"$DOCUMENTS"; then
+            echo "Expected a non-empty document mapping" >&2
+            exit 1
+          fi
 
-          if not isinstance(documents, dict) or not documents:
-              raise ValueError("Expected a non-empty document mapping")
+          root="$(pwd -P)"
+          imported=0
 
-          validated = []
+          while IFS= read -r name; do
+            case "$name" in
+              docs/*.md) ;;
+              *)
+                echo "Invalid document: $name - it must be a .md file under docs/" >&2
+                exit 1
+                ;;
+            esac
+            case "/$name/" in
+              */../*)
+                echo "Unsafe path: $name" >&2
+                exit 1
+                ;;
+            esac
+            case "$name" in
+              /*)
+                echo "Unsafe path: $name" >&2
+                exit 1
+                ;;
+            esac
 
-          for name, content in documents.items():
-              path = Path(name)
+            target="$root/$name"
+            mkdir -p "$(dirname "$target")"
+            jq -j --arg name "$name" '.[$name]' <<<"$DOCUMENTS" >"$target"
+            imported=$((imported + 1))
+          done < <(jq -r 'keys[]' <<<"$DOCUMENTS")
 
-              if (
-                  path.is_absolute()
-                  or ".." in path.parts
-                  or not path.parts
-                  or path.parts[0] != "docs"
-                  or path.suffix != ".md"
-                  or not isinstance(content, str)
-              ):
-                  raise ValueError(f"Invalid document: {name}")
-
-              target = (root / path).resolve()
-
-              if target != root / path or not target.is_relative_to(root / "docs"):
-                  raise ValueError(f"Unsafe path: {name}")
-
-              validated.append((target, content))
-
-          for target, content in validated:
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(content, encoding="utf-8")
-
-          print(f"Imported {len(validated)} documents")
-          PY
+          echo "Imported $imported documents"
 
       - name: Commit documentation
         env:

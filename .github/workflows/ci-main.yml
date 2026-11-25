@@ -15,18 +15,6 @@ on:
       - 'apps/flutter/**'
       - '.github/workflows/**'
   pull_request:
-    branches: ["main", "develop"]
-    paths:
-      - '**/*.py'
-      - '**/*.go'
-      - '**/requirements.txt'
-      - '**/go.mod'
-      - '**/go.sum'
-      - '**/Dockerfile'
-      - 'gateway/go/**'
-      - 'shared/**'
-      - 'apps/flutter/**'
-      - '.github/workflows/**'
 
 jobs:
   detect-changes:
