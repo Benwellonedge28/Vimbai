@@ -9,6 +9,7 @@ import 'package:vimbai_mobile_client/features/aged_receivables/presentation/aged
 import 'package:vimbai_mobile_client/features/bank_reconciliation/presentation/bank_reconciliation_page.dart';
 import 'package:vimbai_mobile_client/features/banking/presentation/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/balance_sheet_page.dart';
+import 'package:vimbai_mobile_client/features/automation/presentation/what_the_rules_did_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/budgets_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/cash_flow_statement_page.dart';
 import 'package:vimbai_mobile_client/features/accounting/presentation/currency_exposure_page.dart';
@@ -390,6 +391,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A credit purchase, into inventory and payables',
           icon: Icons.inventory_2_outlined,
           page: (context) => const BuyStockPage(),
+        ),
+        BookServiceEntry(
+          title: 'What the rules did',
+          description: 'The runs your rules made, and what they posted',
+          icon: Icons.auto_mode,
+          page: (context) => const WhatTheRulesDidPage(),
         ),
         BookServiceEntry(
           title: 'Record what happened',
