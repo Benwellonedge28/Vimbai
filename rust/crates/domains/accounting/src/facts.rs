@@ -153,6 +153,65 @@ fn named(chart: &measures::Chart, numbers: &[String]) -> String {
         .join(", ")
 }
 
+/// The customer the words name who still owes money on this day, with the oldest invoice left unpaid.
+///
+/// Read from the same ageing reader the phone shows, so what a fact settles and what the Book says is owed can never
+/// disagree. Words are matched inside the name, ignoring case, as the chart matching does.
+fn owing<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    words: &str,
+    as_of: &str,
+) -> Result<Option<(String, String, String)>, StoreError> {
+    let wanted = words.trim().to_lowercase();
+    if wanted.is_empty() {
+        return Ok(None);
+    }
+    let aged =
+        crate::aged_receivables::aged_receivables(graph, scope, &json!({"as_of_date": as_of}))?;
+    let rows = aged
+        .get("customers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for row in &rows {
+        let id = row
+            .get("customer_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let name = row
+            .get("customer_name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let answers = |said: &str| !said.trim().is_empty() && said.to_lowercase().contains(&wanted);
+        if !(answers(&id) || answers(&name)) {
+            continue;
+        }
+        let owed = vimbai_store::amounts::amount_or_zero(row, "owed")?;
+        if owed.is_zero() || owed.is_negative() {
+            return Ok(None);
+        }
+        // the oldest invoice left unpaid is the one a receipt pays first, which is the order the ledger applies it in
+        let document = row
+            .get("invoices")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|invoice| {
+                vimbai_store::amounts::amount_or_zero(invoice, "outstanding")
+                    .map(|left| !left.is_zero() && !left.is_negative())
+                    .unwrap_or(false)
+            })
+            .and_then(|invoice| invoice.get("invoice_number").and_then(Value::as_str))
+            .unwrap_or_default()
+            .to_string();
+        return Ok(Some((id, name, document)));
+    }
+    Ok(None)
+}
+
 /// One account, or a refusal saying why the words did not settle it.
 fn settled(
     chart: &measures::Chart,
@@ -246,6 +305,76 @@ pub fn record_fact<G: Graph + ?Sized>(
     let money = money_account(&chart, payload)?;
     // money out goes to something used up or something still owned: a cost, or a thing the business now keeps. Both are
     // what a person means by "spent", so both are searched, and neither is guessed at from a list in code.
+    // Money arriving is one of two things, and only the Book can say which. If a customer still owes money, this is that
+    // debt being paid: crediting revenue again would count the same trading twice and leave the invoice looking unpaid.
+    // What is owed is read from the Book's own documents, so nothing here knows a customer's name or an invoice's.
+    if what == "received" {
+        let said = text(payload, "account");
+        if let Some((customer, display, document)) = owing(graph, scope, &said, &entry_date)? {
+            let money_name = chart.names.get(money.as_str()).cloned().unwrap_or_default();
+            let debt = crate::subsidiary_journals::account_named(
+                graph,
+                scope,
+                payload,
+                "debt_account",
+                "receivable",
+                "asset",
+            )?;
+            let debt_name = chart.names.get(debt.as_str()).cloned().unwrap_or_default();
+            let description = if document.trim().is_empty() {
+                format!("{display} paid into {money_name}")
+            } else {
+                format!("{display} settled {document} into {money_name}")
+            };
+            let stated = json!({
+                "debit": {"number": money, "name": money_name},
+                "credit": {"number": debt, "name": debt_name},
+                "amount": wire(&amount),
+                "description": description,
+            });
+            if payload
+                .get("rehearse")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                return Ok(json!({
+                    "posted": false,
+                    "what": what,
+                    "entry_date": entry_date,
+                    "settles": {"customer": customer, "customer_name": display, "document": document},
+                    "would_post": stated,
+                }));
+            }
+            // the receipt is recorded, not only posted, because what a customer still owes is read from these records
+            let reference = match text(payload, "reference_number").trim() {
+                "" => format!("SETTLED-{customer}-{entry_date}"),
+                given => given.to_string(),
+            };
+            let recorded = crate::subsidiary_journals::create_receipt(
+                graph,
+                scope,
+                &json!({
+                    "receipt_number": reference,
+                    "customer_id": customer,
+                    "entry_date": entry_date,
+                    "amount": wire(&amount),
+                    "bank_account": money,
+                    "document_reference": document,
+                    "description": description,
+                    "debt_account": debt,
+                }),
+            )?;
+            return Ok(json!({
+                "posted": true,
+                "what": what,
+                "entry_date": entry_date,
+                "settles": {"customer": customer, "customer_name": display, "document": document},
+                "entry_id": recorded.get("journal_entry_id").cloned().unwrap_or(Value::Null),
+                "posting": stated,
+            }));
+        }
+    }
+
     let reachable = if what == "spent" {
         spending_accounts(&chart)
     } else {
@@ -574,5 +703,107 @@ mod tests {
         )
         .expect_err("not a fact");
         assert!(error.to_string().contains("\"received\""), "{error}");
+    }
+
+    /// A credit sale, so the Book holds a debt a fact can then settle.
+    fn an_invoice(graph: &MemoryGraph, number: &str, customer: &str, date: &str, total: &str) {
+        crate::subsidiary_journals::create_sale(
+            graph,
+            &scope(),
+            &json!({"invoice_number": number, "customer_id": customer,
+                    "customer_name": format!("{customer} Ltd"), "entry_date": date,
+                    "due_date": date, "total_amount": total, "tax_amount": "0",
+                    "status": "posted"}),
+        )
+        .expect("an invoice");
+    }
+
+    #[test]
+    fn money_from_a_customer_who_owes_settles_the_debt_instead_of_earning_it_twice() {
+        let graph = with_a_bank();
+        an_invoice(&graph, "INV-1", "acme", "2026-11-02", "400.00");
+        let before = crate::aged_receivables::aged_receivables(
+            &graph,
+            &scope(),
+            &json!({"as_of_date": "2026-11-25"}),
+        )
+        .expect("what is owed");
+        assert_eq!(before["totals"]["owed"], json!("400.000000"));
+
+        let answer = record_fact(
+            &graph,
+            &scope(),
+            &json!({"what": "received", "amount": "400.00", "account": "Acme",
+                    "entry_date": "2026-11-20"}),
+        )
+        .expect("a settled debt");
+        assert_eq!(answer["posted"], json!(true));
+        assert_eq!(answer["settles"]["customer"], json!("acme"));
+        assert_eq!(answer["settles"]["document"], json!("INV-1"));
+        // the money came in, and the debt it cleared is what went out - not revenue, which was earned when the sale was
+        // posted. Both sides are the Book's own accounts.
+        assert_eq!(answer["posting"]["debit"]["name"], json!("Bank"));
+        assert_eq!(
+            answer["posting"]["credit"]["name"],
+            json!("Accounts Receivable")
+        );
+
+        let after = crate::aged_receivables::aged_receivables(
+            &graph,
+            &scope(),
+            &json!({"as_of_date": "2026-11-25"}),
+        )
+        .expect("what is owed");
+        assert_eq!(after["totals"]["owed"], json!("0.000000"));
+    }
+
+    #[test]
+    fn a_rehearsed_settlement_posts_nothing_and_names_the_debt_it_would_clear() {
+        let graph = with_a_bank();
+        an_invoice(&graph, "INV-1", "acme", "2026-11-02", "400.00");
+        let answer = record_fact(
+            &graph,
+            &scope(),
+            &json!({"what": "received", "amount": "100.00", "account": "acme",
+                    "entry_date": "2026-11-20", "rehearse": true}),
+        )
+        .expect("a rehearsal");
+        assert_eq!(answer["posted"], json!(false));
+        assert_eq!(answer["settles"]["customer_name"], json!("acme"));
+        assert_eq!(
+            answer["would_post"]["credit"]["name"],
+            json!("Accounts Receivable")
+        );
+        let owed = crate::aged_receivables::aged_receivables(
+            &graph,
+            &scope(),
+            &json!({"as_of_date": "2026-11-25"}),
+        )
+        .expect("what is owed");
+        assert_eq!(
+            owed["totals"]["owed"],
+            json!("400.000000"),
+            "a rehearsal moves nothing"
+        );
+    }
+
+    #[test]
+    fn the_same_settlement_twice_is_refused_rather_than_paid_twice() {
+        let graph = with_a_bank();
+        an_invoice(&graph, "INV-1", "acme", "2026-11-02", "400.00");
+        let fact = json!({"what": "received", "amount": "400.00", "account": "Acme",
+                          "entry_date": "2026-11-20"});
+        record_fact(&graph, &scope(), &fact).expect("a settled debt");
+        // the debt is gone, so the same words now read as a sale; the receipt itself is what refuses a second one
+        let again = crate::subsidiary_journals::create_receipt(
+            &graph,
+            &scope(),
+            &json!({"receipt_number": "SETTLED-acme-2026-11-20", "customer_id": "acme",
+                    "entry_date": "2026-11-20", "amount": "400.00", "bank_account": "1010"}),
+        );
+        assert!(
+            again.is_err(),
+            "the same receipt number cannot be recorded twice"
+        );
     }
 }
