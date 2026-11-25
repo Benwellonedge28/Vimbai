@@ -50,10 +50,15 @@ pub fn adjusted_balance(kind: &str, previous: &Money, amount: &Money) -> Money {
 }
 
 /// The lines an approval posts: the reduction, each write-off, and the balancing credit.
-pub fn approval_lines(reduction: &Money, write_offs: &[(String, String, Money)]) -> Vec<Value> {
+pub fn approval_lines(
+    share_capital: &str,
+    retained_earnings: &str,
+    reduction: &Money,
+    write_offs: &[(String, String, Money)],
+) -> Vec<Value> {
     let zero = Money::zero();
     let mut lines = vec![json!({
-        "account_code": "3200",
+        "account_code": share_capital,
         "description": "Share Capital",
         "debit": wire(reduction),
         "credit": wire(&zero),
@@ -69,7 +74,7 @@ pub fn approval_lines(reduction: &Money, write_offs: &[(String, String, Money)])
         total = total.plus(amount);
     }
     lines.push(json!({
-        "account_code": "3300",
+        "account_code": retained_earnings,
         "description": "Retained Earnings / P&L",
         "debit": wire(&zero),
         "credit": wire(&total),
@@ -195,6 +200,21 @@ pub fn approve_reconstruction<G: Graph + ?Sized>(
     let schemes = Records::new(graph, CAPITAL_RECONSTRUCTION);
     let scheme = schemes.get(scope, reconstruction_id)?;
     let reduction_amount = stored_amount(&scheme, "capital_reduction_amount")?;
+    // a reduction takes from the capital the Book keeps and puts the difference where its own chart says profit goes
+    let share_capital = vimbai_ledger_services::accounts::account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "share_capital_account"),
+        "share_capital",
+        "equity",
+    )?;
+    let retained_earnings = vimbai_ledger_services::accounts::account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "retained_earnings_account"),
+        "retained_earnings",
+        "equity",
+    )?;
 
     let adjustments: Vec<Value> = Records::new(graph, RECONSTRUCTION_ADJUSTMENT)
         .list(scope, 1000)?
@@ -234,7 +254,7 @@ pub fn approve_reconstruction<G: Graph + ?Sized>(
             "Capital reconstruction: {}",
             scheme.get("description").and_then(Value::as_str).unwrap_or_default()
         ),
-        "entries": approval_lines(&reduction_amount, &write_offs),
+        "entries": approval_lines(&share_capital, &retained_earnings, &reduction_amount, &write_offs),
         "reference": format!("RECONST-{reconstruction_id}"),
     });
 
@@ -362,6 +382,8 @@ mod tests {
     #[test]
     fn an_approval_balances_the_reduction_and_the_write_offs_against_retained_earnings() {
         let lines = approval_lines(
+            "3200",
+            "3300",
             &money("600"),
             &[(
                 "3000".to_string(),
@@ -415,6 +437,13 @@ mod tests {
         let graph = FakeGraph::queue(vec![
             vec![json!({"id": "rec-1", "capital_reduction_amount": "600",
                         "scheme_date": "2026-03-01", "description": "Loss write-off"})],
+            // the Book's own chart answers which accounts a reduction takes from and where the difference goes
+            vec![json!({"account_number": "3200", "name": "Share Capital",
+                        "account_type": "equity", "role": "share_capital"})],
+            vec![
+                json!({"account_number": "3100", "name": "Retained Earnings",
+                        "account_type": "equity", "role": "retained_earnings"}),
+            ],
             vec![
                 json!({"id": "adj-1", "reconstruction_id": "rec-1", "adjustment_type": "write_off",
                        "account_code": "3000", "account_name": "Accumulated loss",
@@ -436,7 +465,7 @@ mod tests {
             answer["conversions"].as_array().expect("conversions").len(),
             1
         );
-        let (_, params) = graph.statement(3);
+        let (_, params) = graph.last();
         let lines = params["patch"]["journal_entry"]["entries"]
             .as_array()
             .expect("lines");

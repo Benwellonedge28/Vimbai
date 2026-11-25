@@ -1306,6 +1306,13 @@ async fn approving_a_reconstruction_balances_the_entry() {
     let graph = Scripted::queue(vec![
         vec![json!({"id": "rec-1", "capital_reduction_amount": "600",
                     "scheme_date": "2026-03-01", "description": "Loss write-off"})],
+        // the Book's own chart says which accounts the reduction touches
+        vec![json!({"account_number": "3200", "name": "Share Capital",
+                    "account_type": "equity", "role": "share_capital"})],
+        vec![
+            json!({"account_number": "3100", "name": "Retained Earnings",
+                    "account_type": "equity", "role": "retained_earnings"}),
+        ],
         vec![
             json!({"id": "adj-1", "reconstruction_id": "rec-1", "adjustment_type": "write_off",
                     "account_code": "3000", "account_name": "Accumulated loss",
@@ -1324,7 +1331,7 @@ async fn approving_a_reconstruction_balances_the_entry() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["reconstruction"]["status"], json!("completed"));
-    let (_, params) = seen.statement(3);
+    let (_, params) = seen.last();
     let lines = params["patch"]["journal_entry"]["entries"]
         .as_array()
         .expect("lines");
