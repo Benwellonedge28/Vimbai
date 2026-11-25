@@ -238,6 +238,7 @@ services:
   - POST /accounting/depreciation/one
   - POST /accounting/doubtful-debts
   - POST /accounting/expenses-journal
+  - POST /accounting/facts
   - POST /accounting/fx-difference
   - POST /accounting/fx-revaluation
   - POST /accounting/fx-settlement

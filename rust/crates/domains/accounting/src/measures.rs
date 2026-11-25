@@ -160,18 +160,22 @@ fn window(query: &Value) -> Result<(String, String), StoreError> {
 }
 
 /// What the Book's chart says each account is, so a row's words are checked against the Book and never assumed.
-struct Chart {
+pub(crate) struct Chart {
     /// Account number to the type the Book gives it.
-    types: BTreeMap<String, String>,
+    pub(crate) types: BTreeMap<String, String>,
     /// Account number to its name, for saying which accounts a figure came from.
-    names: BTreeMap<String, String>,
+    pub(crate) names: BTreeMap<String, String>,
     /// The types this Book actually uses, in the Book's own words.
-    used: Vec<String>,
+    #[allow(dead_code)]
+    pub(crate) used: Vec<String>,
     /// The numbers of the accounts that hold money.
-    money: Vec<String>,
+    pub(crate) money: Vec<String>,
 }
 
-fn chart_of<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Chart, StoreError> {
+pub(crate) fn chart_of<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+) -> Result<Chart, StoreError> {
     let mut chart = Chart {
         types: BTreeMap::new(),
         names: BTreeMap::new(),
@@ -187,9 +191,12 @@ fn chart_of<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Chart, St
         if !kind.is_empty() && !chart.used.contains(&kind) {
             chart.used.push(kind.clone());
         }
-        chart
-            .names
-            .insert(number.clone(), field(&account, "account_name").to_string());
+        // a chart account's name is written under "name"; reading only "account_name" left every name empty, so a
+        // refusal that meant to say which accounts a Book holds could only list numbers
+        chart.names.insert(
+            number.clone(),
+            crate::subsidiary_journals::account_name(&account),
+        );
         chart.types.insert(number.clone(), kind);
     }
     let held = cashbook::list_accounts(graph, scope, &json!({"is_active": true}))?;

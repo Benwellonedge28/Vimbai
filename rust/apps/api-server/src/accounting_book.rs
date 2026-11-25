@@ -581,7 +581,27 @@ async fn create_measure(
     answer(measures::create_measure(graph.as_ref(), &scope, &payload))
 }
 
-/// `POST /accounting/measures/standard`: give this Book the measures a new Book is opened with.
+/// `POST /accounting/facts`: a person states what happened and the engine posts it.
+///
+/// The accounts come from the Book's own chart, matched against the words used, so nothing here names an account. A
+/// refusal says what the Book holds instead, and `rehearse` answers the posting without making it.
+async fn record_fact(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::facts::record_fact(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+/// `POST /accounting/measures/standard`: give this Book a new Book's measures.
 ///
 /// A Book opened before these existed, or one whose measures a person took away, can ask for them back. Installing is
 /// safe to repeat: a measure the Book already has by name is left exactly as the person left it.
@@ -1769,6 +1789,9 @@ pub fn router(graph: GraphHandle) -> Router {
                 post(install_standard_measures),
             )
             .route(&format!("{prefix}/measures/:name"), delete(delete_measure))
+            // a fact stated in a person's words - money spent on something, money received for something - posted by
+            // the engine against the Book's own chart rather than by asking the person to choose two accounts
+            .route(&format!("{prefix}/facts"), post(record_fact))
             // a month closed by mistake is opened again by an act that says so, with the day and the reason kept
             .route(
                 &format!("{prefix}/closed-periods/reopen"),
