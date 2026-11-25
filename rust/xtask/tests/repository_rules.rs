@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use xtask::{
     boundaries, catalog, crates, documentation, makefile, manifests, published, reachability,
-    readme, runbook, servers, vocabulary, wiring, workflows,
+    readme, runbook, servers, single_source, vocabulary, wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -1183,5 +1183,18 @@ fn the_engine_names_purposes_and_never_accounts() {
     assert!(
         named.is_empty(),
         "a name decides which account a posting reaches: {named:#?}"
+    );
+}
+
+#[test]
+fn the_ageing_bands_are_declared_once() {
+    // What is owed and what the business owes are aged by two readers. A boundary moved in one of them would report the
+    // same debt at two ages on the same day and nothing would fail, so the bands live in one file and this holds them
+    // there.
+    let twice = single_source::bands_declared_more_than_once(&root());
+    assert!(
+        twice.is_empty(),
+        "the ageing bands are named outside {}: {twice:#?}",
+        single_source::AGEING
     );
 }

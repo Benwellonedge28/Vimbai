@@ -19,6 +19,8 @@
 //!   answer says which day it used and why.
 
 use serde_json::{json, Value};
+
+use crate::ageing::{band, columns, is_void, least, readable, BANDS};
 use vimbai_common::dates::days_between;
 use vimbai_common::Money;
 
@@ -53,38 +55,6 @@ impl Open {
             self.name.clone()
         }
     }
-}
-
-fn is_void(status: &str) -> bool {
-    matches!(status, "void" | "voided" | "cancelled" | "canceled")
-}
-
-/// The band a debt is counted in, or none when it has not fallen due.
-fn band(days_late: i64) -> Option<&'static str> {
-    match days_late {
-        d if d <= 0 => None,
-        1..=30 => Some("1_30"),
-        31..=60 => Some("31_60"),
-        61..=90 => Some("61_90"),
-        _ => Some("over_90"),
-    }
-}
-
-fn at_least(left: &Money, right: &Money) -> bool {
-    left.as_decimal() >= right.as_decimal()
-}
-
-/// The smaller of two amounts, so a receipt never pays more than a document is owed.
-fn least(left: &Money, right: &Money) -> Money {
-    if at_least(right, left) {
-        left.clone()
-    } else {
-        right.clone()
-    }
-}
-
-fn readable(date: &str) -> bool {
-    days_between(date, date).is_some()
 }
 
 /// `GET /aged-receivables`: who owes what, how late, and a sentence to send them.
@@ -260,10 +230,8 @@ pub fn aged_receivables<G: Graph + ?Sized>(
         let mut owed = Money::zero();
         let mut late = Money::zero();
         let mut not_due = Money::zero();
-        let mut bands: Vec<(&'static str, Money)> = ["1_30", "31_60", "61_90", "over_90"]
-            .iter()
-            .map(|band| (*band, Money::zero()))
-            .collect();
+        let mut bands: Vec<(&'static str, Money)> =
+            BANDS.iter().map(|band| (*band, Money::zero())).collect();
         let mut items: Vec<Value> = Vec::new();
         let mut worst: Option<(i64, &Open, Money)> = None;
         let mut soonest: Option<(i64, &Open)> = None;
@@ -350,20 +318,22 @@ pub fn aged_receivables<G: Graph + ?Sized>(
         if owed.is_zero() && credit.is_zero() {
             continue;
         }
-        rows.push(json!({
+        let mut row = json!({
             "customer_id": name,
             "customer_name": display,
             "owed": wire(&owed),
             "late": wire(&late),
             "not_due": wire(&not_due),
-            "1_30": wire(&bands[0].1),
-            "31_60": wire(&bands[1].1),
-            "61_90": wire(&bands[2].1),
-            "over_90": wire(&bands[3].1),
             "in_credit": wire(&credit),
             "invoices": items,
             "reminder": reminder,
-        }));
+        });
+        // the age of the debt, one column per band, built from the bands themselves so a band cannot go missing
+        if let Value::Object(fields) = row {
+            let aged = columns(&bands);
+            row = Value::Object(fields.into_iter().chain(aged).collect());
+        }
+        rows.push(row);
     }
     rows.sort_by(|left, right| {
         let owed = |row: &Value| row["owed"].as_str().unwrap_or("0").to_string();

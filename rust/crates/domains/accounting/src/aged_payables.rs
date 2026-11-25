@@ -11,6 +11,8 @@
 //! says what is owed, so a fact and this report can never disagree.
 
 use serde_json::{json, Value};
+
+use crate::ageing::{band, columns, is_void, least, readable, BANDS};
 use vimbai_common::dates::days_between;
 use vimbai_common::Money;
 
@@ -45,36 +47,6 @@ impl Owed {
             self.name.clone()
         }
     }
-}
-
-fn is_void(status: &str) -> bool {
-    matches!(status, "void" | "voided" | "cancelled" | "canceled")
-}
-
-fn band(days_late: i64) -> Option<&'static str> {
-    match days_late {
-        d if d <= 0 => None,
-        1..=30 => Some("1_30"),
-        31..=60 => Some("31_60"),
-        61..=90 => Some("61_90"),
-        _ => Some("over_90"),
-    }
-}
-
-fn at_least(left: &Money, right: &Money) -> bool {
-    left.as_decimal() >= right.as_decimal()
-}
-
-fn least(left: &Money, right: &Money) -> Money {
-    if at_least(right, left) {
-        left.clone()
-    } else {
-        right.clone()
-    }
-}
-
-fn readable(date: &str) -> bool {
-    days_between(date, date).is_some()
 }
 
 /// A bill still owed, as the reader hands it on.
@@ -320,10 +292,8 @@ pub fn aged_payables<G: Graph + ?Sized>(
         let mut owed = Money::zero();
         let mut late = Money::zero();
         let mut not_due = Money::zero();
-        let mut bands: Vec<(&'static str, Money)> = ["1_30", "31_60", "61_90", "over_90"]
-            .iter()
-            .map(|band| (*band, Money::zero()))
-            .collect();
+        let mut bands: Vec<(&'static str, Money)> =
+            BANDS.iter().map(|band| (*band, Money::zero())).collect();
         let mut items: Vec<Value> = Vec::new();
         let mut worst: Option<(i64, &Owed, Money)> = None;
         let mut soonest: Option<(i64, &Owed)> = None;
@@ -424,12 +394,7 @@ pub fn aged_payables<G: Graph + ?Sized>(
             "late": wire(&late),
             "not_due": wire(&not_due),
             "in_credit": wire(&credit),
-            "bands": {
-                "1_30": wire(&bands[0].1),
-                "31_60": wire(&bands[1].1),
-                "61_90": wire(&bands[2].1),
-                "over_90": wire(&bands[3].1),
-            },
+            "bands": Value::Object(columns(&bands)),
             "bills": items,
             "reminder": reminder,
         });

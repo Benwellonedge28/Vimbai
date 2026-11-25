@@ -28,6 +28,7 @@ pub mod runbook;
 pub mod safety;
 pub mod servers;
 pub mod settings;
+pub mod single_source;
 pub mod vocabulary;
 pub mod wiring;
 pub mod workflows;
