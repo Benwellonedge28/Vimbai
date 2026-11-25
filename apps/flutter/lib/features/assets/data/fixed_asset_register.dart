@@ -35,9 +35,13 @@ enum AssetCategory {
 }
 
 /// How the engine writes an asset's cost off over its life.
+///
+/// One is chosen per asset, so a business can write a building down the same every month and a van by a share of what is
+/// left, in the same register. The engine refuses any other name rather than charging nothing.
 enum DepreciationMethod {
   straightLine('straight_line', 'The same every month'),
-  reducingBalance('reducing_balance', 'A share of what is left');
+  reducingBalance('reducing_balance', 'A share of what is left'),
+  timeBased('time_based', 'For the time it was held');
 
   const DepreciationMethod(this.wire, this.label);
 
@@ -67,6 +71,12 @@ class FixedAsset {
   final ExactAmount netBookValue;
   final int usefulLifeYears;
   final DepreciationMethod method;
+
+  /// The share of what is left a reducing-balance asset gives up in a year, as a percentage.
+  ///
+  /// Zero when the asset states none, and the engine then charges the life's own share. Kept rather than assumed,
+  /// because a machine written down at 25% a year is not the same figure as its life would give.
+  final ExactAmount rate;
   final String status;
 
   const FixedAsset({
@@ -83,6 +93,7 @@ class FixedAsset {
     required this.netBookValue,
     required this.usefulLifeYears,
     required this.method,
+    this.rate = ExactAmount.zero,
     required this.status,
   });
 
@@ -102,6 +113,7 @@ class FixedAsset {
     netBookValue: ExactAmount.fromJson(json['net_book_value']),
     usefulLifeYears: (json['useful_life_years'] as num?)?.toInt() ?? 0,
     method: DepreciationMethod.fromWire(json['depreciation_method'] as String?),
+    rate: ExactAmount.fromJson(json['depreciation_rate']),
     status: (json['status'] as String?) ?? 'active',
   );
 
@@ -120,23 +132,111 @@ class FixedAsset {
   /// True when nothing is left to write off: the asset is down to what it would fetch at the end.
   bool get fullyWrittenDown => netBookValue <= salvageValue;
 
-  /// The month's charge as the engine computes it, for the sentence that offers to record one.
+  /// What the engine would charge this asset for [month], in the method its register entry names.
   ///
-  /// This is the engine's own rule repeated, not a second opinion: straight line spreads cost less salvage over the months
-  /// of its life, and reducing balance takes a twentieth of what is left. Both are rounded to the cent, which is what the
-  /// engine charges - proved live: a van bought for 4500.00 with 500.00 at the end over five years is charged 66.67, not
-  /// 66.666667. A figure promised here that the engine then did not take would be the page lying about the next balance.
-  ExactAmount get monthlyCharge {
+  /// This is the engine's own rule repeated, not a second opinion: straight line spreads cost less salvage over the
+  /// months of its life, reducing balance takes the asset's stated rate of what is left (or the life's own share when it
+  /// states none), and time based charges the annual figure for the days of the month the asset was held. Every charge is
+  /// rounded to the cent, which is what the engine charges - proved live: a van bought for 4500.00 with 500.00 at the end
+  /// over five years is charged 66.67, not 66.666667. A figure promised here that the engine then did not take would be
+  /// the page lying about the next balance.
+  ///
+  /// Nothing is charged past what is left to write off, so the last month of an asset's life is charged the remainder,
+  /// exactly as the register charges it.
+  ExactAmount chargeFor(String month) {
     if (!isHeld) return ExactAmount.zero;
-    switch (method) {
-      case DepreciationMethod.straightLine:
-        if (usefulLifeYears <= 0) return ExactAmount.zero;
-        final spread = cost - salvageValue;
-        return _divide(spread, usefulLifeYears * 12);
-      case DepreciationMethod.reducingBalance:
-        final share = netBookValue * ExactAmount.parse('20');
-        return _divide(share, 1200);
+    final charge = switch (method) {
+      DepreciationMethod.straightLine =>
+        usefulLifeYears <= 0
+            ? ExactAmount.zero
+            : _divide(cost - salvageValue, usefulLifeYears * 12),
+      DepreciationMethod.reducingBalance => _divide(
+        netBookValue * _annualPercent,
+        1200,
+      ),
+      DepreciationMethod.timeBased => _chargeByTime(month),
+    };
+    final remaining = cost - salvageValue - accumulatedDepreciation;
+    if (remaining <= ExactAmount.zero) return ExactAmount.zero;
+    return charge > remaining ? remaining : charge;
+  }
+
+  /// The share of what is left a reducing-balance asset gives up in a year, as a percentage.
+  ExactAmount get _annualPercent {
+    if (!rate.isZero) return rate;
+    if (usefulLifeYears <= 0) return ExactAmount.zero;
+    return _share(ExactAmount.parse('100'), usefulLifeYears);
+  }
+
+  /// What a time-based asset is charged for [month]: the annual figure, for the days of it the asset was held.
+  ExactAmount _chargeByTime(String month) {
+    final days = daysHeldIn(month);
+    if (days <= 0) return ExactAmount.zero;
+    final annual = _share(cost - salvageValue, usefulLifeYears);
+    return _portion(annual, days, 365);
+  }
+
+  /// The days of [month] the asset was held, counting the day it arrived and the day its life ends.
+  ///
+  /// Zero when the month lies outside the asset's life altogether, which the engine refuses in words rather than charging
+  /// nothing: a charge of nothing in a column looks like a month the asset stood still.
+  int daysHeldIn(String month) {
+    final start = _monthStart(month);
+    final acquired = _acquiredDay;
+    if (start == null || acquired == null || usefulLifeYears <= 0) return 0;
+    final end = DateTime.utc(start.year, start.month + 1, 0);
+    final lifeEnds = acquired.add(Duration(days: usefulLifeYears * 365));
+    final from = acquired.isAfter(start) ? acquired : start;
+    final to = lifeEnds.isBefore(end) ? lifeEnds : end;
+    if (to.isBefore(from)) return 0;
+    return to.difference(from).inDays + 1;
+  }
+
+  /// Why the engine would refuse to charge [month], in a person's words, or null when it would charge it.
+  String? refusalFor(String month) {
+    if (method != DepreciationMethod.timeBased || !isHeld) return null;
+    if (daysHeldIn(month) > 0) return null;
+    final acquired = _acquiredDay;
+    if (acquired == null) {
+      return 'This one was registered without a date it arrived, so the time '
+          'it has been held cannot be counted.';
     }
+    if (usefulLifeYears <= 0) {
+      return 'No useful life was recorded, so a charge by time has no rate to '
+          'work from.';
+    }
+    final start = _monthStart(month);
+    if (start != null &&
+        start.isBefore(DateTime.utc(acquired.year, acquired.month, 1))) {
+      return 'It was not yours in $month: it arrived on ${acquiredOn.trim()}.';
+    }
+    final lifeEnds = acquired.add(Duration(days: usefulLifeYears * 365));
+    return 'Its $usefulLifeYears-year life ended on '
+        '${lifeEnds.year.toString().padLeft(4, '0')}-'
+        '${lifeEnds.month.toString().padLeft(2, '0')}-'
+        '${lifeEnds.day.toString().padLeft(2, '0')}, so nothing is charged '
+        'for $month.';
+  }
+
+  /// The first day of a `YYYY-MM` month, or null when the text is not one.
+  static DateTime? _monthStart(String month) {
+    final parts = month.split('-');
+    if (parts.length != 2) return null;
+    final year = int.tryParse(parts[0]);
+    final number = int.tryParse(parts[1]);
+    if (year == null || number == null || number < 1 || number > 12) {
+      return null;
+    }
+    return DateTime.utc(year, number, 1);
+  }
+
+  /// The day the asset arrived, as a calendar day rather than an instant.
+  DateTime? get _acquiredDay {
+    final text = acquiredOn.trim();
+    if (text.length < 10) return null;
+    final parsed = DateTime.tryParse(text.substring(0, 10));
+    if (parsed == null) return null;
+    return DateTime.utc(parsed.year, parsed.month, parsed.day);
   }
 
   /// The month after [month], counting months rather than days.
@@ -285,6 +385,30 @@ class AssetCategoryTotal {
 /// depreciation charge is the one place the engine itself rounds: it keeps the charge to two places, so a phone that
 /// promised six would promise a figure the register never takes. The rounding happens in whole cents here, which is
 /// exact for any amount a business can hold.
+/// [amount] over [parts], kept to the millionth the register works in.
+///
+/// The engine works an annual figure out once and then takes a part of it, so the part is taken of the same figure
+/// rather than of a rounded one: a time-based charge divided twice would drift a cent away from what the register takes.
+ExactAmount _share(ExactAmount amount, int parts) {
+  if (parts == 0) return ExactAmount.zero;
+  final micros = int.tryParse(amount.digits);
+  if (micros == null) return ExactAmount.zero;
+  final rounded = (micros + parts ~/ 2) ~/ parts;
+  return ExactAmount.micros(amount.isNegative ? -rounded : rounded);
+}
+
+/// [amount] for [days] of a [daysInYear] year, rounded to the cent as the engine rounds it.
+ExactAmount _portion(ExactAmount amount, int days, int daysInYear) {
+  if (daysInYear == 0) return ExactAmount.zero;
+  final micros = int.tryParse(amount.digits);
+  if (micros == null) return ExactAmount.zero;
+  const int perCent = 10000;
+  final divisor = daysInYear * perCent;
+  final cents = (micros * days + divisor ~/ 2) ~/ divisor;
+  final rounded = cents * perCent;
+  return ExactAmount.micros(amount.isNegative ? -rounded : rounded);
+}
+
 ExactAmount _divide(ExactAmount amount, int parts) {
   if (parts == 0) return ExactAmount.zero;
   final micros = int.tryParse(amount.digits);

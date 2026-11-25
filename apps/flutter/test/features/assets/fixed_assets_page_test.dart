@@ -162,6 +162,89 @@ void main() {
     expect(find.textContaining('Delivery van'), findsWidgets);
   });
 
+  testWidgets('the form offers all three ways of writing an asset off', (
+    tester,
+  ) async {
+    final fake = _Fake(register: const []);
+
+    await tester.pumpWidget(
+      _wrapped(FixedAssetsPage(service: fake.service, today: '2026-11-18')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Written off'), findsOneWidget);
+    // the one the form starts on, and what it means
+    expect(find.text('The same every month'), findsWidgets);
+    expect(
+      find.textContaining(
+        'what it cost, less what it will be worth at the end',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('The same every month'));
+    await tester.pumpAndSettle();
+    // all three are on offer, in a person's words
+    expect(find.text('A share of what is left'), findsWidgets);
+    expect(find.text('For the time it was held'), findsWidgets);
+
+    // a rate belongs to reducing balance alone, so it is only asked for once that is picked
+    expect(find.text('Rate a year (optional)'), findsNothing);
+    await tester.tap(find.text('A share of what is left').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Rate a year (optional)'), findsOneWidget);
+    expect(
+      find.textContaining('Leave the rate empty to use its life'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'a time-based asset is not offered a charge for a month it was not held',
+    (tester) async {
+      final fake = _Fake(
+        one: jsonEncode({
+          'id': 'asset-1',
+          'asset_code': 'VEH-001',
+          'asset_name': 'Delivery van',
+          'category': 'vehicles',
+          // bought after the month the page is showing
+          'acquisition_date': '2026-11-20',
+          'acquisition_cost': '4500.000000',
+          'salvage_value': '500.000000',
+          'accumulated_depreciation': '0.000000',
+          'net_book_value': '4500.000000',
+          'useful_life_years': 5,
+          'depreciation_method': 'time_based',
+          'status': 'active',
+        }),
+      );
+
+      await tester.pumpWidget(
+        _wrapped(
+          FixedAssetPage(
+            service: fake.service,
+            assetId: 'asset-1',
+            month: '2026-10',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('It was not yours in 2026-10'),
+        findsOneWidget,
+      );
+      // nothing is offered, so nothing can be charged by a tap
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Charge 0.00 for 2026-10'),
+      );
+      expect(button.onPressed, isNull);
+    },
+  );
+
   testWidgets('the asset page offers the month charge and says what is left', (
     tester,
   ) async {
@@ -180,6 +263,35 @@ void main() {
 
     expect(find.textContaining('would take 66.67'), findsOneWidget);
     expect(find.text('Charge 66.67 for 2026-11'), findsOneWidget);
+  });
+
+  testWidgets('an asset says the rate it was registered with', (tester) async {
+    final fake = _Fake(
+      one: jsonEncode({
+        'id': 'asset-1',
+        'asset_code': 'PRS-001',
+        'asset_name': 'Printing press',
+        'category': 'machinery',
+        'acquisition_date': '2026-01-15',
+        'acquisition_cost': '240000.000000',
+        'salvage_value': '40000.000000',
+        'accumulated_depreciation': '0.000000',
+        'net_book_value': '240000.000000',
+        'useful_life_years': 10,
+        'depreciation_method': 'reducing_balance',
+        'depreciation_rate': '25.000000',
+        'status': 'active',
+      }),
+    );
+
+    await tester.pumpWidget(
+      _wrapped(FixedAssetPage(service: fake.service, assetId: 'asset-1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('25% a year'), findsOneWidget);
+    // 240000 * 25% / 12: the charge is the stated rate's, not the ten-year life's
+    expect(find.textContaining('5000.00'), findsWidgets);
   });
 
   testWidgets('a month already charged cannot be charged again', (

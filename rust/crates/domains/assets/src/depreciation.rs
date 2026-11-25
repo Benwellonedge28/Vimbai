@@ -48,7 +48,8 @@ pub struct DepreciationOutput {
 ///
 /// The method rules are the ones the single-asset schedule already uses, and are shared rather than restated:
 /// straight line spreads cost less salvage over the life, declining balance charges 2/life of full cost (the
-/// shipped rule, which ignores salvage), and any other method is treated as straight line. An asset with no stated
+/// shipped rule, which ignores salvage), time based takes the straight-line annual charge for the days an asset was
+/// held, and any other method is treated as straight line. An asset with no stated
 /// life is given five years, which is the shipped default.
 ///
 /// The five-year line for a year is the sum of the charges every asset still alive makes in it: an asset with a
@@ -67,6 +68,9 @@ pub fn depreciation_batch(method: &str, assets: &[DepreciationAsset]) -> Depreci
         let annual = match method {
             "straight_line" => a.cost.minus(&a.salvage).over(&life),
             "declining_balance" => a.cost.times(&two).over(&life),
+            // the register charges a time-based asset the same annual figure as straight line, taken for the days it
+            // was held; a whole year held is a whole annual charge
+            "time_based" => a.cost.minus(&a.salvage).over(&life),
             _ => a.cost.over(&life),
         };
         annuals.push(annual.clone());
@@ -144,7 +148,7 @@ pub fn depreciation_method(
     let two = Money::from_i64(2);
     let depreciable = cost.minus(salvage);
     let annual = match method {
-        "straight_line" => depreciable.over(&life),
+        "straight_line" | "time_based" => depreciable.over(&life),
         "double_declining" => cost.times(&two).over(&life),
         _ => depreciable.over(&life),
     };
@@ -307,7 +311,9 @@ pub fn quick_depreciation(payload: &Value) -> Result<Value, StoreError> {
     let mut schedule = Vec::with_capacity(life as usize);
 
     match method.as_str() {
-        "straight_line" => {
+        // a time-based asset spreads the same depreciable amount over the same life; the difference is that the
+        // register charges it for the days it was held, which a whole-year schedule cannot show
+        "straight_line" | "time_based" => {
             let annual = depreciable.over(&Money::from_i64(life));
             for year in 1..=life {
                 let charged = annual.times(&Money::from_i64(year));

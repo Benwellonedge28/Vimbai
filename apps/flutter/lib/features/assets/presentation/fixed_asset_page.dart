@@ -87,9 +87,9 @@ class _FixedAssetPageState extends State<FixedAssetPage> {
       builder: (context) => AlertDialog(
         title: Text('Charge $_month?'),
         content: Text(
-          '${asset.monthlyCharge.toDecimalString()} comes off what it is '
+          '${asset.chargeFor(_month).toDecimalString()} comes off what it is '
           'worth, leaving '
-          '${(asset.netBookValue - asset.monthlyCharge).toDecimalString()}.',
+          '${(asset.netBookValue - asset.chargeFor(_month)).toDecimalString()}.',
         ),
         actions: [
           TextButton(
@@ -271,6 +271,11 @@ class _FixedAssetPageState extends State<FixedAssetPage> {
                   'used for ${asset.usefulLifeYears} '
                       '${asset.usefulLifeYears == 1 ? 'year' : 'years'}',
                 asset.method.label.toLowerCase(),
+                // the rate an asset was registered with is the one the register charges by, so it is said back here
+                // rather than left for someone to infer from a month's figure
+                if (asset.method == DepreciationMethod.reducingBalance &&
+                    !asset.rate.isZero)
+                  '${asset.rate.toDecimalString().replaceFirst(RegExp(r'\.0+$'), '')}% a year',
               ].join(' · '),
               style: theme.textTheme.bodyMedium,
             ),
@@ -296,6 +301,8 @@ class _FixedAssetPageState extends State<FixedAssetPage> {
     bool alreadyCharged,
   ) {
     final theme = Theme.of(context);
+    // a month the asset was not held for is one the engine refuses, so it is said here rather than offered
+    final refusal = asset.refusalFor(_month);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -308,18 +315,20 @@ class _FixedAssetPageState extends State<FixedAssetPage> {
               alreadyCharged
                   ? '$_month has already been charged. The next month to charge '
                         'is ${FixedAsset.nextPeriod(_month)}.'
-                  : '$_month would take ${asset.monthlyCharge.toDecimalString()} '
-                        'off what it is worth.',
+                  : refusal ??
+                        '$_month would take '
+                            '${asset.chargeFor(_month).toDecimalString()} off '
+                            'what it is worth.',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: alreadyCharged ? null : _charge,
+              onPressed: alreadyCharged || refusal != null ? null : _charge,
               icon: const Icon(Icons.event_available_outlined),
               label: Text(
                 alreadyCharged
                     ? '$_month is charged'
-                    : 'Charge ${asset.monthlyCharge.toDecimalString()} for '
+                    : 'Charge ${asset.chargeFor(_month).toDecimalString()} for '
                           '$_month',
               ),
             ),

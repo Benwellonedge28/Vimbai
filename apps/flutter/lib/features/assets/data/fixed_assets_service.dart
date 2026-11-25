@@ -107,6 +107,7 @@ class FixedAssetsService {
     ExactAmount? salvageValue,
     required String acquiredOn,
     DepreciationMethod method = DepreciationMethod.straightLine,
+    ExactAmount? rate,
     String location = '',
     String department = '',
   }) async {
@@ -143,6 +144,15 @@ class FixedAssetsService {
     if (acquiredOn.trim().isEmpty) {
       throw Exception('Say when it was bought.');
     }
+    // a rate is a share of the asset a year: nothing, or more than the whole of it, is a mistake the engine refuses, so
+    // it is refused here where the person can see why
+    final share = rate ?? ExactAmount.zero;
+    if (share.isNegative || share > ExactAmount.parse('100')) {
+      throw Exception(
+        'The rate has to be a percentage of the asset a year, between 0 and '
+        '100.',
+      );
+    }
     final answer = await _client.post(
       Uri.parse('$_base$_door/assets'),
       headers: _headers,
@@ -155,6 +165,7 @@ class FixedAssetsService {
         'useful_life_years': usefulLifeYears,
         'salvage_value': salvage.toDecimalString(),
         'depreciation_method': method.wire,
+        if (!share.isZero) 'depreciation_rate': share.toDecimalString(),
         'location': location.trim(),
         'department': department.trim(),
       }),

@@ -335,6 +335,7 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
   final _cost = TextEditingController();
   final _life = TextEditingController();
   final _salvage = TextEditingController();
+  final _rate = TextEditingController();
   final _location = TextEditingController();
 
   AssetCategory _category = AssetCategory.equipment;
@@ -354,6 +355,7 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
       _cost,
       _life,
       _salvage,
+      _rate,
       _location,
       _date,
     ]) {
@@ -361,6 +363,19 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
     }
     super.dispose();
   }
+
+  /// What the method the person has picked actually does, in one sentence.
+  String get _methodExplanation => switch (_method) {
+    DepreciationMethod.straightLine =>
+      'The same every month: what it cost, less what it will be worth at the '
+          'end, spread over the months you will use it.',
+    DepreciationMethod.reducingBalance =>
+      'A share of what is left each year, so the charges are bigger now and '
+          'smaller later. Leave the rate empty to use its life.',
+    DepreciationMethod.timeBased =>
+      'Charged for the time you have actually held it, so the month it '
+          'arrived is charged only for the days from then.',
+  };
 
   Future<void> _save() async {
     final cost = ExactAmount.tryParse(_cost.text);
@@ -382,6 +397,20 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
       setState(() => _problem = 'Type the years it will be used as a number.');
       return;
     }
+    // only a reducing-balance asset reads a rate, and only when one is typed
+    ExactAmount? rate;
+    if (_method == DepreciationMethod.reducingBalance &&
+        _rate.text.trim().isNotEmpty) {
+      rate = ExactAmount.tryParse(_rate.text);
+      if (rate == null) {
+        setState(
+          () => _problem =
+              'Type the rate as a percentage a year, like 25, or leave it '
+              'empty to use the life.',
+        );
+        return;
+      }
+    }
     setState(() {
       _saving = true;
       _problem = null;
@@ -396,6 +425,7 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
         salvageValue: salvage,
         acquiredOn: _date.text,
         method: _method,
+        rate: rate,
         location: _location.text,
       );
       if (!mounted) return;
@@ -529,6 +559,20 @@ class _BuyAssetSheetState extends State<BuyAssetSheet> {
                 if (picked != null) setState(() => _method = picked);
               },
             ),
+            const SizedBox(height: 6),
+            Text(_methodExplanation, style: theme.textTheme.bodySmall),
+            if (_method == DepreciationMethod.reducingBalance) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _rate,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Rate a year (optional)',
+                  hintText: '25',
+                  suffixText: '%',
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _location,

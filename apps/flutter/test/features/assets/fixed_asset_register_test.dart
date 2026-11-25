@@ -19,6 +19,7 @@ Map<String, dynamic> _row({
   String netBookValue = '4500.000000',
   int life = 5,
   String method = 'straight_line',
+  String? rate,
   String status = 'active',
   String acquired = '2026-01-15',
 }) => {
@@ -33,6 +34,7 @@ Map<String, dynamic> _row({
   'net_book_value': netBookValue,
   'useful_life_years': life,
   'depreciation_method': method,
+  if (rate != null) 'depreciation_rate': rate,
   'status': status,
 };
 
@@ -141,28 +143,29 @@ void main() {
       // 4500 - 500 over 5 years is 4000 over 60 months, which the engine rounds to the cent it actually charges: 66.67
       // (proved live against the register, which answered accumulated_depreciation 66.67 after the first month)
       final asset = FixedAsset.fromJson(_row());
-      expect(asset.monthlyCharge.toDecimalString(), '66.67');
+      expect(asset.chargeFor('2026-11').toDecimalString(), '66.67');
     });
 
     test('reducing balance takes a twentieth of what is left', () {
+      // five years is the life's own share: 100 / 5 is the twentieth the engine charges
       final asset = FixedAsset.fromJson(
         _row(method: 'reducing_balance', netBookValue: '2400.000000'),
       );
-      expect(asset.monthlyCharge.toDecimalString(), '40.00');
+      expect(asset.chargeFor('2026-11').toDecimalString(), '40.00');
     });
 
     test(
       'an asset with no life charges nothing, and says it charges nothing',
       () {
         final asset = FixedAsset.fromJson(_row(life: 0));
-        expect(asset.monthlyCharge.isZero, isTrue);
+        expect(asset.chargeFor('2026-11').isZero, isTrue);
         expect(asset.chargesNothing, isTrue);
       },
     );
 
     test('something already sold charges nothing, whatever its life says', () {
       final asset = FixedAsset.fromJson(_row(status: 'disposed'));
-      expect(asset.monthlyCharge.isZero, isTrue);
+      expect(asset.chargeFor('2026-11').isZero, isTrue);
       expect(asset.chargesNothing, isFalse);
     });
 
@@ -171,6 +174,84 @@ void main() {
         _row(accumulated: '4000.000000', netBookValue: '500.000000'),
       );
       expect(asset.fullyWrittenDown, isTrue);
+    });
+
+    test('the last charge is what is left, not a whole month of it', () {
+      // 4000 of depreciable cost, 3999.80 already written off: the engine takes the twenty cents, not 66.67
+      final asset = FixedAsset.fromJson(
+        _row(accumulated: '3999.800000', netBookValue: '500.200000'),
+      );
+      expect(asset.chargeFor('2026-11').toDecimalString(), '0.20');
+    });
+
+    test('reducing balance takes the rate the asset states', () {
+      final asset = FixedAsset.fromJson(
+        _row(
+          method: 'reducing_balance',
+          rate: '25.000000',
+          netBookValue: '2400.000000',
+        ),
+      );
+      // 2400 * 25% / 12
+      expect(asset.chargeFor('2026-11').toDecimalString(), '50.00');
+    });
+
+    test(
+      'reducing balance over a ten-year life is a tenth a year, not a fifth',
+      () {
+        final asset = FixedAsset.fromJson(
+          _row(
+            method: 'reducing_balance',
+            life: 10,
+            netBookValue: '2400.000000',
+          ),
+        );
+        expect(asset.chargeFor('2026-11').toDecimalString(), '20.00');
+      },
+    );
+
+    test('time based charges the days of the month the asset was held', () {
+      // bought on the 15th of January: 4000 over five years is 800 a year, taken for the seventeen days from the 15th
+      // to the 31st: 800 * 17 / 365
+      final asset = FixedAsset.fromJson(
+        _row(method: 'time_based', acquired: '2026-01-15'),
+      );
+      expect(asset.chargeFor('2026-01').toDecimalString(), '37.26');
+      // a whole month is charged for a whole month: 800 * 30 / 365
+      expect(asset.chargeFor('2026-11').toDecimalString(), '65.75');
+      // and a 31-day month takes one day more than a 30-day one
+      expect(asset.chargeFor('2026-12').toDecimalString(), '67.95');
+    });
+
+    test(
+      'a month before the asset arrived is refused in words, not charged',
+      () {
+        final asset = FixedAsset.fromJson(
+          _row(method: 'time_based', acquired: '2026-01-15'),
+        );
+        expect(asset.chargeFor('2025-12').isZero, isTrue);
+        expect(asset.daysHeldIn('2025-12'), 0);
+        expect(
+          asset.refusalFor('2025-12'),
+          'It was not yours in 2025-12: it arrived on 2026-01-15.',
+        );
+        expect(asset.refusalFor('2026-01'), isNull);
+      },
+    );
+
+    test('a month after the life has run out is refused in words', () {
+      final asset = FixedAsset.fromJson(
+        _row(method: 'time_based', acquired: '2020-01-15', life: 5),
+      );
+      expect(asset.chargeFor('2026-11').isZero, isTrue);
+      expect(asset.refusalFor('2026-11'), contains('life ended on 2025-01-13'));
+    });
+
+    test('the other two methods are never refused, whatever the month', () {
+      // straight line and reducing balance have no calendar in them: a month is a month, whenever it falls
+      final asset = FixedAsset.fromJson(_row());
+      expect(asset.refusalFor('2030-01'), isNull);
+      expect(asset.chargeFor('2030-01').toDecimalString(), '66.67');
     });
   });
 

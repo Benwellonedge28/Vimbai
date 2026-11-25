@@ -11,11 +11,23 @@
 //! Kept as shipped:
 //!
 //! * A category must be one of the service's seven, and `IT` really is upper case.
+//! * An asset is written off by one of three methods, chosen per asset when it is registered and
+//!   recorded on it: `straight_line`, `reducing_balance` and `time_based`. Any other method is
+//!   refused in words rather than charging nothing, which is what it used to do: a register that
+//!   quietly takes nothing off an asset reads exactly like one where the asset never wears out.
 //! * Straight line charges `(cost - salvage) / (life * 12)` a month, and a zero life charges
 //!   nothing rather than dividing.
-//! * Reducing balance charges 20% of the CURRENT net book value a year, twelve times over, so it
-//!   compounds monthly and never lands exactly on the salvage value.
-//! * Any other depreciation method charges nothing per period.
+//! * Reducing balance charges a share of the CURRENT net book value a year, twelve times over, so
+//!   it compounds monthly. The share is the asset's own rate when it states one, and otherwise the
+//!   life's own share (`100 / life` years) - the shipped 20% was only right for a five-year asset,
+//!   and a van with a ten-year life written down at 20% a year loses more than it was ever worth.
+//! * Time based charges for the time the asset has actually been held inside the period: the
+//!   annual charge spread over 365 days and taken for the days the asset was yours, so a van bought
+//!   on the 20th is charged for the part of that month it was in the yard, and the last period of
+//!   its life is a part-period too.
+//! * No method charges more than what is left to write off. The last charge of an asset's life is
+//!   the remainder, not a whole month of it, so accumulated depreciation and net book value on the
+//!   register can never disagree about the same asset.
 //! * An asset that depreciates down to its salvage value has its net book value pinned there and
 //!   its status set to `disposed` - not to a "fully depreciated" state, which is what the status
 //!   vocabulary suggests but not what the service did.
@@ -29,7 +41,7 @@
 use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
-use vimbai_common::Money;
+use vimbai_common::{dates, Money};
 
 use vimbai_store::amounts::{amount, stored_amount, wire};
 use vimbai_store::read::{key_under, required_text};
@@ -48,6 +60,12 @@ pub const CATEGORIES: [&str; 7] = [
     "equipment",
     "IT",
 ];
+
+/// The ways an asset's cost can be written off, one chosen per asset.
+///
+/// The register records the choice on the asset, so a business can write a van down by reducing balance and a
+/// building by straight line, which is what the two rules are for.
+pub const METHODS: [&str; 3] = ["straight_line", "reducing_balance", "time_based"];
 
 /// The categories the schedule service accepted.
 ///
@@ -124,6 +142,20 @@ pub fn create_asset<G: Graph + ?Sized>(
             value
         }
     };
+    if !METHODS.contains(&method.as_str()) {
+        return Err(StoreError::Invalid(format!(
+            "Unknown depreciation method {method}. An asset is written off by one of {METHODS:?}"
+        )));
+    }
+    // only a reducing-balance asset reads this, but a rate of nothing or of more than the whole asset a year is a
+    // mistake wherever it is written down, and the person is told now rather than when the charge comes out wrong
+    let rate = stored_amount(payload, "depreciation_rate")?;
+    if rate.to_f64_lossy() < 0.0 || rate.to_f64_lossy() > 100.0 {
+        return Err(StoreError::Invalid(format!(
+            "depreciation_rate must be a percentage of the asset a year, between 0 and 100; got {}",
+            rate.to_fixed(2)
+        )));
+    }
 
     let mut fields = json!({
         "asset_code": required_text(payload, "asset_code")?,
@@ -145,6 +177,9 @@ pub fn create_asset<G: Graph + ?Sized>(
         "net_book_value": wire(&cost),
         "status": "active",
     });
+    if rate.to_f64_lossy() > 0.0 {
+        fields["depreciation_rate"] = wire(&rate);
+    }
     if let Some(notes) = payload.get("notes").and_then(Value::as_str) {
         fields["notes"] = json!(notes);
     }
@@ -182,21 +217,127 @@ pub fn get_asset<G: Graph + ?Sized>(
     Records::new(graph, FIXED_ASSET).get(scope, asset_id)
 }
 
-/// The monthly charge for one asset, by the method the register recorded.
-fn monthly_charge(asset: &Value) -> Result<Money, StoreError> {
+/// The method the register recorded for an asset, refusing one the register does not know.
+fn method_of(asset: &Value) -> Result<&str, StoreError> {
     let method = asset
         .get("depreciation_method")
         .and_then(Value::as_str)
         .unwrap_or("straight_line");
+    if !METHODS.contains(&method) {
+        return Err(StoreError::Invalid(format!(
+            "Unknown depreciation method {method} on this asset. The register writes an asset off by one of \
+             {METHODS:?}"
+        )));
+    }
+    Ok(method)
+}
+
+/// The share of what is left a reducing-balance asset gives up in a year, as a percentage.
+///
+/// The rate the asset states wins, because a business writing a machine down faster than its life says so has said
+/// so. With no stated rate the share is the life's own, so a five-year asset is still charged the shipped 20% and a
+/// ten-year one is charged 10% rather than wearing out in five.
+fn annual_percent(asset: &Value, life: i64) -> Money {
+    let stated = stored_amount(asset, "depreciation_rate").unwrap_or_else(|_| Money::zero());
+    if stated.to_f64_lossy() > 0.0 {
+        stated
+    } else if life > 0 {
+        Money::from_i64(100).over(&Money::from_i64(life))
+    } else {
+        Money::zero()
+    }
+}
+
+/// The first and last day of a `YYYY-MM` period, counted in days from 1970-01-01.
+fn period_days(period: &str) -> Option<(i64, i64)> {
+    let text = period.trim();
+    let mut parts = text.split('-');
+    let year: i64 = parts.next()?.parse().ok()?;
+    let month: i64 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || !(1..=12).contains(&month) {
+        return None;
+    }
+    let start = dates::day_of(&format!("{year:04}-{month:02}-01"))?;
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    let after = dates::day_of(&format!("{next_year:04}-{next_month:02}-01"))?;
+    Some((start, after - 1))
+}
+
+/// What a time-based asset charges in one period: the annual charge spread over the days it was held.
+///
+/// A period before the asset arrived, or one that opens after its life has run out, is refused in words rather than
+/// answering nothing: a charge of nothing in a ledger column looks like a month the asset stood still, and a person
+/// reading it cannot tell the difference between that and a mistake.
+fn time_based_charge(
+    asset: &Value,
+    period: &str,
+    cost: &Money,
+    salvage: &Money,
+    life: i64,
+) -> Result<Money, StoreError> {
+    if life <= 0 {
+        return Err(StoreError::Invalid(format!(
+            "{period} cannot be charged by time: the asset has no useful life, so there is no rate to charge at"
+        )));
+    }
+    let (start, end) = period_days(period).ok_or_else(|| {
+        StoreError::Invalid(format!(
+            "{period} is not a month written YYYY-MM, so the days it holds cannot be counted"
+        ))
+    })?;
+    let acquired_on = asset
+        .get("acquisition_date")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let acquired = dates::day_of(acquired_on).ok_or_else(|| {
+        StoreError::Invalid(format!(
+            "The asset's acquisition date {acquired_on:?} is not a date, so the time it has been held cannot be counted"
+        ))
+    })?;
+    if end < acquired {
+        return Err(StoreError::Invalid(format!(
+            "{period} is before the asset was acquired on {}, so there is nothing to charge",
+            dates::date_of(acquired)
+        )));
+    }
+    // the life runs out on the anniversary of the day it arrived, counted in days
+    let life_ends = acquired + life * 365;
+    let from = start.max(acquired);
+    if from > life_ends {
+        return Err(StoreError::Invalid(format!(
+            "{period} is after the asset's {life}-year life ended on {}",
+            dates::date_of(life_ends)
+        )));
+    }
+    // only the days inside both the period and the life are charged, so the first and last periods are part-periods
+    let days = end.min(life_ends) - from + 1;
+    let annual = cost.minus(salvage).over(&Money::from_i64(life));
+    Ok(annual
+        .times(&Money::from_i64(days))
+        .over(&Money::from_i64(365))
+        .round(2))
+}
+
+/// What one asset charges in one period, by the method the register recorded for it.
+///
+/// The charge never takes an asset below what it is worth at the end: the last period of its life is charged the
+/// remainder, so `accumulated_depreciation` and `net_book_value` on the register keep adding up to the cost.
+fn charge_for(asset: &Value, period: &str) -> Result<Money, StoreError> {
+    let method = method_of(asset)?;
     let cost = stored_amount(asset, "acquisition_cost")?;
     let salvage = stored_amount(asset, "salvage_value")?;
+    let accumulated = stored_amount(asset, "accumulated_depreciation")?;
     let net_book_value = stored_amount(asset, "net_book_value")?;
     let life = asset
         .get("useful_life_years")
         .and_then(Value::as_i64)
         .unwrap_or(0);
 
-    Ok(match method {
+    let charge = match method {
         "straight_line" => {
             if life <= 0 {
                 Money::zero()
@@ -206,15 +347,28 @@ fn monthly_charge(asset: &Value) -> Result<Money, StoreError> {
                     .round(2)
             }
         }
-        "reducing_balance" => {
-            // 20% a year on the current net book value, charged monthly
-            net_book_value
-                .times(&Money::from_i64(20))
-                .over(&Money::from_i64(1200))
-                .round(2)
+        "reducing_balance" => net_book_value
+            .times(&annual_percent(asset, life))
+            .over(&Money::from_i64(1200))
+            .round(2),
+        "time_based" => time_based_charge(asset, period, &cost, &salvage, life)?,
+        other => {
+            return Err(StoreError::Invalid(format!(
+                "Unknown depreciation method {other} on this asset"
+            )))
         }
-        _ => Money::zero(),
-    })
+    };
+
+    let remaining = cost.minus(&salvage).minus(&accumulated);
+    if charge.to_f64_lossy() > remaining.to_f64_lossy() {
+        Ok(if remaining.to_f64_lossy() > 0.0 {
+            remaining
+        } else {
+            Money::zero()
+        })
+    } else {
+        Ok(charge)
+    }
 }
 
 /// `/assets/{id}/depreciate`: charge one period and record the entry.
@@ -253,7 +407,7 @@ pub fn depreciate<G: Graph + ?Sized>(
 
     let cost = stored_amount(&asset, "acquisition_cost")?;
     let salvage = stored_amount(&asset, "salvage_value")?;
-    let charge = monthly_charge(&asset)?;
+    let charge = charge_for(&asset, period.trim())?;
 
     let accumulated = stored_amount(&asset, "accumulated_depreciation")?.plus(&charge);
     let mut net_book_value = cost.minus(&accumulated);
@@ -452,6 +606,7 @@ mod tests {
             "useful_life_years": 5,
             "salvage_value": "40000",
             "depreciation_method": "straight_line",
+            "depreciation_rate": "0",
             "accumulated_depreciation": "0",
             "net_book_value": "240000",
             "status": "active",
@@ -514,13 +669,16 @@ mod tests {
     fn straight_line_charges_cost_less_salvage_over_the_months() {
         let asset = stored_asset(json!({}));
         // (240000 - 40000) / (5 * 12)
-        assert_eq!(monthly_charge(&asset).unwrap().to_fixed(2), "3333.33");
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "3333.33"
+        );
     }
 
     #[test]
     fn a_zero_life_charges_nothing_rather_than_dividing() {
         let asset = stored_asset(json!({"useful_life_years": 0}));
-        assert_eq!(monthly_charge(&asset).unwrap(), Money::zero());
+        assert_eq!(charge_for(&asset, "2026-11").unwrap(), Money::zero());
     }
 
     #[test]
@@ -530,13 +688,144 @@ mod tests {
             "net_book_value": "120000"
         }));
         // 120000 * 20% / 12
-        assert_eq!(monthly_charge(&asset).unwrap().to_fixed(2), "2000.00");
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "2000.00"
+        );
     }
 
     #[test]
-    fn an_unknown_method_charges_nothing() {
+    fn an_unknown_method_is_refused_rather_than_charging_nothing() {
+        // a register that quietly takes nothing off an asset reads exactly like one where it never wears out
         let asset = stored_asset(json!({"depreciation_method": "units_of_production"}));
-        assert_eq!(monthly_charge(&asset).unwrap(), Money::zero());
+        let error = charge_for(&asset, "2026-11").expect_err("refused");
+        assert!(error.to_string().contains("units_of_production"), "{error}");
+        assert!(error.to_string().contains("time_based"), "{error}");
+    }
+
+    #[test]
+    fn a_method_the_register_does_not_know_is_refused_when_the_asset_is_registered() {
+        let graph = FakeGraph::returning(vec![stored_asset(json!({}))]);
+        let mut payload = asset_payload();
+        payload["depreciation_method"] = json!("units_of_production");
+        let error = create_asset(&graph, &scope(), &payload).expect_err("refused");
+        assert!(
+            error.to_string().contains("Unknown depreciation method"),
+            "{error}"
+        );
+        // nothing was written
+        assert_eq!(graph.statements(), 0);
+    }
+
+    #[test]
+    fn each_of_the_three_methods_can_be_chosen_for_an_asset() {
+        for method in METHODS {
+            let graph = FakeGraph::returning(vec![stored_asset(json!({}))]);
+            let mut payload = asset_payload();
+            payload["depreciation_method"] = json!(method);
+            create_asset(&graph, &scope(), &payload).expect(method);
+            let (_, params) = graph.last();
+            assert_eq!(params["props"]["depreciation_method"], json!(method));
+        }
+    }
+
+    #[test]
+    fn a_reducing_balance_rate_beyond_the_whole_asset_a_year_is_refused() {
+        let graph = FakeGraph::returning(vec![stored_asset(json!({}))]);
+        let mut payload = asset_payload();
+        payload["depreciation_method"] = json!("reducing_balance");
+        payload["depreciation_rate"] = json!("120");
+        let error = create_asset(&graph, &scope(), &payload).expect_err("refused");
+        assert!(error.to_string().contains("between 0 and 100"), "{error}");
+    }
+
+    #[test]
+    fn reducing_balance_charges_the_life_its_own_share_not_a_fixed_twentieth() {
+        // a ten-year asset used to be written down at 20% a year, wearing out in five
+        let asset = stored_asset(json!({
+            "depreciation_method": "reducing_balance",
+            "useful_life_years": 10,
+            "net_book_value": "120000"
+        }));
+        // 120000 * 10% / 12
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "1000.00"
+        );
+    }
+
+    #[test]
+    fn reducing_balance_takes_the_rate_the_asset_states() {
+        let asset = stored_asset(json!({
+            "depreciation_method": "reducing_balance",
+            "depreciation_rate": "25",
+            "net_book_value": "120000"
+        }));
+        // 120000 * 25% / 12
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "2500.00"
+        );
+    }
+
+    #[test]
+    fn time_based_charges_a_whole_month_when_the_asset_was_held_all_of_it() {
+        let asset = stored_asset(json!({
+            "depreciation_method": "time_based",
+            "acquisition_date": "2024-01-01"
+        }));
+        // (240000 - 40000) / 5 years = 40000 a year; November has 30 days: 40000 * 30 / 365
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "3287.67"
+        );
+    }
+
+    #[test]
+    fn time_based_charges_only_the_days_the_asset_was_held_in_its_first_month() {
+        // bought on the 20th, so eleven days of that month were the business's: 40000 * 11 / 365
+        let asset = stored_asset(json!({
+            "depreciation_method": "time_based",
+            "acquisition_date": "2026-11-20"
+        }));
+        assert_eq!(
+            charge_for(&asset, "2026-11").unwrap().to_fixed(2),
+            "1205.48"
+        );
+    }
+
+    #[test]
+    fn time_based_refuses_a_month_before_the_asset_arrived() {
+        let asset = stored_asset(json!({
+            "depreciation_method": "time_based",
+            "acquisition_date": "2026-11-20"
+        }));
+        let error = charge_for(&asset, "2026-10").expect_err("refused");
+        assert!(
+            error.to_string().contains("before the asset was acquired"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn time_based_refuses_a_month_after_the_life_has_run_out() {
+        let asset = stored_asset(json!({
+            "depreciation_method": "time_based",
+            "acquisition_date": "2020-01-01",
+            "useful_life_years": 5
+        }));
+        let error = charge_for(&asset, "2026-11").expect_err("refused");
+        assert!(error.to_string().contains("life ended"), "{error}");
+    }
+
+    #[test]
+    fn the_last_charge_is_what_is_left_rather_than_a_whole_month_of_it() {
+        // 200000 of depreciable cost, 199999.80 already written off: the last charge is the twenty cents, not 3333.33
+        let asset = stored_asset(json!({
+            "accumulated_depreciation": "199999.80",
+            "net_book_value": "40000.20"
+        }));
+        assert_eq!(charge_for(&asset, "2026-11").unwrap().to_fixed(2), "0.20");
     }
 
     #[test]
@@ -721,12 +1010,15 @@ mod tests {
             "salvage_value": "0",
             "useful_life_years": 100
         }))]);
-        let charge = monthly_charge(&stored_asset(json!({
+        let charge = charge_for(
+            &stored_asset(json!({
             "acquisition_cost": "123456789012345678901.55",
             "net_book_value": "123456789012345678901.55",
             "salvage_value": "0",
-            "useful_life_years": 100
-        })))
+                "useful_life_years": 100
+            })),
+            "2026-11",
+        )
         .unwrap();
         // 1200 months of service, so the charge is the cost over 1200
         assert_eq!(charge.to_fixed(2), "102880657510288065.75");
