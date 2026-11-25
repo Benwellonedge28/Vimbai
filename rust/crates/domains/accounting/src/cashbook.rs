@@ -26,8 +26,10 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
+use crate::ledger_book;
+use crate::subsidiary_journals;
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
-use vimbai_store::read::{field, flag, optional, or_default, text};
+use vimbai_store::read::{field, flag, optional, or_default, refused, text};
 use vimbai_store::{
     created_id, BookScope, Graph, Records, StoreError, CASH_BANK_ACCOUNT, CASH_ENTRY,
     CASH_FLOW_ENTRY, CASH_RECONCILIATION,
@@ -68,14 +70,21 @@ pub fn create_account<G: Graph + ?Sized>(
         )));
     }
     let opening = amount_or_zero(payload, "opening_balance")?;
+    // A money account is the person's own environment: they say where their money sits, not which ledger it belongs in.
+    // So registering one also settles the chart account it posts to - found by the name it already goes by, or made in
+    // the asset band and marked provisional, because an account that exists only because money was put in it should say
+    // so. Without this the Book holds a bank account nothing can post through, and every receipt and every fact is
+    // refused for want of a money account the person has already registered.
+    let name = text(payload, "account_name");
+    let chart_account = account_for_money(graph, scope, payload, &name)?;
     records.create(
         scope,
         &json!({
             "account_code": code,
-            "account_name": text(payload, "account_name"),
+            "account_name": name,
             "account_type": or_default(payload, "account_type", "bank"),
             "bank_name": text(payload, "bank_name"),
-            "account_number": text(payload, "account_number"),
+            "account_number": chart_account,
             "currency": or_default(payload, "currency", "USD"),
             "opening_balance": wire(&opening),
             "current_balance": wire(&opening),
@@ -86,6 +95,94 @@ pub fn create_account<G: Graph + ?Sized>(
                 .unwrap_or(true),
         }),
     )
+}
+
+/// The chart account a money account posts to: the one the caller named, the one this Book already keeps under the same
+/// name, or a new one in the asset band marked provisional.
+///
+/// This is the one function that answers "where does this money sit in the books", so a receipt, a payment, a stated fact
+/// and the cash book itself can never disagree about it.
+fn account_for_money<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+    name: &str,
+) -> Result<String, StoreError> {
+    let named = text(payload, "account_number").trim().to_string();
+    if !named.is_empty() {
+        if ledger_book::account_by_number(graph, scope, &named)?.is_none() {
+            return Err(refused(&format!(
+                "Account {named} is not in this Book's chart, so the money cannot sit in it."
+            )));
+        }
+        return Ok(named);
+    }
+    let accounts = ledger_book::accounts(graph, scope)?;
+    let called = name.trim().to_lowercase();
+    if !called.is_empty() {
+        if let Some(found) = accounts.iter().find(|account| {
+            account_type(account) == "asset"
+                && subsidiary_journals::account_name(account).to_lowercase() == called
+        }) {
+            return Ok(field(found, "account_number").to_string());
+        }
+    }
+    // nothing by that name: an account is made in the band the chart numbers assets in, and marked provisional so a
+    // reader can see it exists because money was put in it
+    let number = next_free_number(&accounts, "asset");
+    let made = ledger_book::create_account(
+        graph,
+        scope,
+        &json!({"account_number": number, "name": name, "account_type": "asset",
+                "normal_balance": "debit", "provisional": true}),
+    )?;
+    Ok(field(&made, "account_number").to_string())
+}
+
+/// What kind of account this is, whichever field the record writes it under.
+fn account_type(account: &Value) -> String {
+    let kind = field(account, "account_type");
+    if kind.trim().is_empty() {
+        field(account, "type").to_string()
+    } else {
+        kind.to_string()
+    }
+}
+
+/// The next free number in a band, where a band is the thousand the account type is numbered in.
+///
+/// Bands are the chart's own convention rather than a list in code: assets are the 1xxx, liabilities the 2xxx, equity the
+/// 3xxx, revenue the 4xxx and costs the 5xxx and 6xxx. A Book numbering its own way still gets a number inside the range
+/// its own accounts already use, because the band is read from the chart rather than assumed.
+fn next_free_number(accounts: &[Value], kind: &str) -> String {
+    let band = match kind {
+        "asset" => 1,
+        "liability" => 2,
+        "equity" => 3,
+        "revenue" => 4,
+        _ => 5,
+    };
+    let mut taken: Vec<u32> = accounts
+        .iter()
+        .filter_map(|account| {
+            let number = field(account, "account_number");
+            number.parse::<u32>().ok()
+        })
+        .filter(|number| (number / 1000) as i32 == band)
+        .collect();
+    taken.sort_unstable();
+    let start = band as u32 * 1000;
+    let mut candidate = start;
+    for number in taken {
+        if number >= candidate {
+            candidate = number + 1;
+        }
+    }
+    // keep the number inside its band even when the band is full
+    while candidate >= start + 1000 {
+        candidate -= 1000;
+    }
+    format!("{candidate:04}")
 }
 
 /// `/accounts` listing with the service's filters.
@@ -864,7 +961,14 @@ mod tests {
 
     #[test]
     fn a_new_account_opens_at_its_opening_balance_whatever_else_was_sent() {
-        let graph = FakeGraph::queue(vec![vec![], vec![json!({"id": "acc-1"})]]);
+        // the chart is read first, to find or make the account the money sits in, and the account is written after
+        let graph = FakeGraph::queue(vec![
+            vec![
+                json!({"id": "chart-1", "account_number": "1000", "name": "Current",
+                        "account_type": "asset", "normal_balance": "debit"}),
+            ],
+            vec![json!({"id": "acc-1"})],
+        ]);
         create_account(
             &graph,
             &scope(),
@@ -873,7 +977,11 @@ mod tests {
                     "current_balance": "1"}),
         )
         .expect("opened");
-        let (_, params) = graph.statement(1);
+        // the write is whichever statement carries the account, since the chart is read before it
+        let params = (0..5)
+            .map(|index| graph.statement(index).1)
+            .find(|params| params["props"].get("opening_balance").is_some())
+            .expect("the account write");
         assert_eq!(
             params["props"]["opening_balance"],
             json!("123456789012345678901.550000")

@@ -77,6 +77,23 @@ async fn a_book_with_two_invoices_and_a_receipt() -> Arc<MemoryGraph> {
         .await;
         assert_eq!(status, StatusCode::OK, "{made}");
     }
+    // money arrives through an account the Book keeps, so the Book says where its money sits first
+    let (status, money) = call(
+        graph.clone(),
+        Method::POST,
+        "/cashbook/accounts",
+        Some(
+            json!({"account_code": "CASH-1", "account_name": "Cash", "account_type": "cash",
+                    "opening_balance": "0.00", "currency": "USD"}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the Book registers its money: {money}"
+    );
+
     // the money that arrived names the newer invoice, so the older debt is still owed and still late
     let (status, made) = call(
         graph.clone(),

@@ -141,7 +141,7 @@ pub fn accounts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Vec<V
     Ok(rows)
 }
 
-fn account_by_number<G: Graph + ?Sized>(
+pub(crate) fn account_by_number<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     account_number: &str,
@@ -1468,15 +1468,45 @@ pub fn balance_sheet<G: Graph + ?Sized>(
             let window = movements(&all, &number, None, Some(&as_of))?;
             let (debit, credit) = totals(&window);
             let balance = balance_of(account, &debit, &credit);
-            total = total.plus(&balance);
-            rows.push(json!({"category": field(account, "name"), "amount": wire(&balance)}));
+            // An account whose nature is to carry a credit balance inside a class that carries debits - accumulated
+            // depreciation against what it has written down - reduces that class rather than adding to it. Shown as it
+            // stands, it would inflate the assets by twice the wear and leave the sheet unable to balance.
+            let carried = if field(account, "normal_balance") == "credit"
+                && account_type != "liability"
+                && account_type != "equity"
+            {
+                zero().minus(&balance)
+            } else {
+                balance
+            };
+            total = total.plus(&carried);
+            rows.push(json!({"category": field(account, "name"), "amount": wire(&carried)}));
         }
         Ok((rows, total))
     };
 
     let (assets, total_assets) = lines("asset")?;
     let (liabilities, total_liabilities) = lines("liability")?;
-    let (equity, total_equity) = lines("equity")?;
+    let (mut equity, mut total_equity) = lines("equity")?;
+
+    // The year's profit belongs to the owners until the year is closed: it is what is left of what the Book earned after
+    // what it used up. Without it a sheet in the middle of a year states the owners' stake as it stood at the last
+    // close, and the two sides disagree by exactly the profit - a balance sheet that does not balance.
+    let earned = |account_type: &str| -> Result<Money, StoreError> {
+        let mut total = zero();
+        for account in accounts_of_type(&chart, account_type) {
+            let number = field(account, "account_number").to_string();
+            let window = movements(&all, &number, None, Some(&as_of))?;
+            let (debit, credit) = totals(&window);
+            total = total.plus(&balance_of(account, &debit, &credit));
+        }
+        Ok(total)
+    };
+    let profit = earned("revenue")?.minus(&earned("expense")?);
+    if profit != zero() {
+        equity.push(json!({"category": "Profit so far this year", "amount": wire(&profit)}));
+        total_equity = total_equity.plus(&profit);
+    }
 
     Ok(json!({
         "as_of_date": as_of,

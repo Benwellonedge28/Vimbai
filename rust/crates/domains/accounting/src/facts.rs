@@ -85,10 +85,12 @@ fn answering(chart: &measures::Chart, numbers: &[String], words: &str) -> Vec<St
     if !inside.is_empty() {
         return inside;
     }
-    // then a phrase a person writes as a sentence: "rent for the shop" finds Rent through the word it shares
+    // then a phrase a person writes as a sentence: "rent for the shop" finds Rent through the word it shares. The words
+    // that only join a sentence together are not what a person means, so they never decide an account: without that,
+    // "rent for the shop" would answer to any account whose name happens to hold "for".
     let words: Vec<&str> = wanted
         .split(|letter: char| !letter.is_alphanumeric())
-        .filter(|word| word.len() >= 3)
+        .filter(|word| word.len() >= 3 && !JOINING.contains(word))
         .collect();
     numbers
         .iter()
@@ -106,6 +108,29 @@ fn of_type(chart: &measures::Chart, wanted: &str) -> Vec<String> {
         .types
         .iter()
         .filter(|(_, kind)| kind.as_str() == wanted)
+        .map(|(number, _)| number.clone())
+        .collect();
+    numbers.sort();
+    numbers
+}
+
+/// The words that join a sentence together rather than name a thing. They are part of how a person speaks, not of what
+/// any Book calls its accounts, so a shared one never settles which account a fact belongs to.
+const JOINING: [&str; 16] = [
+    "the", "and", "for", "from", "with", "was", "were", "been", "into", "onto", "our", "its",
+    "his", "her", "they", "that",
+];
+
+/// The accounts money can be spent into: the costs, and the things the business keeps, but never the money accounts
+/// themselves, since money cannot be spent on money.
+fn spending_accounts(chart: &measures::Chart) -> Vec<String> {
+    let mut numbers: Vec<String> = chart
+        .types
+        .iter()
+        .filter(|(number, kind)| {
+            (kind.as_str() == "expense" || kind.as_str() == "asset")
+                && !chart.money.contains(number)
+        })
         .map(|(number, _)| number.clone())
         .collect();
     numbers.sort();
@@ -219,10 +244,16 @@ pub fn record_fact<G: Graph + ?Sized>(
 
     let chart = measures::chart_of(graph, scope)?;
     let money = money_account(&chart, payload)?;
-    let kind = type_of(&what);
+    // money out goes to something used up or something still owned: a cost, or a thing the business now keeps. Both are
+    // what a person means by "spent", so both are searched, and neither is guessed at from a list in code.
+    let reachable = if what == "spent" {
+        spending_accounts(&chart)
+    } else {
+        of_type(&chart, type_of(&what))
+    };
     let other = settled(
         &chart,
-        &of_type(&chart, kind),
+        &reachable,
         &text(payload, "account"),
         thing_in_words(&what),
         if what == "spent" {

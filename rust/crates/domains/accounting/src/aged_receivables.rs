@@ -462,6 +462,21 @@ mod tests {
         total: &str,
         against: &str,
     ) {
+        // a receipt moves money through an account the Book keeps, so the Book that takes receipts has one
+        if crate::cashbook::list_accounts(graph, &scope(), &json!({"is_active": true}))
+            .expect("the Book's accounts")
+            .as_array()
+            .map(Vec::is_empty)
+            .unwrap_or(true)
+        {
+            crate::cashbook::create_account(
+                graph,
+                &scope(),
+                &json!({"account_code": "CASH-1", "account_name": "Cash", "account_type": "cash",
+                        "opening_balance": "0.00", "currency": "USD"}),
+            )
+            .expect("a cash account");
+        }
         create_receipt(
             graph,
             &scope(),

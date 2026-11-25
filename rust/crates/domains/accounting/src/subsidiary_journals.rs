@@ -104,6 +104,80 @@ pub(crate) fn account_name(account: &Value) -> String {
     }
 }
 
+/// The account the money moved through, from the Book's own registered cash and bank accounts.
+///
+/// A journal that assumed a number would post a receipt into an account this Book does not keep, which is a refusal at
+/// best and the wrong account at worst: a business whose cash sits in a bank called something else has as much right to
+/// record a receipt as one whose chart happens to start at 1000. So the caller may name the account, and otherwise the
+/// Book's own money accounts answer, and a Book keeping several is asked which.
+pub(crate) fn money_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<String, StoreError> {
+    let chart = crate::measures::chart_of(graph, scope)?;
+    let named = text(payload, "bank_account").trim().to_string();
+    if chart.money.is_empty() {
+        return Err(refused(
+            "This Book keeps no cash or bank account yet, so there is nothing for the money to move through. Register \
+             the account it does move through, then record this again.",
+        ));
+    }
+    if !named.is_empty() {
+        if chart.money.iter().any(|number| number == &named) {
+            return Ok(named);
+        }
+        return Err(refused(&format!(
+            "{named} is not one of this Book's cash or bank accounts, so the money did not move through it. It keeps {}.",
+            money_named(&chart)
+        )));
+    }
+    if chart.money.len() == 1 {
+        return Ok(chart.money[0].clone());
+    }
+    Err(refused(&format!(
+        "Say which account the money moved through. This Book keeps {}.",
+        money_named(&chart)
+    )))
+}
+
+/// The Book's money accounts as a reader says them: the number and the name it goes by.
+fn money_named(chart: &crate::measures::Chart) -> String {
+    chart
+        .money
+        .iter()
+        .map(|number| {
+            let name = chart.names.get(number).cloned().unwrap_or_default();
+            if name.is_empty() {
+                number.clone()
+            } else {
+                format!("{number} {name}")
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+/// The Book's payable accounts as a reader says them, for a refusal that has to name them.
+fn payable_named<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<String, StoreError> {
+    let accounts = ledger_book::accounts(graph, scope)?;
+    let named: Vec<String> = accounts
+        .iter()
+        .filter(|account| field(account, "account_type") == "liability")
+        .map(|account| {
+            format!(
+                "{} {}",
+                field(account, "account_number"),
+                account_name(account)
+            )
+        })
+        .collect();
+    if named.is_empty() {
+        return Ok("no liability account yet".to_string());
+    }
+    Ok(named.join(", "))
+}
+
 /// A month that has been closed is not written into: the entry belongs in the month that is still open.
 pub(crate) fn must_be_open<G: Graph + ?Sized>(
     graph: &G,
@@ -793,12 +867,24 @@ pub fn create_receipt(
 ) -> Result<Value, StoreError> {
     let amount = money(payload, "amount")?;
     let receipt = text(payload, "receipt_number");
-    let cash_account = or_default(payload, "bank_account", "1000");
-    // a cash sale earns revenue; everything else was posted to the other revenue account as shipped
-    let revenue_account = if text(payload, "source_type") == "cash_sale" {
-        "4000"
+    let cash_account = money_account(graph, scope, payload)?;
+    // A receipt against a document clears a debt the sale already recognised: crediting revenue again would count the
+    // same trading twice and leave the customer owing money that has been paid. A cash sale earns its revenue here,
+    // because no document went before it. Anything else is other income, which the Book names for itself.
+    let clearing_a_debt = !text(payload, "document_reference").trim().is_empty();
+    let revenue_account = if clearing_a_debt {
+        account_named(graph, scope, payload, "debt_account", "receivable", "asset")?
+    } else if text(payload, "source_type") == "cash_sale" {
+        account_named(graph, scope, payload, "revenue_account", "sales", "revenue")?
     } else {
-        "4100"
+        account_named(
+            graph,
+            scope,
+            payload,
+            "revenue_account",
+            "other income",
+            "revenue",
+        )?
     };
 
     // A receipt against a document raised in another money clears a debt that was posted at an earlier rate. Vimbai
@@ -829,7 +915,7 @@ pub fn create_receipt(
             &receipt,
             "CashReceiptsJournal",
             &cash_account,
-            revenue_account,
+            &revenue_account,
             &amount,
             &text(payload, "description"),
         )?
@@ -885,11 +971,36 @@ pub fn create_disbursement(
 ) -> Result<Value, StoreError> {
     let amount = money(payload, "amount")?;
     let payment = text(payload, "payment_number");
-    let cash_account = or_default(payload, "bank_account", "1000");
-    let expense_account = text(payload, "expense_account");
-    if expense_account.is_empty() {
-        return Err(refused("expense_account is required"));
-    }
+    let cash_account = money_account(graph, scope, payload)?;
+    // A payment that names a bill is settling a debt the purchase already recognised: the debit is the payable, because
+    // charging the cost again would count the same purchase twice and leave the supplier owed money that has been paid.
+    // A payment that names no bill is money spent directly, and the caller says which cost it belongs to.
+    let expense_account = if !text(payload, "document_reference").trim().is_empty() {
+        account_named(
+            graph,
+            scope,
+            payload,
+            "expense_account",
+            "payable",
+            "liability",
+        )?
+    } else {
+        let named = text(payload, "expense_account");
+        if named.trim().is_empty() {
+            return Err(refused(&format!(
+                "Say what the payment was for: the account it belongs in. This Book keeps {}.",
+                payable_named(graph, scope)?
+            )));
+        }
+        account_named(
+            graph,
+            scope,
+            payload,
+            "expense_account",
+            "expense",
+            "expense",
+        )?
+    };
 
     // A payment against a bill raised in another money clears a debt that was posted at an earlier rate. Vimbai does not
     // move the money: it records what left, from an account the business already holds. When the caller names the money and
@@ -1625,7 +1736,24 @@ fn inventory_account<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vimbai_store::fake::FakeGraph;
+    use vimbai_store::fake::{FakeGraph, MemoryGraph};
+
+    /// The lines a posted entry carries, read back from the Book the way a reader sees them.
+    fn lines(graph: &MemoryGraph, scope: &BookScope, entry_id: &str) -> Vec<Value> {
+        ledger_book::get_entry(graph, scope, entry_id).expect("the entry")["lines"]
+            .as_array()
+            .cloned()
+            .expect("lines")
+    }
+
+    /// One line of an entry, by the account it sits on.
+    fn line(lines: &[Value], account: &str) -> Value {
+        lines
+            .iter()
+            .find(|one| field(one, "account_number") == account)
+            .unwrap_or_else(|| panic!("no line on {account}"))
+            .clone()
+    }
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")
@@ -2070,21 +2198,101 @@ mod tests {
     }
 
     #[test]
-    fn a_cash_sale_earns_revenue_and_anything_else_lands_in_the_other_revenue_account() {
-        for (source, account) in [("cash_sale", "4000"), ("customer_payment", "4100")] {
-            let entry = posted_entry(|graph| {
-                create_receipt(
-                    graph,
-                    &scope(),
-                    &json!({"receipt_number": "R-1", "entry_date": "2026-03-15",
-                            "amount": "75.50", "source_type": source, "description": "cash in"}),
-                )
-            });
-            let lines = entry["lines"].as_array().expect("lines");
-            assert_eq!(lines[0]["account_number"], json!("1000"));
-            assert_eq!(lines[1]["account_number"], json!(account));
-            assert_eq!(lines[1]["credit"], json!("75.500000"));
-        }
+    fn a_cash_sale_credits_the_books_own_sales_account() {
+        // a cash sale earns revenue, and the account it earns it in is the one this Book calls sales rather than a
+        // number the engine knows: a chart numbered its own way must record the same trading as any other
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        // the money account is the person's own environment: they register where their money sits, and the receipt
+        // moves through that rather than a number the engine knows
+        crate::cashbook::create_account(
+            &graph,
+            &scope,
+            &json!({"account_name": "Cash", "account_type": "cash", "opening_balance": "0.00",
+                    "currency": "USD"}),
+        )
+        .expect("a cash account");
+        let posted = create_receipt(
+            &graph,
+            &scope,
+            &json!({"receipt_number": "R-1", "entry_date": "2026-03-15",
+                    "amount": "75.50", "source_type": "cash_sale", "description": "cash in"}),
+        )
+        .expect("a receipt");
+        let lines = lines(&graph, &scope, field(&posted, "journal_entry_id"));
+        assert_eq!(field(&line(&lines, "1000"), "debit"), "75.500000");
+        assert_eq!(field(&line(&lines, "4000"), "credit"), "75.500000");
+    }
+
+    #[test]
+    fn a_receipt_against_a_document_clears_the_debt_rather_than_earning_it_twice() {
+        // the sale already recognised the revenue and left the customer owing it. A receipt naming that invoice settles
+        // the debt; crediting revenue again would count the same trading twice and leave money owed that has been paid.
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        crate::cashbook::create_account(
+            &graph,
+            &scope,
+            &json!({"account_name": "Cash", "account_type": "cash", "opening_balance": "0.00",
+                    "currency": "USD"}),
+        )
+        .expect("a cash account");
+        let sale = create_sale(
+            &graph,
+            &scope,
+            &json!({"invoice_number": "INV-1", "customer_id": "acme", "entry_date": "2026-03-01",
+                    "total_amount": "1000.00", "tax_amount": "0.00"}),
+        )
+        .expect("a sale");
+        assert!(!field(&sale, "journal_entry_id").is_empty());
+
+        let receipt = create_receipt(
+            &graph,
+            &scope,
+            &json!({"receipt_number": "R-1", "customer_id": "acme", "entry_date": "2026-03-10",
+                    "amount": "1000.00", "document_reference": "INV-1"}),
+        )
+        .expect("a receipt");
+        let lines = lines(&graph, &scope, field(&receipt, "journal_entry_id"));
+        assert_eq!(field(&line(&lines, "1000"), "debit"), "1000.000000");
+        assert_eq!(
+            field(&line(&lines, "1100"), "credit"),
+            "1000.000000",
+            "the debt is what a receipt against an invoice clears"
+        );
+
+        // and the customer owes nothing, which is the fact the reports read
+        let aged = crate::aged_receivables::aged_receivables(
+            &graph,
+            &scope,
+            &json!({"as_of_date": "2026-03-31"}),
+        )
+        .expect("who owes");
+        let owed = aged["customers"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|row| field(row, "customer_id") == "acme"))
+            .map(|row| field(row, "owed"))
+            .unwrap_or("0");
+        // a customer owing nothing is not a row in the ageing at all, which is the report saying the debt is settled
+        assert_eq!(owed, "0", "{aged}");
+    }
+
+    #[test]
+    fn a_receipt_the_book_cannot_place_is_refused_in_words() {
+        // a Book with no cash or bank account has nothing for money to move through, and says so rather than posting
+        // into a number it guessed
+        let graph = MemoryGraph::new();
+        let scope = BookScope::new("user-1", "book-1");
+        crate::chart::seed_opening_chart(&graph, &scope, "business").expect("a chart");
+        let refused = create_receipt(
+            &graph,
+            &scope,
+            &json!({"receipt_number": "R-1", "entry_date": "2026-03-15", "amount": "10.00"}),
+        )
+        .expect_err("no money account");
+        assert!(format!("{refused}").contains("cash or bank"), "{refused}");
     }
 
     #[test]
