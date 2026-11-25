@@ -36,7 +36,9 @@ fn seed(scope: &BookScope, graph: &store::choose::GraphHandle) {
             "trigger": "scheduled",
             // due in 1970: every real clock is past it, so this is the overdue case rather than a contrived one
             "condition": { "schedule": { "due_at": 1.0 } },
-            "steps": [{ "step_id": "collect", "action": "post_entries" }],
+            // a step the engine can actually do, on a Book that holds no asset: the depreciation answer is zero rather
+            // than a fault, so the run completes and the test is about the store and the claiming, not about the action
+            "steps": [{ "step_id": "collect", "action": "post_depreciation" }],
         }),
     )
     .expect("a rule");
