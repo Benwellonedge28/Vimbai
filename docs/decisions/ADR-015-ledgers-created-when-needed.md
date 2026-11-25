@@ -30,7 +30,9 @@ the chart fills with near-duplicates, and nobody can say which of three "fuel" a
 5. **Control accounts are never auto-created.** Receivables, payables, tax, suspense, inventory and fixed assets are
    control accounts: other ledgers reconcile against them, so an invented one breaks a reconciliation that cannot then
    be seen to be broken. Where one is missing, the posting is refused and the setting is named - which is the ADR-013
-   rule for a missing policy.
+   rule for a missing policy. The chart a Book opens with is a different act: it declares these accounts once, when the
+   Book is set up, so a business is not asked to invent a receivable or a suspense before it can record anything. The
+   engine still never creates one while posting.
 
 6. **One function does the finding.** Every posting path calls the same find-or-create-or-refuse function rather than
    each carrying its own search, so the behaviour cannot drift between journals.

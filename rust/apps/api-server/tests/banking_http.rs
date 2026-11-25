@@ -177,14 +177,17 @@ async fn a_reconciliation_with_nothing_to_adjust_completes_without_a_journal() {
 }
 
 #[tokio::test]
-async fn a_bare_bank_error_is_not_posted_as_a_one_sided_entry() {
+async fn a_bank_error_in_a_book_with_no_bank_account_names_what_is_missing() {
+    // the adjustment moves the difference between the Book's bank account and its suspense account, so a Book that
+    // keeps no bank account is told which setting to say rather than posting half an entry
     let graph = Scripted::queue(vec![vec![json!({
         "id": "rec-1", "bank_account": "1234", "bank_errors": "25.000000",
         "reconciliation_date": "2026-03-31T00:00:00", "status": "in_progress"
     })]]);
     let (status, body) = send(graph, "/bank-reconcile/rec-1/post-adjustments", json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"], json!("an entry needs at least two lines"));
+    let said = body["error"].as_str().unwrap_or_default();
+    assert!(said.contains("bank"), "{said}");
 }
 
 #[tokio::test]

@@ -17271,7 +17271,11 @@ async fn post_bank_adjustments(
         Ok(found) => found,
         Err(error) => return answer(Err(error)),
     };
-    let journal = match banking::reconciliation::adjustment_journal(&reconciliation) {
+    let journal = match banking::reconciliation::adjustment_journal(
+        graph.as_ref(),
+        &scope,
+        &reconciliation,
+    ) {
         Ok(journal) => journal,
         Err(error) => return answer(Err(error)),
     };

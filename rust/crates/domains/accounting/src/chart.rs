@@ -84,7 +84,7 @@ pub const CORE: [StandardAccount; 8] = [
 ///
 /// The two return accounts are here because goods coming back is ordinary trading: a sale taken back needs somewhere to
 /// go that is not Sales, and goods returned to a supplier needs somewhere that is not Cost of Sales.
-pub const BUSINESS: [StandardAccount; 22] = [
+pub const BUSINESS: [StandardAccount; 23] = [
     roled(
         "1100",
         "Accounts Receivable",
@@ -105,6 +105,9 @@ pub const BUSINESS: [StandardAccount; 22] = [
         "credit",
         "accumulated_depreciation",
     ),
+    // where a difference the books cannot yet explain waits until a person clears it: a bank error, an amount nobody
+    // has said what it was for. It is an asset because it holds what the Book is owed until it is settled
+    roled("1150", "Suspense", "asset", "debit", "suspense"),
     roled("2100", "VAT Payable", "liability", "credit", "tax_payable"),
     // a cost used this month that nobody has billed yet: the month carries it and the business owes it
     roled("2200", "Accrued Expenses", "liability", "credit", "accrued"),

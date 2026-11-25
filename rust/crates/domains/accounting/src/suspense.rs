@@ -318,24 +318,12 @@ mod tests_support {
         BookScope::new("user-1", "book-1")
     }
 
-    /// The seeded chart has no suspense account, because most businesses never need one: these tests add it the way an
-    /// owner would, by creating the account in the Book's own chart.
+    /// A Book as it opens, which already keeps an account for what cannot yet be explained: a business that needs
+    /// suspense does not have to create one before it can record a difference.
     pub(super) fn book() -> (MemoryGraph, String) {
         let graph = MemoryGraph::new();
         crate::chart::seed_opening_chart(&graph, &scope(), "business").expect("a chart");
-        let created = crate::ledger_book::create_account(
-            &graph,
-            &scope(),
-            &json!({
-                "account_number": "9999",
-                "name": "Suspense",
-                "account_type": "liability",
-                "opening_balance": "0",
-            }),
-        )
-        .expect("a suspense account");
-        let number = field(&created, "account_number").to_string();
-        (graph, number)
+        (graph, "1150".to_string())
     }
 
     pub(super) fn entry(graph: &MemoryGraph, entry_id: &str) -> Value {
@@ -660,9 +648,19 @@ mod clearing_tests {
 
     #[test]
     fn a_book_with_no_suspense_account_is_told_which_setting_to_say() {
-        // a Book with a chart and no suspense account says so rather than posting somewhere else
+        // a Book whose chart holds no suspense account says so rather than posting somewhere else
         let graph = vimbai_store::fake::MemoryGraph::new();
-        crate::chart::seed_opening_chart(&graph, &scope(), "business").expect("a chart");
+        crate::ledger_book::create_account(
+            &graph,
+            &scope(),
+            &json!({
+                "account_number": "4000",
+                "name": "Sales",
+                "account_type": "revenue",
+                "opening_balance": "0",
+            }),
+        )
+        .expect("a sales account");
         let refused = clear_suspense(
             &graph,
             &scope(),

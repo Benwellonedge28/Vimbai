@@ -18,6 +18,7 @@
 use serde_json::{json, Map, Value};
 
 use vimbai_common::Money;
+use vimbai_ledger_services::accounts::account_for_purpose;
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
 use vimbai_store::read::{field, label, refused, text};
 use vimbai_store::write::remember;
@@ -436,25 +437,46 @@ fn merge(base: &Value, saved: &Value) -> Value {
 
 /// The adjustment journal the service would post, or nothing when there is nothing to adjust.
 ///
-/// Only a bank error produces a line, and only one: a positive error is credited, a negative one debited, against
-/// account 2100 or 1100. A reconciliation with no bank error posts an empty journal, which is what shipped.
-pub fn adjustment_journal(reconciliation: &Value) -> Result<Value, StoreError> {
+/// A bank error is money the bank's own statement and the cash book disagree about, so the difference is moved
+/// between the Book's bank account and its suspense account: a positive error (the statement shows more than the
+/// books) brings the bank up and leaves the difference in suspense, a negative one takes the bank down and leaves it
+/// there too. Both accounts are found by the purpose the Book gives them, never by number, and the two lines always
+/// balance. A reconciliation with no bank error posts an empty journal, which is what shipped.
+pub fn adjustment_journal<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    reconciliation: &Value,
+) -> Result<Value, StoreError> {
     let errors = stored_amount(reconciliation, "bank_errors")?;
     let mut lines = Vec::new();
     if errors != Money::zero() {
         let size = errors.abs();
         let positive = !errors.is_negative();
         let nothing = Money::zero();
-        let (debit, credit) = if positive {
+        // the bank keeps what the statement says it keeps; what cannot yet be explained waits in suspense
+        let bank = account_for_purpose(graph, scope, "", "bank", "asset")?;
+        let suspense = account_for_purpose(graph, scope, "", "suspense", "asset")?;
+        let (bank_debit, bank_credit) = if positive {
+            (&size, &nothing)
+        } else {
+            (&nothing, &size)
+        };
+        let (suspense_debit, suspense_credit) = if positive {
             (&nothing, &size)
         } else {
             (&size, &nothing)
         };
         lines.push(json!({
-            "account_number": if positive { "2100" } else { "1100" },
+            "account_number": bank,
             "description": "Bank reconciliation adjustment",
-            "debit": wire(debit),
-            "credit": wire(credit),
+            "debit": wire(bank_debit),
+            "credit": wire(bank_credit),
+        }));
+        lines.push(json!({
+            "account_number": suspense,
+            "description": "Unreconciled difference",
+            "debit": wire(suspense_debit),
+            "credit": wire(suspense_credit),
         }));
     }
     let date = field(reconciliation, "reconciliation_date");
@@ -577,6 +599,16 @@ pub fn outstanding_items(
 mod tests {
     use super::*;
     use vimbai_store::fake::FakeGraph;
+
+    /// The two accounts a bank error touches in this Book: the bank it keeps money in and the suspense it waits in.
+    fn chart() -> FakeGraph {
+        FakeGraph::returning(vec![
+            json!({"account_number": "1020", "name": "Bank", "account_type": "asset",
+                   "normal_balance": "debit", "role": "bank"}),
+            json!({"account_number": "1150", "name": "Suspense", "account_type": "asset",
+                   "normal_balance": "debit", "role": "suspense"}),
+        ])
+    }
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")
@@ -792,24 +824,28 @@ mod tests {
     }
 
     #[test]
-    fn the_adjustment_journal_is_one_line_sized_by_the_bank_error() {
+    fn the_adjustment_journal_balances_the_bank_against_suspense() {
         let overdrawn = json!({"id": "abcdef123456", "bank_errors": "-25.000000", "reconciliation_date": "2026-03-31T00:00:00"});
-        let journal = adjustment_journal(&overdrawn).expect("journal");
+        let journal = adjustment_journal(&chart(), &scope(), &overdrawn).expect("journal");
         assert_eq!(journal["reference_number"], json!("BANK-REC-abcdef12"));
-        assert_eq!(journal["lines"][0]["account_number"], json!("1100"));
-        assert_eq!(journal["lines"][0]["debit"], json!("25.000000"));
-        assert_eq!(journal["lines"][0]["credit"], json!("0.000000"));
+        assert_eq!(journal["lines"][0]["account_number"], json!("1020"));
+        assert_eq!(journal["lines"][0]["debit"], json!("0.000000"));
+        assert_eq!(journal["lines"][0]["credit"], json!("25.000000"));
+        assert_eq!(journal["lines"][1]["account_number"], json!("1150"));
+        assert_eq!(journal["lines"][1]["debit"], json!("25.000000"));
 
         let over = json!({"id": "abcdef123456", "bank_errors": "25.000000", "reconciliation_date": "2026-03-31T00:00:00"});
-        let journal = adjustment_journal(&over).expect("journal");
-        assert_eq!(journal["lines"][0]["account_number"], json!("2100"));
-        assert_eq!(journal["lines"][0]["credit"], json!("25.000000"));
+        let journal = adjustment_journal(&chart(), &scope(), &over).expect("journal");
+        assert_eq!(journal["lines"][0]["account_number"], json!("1020"));
+        assert_eq!(journal["lines"][0]["debit"], json!("25.000000"));
+        assert_eq!(journal["lines"][1]["account_number"], json!("1150"));
+        assert_eq!(journal["lines"][1]["credit"], json!("25.000000"));
     }
 
     #[test]
     fn a_reconciliation_with_nothing_to_adjust_states_an_empty_journal() {
         let quiet = json!({"id": "rec-1", "bank_errors": "0", "reconciliation_date": "2026-03-31T00:00:00"});
-        let journal = adjustment_journal(&quiet).expect("journal");
+        let journal = adjustment_journal(&chart(), &scope(), &quiet).expect("journal");
         assert_eq!(journal["lines"], json!([]));
         assert_eq!(journal["reference_number"], json!("BANK-REC-rec-1"));
     }
