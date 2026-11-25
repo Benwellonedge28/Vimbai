@@ -51,7 +51,6 @@ pub const STILL_NUMBERED: &[(&str, usize)] = &[
     ("crates/domains/partnerships/src/revaluation.rs", 4),
     ("crates/domains/receivables/src/provision.rs", 2),
     ("crates/domains/treasury/src/foreign_exchange.rs", 1),
-    ("crates/platform/events/src/broker.rs", 1),
     ("crates/platform/integrations/src/graphql.rs", 6),
 ];
 
@@ -96,7 +95,13 @@ pub fn numbers_by_file(root: &Path) -> Vec<(String, usize)> {
 /// not a round hundred is read as a year: an account numbered 2026 in the two-thousands is the one shape this rule cannot
 /// tell from the year 2026, and the journals in the backlog are numbered in hundreds, so nothing is missed by saying so
 /// plainly rather than accusing every line that writes a date.
+///
+/// The other thing that looks the same is a network port: `"5672"` beside a host is where a message bus listens, not an
+/// account, and a line that names a port says so by naming one or by writing an address. Nothing else four digits long
+/// is excused, so an account number cannot hide behind this.
 fn writes_a_number(line: &str) -> bool {
+    // where a port would be named, so a figure after it is the port rather than an account
+    let port_at = line.find("PORT").or_else(|| line.find("://"));
     let bytes: Vec<char> = line.chars().collect();
     let mut index = 0;
     while index + 5 < bytes.len() {
@@ -107,7 +112,8 @@ fn writes_a_number(line: &str) -> bool {
             let digits: String = bytes[index + 1..index + 5].iter().collect();
             let value: u32 = digits.parse().unwrap_or(0);
             let is_a_year = (1900..=2100).contains(&value) && !value.is_multiple_of(100);
-            if !is_a_year {
+            let is_a_port = port_at.is_some_and(|at| index > at) && (1..=65535).contains(&value);
+            if !is_a_year && !is_a_port {
                 return true;
             }
         }
@@ -135,6 +141,18 @@ fn rust_files(directory: &Path) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_port_beside_a_host_is_not_an_account_and_a_number_beside_a_host_still_is() {
+        assert!(!writes_a_number(
+            r#"let port = named("RABBITMQ_PORT").unwrap_or_else(|| "5672".to_string());"#
+        ));
+        assert!(!writes_a_number(r#"Some("amqp://guest:guest@bus:5672/")"#));
+        // the excuse is a port and nothing else: an account number on a line that names one is still counted
+        assert!(writes_a_number(
+            r#"json!({"account_code": "3200"}), "PORT""#
+        ));
+    }
 
     #[test]
     fn a_number_written_in_quotes_is_seen_and_a_date_is_not() {
