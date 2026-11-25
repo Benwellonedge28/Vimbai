@@ -1,6 +1,7 @@
 //! accounting-service on HTTP: the chart of accounts, the journal, and the reports over it.
 
 use accounting::accruals;
+use accounting::aged_receivables;
 use accounting::bad_debts;
 use accounting::bank_reconciliation;
 use accounting::bookkeeping as papers;
@@ -507,6 +508,27 @@ async fn close_period(
         Err(response) => return *response,
     };
     answer(periods::close_period(graph.as_ref(), &scope, &payload))
+}
+
+/// `GET /accounting/aged-receivables`: who owes the business, how late they are, and a sentence to send them.
+///
+/// The day to age to is the one asked for; with none asked for the newest date the Book holds is used and the answer
+/// says which day it used. Each customer is listed with what they still owe after the money that actually arrived,
+/// split by how late it is, and one plain sentence naming the oldest unpaid invoice.
+async fn list_aged_receivables(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(aged_receivables::aged_receivables(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
 }
 
 /// `POST /accounting/bank-reconciliation/match`: match the statement a bank sent against what the cash book holds.
@@ -1721,6 +1743,10 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/bank-reconciliation/match"),
                 post(reconcile_bank),
+            )
+            .route(
+                &format!("{prefix}/aged-receivables"),
+                get(list_aged_receivables),
             )
             .route(&format!("{prefix}/progress"), get(progress))
             // the taxes this Book charges, by rate and date, and what they come to on a document
