@@ -227,7 +227,13 @@ pub const GROUP: [StandardAccount; 4] = [
 
 /// A nonprofit: money given rather than earned, and what it is spent on.
 pub const NONPROFIT: [StandardAccount; 4] = [
-    account("4300", "Donations Received", "revenue", "credit"),
+    roled(
+        "4300",
+        "Donations Received",
+        "revenue",
+        "credit",
+        "other_income",
+    ),
     account("4400", "Grants Received", "revenue", "credit"),
     account("7000", "Programme Costs", "expense", "debit"),
     account("7100", "Fundraising Costs", "expense", "debit"),

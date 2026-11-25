@@ -67,10 +67,25 @@ pub(crate) fn account_named<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
     key: &str,
-    called: &str,
+    purpose: &str,
     kind: &str,
 ) -> Result<String, StoreError> {
-    let named = text(payload, key);
+    account_for_purpose(graph, scope, &text(payload, key), purpose, kind)
+}
+
+/// The account this Book keeps for a purpose: the one the caller named, the one carrying the role, or - for a Book
+/// opened before roles existed - the one called this.
+///
+/// This is the one function that answers "which of this Book's accounts is for this purpose", so every journal, the
+/// suspense ledger and the money accounts themselves cannot disagree about it. `kind` is the account type the purpose
+/// must sit in, because a purpose found in the wrong element would post to a liability that should be an asset.
+pub(crate) fn account_for_purpose<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    named: &str,
+    purpose: &str,
+    kind: &str,
+) -> Result<String, StoreError> {
     let accounts = ledger_book::accounts(graph, scope)?;
     if !named.trim().is_empty() {
         if !accounts
@@ -83,26 +98,40 @@ pub(crate) fn account_named<G: Graph + ?Sized>(
         }
         return Ok(named.trim().to_string());
     }
-    let purpose = called.trim().to_lowercase();
-    accounts
+    let wanted = purpose.trim().to_lowercase();
+    let held = accounts
         .iter()
         .find(|account| {
-            field(account, "account_type") == kind
-                && field(account, "role").eq_ignore_ascii_case(&purpose)
+            (kind.is_empty() || field(account, "account_type") == kind)
+                && field(account, "role").eq_ignore_ascii_case(&wanted)
         })
         .or_else(|| {
-            // a Book opened before the chart carried roles: its accounts are still found by what they are called
-            let words = purpose.replace('_', " ");
-            accounts.iter().find(|account| {
-                field(account, "account_type") == kind
-                    && field(account, "role").trim().is_empty()
-                    && account_name(account).to_lowercase().contains(&words)
-            })
-        })
-        .map(|account| field(account, "account_number").to_string())
+            // a Book opened before the chart carried roles: its accounts are still found by what they are called, by the
+            // whole purpose first and then by the element it belongs to, so `depreciation_expense` still finds the
+            // account an older chart calls Depreciation
+            let words = wanted.replace('_', " ");
+            let element = words.split(' ').next().unwrap_or(&words).to_string();
+            let roleless = |account: &&Value| field(account, "role").trim().is_empty();
+            accounts
+                .iter()
+                .filter(|account| kind.is_empty() || field(account, "account_type") == kind)
+                .find(|account| {
+                    roleless(account) && account_name(account).to_lowercase().contains(&words)
+                })
+                .or_else(|| {
+                    accounts
+                        .iter()
+                        .filter(|account| kind.is_empty() || field(account, "account_type") == kind)
+                        .find(|account| {
+                            roleless(account)
+                                && account_name(account).to_lowercase().contains(&element)
+                        })
+                })
+        });
+    held.map(|account| field(account, "account_number").to_string())
         .ok_or_else(|| {
             refused(&format!(
-                "This Book has no account set aside for {purpose}, so say which account it belongs in."
+                "This Book has no account set aside for {wanted}, so say which account it belongs in."
             ))
         })
 }
@@ -171,12 +200,16 @@ fn money_named(chart: &crate::measures::Chart) -> String {
         .join(", ")
 }
 
-/// The Book's payable accounts as a reader says them, for a refusal that has to name them.
-fn payable_named<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<String, StoreError> {
+/// The accounts of one type a Book keeps, as a reader says them, so a refusal can name what there is to choose from.
+pub(crate) fn accounts_of<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    kind: &str,
+) -> Result<String, StoreError> {
     let accounts = ledger_book::accounts(graph, scope)?;
     let named: Vec<String> = accounts
         .iter()
-        .filter(|account| field(account, "account_type") == "liability")
+        .filter(|account| field(account, "account_type") == kind)
         .map(|account| {
             format!(
                 "{} {}",
@@ -186,7 +219,7 @@ fn payable_named<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Stri
         })
         .collect();
     if named.is_empty() {
-        return Ok("no liability account yet".to_string());
+        return Ok(format!("no {kind} account yet"));
     }
     Ok(named.join(", "))
 }
@@ -1000,19 +1033,15 @@ pub fn create_disbursement(
     } else {
         let named = text(payload, "expense_account");
         if named.trim().is_empty() {
+            // there is no such thing as "the expense account": a Book keeps several, so guessing one would put a cost
+            // into an account by accident. It says which ones it keeps and asks which.
             return Err(refused(&format!(
                 "Say what the payment was for: the account it belongs in. This Book keeps {}.",
-                payable_named(graph, scope)?
+                accounts_of(graph, scope, "expense")?
             )));
         }
-        account_named(
-            graph,
-            scope,
-            payload,
-            "expense_account",
-            "expense",
-            "expense",
-        )?
+        // the account the caller named, checked against this Book's chart
+        account_for_purpose(graph, scope, &named, "", "expense")?
     };
 
     // A payment against a bill raised in another money clears a debt that was posted at an earlier rate. Vimbai does not

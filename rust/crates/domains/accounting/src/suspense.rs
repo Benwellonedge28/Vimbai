@@ -19,7 +19,7 @@ use vimbai_store::read::{field, refused, text};
 use vimbai_store::{BookScope, Graph, StoreError};
 
 use crate::ledger_book;
-use crate::subsidiary_journals::{account_name, must_be_open, positive, post};
+use crate::subsidiary_journals::{account_for_purpose, account_name, must_be_open, positive, post};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SuspenseError {
@@ -159,28 +159,14 @@ fn suspense_account<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<String, StoreError> {
-    let accounts = ledger_book::accounts(graph, scope)?;
-    let named = text(payload, "suspense_account").trim().to_string();
-    if !named.is_empty() {
-        if !accounts
-            .iter()
-            .any(|account| field(account, "account_number") == named)
-        {
-            return Err(refused(&format!(
-                "Account {named} is not in this Book's chart, so nothing can be posted to it."
-            )));
-        }
-        return Ok(named);
-    }
-    accounts
-        .iter()
-        .find(|account| account_name(account).to_lowercase().contains("suspense"))
-        .map(|account| field(account, "account_number").to_string())
-        .ok_or_else(|| {
-            refused(
-                "This Book has no account for suspense, so say which account the amounts that could not be placed are sitting in: suspense_account.",
-            )
-        })
+    // suspense is a purpose like any other: the Book says which account keeps it, and the caller may name one instead
+    account_for_purpose(
+        graph,
+        scope,
+        &text(payload, "suspense_account"),
+        "suspense",
+        "",
+    )
 }
 
 /// Which side of the account the amount belongs on. Suspense takes the other side, because clearing it is moving the

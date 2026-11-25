@@ -27,8 +27,8 @@ use vimbai_common::Money;
 use vimbai_store::read::{field, money, refused, text};
 use vimbai_store::{BookScope, Graph, Records, StoreError, DEPRECIATION_ENTRY, FIXED_ASSET};
 
-use crate::ledger_book;
 use crate::periods;
+use crate::subsidiary_journals::account_for_purpose;
 use crate::subsidiary_journals::post;
 
 /// The account the charge is a cost of, and the account that holds the wear.
@@ -40,87 +40,27 @@ struct Accounts {
     accumulated: String,
 }
 
-/// What the chart calls an account.
-///
-/// The chart's own records name an account under `name`; a caller that read it through the ledger's own view may have it as
-/// `account_name`. Both are the same fact, so both are read rather than one of them silently coming back empty.
-fn name_of(account: &Value) -> String {
-    let named = field(account, "account_name");
-    if named.trim().is_empty() {
-        field(account, "name").to_string()
-    } else {
-        named.to_string()
-    }
-}
-
-/// An account named in the payload, or the one the chart calls this.
-fn account_named<G: Graph + ?Sized>(
-    graph: &G,
-    scope: &BookScope,
-    payload: &Value,
-    key: &str,
-    called: &str,
-    kind: &str,
-) -> Result<Option<String>, StoreError> {
-    let named = text(payload, key);
-    let accounts = ledger_book::accounts(graph, scope)?;
-    if !named.trim().is_empty() {
-        let found = accounts
-            .iter()
-            .any(|account| field(account, "account_number") == named.trim());
-        if !found {
-            return Err(refused(&format!(
-                "Account {named} is not in this Book's chart, so nothing can be posted to it."
-            )));
-        }
-        return Ok(Some(named.trim().to_string()));
-    }
-    // both sides say "depreciation" in their name, so the type is what tells the cost from the wear: the charge is an
-    // expense and what has been used up is a contra-asset
-    Ok(accounts
-        .iter()
-        .find(|account| {
-            field(account, "account_type") == kind
-                && name_of(account)
-                    .to_lowercase()
-                    .contains(&called.to_lowercase())
-        })
-        .map(|account| field(account, "account_number").to_string()))
-}
-
 fn accounts_for<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Accounts, StoreError> {
-    let expense = account_named(
+    // The cost of the wear and the wear itself are two purposes, not one word told apart by account type: a Book that
+    // renames either keeps posting to the right side. The refusal says which purpose is unset and how to set it.
+    let expense = account_for_purpose(
         graph,
         scope,
-        payload,
-        "expense_account",
-        "depreciation",
+        &text(payload, "expense_account"),
+        "depreciation_expense",
         "expense",
-    )?
-    .ok_or_else(
-        || {
-            refused(
-                "This Book has no account for depreciation, so say which account the charge is a cost of.",
-            )
-        },
     )?;
-    let accumulated = account_named(
+    let accumulated = account_for_purpose(
         graph,
         scope,
-        payload,
-        "accumulated_account",
-        "depreciation",
+        &text(payload, "accumulated_account"),
+        "accumulated_depreciation",
         "asset",
-    )?
-    .ok_or_else(|| {
-        refused(
-            "This Book has no account for accumulated depreciation, so say which account holds how much of its assets have been used up.",
-        )
-    })?;
+    )?;
     if expense == accumulated {
         return Err(refused(
             "What has been used up is kept apart from what it cost the business, so the charge and the wear cannot be the same account.",
@@ -544,7 +484,11 @@ mod tests {
         let refused =
             post_month(&graph, &scope, &json!({"period": "2026-11"})).expect_err("no account");
         let words = format!("{refused}");
-        assert!(words.contains("no account for depreciation"), "{words}");
+        // the refusal names the purpose that is unset, not an account somebody has to guess at
+        assert!(
+            words.contains("no account set aside for depreciation_expense"),
+            "{words}"
+        );
     }
 
     /// One row can be posted on its own, and the register's own row keeps the entry that posted it.

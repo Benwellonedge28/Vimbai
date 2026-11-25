@@ -39,7 +39,28 @@ use vimbai_store::{BookScope, Graph, Records, StoreError, ACCRUAL, PREPAYMENT};
 use crate::cashbook;
 use crate::ledger_book;
 use crate::periods;
-use crate::subsidiary_journals::{account_named, must_be_open, positive, post};
+/// The cost account an accrual or a prepayment belongs to, which only the business can say.
+///
+/// There is no such thing as "the expense account": a Book keeps several, and guessing one would charge a cost to an
+/// account nobody chose. An unnamed cost is refused with the accounts the Book does keep, so the answer is a choice.
+fn cost_account<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<String, StoreError> {
+    let named = text(payload, "expense_account");
+    if named.trim().is_empty() {
+        return Err(refused(&format!(
+            "Say which cost this belongs to: the expense account it should carry. This Book keeps {}.",
+            accounts_of(graph, scope, "expense")?
+        )));
+    }
+    account_for_purpose(graph, scope, &named, "", "expense")
+}
+
+use crate::subsidiary_journals::{
+    account_for_purpose, account_named, accounts_of, must_be_open, positive, post,
+};
 
 /// The month a document belongs to, as a period, and the day it is dated in the books.
 fn month_of(payload: &Value, key: &str) -> Result<(String, String), StoreError> {
@@ -72,14 +93,7 @@ pub fn record_accrual(
     let amount = positive(payload, "amount", "An accrual")?;
     let (period, entry_date) = month_of(payload, "period")?;
     must_be_open(graph, scope, &entry_date)?;
-    let expense = account_named(
-        graph,
-        scope,
-        payload,
-        "expense_account",
-        "expense",
-        "expense",
-    )?;
+    let expense = cost_account(graph, scope, payload)?;
     let accrued = account_named(
         graph,
         scope,
@@ -270,14 +284,7 @@ pub fn record_prepayment(
         ));
     }
     let prepaid = account_named(graph, scope, payload, "prepaid_account", "prepaid", "asset")?;
-    let expense = account_named(
-        graph,
-        scope,
-        payload,
-        "expense_account",
-        "expense",
-        "expense",
-    )?;
+    let expense = cost_account(graph, scope, payload)?;
     if prepaid == expense {
         return Err(refused(
             "What is still to be used and what has been used cannot be the same account.",

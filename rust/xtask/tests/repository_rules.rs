@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use xtask::{
     boundaries, catalog, crates, documentation, makefile, manifests, published, reachability,
-    readme, runbook, servers, wiring, workflows,
+    readme, runbook, servers, vocabulary, wiring, workflows,
 };
 
 fn root() -> PathBuf {
@@ -1167,5 +1167,21 @@ fn no_caller_can_hand_the_store_a_statement_of_its_own() {
         token
             .contains("fn run(&self, statement: Statement<'_>) -> Result<Vec<Value>, StoreError>;"),
         "the trait's raw door is not the one this gate describes"
+    );
+}
+
+#[test]
+fn the_engine_names_purposes_and_never_accounts() {
+    // ADR-018: an account is found by the purpose it is kept for. A journal that asks for "Sales" puts one business's
+    // word back into the engine and works only for the Books that happen to use it.
+    let purposes = vocabulary::purposes_outside_roles(&root());
+    assert!(
+        purposes.is_empty(),
+        "the engine asks for purposes that are not roles: {purposes:#?}"
+    );
+    let named = vocabulary::names_deciding_accounts(&root());
+    assert!(
+        named.is_empty(),
+        "a name decides which account a posting reaches: {named:#?}"
     );
 }

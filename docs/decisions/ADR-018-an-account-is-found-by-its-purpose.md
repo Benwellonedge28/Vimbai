@@ -29,9 +29,10 @@ The name is the business's word. It must never be the engine's key.
    account type. Call sites pass a role identifier (`sales`, `receivable`, `payable`, `depreciation_expense`,
    `doubtful_allowance`, ...) rather than an English phrase.
 
-3. **The roles are the laws of bookkeeping, not a trade's vocabulary.** `ledger_book::ROLES` lists the twenty-five: what is
-   owed to the business, what it owes, what it sold, what came back, what it holds, what it has used up, what it keeps for
-   somebody else, the money it keeps. Every set of accounts has these; what they are called is the Book's business.
+3. **The roles are the laws of bookkeeping, not a trade's vocabulary.** `ledger_book::ROLES` lists the twenty-six: what is
+   owed to the business, what it owes, what it sold, revenue that is not trading, what came back, what it holds, what it has
+   used up, what it keeps for somebody else, the money it keeps. Every set of accounts has these; what they are called is
+   the Book's business.
 
 4. **A purpose belongs to one account.** `update_account` refuses a role the engine does not post by, naming the ones that
    exist, and refuses a role another account already carries, naming that account - two accounts keeping sales would post
@@ -41,6 +42,21 @@ The name is the business's word. It must never be the engine's key.
    answers by name for those accounts only (the role word with underscores read as spaces). No Book is made to
    reconfigure itself to keep posting; setting a role moves that account onto the purpose, after which its name no longer
    matters.
+
+6. **One lookup, and a gate over it.** `subsidiary_journals::account_for_purpose` is the single function that answers
+   "which of this Book's accounts is for this purpose", and `account_named` is a thin reading of the payload through it.
+   The suspense ledger, the depreciation charge and the money accounts all go through it, so the fallback for older Books
+   exists once. `xtask/src/vocabulary.rs` holds the decision over the engine: every purpose handed to those lookups must be
+   one of the roles the chart declares (read from `ROLES`, so a new role is picked up without touching the gate), and a
+   line that lets an account's *name* decide where a posting goes is reported unless it is one of two allowed places - the
+   fallback itself, and the money-account lookup, which matches the Book's own money account to the Book's own chart.
+
+   Building the gate found six places still naming accounts: the depreciation charge asked for `depreciation` and told its
+   cost from its wear by account type (now two purposes), the accrual and prepayment paths guessed "the expense account"
+   (now refused with the accounts the Book keeps, because a Book with several has no default one), a receipt's other income
+   had no role (now `other_income`, which a nonprofit's donations carry), and a payment to a supplier without a bill
+   charged the cost to whatever account was called "expense". Each was a real defect for a Book that words its chart its
+   own way.
 
 ## What this forbids
 

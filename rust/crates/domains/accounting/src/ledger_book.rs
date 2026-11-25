@@ -211,10 +211,11 @@ pub fn list_accounts<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<
 /// These are the laws of bookkeeping, not one business's vocabulary: every set of accounts has something owed to it, something
 /// it owes, what it sold, what it holds, what it has used up and what it keeps for somebody else. A Book says which of its
 /// own accounts answers each of these, and what those accounts are called is the business's business.
-pub const ROLES: [&str; 25] = [
+pub const ROLES: [&str; 26] = [
     "receivable",
     "payable",
     "sales",
+    "other_income",
     "sales_returns",
     "purchases_returns",
     "cost_of_sales",
