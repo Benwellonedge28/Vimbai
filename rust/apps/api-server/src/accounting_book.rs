@@ -507,6 +507,19 @@ async fn close_period(
     answer(periods::close_period(graph.as_ref(), &scope, &payload))
 }
 
+/// `POST /accounting/closed-periods/reopen`: unlock a month that was closed by mistake.
+async fn reopen_period(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(periods::reopen_period(graph.as_ref(), &scope, &payload))
+}
+
 /// `GET /accounting/closed-periods/`: the months closed, and the day the open books begin.
 async fn closed_periods(State(graph): GraphState, headers: HeaderMap) -> Response {
     let scope = match scope_of(&headers) {
@@ -1636,6 +1649,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/closed-periods"),
                 post(close_period).get(closed_periods),
+            )
+            // a month closed by mistake is opened again by an act that says so, with the day and the reason kept
+            .route(
+                &format!("{prefix}/closed-periods/reopen"),
+                post(reopen_period),
             )
             // a foreign debt paid at a different rate records the difference, and a period end restates what is held:
             // both are records of what happened, never a movement of money

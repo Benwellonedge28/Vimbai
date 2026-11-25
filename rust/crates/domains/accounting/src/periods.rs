@@ -89,6 +89,9 @@ pub fn closed_months<G: Graph + ?Sized>(
     let mut months: Vec<String> = Records::new(graph, CLOSED_PERIOD)
         .list(scope, 4000)?
         .into_iter()
+        // a month that has been reopened is open again: the close record stays as the record of both acts, and the
+        // reopening it carries is what says the month is no longer locked
+        .filter(|record| field(record, "reopened_on").is_empty())
         .map(|record| field(&record, "period").to_string())
         .filter(|period| !period.is_empty())
         .collect();
@@ -159,6 +162,8 @@ pub fn list_periods<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<V
                 "closes_on": field(&record, "closes_on"),
                 "closed_by": field(&record, "closed_by"),
                 "note": field(&record, "note"),
+                "reopened_on": field(&record, "reopened_on"),
+                "reopen_reason": field(&record, "reopen_reason"),
             })
         })
         .collect();
@@ -167,6 +172,67 @@ pub fn list_periods<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<V
         "closed_months": months,
         "open_from": months.last().map(|month| first_day_after(month)),
     }))
+}
+
+/// `POST /accounting/closed-periods/reopen`: unlock a month that was closed by mistake.
+///
+/// A close is a decision, and so is reopening one: the day and the reason are supplied by the caller, and both are kept
+/// on the close record rather than a second record being written. That way one record says the month was locked, on what
+/// day, by whom, and then unlocked, on what day, by whom and why - and a month with a reopening on it is open again,
+/// because `closed_months` no longer counts it.
+///
+/// Nothing about the entries already posted changes. Reopening does not rewrite a figure; it only says the month may be
+/// posted into again, which is what a late bill needs.
+pub fn reopen_period<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let period = text(payload, "period");
+    let Some(month) = month_written_as_a_period(&period) else {
+        return Err(refused(
+            "A period reads as a month: write it like 2026-11, the year and then the month.",
+        ));
+    };
+    let reopened_on = text(payload, "reopened_on");
+    // the day is read as a date, and then compared as one: the month it falls in is not what the close is compared to
+    let Some(_) = month_of(&reopened_on) else {
+        return Err(refused(
+            "Say the day the month is being reopened: reopened_on, like 2026-11-20.",
+        ));
+    };
+    let reason = text(payload, "reason");
+    if reason.trim().is_empty() {
+        return Err(refused(&format!(
+            "Say why {month} is being reopened. A month is reopened because something belongs in it, and the reason is \
+             kept with the close so the books can be read later."
+        )));
+    }
+    let records = Records::new(graph, CLOSED_PERIOD).list(scope, 4000)?;
+    let Some(record) = records
+        .iter()
+        .find(|record| field(record, "period") == month && field(record, "reopened_on").is_empty())
+    else {
+        return Err(refused(&format!(
+            "{month} is not closed, so there is nothing to reopen. Only a month that has been closed can be reopened."
+        )));
+    };
+    if field(record, "closes_on") > reopened_on.as_str() {
+        return Err(refused(&format!(
+            "{month} was closed on {}, so it cannot be reopened on {reopened_on}, a day before that. Reopen it on \
+             the day it was closed or later.",
+            field(record, "closes_on")
+        )));
+    }
+    Records::new(graph, CLOSED_PERIOD).update(
+        scope,
+        field(record, "id"),
+        &json!({
+            "reopened_on": reopened_on,
+            "reopened_by": text(payload, "reopened_by"),
+            "reopen_reason": reason,
+        }),
+    )
 }
 
 /// The first day of the month after `2026-11`, as a date: `2026-12-01`.
@@ -215,6 +281,24 @@ mod tests {
             graph,
             &scope(),
             &json!({"period": period, "closes_on": closes_on, "closed_by": "Samuel"}),
+        )
+    }
+
+    fn reopen(
+        graph: &MemoryGraph,
+        period: &str,
+        reopened_on: &str,
+        reason: &str,
+    ) -> Result<Value, StoreError> {
+        reopen_period(
+            graph,
+            &scope(),
+            &json!({
+                "period": period,
+                "reopened_on": reopened_on,
+                "reopened_by": "Samuel",
+                "reason": reason,
+            }),
         )
     }
 
@@ -333,5 +417,86 @@ mod tests {
             refusal_for(&graph, &scope(), "2026-11-18").expect("check"),
             None
         );
+    }
+
+    #[test]
+    fn a_closed_month_can_be_reopened_and_then_a_late_entry_belongs_in_it() {
+        let graph = MemoryGraph::new();
+        close(&graph, "2026-11", "2026-12-01").expect("November closes");
+        assert!(refusal_for(&graph, &scope(), "2026-11-30")
+            .expect("check")
+            .is_some());
+
+        let answered =
+            reopen(&graph, "2026-11", "2026-12-02", "a bill arrived late").expect("reopened");
+        assert_eq!(answered["reopened_on"], json!("2026-12-02"));
+        assert_eq!(answered["reopen_reason"], json!("a bill arrived late"));
+
+        // the month is open again, so the late entry is no longer refused
+        assert_eq!(
+            refusal_for(&graph, &scope(), "2026-11-30").expect("check"),
+            None
+        );
+        // and the close record still says the month was locked, and then unlocked, with the reason kept
+        let periods = list_periods(&graph, &scope()).expect("periods");
+        assert_eq!(periods["closed_months"], json!([]));
+        assert_eq!(periods["closed"][0]["closes_on"], json!("2026-12-01"));
+        assert_eq!(periods["closed"][0]["reopened_on"], json!("2026-12-02"));
+        assert_eq!(
+            periods["closed"][0]["reopen_reason"],
+            json!("a bill arrived late")
+        );
+        // and it can be closed again, because the reopening did not delete the history
+        close(&graph, "2026-11", "2026-12-03").expect("closed again");
+        assert!(refusal_for(&graph, &scope(), "2026-11-30")
+            .expect("check")
+            .is_some());
+    }
+
+    #[test]
+    fn reopening_says_what_it_needs_and_refuses_a_month_that_was_never_closed() {
+        let graph = MemoryGraph::new();
+        let never = reopen(&graph, "2026-11", "2026-12-02", "a bill arrived late")
+            .expect_err("nothing to reopen");
+        assert!(never.to_string().contains("is not closed"), "{never}");
+
+        close(&graph, "2026-11", "2026-12-01").expect("November closes");
+        let no_day = reopen(&graph, "2026-11", "", "a bill arrived late").expect_err("no day");
+        assert!(no_day.to_string().contains("reopened_on"), "{no_day}");
+
+        let no_reason = reopen(&graph, "2026-11", "2026-12-02", "  ").expect_err("no reason");
+        assert!(
+            no_reason
+                .to_string()
+                .contains("Say why 2026-11 is being reopened"),
+            "{no_reason}"
+        );
+
+        let before_the_close =
+            reopen(&graph, "2026-11", "2026-11-30", "a bill arrived late").expect_err("too early");
+        assert!(
+            before_the_close.to_string().contains("a day before that"),
+            "{before_the_close}"
+        );
+
+        let not_a_month = reopen(&graph, "2026", "2026-12-02", "a bill").expect_err("not a month");
+        assert!(
+            not_a_month.to_string().contains("write it like 2026-11"),
+            "{not_a_month}"
+        );
+
+        // nothing above reopened the month: a refusal changes nothing
+        assert!(refusal_for(&graph, &scope(), "2026-11-30")
+            .expect("check")
+            .is_some());
+    }
+
+    #[test]
+    fn reopening_the_same_month_twice_is_refused_the_second_time() {
+        let graph = MemoryGraph::new();
+        close(&graph, "2026-11", "2026-12-01").expect("November closes");
+        reopen(&graph, "2026-11", "2026-12-02", "a bill arrived late").expect("reopened");
+        let twice = reopen(&graph, "2026-11", "2026-12-03", "again").expect_err("already open");
+        assert!(twice.to_string().contains("is not closed"), "{twice}");
     }
 }

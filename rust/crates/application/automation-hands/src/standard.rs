@@ -4,14 +4,17 @@
 //! depreciation every month, because the alternative is an owner who is told the system is automatic and then discovers
 //! that nothing happens until they build a rule. So a Book is given the clock's own work as rules, once, when it starts.
 //!
-//! Two rules are shipped, and they are not the same kind of thing:
+//! Two rules are shipped, and both are on from the start, because the owner's decision is that a Book's clock work
+//! happens without a person remembering it:
 //!
-//! 1. **Charge depreciation every month** is on from the start. It cannot do harm: on a Book that holds no asset it
-//!    answers that nothing was written off, and on a Book that holds assets it writes off the month that just ended,
-//!    which is what a person would otherwise have to remember to do twelve times a year.
-//! 2. **Close the month** is shipped switched *off*. Whether a clean month closes itself is a decision about the owner's
-//!    own books, not a technical default, and it has not been decided. A rule that says what it would do, and is off
-//!    until someone says otherwise, is the honest way to ship a decision nobody has made yet.
+//! 1. **Charge depreciation every month** writes off the month that just ended for every asset the Book still holds. On
+//!    a Book that holds no asset it answers that nothing was written off.
+//! 2. **Close the month** locks the month that just ended. A month is how figures are held still, so leaving it open is
+//!    the thing a person would otherwise have to remember twelve times a year.
+//!
+//! Neither can trap a late entry: a month closed by mistake is reopened by an act that records the day and the reason
+//! (`POST /accounting/closed-periods/reopen`), and the posting path's refusal names that way out. So the pair costs an
+//! owner nothing when the automation is right and one recorded act when it is wrong, which is the right way round.
 //!
 //! Installing is safe to repeat: a rule whose name the Book already has is left alone, so a second call adds nothing and
 //! never overwrites a rule a person has since edited.
@@ -44,10 +47,10 @@ pub fn standard_rules(now: f64) -> Vec<Value> {
         }),
         json!({
             "name": "Close the month",
-            "description": "Closes the month that just ended, once it is over. Switched off, because whether a clean \
-        month should close itself is the owner's decision.",
+            "description": "On the first day of each month, closes the month that just ended, so its figures are held \
+        still. A month closed by mistake is reopened with a recorded reason.",
             "trigger": "scheduled",
-            "enabled": false,
+            "enabled": true,
             "condition": { "schedule": { "due_at": due, "every": "month" } },
             "steps": [{
                 "step_id": "close",
@@ -127,12 +130,18 @@ mod tests {
             json!("last_month")
         );
 
-        // closing a month is a decision about the owner's books, so the rule ships switched off
+        // closing a month ships on too: the clock work happens without a person remembering it, and a month closed by
+        // mistake is reopened by a recorded act rather than by leaving every month open forever
         let closing = rows
             .iter()
             .find(|row| text(row, "name") == "Close the month")
             .expect("the closing rule");
-        assert_eq!(closing["enabled"], json!(false));
+        assert_eq!(closing["enabled"], json!(true));
+        assert_eq!(closing["steps"][0]["action"], json!("close_period"));
+        assert_eq!(
+            closing["condition"]["schedule"]["due_at"].as_f64(),
+            Some(common::dates::instant_of("2026-12-01").expect("a date"))
+        );
     }
 
     #[test]
