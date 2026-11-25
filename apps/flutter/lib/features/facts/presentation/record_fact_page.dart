@@ -52,12 +52,13 @@ class _RecordFactPageState extends State<RecordFactPage> {
       '${_happenedOn.day.toString().padLeft(2, '0')}';
 
   /// What the person is being asked for, in the words of the fact they chose.
-  String get _whatForLabel =>
-      _kind == FactKind.spent ? 'What it was spent on' : 'What it came in for';
+  String get _whatForLabel => _kind == FactKind.spent
+      ? 'What it was spent on'
+      : 'Who paid, or what it came in for';
 
   String get _whatForHint => _kind == FactKind.spent
       ? 'Rent, fuel, airtime: whatever the Book calls it'
-      : 'Sales, or whatever the Book calls this trade';
+      : 'A customer who owes you, or Sales for a trade paid now';
 
   /// Ask the engine, rehearsing unless [rehearse] is false.
   Future<void> _ask({required bool rehearse}) async {
@@ -267,6 +268,14 @@ class _Posting extends StatelessWidget {
             _line(theme, 'Credit', answer.credit.label),
             _line(theme, 'Amount', answer.amount),
             _line(theme, 'Day', answer.entryDate),
+            if (answer.settlesDebt)
+              _line(
+                theme,
+                'Clears',
+                answer.settledDocument.isEmpty
+                    ? '${answer.settledCustomer}\'s oldest debt'
+                    : '${answer.settledCustomer}\'s ${answer.settledDocument}',
+              ),
             if (answer.posted && answer.entryId.isNotEmpty)
               _line(theme, 'Entry', answer.entryId),
             const SizedBox(height: 8),

@@ -11,10 +11,13 @@ import 'package:vimbai_mobile_client/features/facts/presentation/record_fact_pag
 
 /// Stands in for the engine: it remembers what it was asked, and answers with a posting.
 class _FakeFacts extends FactPostingService {
-  _FakeFacts({this.refusal}) : super.fresh();
+  _FakeFacts({this.refusal, this.settles = false}) : super.fresh();
 
   /// When set, the engine refuses in these words instead of answering.
   final String? refusal;
+
+  /// True when the engine read the money arriving as a payment against a debt rather than a new sale.
+  final bool settles;
 
   final List<Map<String, Object?>> asked = [];
 
@@ -46,10 +49,14 @@ class _FakeFacts extends FactPostingService {
           : const FactSide(number: '1010', name: 'Bank'),
       credit: kind == FactKind.spent
           ? const FactSide(number: '1010', name: 'Bank')
+          : settles
+          ? const FactSide(number: '1100', name: 'Accounts Receivable')
           : const FactSide(number: '4000', name: 'Sales'),
       amount: amount.toDecimalString(),
       description: 'Rent paid out of Bank',
       entryId: rehearse ? '' : 'entry-1',
+      settledCustomer: settles ? 'acme' : '',
+      settledDocument: settles ? 'INV-1' : '',
     );
   }
 
@@ -100,12 +107,16 @@ Future<void> _press(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-Future<_FakeFacts> _screen(WidgetTester tester, {String? refusal}) async {
+Future<_FakeFacts> _screen(
+  WidgetTester tester, {
+  String? refusal,
+  bool settles = false,
+}) async {
   // a tall surface so the answer and the complaint are built rather than waiting below the fold
   tester.view.physicalSize = const Size(1000, 2200);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  final facts = _FakeFacts(refusal: refusal);
+  final facts = _FakeFacts(refusal: refusal, settles: settles);
   await tester.pumpWidget(MaterialApp(home: RecordFactPage(posting: facts)));
   await tester.pumpAndSettle();
   return facts;
@@ -134,11 +145,28 @@ void main() {
     await tester.tap(find.text('Money came in'));
     await tester.pumpAndSettle();
     await _fill(tester, 'How much', '500');
-    await _fill(tester, 'What it came in for', 'sales');
+    await _fill(tester, 'Who paid, or what it came in for', 'sales');
     await _press(tester, 'Record it');
 
     expect(facts.asked.single['what'], FactKind.received.wire);
     expect(find.text('Sales (4000)'), findsOneWidget);
+  });
+
+  testWidgets('money from a customer who owes says which debt it cleared', (
+    tester,
+  ) async {
+    final facts = await _screen(tester, settles: true);
+    await tester.tap(find.text('Money came in'));
+    await tester.pumpAndSettle();
+    await _fill(tester, 'How much', '400');
+    await _fill(tester, 'Who paid, or what it came in for', 'acme');
+    await _press(tester, 'Record it');
+
+    // the same field takes a customer, and the answer names the debt rather than pretending a new sale was earned
+    expect(facts.asked.single['account'], 'acme');
+    expect(find.text('Clears'), findsOneWidget);
+    expect(find.text("acme's INV-1"), findsOneWidget);
+    expect(find.text('Accounts Receivable (1100)'), findsOneWidget);
   });
 
   testWidgets('showing the entry records nothing and says so', (tester) async {

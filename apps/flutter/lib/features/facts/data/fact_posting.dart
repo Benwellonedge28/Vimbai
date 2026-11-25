@@ -63,6 +63,8 @@ class FactAnswer {
     required this.amount,
     required this.description,
     required this.entryId,
+    this.settledCustomer = '',
+    this.settledDocument = '',
   });
 
   /// False for a rehearsal, which answers the posting without making it.
@@ -86,12 +88,25 @@ class FactAnswer {
   /// Empty for a rehearsal.
   final String entryId;
 
+  /// The customer whose debt this money cleared, when the engine read the fact as a payment rather than a sale.
+  /// Empty when the money arriving earned something new instead.
+  final String settledCustomer;
+
+  /// The invoice the payment cleared, when the engine named one. Empty when it paid the oldest debt.
+  final String settledDocument;
+
+  /// True when this money settled a debt the Book already held, rather than earning something now.
+  bool get settlesDebt => settledCustomer.isNotEmpty;
+
   factory FactAnswer.fromJson(Map<String, dynamic> json, FactKind asked) {
     final posting = json['posting'] ?? json['would_post'];
     final body = posting is Map<String, dynamic>
         ? posting
         : const <String, dynamic>{};
     final said = (json['what'] as String?) ?? asked.wire;
+    final settles = json['settles'] is Map<String, dynamic>
+        ? json['settles'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return FactAnswer(
       posted: json['posted'] == true,
       kind: FactKind.values.firstWhere(
@@ -104,6 +119,8 @@ class FactAnswer {
       amount: (body['amount'] as String?) ?? '',
       description: (body['description'] as String?) ?? '',
       entryId: (json['entry_id'] as String?) ?? '',
+      settledCustomer: (settles['customer_name'] as String?) ?? '',
+      settledDocument: (settles['document'] as String?) ?? '',
     );
   }
 }
