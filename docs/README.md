@@ -71,6 +71,13 @@ pull request.
 - `domains/statement-import-and-replay.md` - Import a bank statement with a reviewable receipt.
 - `domains/government-budget-control-pilot.md` - Approve and account for one department’s budget commitments.
 - `architecture/partner-event-delivery.md` - Deliver one partner event safely after the integration trigger.
+- `architecture/design-work-packages-15-20.md` - reading order and dependencies for packages 15–20.
+- `domains/business-document-evidence.md` - Keep business documents as verifiable evidence.
+- `architecture/book-sync-at-scale.md` - Sync a large Book with bounded reads and durable receipts.
+- `domains/foreign-currency-settlement.md` - Settle foreign invoices and bills from their recorded carrying amounts.
+- `domains/cross-book-consolidation.md` - Consolidate authorised Books with evidence for every adjustment.
+- `architecture/verified-store-cutover.md` - Move a deployment store and prove the destination is complete.
+- `architecture/hosted-and-self-hosted-release.md` - Release one reproducible web and self-hosted deployment.
 
 ## Operations
 
@@ -88,7 +95,7 @@ pull request.
 ## Domains
 
 `domains/` documents each business domain as built: what it owns, the services and gateway prefixes it answers on, and
-what it deliberately does not own. The directory contains 29 pages, including proposed work packages.
+what it deliberately does not own. The directory contains 32 pages, including proposed work packages.
 The command `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate
 the catalogue does not have, or if a page leaves out one of its own prefixes.
 
