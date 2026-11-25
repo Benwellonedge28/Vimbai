@@ -51,6 +51,7 @@ services:
   - GET /accounting/petty-cash-funds
   - GET /accounting/prepayments
   - GET /accounting/profit-estimations
+  - GET /accounting/progress
   - GET /accounting/purchases-journal
   - GET /accounting/receipts-payments
   - GET /accounting/sales-journal

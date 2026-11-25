@@ -33,6 +33,10 @@ pull request.
 | 009 | The kernel's reading half reads the store; the posting authority stays store-free |
 | 010 | An organisation is the tenant, a Book belongs to one, and one rule decides who may open it |
 | 011 | A schema change is a numbered step, recorded, in both stores |
+| 012 | A Book is kept in one money; exchange differences are reported, never absorbed |
+| 013 | A Book is autonomous: an entry flows to the reports, and a report is a view over any window |
+| 014 | Nothing business-specific is code - a Book's measures, profile and labels are its own data |
+| 015 | A ledger is created when a posting needs it, and control accounts are never invented |
 
 ## Architecture
 

@@ -29,6 +29,7 @@ import 'package:vimbai_mobile_client/features/expenses/presentation/record_expen
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/return_from_customer_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
+import 'package:vimbai_mobile_client/features/progress/presentation/how_am_i_doing_page.dart';
 import 'package:vimbai_mobile_client/features/assets/presentation/fixed_assets_page.dart';
 import 'package:vimbai_mobile_client/features/budgeting/presentation/spending_plan_page.dart';
 import 'package:vimbai_mobile_client/features/payables/presentation/buy_stock_page.dart';
@@ -190,6 +191,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Each month so far: what came in, what went out, what stayed',
           icon: Icons.timeline_outlined,
           page: (context) => const YearTrendPage(),
+        ),
+        BookServiceEntry(
+          title: 'How am I doing',
+          description:
+              'What you have made so far, against the same days before, with what you hold and what is owed',
+          icon: Icons.trending_up,
+          page: (context) => const HowAmIDoingPage(),
         ),
         BookServiceEntry(
           title: 'Books in order',

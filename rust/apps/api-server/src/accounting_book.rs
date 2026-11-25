@@ -13,6 +13,7 @@ use accounting::ledger_book as book;
 use accounting::opening_balances;
 use accounting::payroll;
 use accounting::periods;
+use accounting::progress as progress_service;
 use accounting::stock_adjustments;
 use accounting::subsidiary_journals as journals;
 use accounting::tax;
@@ -282,6 +283,27 @@ async fn tax_ledger(
         Err(response) => return *response,
     };
     answer(tax_ledger_service::tax_ledger(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+/// `GET /accounting/progress/`: how the business is doing, to any day.
+///
+/// The month is how figures are locked, not how they are seen, so this answers over any window that ends wherever the
+/// person is standing. Nothing here is annualised or projected, and what has not been posted is counted rather than
+/// hidden, because a profit that leaves those out is a profit somebody acts on.
+async fn progress(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(progress_service::progress(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
@@ -1603,6 +1625,8 @@ pub fn router(graph: GraphHandle) -> Router {
             // each tax's own account: what it was owed, what it charged and took back, and what was paid over
             .route(&format!("{prefix}/tax-ledger"), get(tax_ledger))
             .route(&format!("{prefix}/tax-ledger/settle"), post(settle_tax))
+            // how the business is doing to any day: what it made, what it is owed, what it holds and what is not yet posted
+            .route(&format!("{prefix}/progress"), get(progress))
             // the taxes this Book charges, by rate and date, and what they come to on a document
             .route(&format!("{prefix}/taxes"), post(save_tax).get(list_taxes))
             .route(&format!("{prefix}/taxes/seed"), post(seed_taxes))

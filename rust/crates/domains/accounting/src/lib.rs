@@ -50,6 +50,7 @@ pub mod ledger_book;
 pub mod opening_balances;
 pub mod payroll;
 pub mod periods;
+pub mod progress;
 pub mod revenue_recognition;
 pub mod standards;
 pub mod stock_adjustments;
