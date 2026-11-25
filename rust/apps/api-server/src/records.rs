@@ -14663,6 +14663,10 @@ fn opened_book(
     // the owner has to keep by building one (ADR-016). Installing is safe to repeat and never overwrites a rule a person
     // has since switched or edited, which matters because this runs on the default-Book path too.
     automation_hands::standard::install_standard_rules(graph.as_ref(), &book, moment())?;
+
+    // and with the figures it measures itself by, as rows, so what a business watches is data it can change rather than
+    // a list this engine decided on (ADR-018)
+    accounting::measures::install_default_measures(graph.as_ref(), &book)?;
     Ok(opened)
 }
 

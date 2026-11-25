@@ -38,6 +38,7 @@ pull request.
 | 014 | Nothing business-specific is code - a Book's measures, profile and labels are its own data |
 | 015 | A ledger is created when a posting needs it, and control accounts are never invented |
 | 016 | A rule's step reaches the engine, and a Book opens with the clock's work already done |
+| 017 | A measure is a row in the Book, built from six sources and checked against the Book's own chart |
 
 ## Architecture
 

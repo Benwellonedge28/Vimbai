@@ -10,6 +10,7 @@ use accounting::find;
 use accounting::fx_revaluation;
 use accounting::fx_settlement;
 use accounting::ledger_book as book;
+use accounting::measures;
 use accounting::opening_balances;
 use accounting::payroll;
 use accounting::periods;
@@ -24,7 +25,7 @@ use axum::{
     extract::{Path, RawQuery, State},
     http::HeaderMap,
     response::Response,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use serde_json::{json, Value};
@@ -505,6 +506,61 @@ async fn close_period(
         Err(response) => return *response,
     };
     answer(periods::close_period(graph.as_ref(), &scope, &payload))
+}
+
+/// `GET /accounting/measures/`: what this Book measures itself by, worked out over a window.
+async fn list_measures(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(measures::list_measures(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+/// `POST /accounting/measures/`: add a measure to this Book. A measure is a row, so this checks the row, not a list.
+async fn create_measure(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(measures::create_measure(graph.as_ref(), &scope, &payload))
+}
+
+/// `POST /accounting/measures/standard`: give this Book the measures a new Book is opened with.
+///
+/// A Book opened before these existed, or one whose measures a person took away, can ask for them back. Installing is
+/// safe to repeat: a measure the Book already has by name is left exactly as the person left it.
+async fn install_standard_measures(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(measures::install_default_measures(graph.as_ref(), &scope))
+}
+
+/// `DELETE /accounting/measures/:name`: stop measuring something.
+async fn delete_measure(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(measures::delete_measure(graph.as_ref(), &scope, &name))
 }
 
 /// `POST /accounting/closed-periods/reopen`: unlock a month that was closed by mistake.
@@ -1650,6 +1706,16 @@ pub fn router(graph: GraphHandle) -> Router {
                 &format!("{prefix}/closed-periods"),
                 post(close_period).get(closed_periods),
             )
+            // what this Book measures itself by: rows a person can add to, not figures the engine decided on
+            .route(
+                &format!("{prefix}/measures"),
+                get(list_measures).post(create_measure),
+            )
+            .route(
+                &format!("{prefix}/measures/standard"),
+                post(install_standard_measures),
+            )
+            .route(&format!("{prefix}/measures/:name"), delete(delete_measure))
             // a month closed by mistake is opened again by an act that says so, with the day and the reason kept
             .route(
                 &format!("{prefix}/closed-periods/reopen"),

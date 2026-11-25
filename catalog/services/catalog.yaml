@@ -165,6 +165,7 @@ services:
   endpoints:
   - DELETE /accounting/accounts/{}
   - DELETE /accounting/journal-entries/{}
+  - DELETE /accounting/measures/{}
   - GET /accounting/accounts
   - GET /accounting/accounts/{}
   - GET /accounting/accounts/{}/period-activity
@@ -194,6 +195,7 @@ services:
   - GET /accounting/journal-entries/{}
   - GET /accounting/ledger/integrity
   - GET /accounting/ledgers/{}
+  - GET /accounting/measures
   - GET /accounting/opening-balances
   - GET /accounting/payroll
   - GET /accounting/petty-cash-entries
@@ -240,6 +242,8 @@ services:
   - POST /accounting/journal-entries
   - POST /accounting/journal-entries/{}/post
   - POST /accounting/journal-entries/{}/reverse
+  - POST /accounting/measures
+  - POST /accounting/measures/standard
   - POST /accounting/opening-balances
   - POST /accounting/payroll
   - POST /accounting/petty-cash-entries
