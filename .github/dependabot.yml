@@ -1,27 +1,33 @@
 version: 2
+# Dependabot keeps reporting every bump; the PRs are read and merged in a weekly pass, deliberately.
+# The pip ecosystem is gone because the repository holds no Python - the Python services, the pytest
+# suite, the scripts and the PyO3 wheel were all removed, so a pip dependency has nothing to watch.
 updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-  
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
 
   # Go modules are in specific directories
   - package-ecosystem: "gomod"
     directory: "/gateway/go"
     schedule:
       interval: "weekly"
-  
+    groups:
+      go-modules:
+        patterns: ["*"]
+
   # Dockerfiles are in specific directories
   - package-ecosystem: "docker"
     directory: "/gateway/go"
     schedule:
       interval: "weekly"
+    groups:
+      docker-images:
+        patterns: ["*"]
 
   # The React frontend is retired (Flutter is the only UI), so its Dockerfile is no longer tracked
   # for updates. Its files stay in the tree as legacy until the screens are migrated.
