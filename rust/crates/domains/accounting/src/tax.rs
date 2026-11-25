@@ -21,10 +21,32 @@ use crate::ledger_book;
 
 /// Whether an account is one the tax is *owed* in, rather than the expense a sale is charged: the name says so, and the
 /// expense account a sale charges its tax to is not a place tax is owed, so counting it would double the figure.
-fn holds_tax(account: &Value) -> bool {
+pub(crate) fn holds_tax(account: &Value) -> bool {
     let name = field(account, "name").to_lowercase();
     let expense = field(account, "account_type") == "expense";
     !expense && (name.contains("vat") || name.contains("tax"))
+}
+
+/// Every account in this Book's chart that tax is owed in, as its number and what the chart calls it.
+///
+/// The summary and the ledger both read tax from these accounts, so they are found in one place: two answers about which
+/// accounts hold tax would eventually disagree, and a liability would be reported twice or not at all.
+pub(crate) fn tax_accounts<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+) -> Result<Vec<(String, String)>, StoreError> {
+    let chart = ledger_book::accounts(graph, scope)?;
+    Ok(chart
+        .iter()
+        .filter(|account| holds_tax(account))
+        .map(|account| {
+            (
+                field(account, "account_number").to_string(),
+                field(account, "name").to_string(),
+            )
+        })
+        .filter(|(number, _)| !number.is_empty())
+        .collect())
 }
 
 /// `GET /accounting/tax/`: what was collected, what can be reclaimed, and what is owed, over a period.
@@ -46,18 +68,7 @@ pub fn tax_due<G: Graph + ?Sized>(
         )));
     }
 
-    let chart = ledger_book::accounts(graph, scope)?;
-    let tax_accounts: Vec<(String, String)> = chart
-        .iter()
-        .filter(|account| holds_tax(account))
-        .map(|account| {
-            (
-                field(account, "account_number").to_string(),
-                field(account, "name").to_string(),
-            )
-        })
-        .filter(|(number, _)| !number.is_empty())
-        .collect();
+    let tax_accounts = tax_accounts(graph, scope)?;
 
     let mut collected = Money::zero();
     let mut reclaimable = Money::zero();

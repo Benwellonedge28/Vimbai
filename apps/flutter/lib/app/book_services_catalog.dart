@@ -44,6 +44,7 @@ import 'package:vimbai_mobile_client/features/personal_finance/presentation/pers
 import 'package:vimbai_mobile_client/features/overview/presentation/where_you_stand_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/books_in_order_page.dart';
 import 'package:vimbai_mobile_client/features/close/presentation/close_the_month_page.dart';
+import 'package:vimbai_mobile_client/features/tax/presentation/tax_ledger_page.dart';
 import 'package:vimbai_mobile_client/features/tax/presentation/what_you_owe_page.dart';
 import 'package:vimbai_mobile_client/features/banking/presentation/currencies_page.dart';
 import 'package:vimbai_mobile_client/features/tax/presentation/tax_table_page.dart';
@@ -203,6 +204,13 @@ List<BookServiceEntry> servicesForTier(String tier) {
               'Tax charged on sales, tax reclaimed on purchases, and what is due',
           icon: Icons.receipt_long_outlined,
           page: (context) => const WhatYouOwePage(),
+        ),
+        BookServiceEntry(
+          title: 'The tax ledger',
+          description:
+              'Each tax as its own account: what it charged, what was taken back, and what has been paid over',
+          icon: Icons.account_balance_outlined,
+          page: (context) => const TaxLedgerPage(),
         ),
         BookServiceEntry(
           title: 'The currencies you keep',

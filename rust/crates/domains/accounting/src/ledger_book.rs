@@ -60,7 +60,7 @@ use vimbai_store::{
 /// an account did should count them as though the business had traded again.
 pub const CLOSING_ENTRY_MODULE: &str = "YearEndClose";
 
-const REFERENCE_CHECKED: [&str; 18] = [
+const REFERENCE_CHECKED: [&str; 19] = [
     "Banking",
     // a month's depreciation is computed, not typed, so its reference is the asset and the month: a second run of the same
     // month would double a charge that the books have already taken
@@ -95,6 +95,9 @@ const REFERENCE_CHECKED: [&str; 18] = [
     // a clearing moves an amount out of suspense once: the reference names the day, the account and the amount, so
     // pressing the same clearing twice cannot take the same amount out of suspense twice
     "Suspense",
+    // a tax is paid over once for the amount it was paid: the reference names the day, the tax account and the figure,
+    // so pressing the same payment twice cannot pay the same tax twice while a second, different payment is its own entry
+    "TaxLedger",
     "Invoicing",
     "Multimodal",
     "SupplyChain",

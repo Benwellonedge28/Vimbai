@@ -629,6 +629,18 @@ paths:
     get:
       operationId: getAccountingTax
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/tax-ledger:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAccountingTaxLedger
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /accounting/tax-ledger/settle:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postAccountingTaxLedgerSettle
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /accounting/taxes:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -1744,6 +1756,18 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getRecordsAccountingTax
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/tax-ledger:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecordsAccountingTaxLedger
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /records/accounting/tax-ledger/settle:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postRecordsAccountingTaxLedgerSettle
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /records/accounting/taxes:
     parameters:

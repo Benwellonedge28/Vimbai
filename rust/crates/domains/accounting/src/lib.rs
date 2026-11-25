@@ -56,6 +56,7 @@ pub mod stock_adjustments;
 pub mod subsidiary_journals;
 pub mod suspense;
 pub mod tax;
+pub mod tax_ledger;
 pub mod taxes;
 pub mod trading_account;
 pub mod year_end_close;

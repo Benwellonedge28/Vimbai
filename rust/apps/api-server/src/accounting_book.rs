@@ -16,6 +16,7 @@ use accounting::periods;
 use accounting::stock_adjustments;
 use accounting::subsidiary_journals as journals;
 use accounting::tax;
+use accounting::tax_ledger as tax_ledger_service;
 use accounting::taxes;
 use accounting::year_end_close;
 use axum::{
@@ -264,6 +265,43 @@ async fn tax_due(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
+    ))
+}
+
+/// `GET /accounting/tax-ledger/`: each tax's own account, with its opening balance, what moved it and what it comes to.
+///
+/// The summary above answers what is owed over a period. This is the account behind it: one row per tax, with every
+/// movement kept so a figure can be followed to the entry that made it.
+async fn tax_ledger(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax_ledger_service::tax_ledger(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+/// `POST /accounting/tax-ledger/settle/`: pay a tax over, so the liability leaves the books with the money.
+async fn settle_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax_ledger_service::settle_tax(
+        graph.as_ref(),
+        &scope,
+        &body_of(payload),
     ))
 }
 
@@ -1562,6 +1600,9 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(&format!("{prefix}/ledger/integrity"), get(integrity))
             // what the tax posted over a period adds up to, and whether the Book holds a tax account at all
             .route(&format!("{prefix}/tax"), get(tax_due))
+            // each tax's own account: what it was owed, what it charged and took back, and what was paid over
+            .route(&format!("{prefix}/tax-ledger"), get(tax_ledger))
+            .route(&format!("{prefix}/tax-ledger/settle"), post(settle_tax))
             // the taxes this Book charges, by rate and date, and what they come to on a document
             .route(&format!("{prefix}/taxes"), post(save_tax).get(list_taxes))
             .route(&format!("{prefix}/taxes/seed"), post(seed_taxes))

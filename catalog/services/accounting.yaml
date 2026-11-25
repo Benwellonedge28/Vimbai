@@ -64,6 +64,7 @@ services:
   - GET /accounting/subsidiary-ledgers/fixed-assets
   - GET /accounting/subsidiary-ledgers/inventory
   - GET /accounting/tax
+  - GET /accounting/tax-ledger
   - GET /accounting/taxes
   - GET /accounting/trial-balance
   - GET /accounting/vendor-bills
@@ -104,6 +105,7 @@ services:
   - POST /accounting/statements-of-affairs
   - POST /accounting/stock-adjustments
   - POST /accounting/suspense/clear
+  - POST /accounting/tax-ledger/settle
   - POST /accounting/taxes
   - POST /accounting/taxes/compute
   - POST /accounting/taxes/retire
