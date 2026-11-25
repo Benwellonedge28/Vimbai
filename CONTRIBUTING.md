@@ -9,6 +9,9 @@
    the on-device runtime end to end, then the Go gateway suite and the Flutter app tests.
 5. Open a pull request against `main`.
 
+If you are an AI agent working here, read `AGENTS.md` first: one task, one owner at a time, claimed with a draft pull
+request.
+
 Read `docs/ROADMAP.md` first. Work follows that sequence, and a change that belongs to a later phase is usually better
 landed when its phase arrives.
 
