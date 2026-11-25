@@ -28,6 +28,7 @@ import 'package:vimbai_mobile_client/features/opening_balances/presentation/your
 import 'package:vimbai_mobile_client/features/depreciation/presentation/post_depreciation_page.dart';
 import 'package:vimbai_mobile_client/features/doubtful_debts/presentation/provision_page.dart';
 import 'package:vimbai_mobile_client/features/expenses/presentation/record_expense_page.dart';
+import 'package:vimbai_mobile_client/features/facts/presentation/record_fact_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/invoices_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/return_from_customer_page.dart';
 import 'package:vimbai_mobile_client/features/invoicing/presentation/customer_register_page.dart';
@@ -389,6 +390,12 @@ List<BookServiceEntry> servicesForTier(String tier) {
           description: 'A credit purchase, into inventory and payables',
           icon: Icons.inventory_2_outlined,
           page: (context) => const BuyStockPage(),
+        ),
+        BookServiceEntry(
+          title: 'Record what happened',
+          description: 'Money in or out, in your own words',
+          icon: Icons.playlist_add_check_outlined,
+          page: (context) => const RecordFactPage(),
         ),
         BookServiceEntry(
           title: 'An expense',
