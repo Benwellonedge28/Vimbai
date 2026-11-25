@@ -1,0 +1,95 @@
+
+name: Documentation Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      documents:
+        description: "Documentation package (JSON)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  import:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Import documentation
+        env:
+          DOCUMENTS: ${{ inputs.documents }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import json
+          from pathlib import Path
+
+          root = Path.cwd().resolve()
+          documents = json.loads(os.environ["DOCUMENTS"])
+
+          if not isinstance(documents, dict) or not documents:
+              raise ValueError("Expected a non-empty document mapping")
+
+          validated = []
+
+          for name, content in documents.items():
+              path = Path(name)
+
+              if (
+                  path.is_absolute()
+                  or ".." in path.parts
+                  or not path.parts
+                  or path.parts[0] != "docs"
+                  or path.suffix != ".md"
+                  or not isinstance(content, str)
+              ):
+                  raise ValueError(f"Invalid document: {name}")
+
+              target = (root / path).resolve()
+
+              if target != root / path or not target.is_relative_to(root / "docs"):
+                  raise ValueError(f"Unsafe path: {name}")
+
+              validated.append((target, content))
+
+          for target, content in validated:
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content, encoding="utf-8")
+
+          print(f"Imported {len(validated)} documents")
+          PY
+
+      - name: Commit documentation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "Documentation Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- docs/
+
+          if git diff --cached --quiet; then
+            echo "No documentation changes"
+            exit 0
+          fi
+
+          BRANCH="docs/import-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          git switch -c "$BRANCH"
+          git commit -m "docs: import design documentation"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH" \
+            --title "Update design documentation" \
+            --body "Documentation imported for review."
