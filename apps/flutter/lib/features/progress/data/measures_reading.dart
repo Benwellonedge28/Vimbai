@@ -23,6 +23,7 @@ class MeasureRow {
     required this.value,
     required this.leads,
     this.problem,
+    this.reads = const {},
   });
 
   final String name;
@@ -42,6 +43,10 @@ class MeasureRow {
   /// Why the row could not be read, in the Book's words.
   final String? problem;
 
+  /// How the measure is worked out: the row's own definition, so a person can see what a measure counts rather than only
+  /// what it came to. The engine says what the row reads; the words that explain it are the screen's.
+  final Map<String, dynamic> reads;
+
   bool get isMoney => unit == 'money';
   bool get isPercent => unit == 'percent';
 
@@ -55,6 +60,9 @@ class MeasureRow {
           ? raw
           : (raw is num ? raw.toString() : (raw == null ? null : '$raw')),
       leads: json['leads'] == true,
+      reads: json['reads'] is Map<String, dynamic>
+          ? json['reads'] as Map<String, dynamic>
+          : const {},
       problem: (json['problem'] as String?)?.trim().isEmpty ?? true
           ? null
           : json['problem'] as String,
@@ -132,6 +140,32 @@ class BookMeasuresService extends ChangeNotifier {
     return MeasuresReading.fromJson(
       jsonDecode(answer.body) as Map<String, dynamic>,
     );
+  }
+
+  /// Add a measure to this Book.
+  ///
+  /// The engine checks the row against the Book's own chart and against the measures it already holds, so a mistake comes
+  /// back as the engine's own sentence and is shown as it came.
+  Future<void> add(Map<String, dynamic> measure) async {
+    final answer = await _http.post(
+      Uri.parse('$_base/accounting/measures'),
+      headers: _headers,
+      body: jsonEncode(measure),
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 201) {
+      throw Exception(_refusalOf(answer));
+    }
+  }
+
+  /// Stop measuring something.
+  Future<void> remove(String name) async {
+    final answer = await _http.delete(
+      Uri.parse('$_base/accounting/measures/${Uri.encodeComponent(name)}'),
+      headers: _headers,
+    );
+    if (answer.statusCode != 200 && answer.statusCode != 204) {
+      throw Exception(_refusalOf(answer));
+    }
   }
 
   String _refusalOf(http.Response answer) {

@@ -442,6 +442,32 @@ fn measured(worked: &BTreeMap<String, Money>) -> String {
 ///
 /// A row that cannot be read answers with the reason beside it rather than hiding the rest: a Book with one mistaken
 /// measure should still show its other figures.
+/// The parts of a row that say how a measure is worked out.
+///
+/// A screen that lets a person add or drop a measure has to say what the existing ones count, or nobody can decide what to
+/// take away. So the answer carries the row's own definition beside its figure. The words stay on the screen: the engine
+/// says what a row reads, never how to phrase it.
+fn definition_of(row: &Value) -> Value {
+    let mut said = serde_json::Map::new();
+    for key in [
+        "source",
+        "types",
+        "numbers",
+        "documents",
+        "status",
+        "of",
+        "over",
+        "minus",
+        "window",
+        "money_only",
+    ] {
+        if let Some(value) = row.get(key) {
+            said.insert(key.to_string(), value.clone());
+        }
+    }
+    Value::Object(said)
+}
+
 pub fn list_measures<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
@@ -463,6 +489,7 @@ pub fn list_measures<G: Graph + ?Sized>(
             }
             let name = text(row, "name");
             let unit = text(row, "unit");
+            let reads = definition_of(row);
             let outcome = read(graph, scope, &from, &to, &chart, row, &worked);
             let answer = match outcome {
                 Ok(Read::Money(amount)) => {
@@ -473,6 +500,7 @@ pub fn list_measures<G: Graph + ?Sized>(
                         "unit": if unit.is_empty() { "money".to_string() } else { unit },
                         "value": wire(&amount),
                         "leads": row.get("leads").and_then(Value::as_bool).unwrap_or(false),
+                        "reads": reads,
                     })
                 }
                 Ok(Read::Count(count)) => json!({
@@ -481,6 +509,7 @@ pub fn list_measures<G: Graph + ?Sized>(
                     "unit": "count",
                     "value": count,
                     "leads": row.get("leads").and_then(Value::as_bool).unwrap_or(false),
+                    "reads": reads,
                 }),
                 Ok(Read::Problem(problem)) => json!({
                     "name": name,
@@ -489,6 +518,7 @@ pub fn list_measures<G: Graph + ?Sized>(
                     "value": Value::Null,
                     "problem": problem,
                     "leads": row.get("leads").and_then(Value::as_bool).unwrap_or(false),
+                    "reads": reads,
                 }),
                 Err(error) => {
                     return Err(StoreError::Invalid(format!("{name}: {error}")));
@@ -891,5 +921,40 @@ mod tests {
             refused.to_string().contains("does not measure"),
             "{refused}"
         );
+    }
+
+    /// A screen that lets a person add or drop a measure must say what the existing ones count, so the answer carries the
+    /// row's own definition beside its figure.
+    #[test]
+    fn a_measure_carries_how_it_is_worked_out_beside_its_figure() {
+        let graph = traded();
+        let answered = list_measures(
+            &graph,
+            &scope(),
+            &json!({"to": "2026-10-31", "from": "2026-10-01"}),
+        )
+        .expect("the Book measures itself");
+        let measures = answered["measures"].as_array().expect("rows").clone();
+
+        let revenue = measures
+            .iter()
+            .find(|row| row["name"] == "revenue")
+            .expect("revenue");
+        assert_eq!(revenue["reads"]["source"], "accounts");
+        assert_eq!(revenue["reads"]["types"], json!(["revenue"]));
+        assert_eq!(revenue["reads"]["window"], "period");
+
+        // a measure worked out from others says which, so a person can see what would break if it went
+        let profit = measures
+            .iter()
+            .find(|row| row["name"] == "profit")
+            .expect("profit");
+        assert_eq!(profit["reads"]["source"], "difference");
+        assert_eq!(profit["reads"]["of"], "revenue");
+        assert_eq!(profit["reads"]["minus"], json!(["costs"]));
+
+        // and nothing about the row's own bookkeeping leaks into it
+        assert!(revenue["reads"].get("id").is_none());
+        assert!(revenue["reads"].get("leads").is_none());
     }
 }
