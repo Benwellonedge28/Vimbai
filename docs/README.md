@@ -53,6 +53,32 @@ pull request.
 - `flutter-structure.md` - the app's feature-first layout, and the gate that keeps files from drifting back into layer
   folders.
 
+## Proposed design work packages
+
+- `architecture/design-reading-order.md` - dependency order, review decisions, and links to each package.
+- `architecture/book-policy-gate.md` - Enforce the boundary between Book policy and engine logic.
+- `architecture/posting-account-resolution.md` - Resolve the account a posting needs.
+- `architecture/book-access-and-navigation.md` - Open the right Book and show actions the caller can use.
+- `domains/financial-report-completeness.md` - Produce complete reconciliation and ageing reports.
+- `architecture/portable-book-recovery.md` - Restore a Book with unsynced work after device failure.
+- `architecture/android-pilot-release.md` - Build, distribute and verify the Android pilot.
+- `architecture/commercial-subscriptions.md` - Grant one Vimbai subscription across Android, Windows and web.
+- `architecture/referral-awards.md` - Record referral awards and partner commissions.
+- `architecture/design-continuation-order.md` - reading order and dependencies for packages 09–14.
+- `architecture/windows-offline-release.md` - Ship an offline Windows build with the local accounting engine.
+- `domains/accounting-policy-evidence.md` - Version accounting standards and preserve evidence for each report.
+- `domains/jurisdiction-tax-rule-versions.md` - Use explicitly approved tax rules for each jurisdiction and effective date.
+- `domains/statement-import-and-replay.md` - Import a bank statement with a reviewable receipt.
+- `domains/government-budget-control-pilot.md` - Approve and account for one department’s budget commitments.
+- `architecture/partner-event-delivery.md` - Deliver one partner event safely after the integration trigger.
+- `architecture/design-work-packages-15-20.md` - reading order and dependencies for packages 15–20.
+- `domains/business-document-evidence.md` - Keep business documents as verifiable evidence.
+- `architecture/book-sync-at-scale.md` - Sync a large Book with bounded reads and durable receipts.
+- `domains/foreign-currency-settlement.md` - Settle foreign invoices and bills from their recorded carrying amounts.
+- `domains/cross-book-consolidation.md` - Consolidate authorised Books with evidence for every adjustment.
+- `architecture/verified-store-cutover.md` - Move a deployment store and prove the destination is complete.
+- `architecture/hosted-and-self-hosted-release.md` - Release one reproducible web and self-hosted deployment.
+
 ## Operations
 
 - `LOCAL-RUNTIME.md` - **clone to running.** The on-device runtime: one binary, one data directory, the engine and the
@@ -69,9 +95,9 @@ pull request.
 ## Domains
 
 `domains/` documents each business domain as built: what it owns, the services and gateway prefixes it answers on, and
-what it deliberately does not own. One page per domain, 24 pages, and the mapping is a gate rather than a
-convention: `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate the
-catalogue does not have, or if a page leaves out one of its own prefixes.
+what it deliberately does not own. The directory contains 32 pages, including proposed work packages.
+The command `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate
+the catalogue does not have, or if a page leaves out one of its own prefixes.
 
 `domains/payments.md` states POS till support only, and that Vimbai Pay is not built, per ADR-005.
 
