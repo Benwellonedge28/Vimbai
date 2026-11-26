@@ -78,6 +78,7 @@ pull request.
 - `domains/cross-book-consolidation.md` - Consolidate authorised Books with evidence for every adjustment.
 - `architecture/verified-store-cutover.md` - Move a deployment store and prove the destination is complete.
 - `architecture/hosted-and-self-hosted-release.md` - Release one reproducible web and self-hosted deployment.
+- `architecture/period-reopening.md` - Preserve an intentional month reopening across automation retries (package 21).
 
 ## Operations
 
