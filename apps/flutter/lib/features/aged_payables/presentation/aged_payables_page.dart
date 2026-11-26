@@ -231,8 +231,7 @@ class _AgedPayablesPageState extends State<AgedPayablesPage> {
               ],
             ),
             const SizedBox(height: 8),
-            for (final bill in supplier.bills)
-              _billRow(context, bill),
+            for (final bill in supplier.bills) _billRow(context, bill),
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,
